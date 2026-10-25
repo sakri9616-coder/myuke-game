@@ -239,7 +239,7 @@
   #update-card .rc-head{font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:center;}
   #update-card .rc-close{border:none;background:transparent;font-size:16px;padding:0 4px;line-height:1;cursor:pointer;box-shadow:none;}
   #update-card .rc-close:active{transform:none;}
-  #proj-meter{transition:transform .18s ease;}
+  #proj-meter{transition:filter .18s ease;}
   #proj-label{transition:color .18s ease;}
   .celebrate{color:var(--accent-d);font-weight:800;}
   .bn{color:var(--warn);font-weight:800;}
@@ -373,22 +373,22 @@
      意味色: バグ=✗エラー赤 / 詰まり=⚠警告黄 / RP=紫 / 主ボタン=文字列橙 /
      価格・Lv=関数金 / 成功=緑 / 数値=淡緑 (VS Code Dark+ の診断色文法) */
   body:not(.strip){
-    --ide-bg:#211F27; --ide-panel:#2B2833; --ide-panel2:#332F3D; --ide-panel3:#3D3849;
-    --ide-taboff:#1D1C24; --ide-line:#4E4763; --ide-linesoft:#3B3648;
-    --ide-ink:#EFE7D7; --ide-sub:#A79DB2; --ide-status:#46678A;
+    --ide-bg:#1E1E1E; --ide-panel:#252526; --ide-panel2:#2D2D2D; --ide-panel3:#333333;
+    --ide-taboff:#1E1E1E; --ide-line:#454545; --ide-linesoft:#2B2B2B;
+    --ide-ink:#D4D4D4; --ide-sub:#A6A6A6; --ide-status:#007ACC;
     --syn-blue:#6FA8DC; --syn-str:#F49A45; --syn-func:#F8CF69; --syn-type:#5EC8B4;
     --syn-num:#B5CEA8; --syn-green:#7BE495; --syn-purple:#C586C0;
     --ide-red:#E5534B; --ide-errtx:#F48771; --ide-warn:#FFD479; --ide-gold:#F1BF41;
     --ide-paper:#FFF5E6;
     --mono:ui-monospace,"Cascadia Code",Consolas,"Noto Sans Mono",monospace;
     /* 旧トークンの意味を管理画面スコープで読み替える (帯は元のまま) */
-    --paper:#2B2833; --paper-2:#332F3D; --cream:#211F27;
-    --tan:#3B3648; --wood:#46678A; --wood-d:#4E4763; --desk:#5B5344;
-    --ink:#EFE7D7; --ink-soft:#8D84A6; --sub:#A79DB2;
+    --paper:#252526; --paper-2:#2D2D2D; --cream:#1E1E1E;
+    --tan:#2B2B2B; --wood:#0E639C; --wood-d:#454545; --desk:#5B5344;
+    --ink:#D4D4D4; --ink-soft:#858585; --sub:#A6A6A6;
     --accent:#F49A45; --accent-d:#F49A45;
     --green:#7BE495; --green-d:#7BE495; --good:#7BE495;
     --gold:#F8CF69; --gold-d:#F1BF41; --red:#E5534B; --warn:#E5534B; --blue:#6FA8DC;
-    background:#211F27; background-image:none; color:#EFE7D7;
+    background:#1E1E1E; background-image:none; color:#D4D4D4;
   }
   /* ---------- ヘッダ: タイトルバー + ステータスバーの2段 ---------- */
   body:not(.strip) header{gap:0;padding:0;background:var(--ide-status);
@@ -613,7 +613,7 @@
   body:not(.strip){
     --jp:"Hiragino Maru Gothic ProN","Yu Gothic UI","Meiryo UI","Noto Sans JP",sans-serif;
     --mono:"Miyuke Editor Latin",ui-monospace,"Cascadia Code",Consolas,var(--jp);
-    --ide-sub:#B5AABD; --sub:var(--ide-sub); --ink-soft:var(--ide-sub);
+    --ide-sub:#A6A6A6; --sub:var(--ide-sub); --ink-soft:var(--ide-sub);
     --ide-comment:#A8B99C; --syn-purple:#D6A0D1;
     --red:var(--ide-errtx); --warn:var(--ide-errtx);
     --ide-badge:#A43E39;
@@ -622,7 +622,7 @@
   body:not(.strip) main{padding-top:10px;}
   /* Existing status row gains branch / language furniture, without another row. */
   body:not(.strip) header::before{content:"⑂ main";font:12px var(--mono);
-    color:var(--ide-ink);padding:0 9px;border-right:1px solid #7890AB;}
+    color:var(--ide-ink);padding:0 9px;border-right:1px solid #454545;}
   body:not(.strip) header::after{content:"UTF-8   🐱 MiyukeScript   Spaces: 2";
     margin-left:auto;padding:0 10px;font:11px var(--mono);color:var(--ide-ink);white-space:pre;}
   body:not(.strip) header .res{padding-left:5px;padding-right:5px;}
@@ -641,7 +641,7 @@
   body:not(.strip) .tabs{gap:0;margin:8px 0 0;padding:0;}
   body:not(.strip) .tabs button{border:1px solid var(--ide-linesoft);border-bottom:0;
     border-radius:3px 3px 0 0;padding:9px 28px 9px 12px;transform:none;
-    box-shadow:inset 0 -2px 0 #15141B;color:var(--ide-sub);}
+    box-shadow:inset 0 -2px 0 #141414;color:var(--ide-sub);}
   body:not(.strip) .tabs button.on{transform:none;background:var(--ide-panel);
     border-color:var(--ide-line);color:var(--ide-ink);box-shadow:inset 0 3px 0 var(--syn-str);}
   body:not(.strip) .tabs button:active,body:not(.strip) .tabs button.on:active{transform:none;}
@@ -663,7 +663,7 @@
      scroll area. They travel with the file, including inside long open folds. */
   body:not(.strip) .panel{padding:12px 18px 12px 44px;border-width:1px;border-top:0;
     border-radius:0 0 3px 3px;box-shadow:none;
-    background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2236%22%20height%3D%222400%22%3E%3Cpath%20d%3D%22M35.5%200V2400%22%20stroke%3D%22%233B3648%22%2F%3E%3Ctext%20x%3D%2225%22%20y%3D%2225%22%20text-anchor%3D%22end%22%20fill%3D%22%236C647B%22%20font-family%3D%22monospace%22%20font-size%3D%2213%22%3E%3Ctspan%20x%3D%2225%22%20%3E01%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E02%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E03%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E04%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E05%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E06%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E07%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E08%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E09%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E10%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E11%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E12%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E13%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E14%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E15%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E16%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E17%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E18%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E19%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E20%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E21%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E22%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E23%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E24%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E25%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E26%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E27%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E28%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E29%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E30%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E31%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E32%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E33%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E34%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E35%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E36%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E37%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E38%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E39%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E40%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E41%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E42%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E43%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E44%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E45%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E46%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E47%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E48%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E49%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E50%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E51%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E52%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E53%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E54%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E55%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E56%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E57%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E58%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E59%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E60%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E61%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E62%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E63%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E64%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E65%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E66%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E67%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E68%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E69%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E70%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E71%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E72%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E73%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E74%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E75%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E76%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E77%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E78%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E79%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E80%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E81%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E82%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E83%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E84%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E85%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E86%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E87%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E88%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E89%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E90%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E91%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E92%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E93%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E94%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E95%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E96%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E97%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E98%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E99%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fsvg%3E");
+    background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2236%22%20height%3D%222400%22%3E%3Cpath%20d%3D%22M35.5%200V2400%22%20stroke%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2225%22%20y%3D%2225%22%20text-anchor%3D%22end%22%20fill%3D%22%23858585%22%20font-family%3D%22monospace%22%20font-size%3D%2213%22%3E%3Ctspan%20x%3D%2225%22%20%3E01%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E02%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E03%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E04%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E05%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E06%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E07%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E08%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E09%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E10%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E11%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E12%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E13%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E14%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E15%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E16%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E17%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E18%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E19%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E20%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E21%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E22%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E23%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E24%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E25%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E26%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E27%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E28%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E29%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E30%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E31%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E32%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E33%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E34%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E35%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E36%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E37%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E38%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E39%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E40%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E41%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E42%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E43%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E44%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E45%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E46%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E47%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E48%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E49%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E50%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E51%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E52%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E53%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E54%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E55%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E56%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E57%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E58%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E59%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E60%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E61%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E62%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E63%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E64%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E65%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E66%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E67%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E68%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E69%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E70%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E71%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E72%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E73%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E74%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E75%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E76%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E77%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E78%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E79%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E80%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E81%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E82%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E83%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E84%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E85%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E86%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E87%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E88%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E89%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E90%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E91%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E92%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E93%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E94%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E95%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E96%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E97%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E98%3C%2Ftspan%3E%3Ctspan%20x%3D%2225%22%20dy%3D%2224%22%3E99%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fsvg%3E");
     background-repeat:repeat-y;background-position:left top;background-attachment:local;}
   /* Six-pixel minimap whisper: decorative dashes, no data or interaction. */
   body:not(.strip) .panel::after{content:"";position:absolute;right:4px;top:12px;bottom:12px;
@@ -758,6 +758,35 @@
   @media (prefers-reduced-motion:reduce){
     body:not(.strip) .ratecell.pipe-green .lampdot{animation:none;}
   }
+
+  /* ==== Editor v3: 詰めと堅さ (sakuri: 色よりも余白の詰め方と堅めのUIが
+     VS Code らしさの要因。正本 = research/menu-vscode-reference.png)。
+     色は面の base トーンだけ寄せ、意味色 (syn-*) は統合しない。
+     書いてあることとフォントの可愛さはそのまま、間隔と角だけを締める ==== */
+  body:not(.strip) main{padding:8px 10px;gap:10px;}
+  body:not(.strip) .panel{padding:8px 12px 10px 40px;line-height:1.45;}
+  body:not(.strip) .panel h3{margin:8px 0 5px;padding-bottom:3px;}
+  body:not(.strip) #editor-breadcrumbs{height:22px;padding-left:40px;}
+  body:not(.strip) .tabs{margin-top:4px;}
+  body:not(.strip) .tabs button{padding:6px 24px 6px 10px;}
+  body:not(.strip) .res{background:transparent;border-color:transparent;border-radius:3px;
+    border-width:1px;padding:2px 7px 2px 2px;}
+  body:not(.strip) .item{padding:6px 9px;margin:5px 0;}
+  body:not(.strip) .hero{padding:7px 10px;margin:5px 0;
+    box-shadow:0 1px 0 rgba(0,0,0,.4), inset 0 0 0 3px var(--ide-panel2);}
+  body:not(.strip) .staffcard{padding:5px 8px;gap:8px;}
+  body:not(.strip) .workcard{padding:6px 9px;}
+  body:not(.strip) .stat{padding:4px 8px;}
+  body:not(.strip) .statgrid{gap:6px;margin:5px 0;}
+  body:not(.strip) .featchip{border-radius:3px;border-width:1px;padding:1px 8px;}
+  body:not(.strip) .feats{gap:4px;margin-top:5px;}
+  body:not(.strip) .chiprow{gap:4px;margin-top:5px;}
+  body:not(.strip) .condbar,body:not(.strip) .concrow{margin-top:5px;}
+  body:not(.strip) .fold{margin:5px 0;}
+  body:not(.strip) .fold-head{padding:4px 8px;}
+  body:not(.strip) .log div{padding:2px 0;}
+  body:not(.strip) button{padding:4px 10px;}
+  body:not(.strip) .btn-row{gap:6px;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -10270,7 +10299,7 @@ let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリ�
 function bumpRev(){ snapRev++; }
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.4.6";   /* 表示ラベルの単一の出所 (v2.4.6: 帯サイズの基準変更 (旧70%=新100%) + 視認性の再設計 + 並べ替えボタンの帯側復帰 + ホバー黄色枠 + 出荷台・おやつ箱の描き直し。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.4.7";   /* 表示ラベルの単一の出所 (v2.4.7: ホバーを絵の形に沿う輪に + 管理メニューを VS Code 寄りの色味・詰め・堅さに。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(){
@@ -12017,15 +12046,113 @@ let stripHitRects = { desk: null, miyuke: null, staff: [], duck: null, bubble: n
 /* v2.4.6: ホバー中の論理座標 (なければ null) と、黄色枠を出す対象の解決。
    クリック判定と同じ優先順位で、最初に当たった操作可能オブジェクトを返す */
 let stripHover = null;
-function stripHoverRect(){
+function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "board", "board2", "memo", "phone", "megaphone", "toolbox", "research", "server", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
-    if(inR(R[k])) return R[k];
-  for(const k of ["bugs", "piles", "staff"])
-    for(const r of (R[k] || [])) if(inR(r)) return r;
+  for(const k of ["bubble", "fish", "snack", "board", "board2", "memo", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
+    if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
+  for(const k of ["bugs", "piles", "staff"]){
+    const arr = R[k] || [];
+    for(let i = 0; i < arr.length; i++) if(inR(arr[i])) return { r: arr[i], key: k, idx: i };
+  }
   return null;
+}
+function stripHoverRect(){
+  const t = stripHoverTarget();
+  return t ? t.r : null;
+}
+/* 描画中の主要スプライトの配置レジストリ (ホバーの輪を「その絵の形」に合わせる
+   ため、描画関数が自分のスプライト名と置き場所を記録する) */
+let stripObjArt = {}, stripStaffArt = [];
+const spriteHaloCache = {};
+function yellowSpriteOf(name){
+  if(name in spriteHaloCache) return spriteHaloCache[name];
+  const src = spriteCache[name];
+  if(!src){ spriteHaloCache[name] = null; return null; }
+  const cv = document.createElement("canvas");
+  cv.width = src.width; cv.height = src.height;
+  const c2 = cv.getContext("2d");
+  c2.drawImage(src, 0, 0);
+  c2.globalCompositeOperation = "source-in";
+  c2.fillStyle = "#ffd94d"; c2.fillRect(0, 0, cv.width, cv.height);
+  spriteHaloCache[name] = cv;
+  return cv;
+}
+/* スプライトそのものの輪郭に沿う縁取り。画面の切り抜きと違い、隣の家具の
+   線を拾わない (sakuri: 電話の上下に黄色い線が見える、への対処) */
+function drawHoverSpriteHalo(art){
+  const yc = yellowSpriteOf(art.name);
+  if(!yc) return false;
+  const devW = yc.width * art.s * stripScale, devH = yc.height * art.s * stripScale;
+  const dx = Math.round((art.gx - yc.width * art.s / 2) * stripScale);
+  const dy = Math.round((art.gy - yc.height * art.s) * stripScale);
+  const d = Math.max(1, Math.round(stripScale * 1.4));
+  const w = Math.ceil(devW) + d * 2, h = Math.ceil(devH) + d * 2;
+  if(!hoverHaloCv) hoverHaloCv = document.createElement("canvas");
+  if(hoverHaloCv.width !== w) hoverHaloCv.width = w;
+  if(hoverHaloCv.height !== h) hoverHaloCv.height = h;
+  const hx = hoverHaloCv.getContext("2d");
+  hx.clearRect(0, 0, w, h);
+  hx.imageSmoothingEnabled = false;
+  hx.save();
+  if(art.flip){ hx.translate(w, 0); hx.scale(-1, 1); }
+  for(const [ox, oy] of [[-d,0],[d,0],[0,-d],[0,d],[-d,-d],[d,-d],[-d,d],[d,d]])
+    hx.drawImage(yc, ox + d, oy + d, devW, devH);
+  hx.globalCompositeOperation = "destination-out";
+  hx.drawImage(yc, d, d, devW, devH);
+  hx.globalCompositeOperation = "source-over";
+  hx.restore();
+  sctx.save();
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.drawImage(hoverHaloCv, dx - d, dy - d);
+  sctx.restore();
+  return true;
+}
+function drawHoverTarget(t){
+  const art = t.key === "staff" ? stripStaffArt[t.idx] : stripObjArt[t.key];
+  if(art && drawHoverSpriteHalo(art)) return;
+  drawHoverSilhouette(t.r);
+}
+/* ホバーの縁取り: 対象の当たり判定内の「実際に描かれたピクセル」をマスクに
+   して黄色く膨らませ、元の形をくり抜いた輪だけを重ねる。四角い枠ではなく
+   絵そのものの輪郭に沿う (sakuri: 「普通絵のシェイプに合わせるでしょうに」)。
+   オフスクリーン2枚を使い回す。getImageData の無い環境 (smoke) では何もしない */
+let hoverMaskCv = null, hoverHaloCv = null;
+function drawHoverSilhouette(r){
+  if(!stripCv || !sctx.getImageData) return;
+  const pad = 1.2;
+  const dx0 = Math.max(0, Math.floor((r.x - pad) * stripScale));
+  const dy0 = Math.max(0, Math.floor((r.y - pad) * stripScale));
+  const dx1 = Math.min(stripCv.width, Math.ceil((r.x + r.w + pad) * stripScale));
+  const dy1 = Math.min(stripCv.height, Math.ceil((r.y + r.h + pad) * stripScale));
+  const w = dx1 - dx0, h = dy1 - dy0;
+  if(w < 2 || h < 2) return;
+  let img;
+  try { img = sctx.getImageData(dx0, dy0, w, h); } catch(e){ return; }
+  if(!hoverMaskCv){ hoverMaskCv = document.createElement("canvas"); hoverHaloCv = document.createElement("canvas"); }
+  for(const cv of [hoverMaskCv, hoverHaloCv]){
+    if(cv.width !== w) cv.width = w;
+    if(cv.height !== h) cv.height = h;
+  }
+  const mx = hoverMaskCv.getContext("2d");
+  mx.clearRect(0, 0, w, h);
+  mx.putImageData(img, 0, 0);
+  mx.globalCompositeOperation = "source-in";
+  mx.fillStyle = "#ffd94d"; mx.fillRect(0, 0, w, h);
+  mx.globalCompositeOperation = "source-over";
+  const hx = hoverHaloCv.getContext("2d");
+  hx.clearRect(0, 0, w, h);
+  const d = Math.max(1, Math.round(stripScale * 1.4));
+  for(const [ox, oy] of [[-d,0],[d,0],[0,-d],[0,d],[-d,-d],[d,-d],[-d,d],[d,d]])
+    hx.drawImage(hoverMaskCv, ox, oy);
+  hx.globalCompositeOperation = "destination-out";
+  hx.drawImage(hoverMaskCv, 0, 0);
+  hx.globalCompositeOperation = "source-over";
+  sctx.save();
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.drawImage(hoverHaloCv, dx0, dy0);
+  sctx.restore();
 }
 /* ---------- 可視生産フロー (research/VISIBLE_PRODUCTION_DESIGN.md) ----------
    帯の「物の流れ」は全部この節の演出専用状態で、ゲームロジックには触らない。
@@ -12316,6 +12443,7 @@ function sDrawMiyuke(name, gx, gy, scale, flip){
   const sz = spriteSize(name) || [48, 40];
   const s = scale || 1;
   stripHitRects.miyuke = { x: gx - sz[0] * s / 2, y: gy - sz[1] * s, w: sz[0] * s, h: sz[1] * s };
+  if(ok) stripObjArt.miyuke = { name, gx, gy, s, flip: !!flip };
   return ok;
 }
 /* v2.3.3: 歩行中のみゅけ（歩行時計でフレームを選び、進行方向で反転する。
@@ -12938,7 +13066,10 @@ function drawStripShelf(){
   let topY;
   /* tier>=2: 棚枠はスチール (shelf_steel 40×28 — prop_shelf と同一キャンバス・
      同一接地。板の上面はスロット基線 G-30/G-10 と正確に一致する) */
-  if((tier >= 2 && sDrawSprite("shelf_steel", scx, G, 2)) || sDrawSprite("prop_shelf", scx, G, 2)){
+  const shelfDrawn = (tier >= 2 && sDrawSprite("shelf_steel", scx, G, 2)) ? "shelf_steel"
+    : (sDrawSprite("prop_shelf", scx, G, 2) ? "prop_shelf" : null);
+  if(shelfDrawn){
+    stripObjArt.shelf = { name: shelfDrawn, gx: scx, gy: G, s: 2 };
     topY = G - 56;
   } else {
     /* フォールバック棚: 板2段の簡素な家具 (76×52) */
@@ -13267,9 +13398,13 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   /* Stage 3: ボードに付く小物 — 左ポストの電話 (スタッフ)、面の下の吊りメモ
      (依頼タブ) と真鍮タグ (コイン残高・表示のみ) */
   if(!tutTabLocked("staff") && sDrawSprite("prop_phone", bx + 10, G, 1)){
+    stripObjArt.phone = { name: "prop_phone", gx: bx + 10, gy: G, s: 1 };
     stripHitRects.phone = { x: bx - 2, y: G - 24, w: 24, h: 24 };
     if(S.staff.length < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins) && frame % 50 < 30){
-      sR(bx - 1.6, G - 24.4, 23.2, 1.2, "#ffd94d"); sR(bx - 1.6, G - 1.2, 23.2, 1.2, "#ffd94d");
+      /* 雇用可能の合図: 電話の右上に付く小さな金バッジ (上下の帯状ラインは
+         ホバーの輪と紛れるため v2.4.7 で廃止) */
+      sR(bx + 17.5, G - 27.5, 4.4, 4.4, "#ffd94d");
+      sR(bx + 19.1, G - 26.6, 1.2, 2.6, "#4a3b2c");
     }
   }
   const memoTxt = stripMemoText();
@@ -13498,6 +13633,7 @@ function drawStripServerRack(){
   const G = STRIP_GROUND, rx = stripRackCX();
   sShadow(rx, G - 0.5, 44);
   sDrawSprite("prop_server_rack", rx, G, 1);
+  stripObjArt.rack = { name: "prop_server_rack", gx: rx, gy: G, s: 1 };
   /* Stage 3: ラッククリック → 工場タブ */
   stripHitRects.rack = { x: rx - 24, y: G - 64, w: 48, h: 64 };
 }
@@ -13568,6 +13704,7 @@ function renderStrip(){
   stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
   stripHitRects.calendar = null; stripHitRects.memo = null; stripHitRects.phone = null;
   stripHitRects.megaphone = null; stripHitRects.toolbox = null;
+  stripObjArt = {}; stripStaffArt = [];
   sctx.setTransform(1, 0, 0, 1, 0, 0);
   sctx.clearRect(0, 0, stripCv.width, stripCv.height);
   sctx.setTransform(stripScale, 0, 0, stripScale, 0, 0);
@@ -13625,6 +13762,7 @@ function renderStrip(){
      クールダウン中は蓋が閉まった絵 (prop_snackbox_shut) になって「まだ」を絵で示す */
   const snackReadyNow = Date.now() >= snackReadyAt;
   sDrawSprite(snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", cx + 72, G, 1);
+  stripObjArt.snack = { name: snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", gx: cx + 72, gy: G, s: 1 };
   if(snackReadyNow && frame % 90 < 45){
     sR(cx + 71.4, G - 26, 1.2, 4, "#ffd94d"); sR(cx + 70.2, G - 24.8, 3.6, 1.2, "#ffd94d");
   }
@@ -13638,10 +13776,13 @@ function renderStrip(){
     stripHitRects.calendar = { x: cx - 79, y: G - 16, w: 18, h: 16 };
   }
   /* Stage 3: メガホン (応援タブ) — 机の左足元。スプライト到着前は出ない */
-  if(!tutTabLocked("click") && sDrawSprite("prop_megaphone", cx - 76, G, 1))
+  if(!tutTabLocked("click") && sDrawSprite("prop_megaphone", cx - 76, G, 1)){
+    stripObjArt.megaphone = { name: "prop_megaphone", gx: cx - 76, gy: G, s: 1 };
     stripHitRects.megaphone = { x: cx - 88, y: G - 24, w: 24, h: 24 };
+  }
   /* Stage 3: 工具箱 (設定タブ) — 机の下。更新がある時は赤リボン+金パルス */
   if(sDrawSprite("prop_toolbox", cx + 42, G, 1)){
+    stripObjArt.toolbox = { name: "prop_toolbox", gx: cx + 42, gy: G, s: 1 };
     stripHitRects.toolbox = { x: cx + 30, y: G - 24, w: 24, h: 24 };
     if(upd.status === "available" || upd.status === "downloading" || upd.status === "ready"){
       sR(cx + 41, G - 23.5, 2, 5, "#e2543e");
@@ -13734,6 +13875,7 @@ function renderStrip(){
       : { x: wk.x - 17, y: G - 30, w: 34, h: 30 };
     if(wk.carrying){ const t2 = Math.min(srect.y, G - (ssz ? ssz[1] * ssc + 11 : 43)); srect.h += srect.y - t2; srect.y = t2; }
     stripHitRects.staff.push(srect);
+    stripStaffArt.push(drawn ? { name: nm, gx: wk.x, gy: G + bob, s: ssc, flip } : null);
     if(wk.carrying){
       const bw = ssz ? ssz[0] * ssc : 32 * SPRITE_SCALES.strip.staff;
       const bh = ssz ? ssz[1] * ssc : 24 * SPRITE_SCALES.strip.staff;
@@ -13851,18 +13993,11 @@ function renderStrip(){
     }
     stripCoins = stripCoins.filter(c => !c.dead && (now - c.born) / 1000 < 1.6);
   }
-  /* --- v2.4.6: ホバー中の操作可能オブジェクトを黄色枠で縁取る (sakuri 指示) --- */
+  /* --- ホバー中の操作可能オブジェクトを黄色く縁取る (sakuri 指示)。
+     v2.4.7: 矩形の枠をやめ、絵のシルエットに沿う輪にした --- */
   if(!layoutEdit.on){
-    const hr = stripHoverRect();
-    if(hr){
-      sctx.save();
-      sctx.strokeStyle = "#ffd94d";
-      sctx.lineWidth = 3.2; sctx.globalAlpha = 0.35;
-      sctx.beginPath(); sctx.roundRect(hr.x - 2.2, hr.y - 2.2, hr.w + 4.4, hr.h + 4.4, 3.5); sctx.stroke();
-      sctx.lineWidth = 1.4; sctx.globalAlpha = 1;
-      sctx.beginPath(); sctx.roundRect(hr.x - 2.2, hr.y - 2.2, hr.w + 4.4, hr.h + 4.4, 3.5); sctx.stroke();
-      sctx.restore();
-    }
+    const ht = stripHoverTarget();
+    if(ht) drawHoverTarget(ht);
   }
   /* --- 並べ替えモードの家具アウトライン (吹き出しより背面) --- */
   drawLayoutEditOverlay();
@@ -14227,8 +14362,10 @@ function renderHeader(){
   if(pb && S.project) pb.style.width =
     Math.min(100, Math.round(S.projectDP / S.project.totalDP * 100)) + "%";
   const pm = document.getElementById("proj-meter");
-  if(pm) pm.style.transform = (Date.now() < milestonePulseUntil) ? "scale(1.07)"
-    : (Date.now() < progressPulseUntil) ? "scaleY(1.6)" : "";
+  /* パルスは明るさで (scale は中心原点で左右にはみ出すため v2.4.7 で廃止 —
+     sakuri: 「進捗バー左側に突き出てるぞ」) */
+  if(pm) pm.style.filter = (Date.now() < milestonePulseUntil) ? "brightness(1.4)"
+    : (Date.now() < progressPulseUntil) ? "brightness(1.18)" : "";
   const plM = document.getElementById("proj-label");
   if(plM) plM.style.color = (Date.now() < milestonePulseUntil) ? "#d9534f" : "";
   const pl = document.getElementById("proj-label");
