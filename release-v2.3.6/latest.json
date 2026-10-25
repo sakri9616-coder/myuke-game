@@ -1,0 +1,11 @@
+{
+  "version": "2.3.6",
+  "notes": "スタッフ白猫のアニメーション（歩行・お座り＋瞬き）、帯の60fps化、移動中は歩行アニメになる修正、一人遊びのリズム改善。初の自動アップデート配信版です。",
+  "pub_date": "2026-10-24T18:35:25Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmFOdXRocW9BMmp0aHZ2MW53R0hTa0MwL0NSbE9aMDhqSkRoRzJtU3d2cGd6cXVnaHlVWmVMZmNGNXJoSDEvVEx1Tzkwb2t3N2ZxWCtkV3p1QW92d1FZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODY2OTIzCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy42X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjMuNgp2Y0JGei9qRU54S1E5YStNbTA2SEQxT3ltdXNQREs2WHR4bVpka2pVbmtYZTdhUStyemphYi9iN3I4ZG5KTUw0SDNPMHZyeGhEMXJBSkNuS3VzajFDZz09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.6/myuke-setup-2.3.6-x64.exe"
+    }
+  }
+}

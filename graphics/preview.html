@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miyuke · Cuteness pass pixel atlas</title>
+<style>
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #493c37; background: #f5eee3; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 28px; }
+header, main, footer { max-width: 1440px; margin: auto; }
+h1 { margin: 0 0 8px; font-size: 28px; }
+p { line-height: 1.6; }
+.subtitle { margin: 0 0 20px; max-width: 850px; }
+.status { display: inline-block; background: #e1efdf; border: 1px solid #85aa84; padding: 6px 12px; border-radius: 8px; font-size: 14px; }
+h2 { font-size: 20px; margin: 32px 0 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+article { background: #fffaf1; border: 1px solid #d8c5ac; border-radius: 12px; overflow: hidden; }
+h3 { font: 600 13px ui-monospace, monospace; margin: 0; padding: 13px 14px 5px; overflow-wrap: anywhere; }
+.meta { font-size: 12px; margin: 0; padding: 0 14px 12px; color: #796755; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; }
+.sample { margin: 0; padding: 12px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.light { background: #fff0de; color: #675341; }
+.dark { background: #252b35; color: #e5dace; }
+.stage { position: relative; width: 100%; height: 126px; display: flex; align-items: flex-end; justify-content: center; }
+.guides .stage::after { content: ''; position: absolute; bottom: 0; left: 5%; right: 5%; border-bottom: 1px solid #b58c70; pointer-events: none; }
+.guides .stage::before { content: ''; position: absolute; bottom: -3px; left: 50%; height: 7px; border-left: 1px solid #b58c70; pointer-events: none; }
+.controls { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 12px 0; font-size: 14px; }
+.controls label { display: flex; align-items: center; gap: 6px; }
+.validation { margin-top: 16px; }
+.validation summary { cursor: pointer; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 13px; margin: 12px 0; width: 100%; }
+th, td { border-bottom: 1px solid #d8c5ac; padding: 6px 10px; text-align: left; }
+td:first-child { font-family: ui-monospace, monospace; }
+canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+figcaption { font-size: 11px; }
+footer { margin-top: 28px; font-size: 13px; }
+.error { color: #9a2727; background: #ffe3df; }
+@media (max-width: 370px) { body { padding: 12px; } .grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+<h1>みゅけ、きょうも開発中 · Sprite atlas</h1>
+<p class="subtitle">Cuteness pass · Every sprite appears at exactly <strong>3× integer scale</strong> on both backgrounds, aligned to a shared floor. Native canvases: Miyuke <strong>48 × 40</strong>, staff <strong>32 × 24</strong>, duck <strong>24 × 20</strong>. Miyuke types and swats facing the viewer, with her idle face, orange right ear and black left cheek. All six staff coats have big round heads, low plump bodies and short connected tails.</p>
+<p class="subtitle">Staff sit and walk: <strong>12px heads</strong> (rows 6–17, half the canvas height) and <strong>3px visible legs</strong> (rows 21–23). Sitting paws are 4px wide; each walk has four separate 3px-wide feet on both ground rows. Exactly 15 sprites changed; the other 23 and the palette are preserved.</p>
+<p id="status" class="status" role="status">Checking sprite data…</p>
+<div class="controls"><label><input id="guides" type="checkbox"> Show floor and bottom-center anchor guides</label><span>Happy is airborne; icons have no ground baseline.</span></div>
+<details class="validation"><summary>Exact dimensions and four-neighbor connectivity</summary><p>Components use edge adjacency. Miyuke’s question mark, sleep letters, sparkles and bug target are intentional separate objects. Cat-only masks exclude props so they cannot conceal a detached limb. Every cat is one component. Run <code>node validate-sprites.cjs</code> for the complete anatomy, typing-paw and byte-preservation checks.</p><div class="table-scroll"><table><thead><tr><th>Sprite</th><th>Actual</th><th>Required</th><th>Size / margins / floor</th><th>All components</th><th>Cat only</th></tr></thead><tbody id="checks"></tbody></table></div></details>
+<noscript><p>Enable JavaScript to render the literal maps in sprites.js.</p></noscript>
+</header>
+<main id="atlas"></main>
+<footer>Local and self-contained. No network requests, image files, or external fonts. The JavaScript data is in <a href="sprites.js">sprites.js</a>; placement and animation notes are in <a href="SPRITES.md">SPRITES.md</a>.</footer>
+<script src="sprites.js"></script>
+<script>
+'use strict';
+(() => {
+  const status = document.getElementById('status');
+  try {
+    const data = window.MIYUKE_SPRITES;
+    if (!data || !data.palette || !data.sprites) throw new Error('sprites.js did not load. Keep it beside preview.html.');
+    const { palette, sprites } = data;
+    const required = [
+      'miyuke_idle', 'miyuke_code_a', 'miyuke_code_b', 'miyuke_think', 'miyuke_debug',
+      'miyuke_sleep', 'miyuke_yarn', 'miyuke_box', 'miyuke_snack', 'miyuke_happy',
+      ...['kuro', 'chatora', 'sabatora', 'hachiware', 'shiro', 'mike2'].flatMap(coat => ['sit', 'walk'].map(pose => `staff_${coat}_${pose}`)),
+      'duck_idle', 'duck_check',
+      ...['coin', 'idea', 'bug', 'box', 'star', 'fish', 'book', 'wrench', 'heart'].map(key => `icon_${key}`),
+      ...['plant', 'coffee', 'server', 'packmachine', 'shelf', 'pc', 'desk2', 'wall_1', 'wall_2', 'wall_3'].map(key => `prop_${key}`)
+    ];
+    if (required.some(key => !Object.hasOwn(sprites, key))) {
+      throw new Error('Sprite list is missing a required name.');
+    }
+    const propSizes = { prop_plant: [16, 20], prop_coffee: [16, 16], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_desk2: [40, 24], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16] };
+    const expectedSize = name => name.startsWith('miyuke_') ? [48, 40]
+      : name.startsWith('staff_') ? [32, 24]
+      : name.startsWith('duck_') ? [24, 20]
+      : name.startsWith('icon_') ? [16, 16] : propSizes[name];
+    // Four-neighbor flood fill rejects diagonal-only connections.
+    function components(rows, include = () => true) {
+      const width = rows[0].length;
+      const remaining = new Set();
+      rows.forEach((row, y) => [...row].forEach((key, x) => { if (key !== '.' && include(x, y, key)) remaining.add(y * width + x); }));
+      let count = 0;
+      while (remaining.size) {
+        const start = remaining.values().next().value;
+        const stack = [start];
+        remaining.delete(start);
+        count++;
+        while (stack.length) {
+          const pos = stack.pop(), x = pos % width, y = Math.floor(pos / width);
+          for (const [nx, ny] of [[x-1, y], [x+1, y], [x, y-1], [x, y+1]]) {
+            if (nx < 0 || nx >= width || ny < 0 || ny >= rows.length) continue;
+            const next = ny * width + nx;
+            if (remaining.delete(next)) stack.push(next);
+          }
+        }
+      }
+      return count;
+    }
+    const componentCounts = new Map();
+    const catCounts = new Map();
+    const typingCat = (x, y) => !(x >= 4 && x <= 13 && y >= 21 && y <= 31)
+      && !(x >= 8 && x <= 11 && y >= 32 && y <= 35) && !(x >= 4 && x <= 33 && y >= 36);
+    const catOnly = {
+      miyuke_idle: () => true,
+      miyuke_code_a: typingCat, miyuke_code_b: typingCat,
+      miyuke_think: (x, y) => !(x >= 37 && y <= 13),
+      miyuke_debug: (x, y) => !(x >= 21 && x <= 26 && y >= 37),
+      miyuke_sleep: (x, y) => y >= 19 && y <= 36,
+      miyuke_yarn: (x, y) => !(x <= 14 && y >= 30) && !(x <= 21 && y >= 38),
+      miyuke_box: (x, y) => y < 27 || (y < 29 && x >= 16 && x <= 30)
+        || (y <= 33 && ((x >= 17 && x <= 21) || (x >= 26 && x <= 30))),
+      miyuke_snack: (x, y, key) => !'BbC'.includes(key),
+      miyuke_happy: x => x >= 10 && x <= 40
+    };
+    const miyukeComponents = { miyuke_idle: 1, miyuke_code_a: 1, miyuke_code_b: 1, miyuke_think: 3, miyuke_debug: 2, miyuke_sleep: 3, miyuke_yarn: 1, miyuke_box: 1, miyuke_snack: 1, miyuke_happy: 3 };
+    for (const [key, color] of Object.entries(palette)) {
+      if (key.length !== 1 || key === '.' || !/^#[0-9a-f]{6}$/i.test(color)) throw new Error(`Invalid palette entry: ${key}`);
+    }
+    // Validate all data before rendering anything, so failures cannot hide below the fold.
+    for (const [name, rows] of Object.entries(sprites)) {
+      if (!Array.isArray(rows) || !rows.length || typeof rows[0] !== 'string' || !rows[0].length) throw new Error(`Empty sprite: ${name}`);
+      if (rows.some(row => typeof row !== 'string' || row.length !== rows[0].length)) throw new Error(`Unequal row widths: ${name}`);
+      for (const row of rows) for (const key of row) {
+        if (key !== '.' && !Object.hasOwn(palette, key)) throw new Error(`Unknown color ${key} in ${name}`);
+      }
+      const size = expectedSize(name);
+      if (rows[0].length !== size[0] || rows.length !== size[1]) throw new Error(`Unexpected size: ${name}; expected ${size.join(' × ')}`);
+      if (rows.slice(0, 2).some(row => /[^.]/.test(row)) || rows.some(row => /[^.]/.test(row.slice(0, 2) + row.slice(-2)))) throw new Error(`Two-pixel margin violated: ${name}`);
+      if (!name.startsWith('icon_') && name !== 'miyuke_happy' && !/[^.]/.test(rows.at(-1))) throw new Error(`Missing floor contact: ${name}`);
+      if (/^(miyuke_|staff_|duck_)/.test(name) && name !== 'miyuke_happy' && !/[^.]/.test(rows.at(-2))) throw new Error(`Missing second ground row: ${name}`);
+      if (name.startsWith('staff_') && rows.slice(0, 6).some(row => /[^.]/.test(row))) throw new Error(`Staff exceeds 18-pixel height: ${name}`);
+      const count = components(rows);
+      componentCounts.set(name, count);
+      if (name.startsWith('staff_') && count !== 1) throw new Error(`Disconnected staff anatomy: ${name} (${count} components)`);
+      /* アニメフレーム (miyuke_idle_N 等) は構成数チェックの対象外（ベース絵のみ） */
+      if (Object.hasOwn(miyukeComponents, name) && count !== miyukeComponents[name]) throw new Error(`Unexpected Miyuke component count: ${name} (${count})`);
+      if ((name.startsWith('staff_') || Object.hasOwn(catOnly, name))) {
+        const catCount = components(rows, catOnly[name]);
+        catCounts.set(name, catCount);
+        if (catCount !== 1) throw new Error(`Disconnected cat without props: ${name} (${catCount})`);
+      }
+    }
+    for (const [name, rows] of Object.entries(sprites)) {
+      const tr = document.createElement('tr');
+      for (const value of [name, `${rows[0].length} × ${rows.length}`, expectedSize(name).join(' × '), 'PASS', componentCounts.get(name), catCounts.get(name) ?? '—']) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        tr.append(td);
+      }
+      document.getElementById('checks').append(tr);
+    }
+    function rasterize(rows) {
+      const bitmap = document.createElement('canvas');
+      bitmap.width = rows[0].length;
+      bitmap.height = rows.length;
+      const ctx = bitmap.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D is unavailable.');
+      rows.forEach((row, y) => [...row].forEach((key, x) => {
+        if (key !== '.') {
+          ctx.fillStyle = palette[key];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }));
+      return bitmap;
+    }
+    const groups = [
+      ['Miyuke · みゅけ', 'miyuke_'],
+      ['Staff cats · なかまたち', 'staff_'],
+      ['QA duck · 品質チェック', 'duck_'],
+      ['Icons · 16 × 16', 'icon_'],
+      ['Studio props · 開発のお部屋', 'prop_']
+    ];
+    for (const [title, prefix] of groups) {
+      const section = document.createElement('section');
+      const heading = document.createElement('h2');
+      heading.textContent = title;
+      section.append(heading);
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const [name, rows] of Object.entries(sprites).filter(([name]) => name.startsWith(prefix))) {
+        const bitmap = rasterize(rows);
+        const card = document.createElement('article');
+        const label = document.createElement('h3');
+        label.textContent = name;
+        const meta = document.createElement('p');
+        meta.className = 'meta';
+        const baseline = name === 'miyuke_happy' ? 'airborne' : name.startsWith('icon_') ? 'icon' : name.startsWith('prop_') ? `floor ${rows.length - 1}` : `floor ${rows.length - 2}–${rows.length - 1}`;
+        meta.textContent = `${bitmap.width} × ${bitmap.height} px · 3× · ${baseline} · PASS`;
+        const pair = document.createElement('div');
+        pair.className = 'pair';
+        for (const theme of ['light', 'dark']) {
+          const figure = document.createElement('figure');
+          figure.className = `sample ${theme}`;
+          const stage = document.createElement('div');
+          stage.className = 'stage';
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width * 3;
+          canvas.height = bitmap.height * 3;
+          canvas.setAttribute('role', 'img');
+          canvas.setAttribute('aria-label', `${name}, ${theme} background, three times scale`);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas 2D is unavailable.');
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          stage.append(canvas);
+          const caption = document.createElement('figcaption');
+          caption.textContent = theme === 'light' ? 'Light · #fff0de' : 'Dark · #252b35';
+          figure.append(stage, caption);
+          pair.append(figure);
+        }
+        card.append(label, meta, pair);
+        grid.append(card);
+      }
+      section.append(grid);
+      document.getElementById('atlas').append(section);
+    }
+    // ---- Sprint 4: Animations — MIYUKE_ANIMS を実際に再生する ----
+    // ゲーム側 animFrameAt と同じ意味論（durations / ループ区間 / loopCount /
+    // direction: forward・reverse・pingpong・pingpong_reverse）で再生する。
+    const animsData = window.MIYUKE_ANIMS || {};
+    if (Object.keys(animsData).length) {
+      const animSection = document.createElement('section');
+      const ah = document.createElement('h2');
+      ah.textContent = 'Animations · アニメーション再生（sakuri作画 idle / snack ほか）';
+      animSection.append(ah);
+      const agrid = document.createElement('div');
+      agrid.className = 'grid';
+      const segMs = (a, i0, i1) => { let s = 0; for (let i = i0; i <= i1; i++) s += a.durations[i] || 0; return s; };
+      const pickF = (a, i0, i1, t) => { let acc = 0; for (let i = i0; i <= i1; i++) { acc += a.durations[i] || 0; if (t < acc) return i; } return i1; };
+      function animFrameAtP(a, elapsed) {
+        const n = a.frames.length;
+        const intro = segMs(a, 0, a.loopFrom - 1), loopMs = segMs(a, a.loopFrom, a.loopTo), outro = segMs(a, a.loopTo + 1, n - 1);
+        if (elapsed < intro) return pickF(a, 0, a.loopFrom - 1, elapsed);
+        if (a.loopCount !== Infinity && elapsed >= intro + loopMs * a.loopCount)
+          return outro > 0 ? pickF(a, a.loopTo + 1, n - 1, Math.min(outro - 1, Math.max(0, elapsed - intro - loopMs * a.loopCount))) : n - 1;
+        const t = elapsed - intro, pass = Math.floor(t / loopMs), off = t % loopMs;
+        const dir = a.direction || 'forward';
+        const rev = dir === 'reverse' || (dir === 'pingpong' && pass % 2 === 1) || (dir === 'pingpong_reverse' && pass % 2 === 0);
+        if (rev) { let acc = 0; for (let i = a.loopTo; i >= a.loopFrom; i--) { acc += a.durations[i] || 0; if (off < acc) return i; } return a.loopFrom; }
+        return pickF(a, a.loopFrom, a.loopTo, off);
+      }
+      for (const [base, a] of Object.entries(animsData)) {
+        const card = document.createElement('article');
+        const label = document.createElement('h3');
+        label.textContent = base;
+        const meta = document.createElement('p');
+        meta.className = 'meta';
+        meta.textContent = `${a.frames.length} frames · loop ${a.loopFrom}–${a.loopTo} × ${a.loopCount === Infinity ? '∞' : a.loopCount} · direction ${a.direction || 'forward'}`;
+        const fig = document.createElement('figure');
+        fig.className = 'sample light';
+        const stage = document.createElement('div');
+        stage.className = 'stage';
+        const first = sprites[a.frames[0]];
+        const canvas = document.createElement('canvas');
+        canvas.width = first[0].length * 3;
+        canvas.height = first.length * 3;
+        const actx = canvas.getContext('2d');
+        actx.imageSmoothingEnabled = false;
+        stage.append(canvas);
+        fig.append(stage);
+        const info = document.createElement('figcaption');
+        info.textContent = 'frame 0 · 0ms';
+        fig.append(info);
+        const controls = document.createElement('div');
+        controls.style.cssText = 'display:flex;gap:8px;padding:0 14px 12px';
+        const btnPlay = document.createElement('button');
+        btnPlay.textContent = '⏸ 一時停止';
+        const btnRe = document.createElement('button');
+        btnRe.textContent = '↺ 最初から';
+        controls.append(btnPlay, btnRe);
+        card.append(label, meta, fig, controls);
+        agrid.append(card);
+        const bitmaps = a.frames.map(fn => rasterize(sprites[fn]));
+        let start = performance.now(), pausedAt = null;
+        btnPlay.addEventListener('click', () => {
+          if (pausedAt === null) { pausedAt = performance.now(); btnPlay.textContent = '▶ 再生'; }
+          else { start += performance.now() - pausedAt; pausedAt = null; btnPlay.textContent = '⏸ 一時停止'; }
+        });
+        btnRe.addEventListener('click', () => { start = performance.now(); pausedAt = null; btnPlay.textContent = '⏸ 一時停止'; });
+        (function loop() {
+          const el = pausedAt === null ? performance.now() - start : pausedAt - start;
+          const idx = animFrameAtP(a, el);
+          actx.clearRect(0, 0, canvas.width, canvas.height);
+          actx.drawImage(bitmaps[idx], 0, 0, canvas.width, canvas.height);
+          info.textContent = `frame ${idx} (${a.frames[idx]}) · ${Math.floor(el)}ms`;
+          requestAnimationFrame(loop);
+        })();
+      }
+      animSection.append(agrid);
+      document.getElementById('atlas').append(animSection);
+    }
+    document.getElementById('guides').addEventListener('change', event => {
+      document.getElementById('atlas').classList.toggle('guides', event.target.checked);
+    });
+    status.textContent = `✓ ${Object.keys(sprites).length} sprites · ${Object.keys(palette).length} shared colors · ${Object.keys(sprites).length * 2} previews · exact sizes and margins PASS · 12/12 staff connected`;
+  } catch (error) {
+    status.classList.add('error');
+    status.textContent = `Unable to render atlas: ${error.message}`;
+    console.error(error);
+  }
+})();
+</script>
+</body>
+</html>

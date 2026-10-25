@@ -1,0 +1,11 @@
+# 署名鍵 (絶対にコミットしない)
+desktop/.keys/
+*.pem
+*.key
+# ビルド成果物・依存・ログ
+**/target/
+**/node_modules/
+*.log
+release-*/*.exe
+myuke-desktop-windows.zip
+verify-strip-*.png

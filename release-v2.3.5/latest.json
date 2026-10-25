@@ -1,0 +1,11 @@
+{
+  "version": "2.3.5",
+  "notes": "アップデート配信（GitHub Releases）の開始版。以後の更新はアプリ内から自動で行われます。",
+  "pub_date": "2026-10-24T18:03:56Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNlMyZkRFRGV3d1VyUnVzanZ0cC9xQzJDWE9VbjFmZnp2emc3Tm5VOVMrd3B3eEZ6bzVlb1J0QXVLVG9OR1RPajFQZWduaEgwZGVlL05PQTRLQ2xuRUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODY1MDMzCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy41X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjMuNQpPa3lqM0lwR01UUEJkTU1pZ1lTcmNzdFVSSkY2eXVvdGlBUVJNZ2VhRWVoWkFlWjZsZUF2b2RjbVloVmZZdE0zeHlnK1pxaWMxVmRMVEZma1YvSFhCQT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.5/myuke-setup-2.3.5-x64.exe"
+    }
+  }
+}

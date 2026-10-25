@@ -1,0 +1,25 @@
+[package]
+name = "miyuke"
+version = "2.4.6"
+description = "みゅけ、きょうも開発中 — デスクトップ常駐放置ゲーム"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+# v2.3.5: GitHub Releases 経由の自動アップデート（公式プラグイン）
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# Phase 2: OS全体の入力集計（回数とカーソル移動距離だけを数える。キー種別は見ない）
+rdev = "0.5"
+serde = { version = "1", features = ["derive"] }
+# tauri::generate_context! の展開コードが参照する（updater プラグイン設定の埋め込みで必須になった）
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

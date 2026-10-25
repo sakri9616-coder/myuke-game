@@ -1,0 +1,11 @@
+{
+  "version": "2.3.10",
+  "notes": "Windows 実機で「ひらくを押してもメニューが開かない」「帯のボタンが反応しない」ことがある問題への対策版です。保存されていたメニュー位置の判定を厳しくし、帯やタスクバーの下に潜ってしまうような位置・形の記録は使わず、必ず見える場所に開くようにしました。あわせて、ウィンドウの位置を記録する処理のしかたを見直し（Windows で固まる可能性のある読み方を全廃し、専用スレッドでの記録に一本化）、メニューを開くたびに位置が正しいか確認して、ダメなら直してから表示するようにしました。帯の ◥ ドラッグ移動や、これまでの内容はそのまま入っています。自動アップデートで配信される版です。",
+  "pub_date": "2026-10-25T09:33:13Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmNzK0hOTUJJK2VEREo1dklQT3BxUzQzVmxFNFJjb3dQQ2JLdGVvOWFhQkhOQWoxNjBveGk3WXRPZ0E0ZVhMZk5EWWZ3Q2tWblB4WllPMVUvZ3F1M1FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTIwNzkxCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy4xMF94NjQtc2V0dXAuZXhlCXZlcnNpb246Mi4zLjEwCmhuRGJVazdTSmNjdkRoVGxuT1htQXRwcUI0Qk91T1FBcE43LzBJUTFXT3N5RzBIaTIrV1oyUlVwNWJnelp2Q0JTUG9iMUVvWTVrTHVSc0dJamg2M0JRPT0K",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.10/myuke-setup-2.3.10-x64.exe"
+    }
+  }
+}

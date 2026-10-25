@@ -1,0 +1,11 @@
+{
+  "version": "2.3.7",
+  "notes": "管理メニューをコンパクトに再設計しました（よく見るものは大きく、低頻度のものは折りたたみにまとめ、ビジュアル主体の表示に）。スタッフの黒猫と茶トラにアニメーションがつきました（歩行とお座り＋瞬き。白猫と合わせて3匹、sakuriさんの描き下ろしです）。自動アップデートで配信される版です。",
+  "pub_date": "2026-10-24T19:13:32Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNlZlWWFTZWtEYTNjNnBXQmVqam51NE8vZURIcGtObHU1a2RTbDdXbjNJekpqeEF2UFRjYzcvZmxJV2xHLzZnNU8raWdCdWdRRmlkVURWbytrNHJxYWcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODY5MjEwCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy43X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjMuNwpCNUNhM3dVUkRkc1NHQ05xSXdDQkNSRXZDdGc5Y3dsdzlGWkNXNDRjaDJPeVRwajNEWE9jUEpRQlJxbDlZdUZYN0ZqYUw3b29nQjgxVGtyemt1cVREUT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.7/myuke-setup-2.3.7-x64.exe"
+    }
+  }
+}

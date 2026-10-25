@@ -1,0 +1,11 @@
+{
+  "version": "2.4.3",
+  "notes": "不具合修正版です。Windows で帯の隅を掴んで画面の端へ寄せると、勝手に分割ビュー（スナップ）に取り込まれて帯の形が崩れてしまう問題を直しました。帯だけスナップの対象から外しています（管理メニューは今までどおりスナップできます）。",
+  "pub_date": "2026-10-25T12:30:45Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNlR2dmFCTVA3Y3lEcXVWRGh3ZGM2N0YxeVR4YlEwSWVRdFNnRURIejZiZkNnVlZnbmtxblA5MGlGNUR2UHE1bC9uZUFKRU5aZGI5Q3pIdmpFbExQZHc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTMxNDQyCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuNC4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjQuMwpiRzFOaTdpd2c2SUVEWWJBcWNDN2NPcTJCK3Q1WHpwVHRmdHBBSkFFblZwRWpGMVRHUjZWcjhDeGVmVzMzdkpVS2h6ZCtMY0tFSUkvVUJhNGtPaDFEdz09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.4.3/myuke-setup-2.4.3-x64.exe"
+    }
+  }
+}

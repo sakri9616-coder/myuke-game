@@ -1,0 +1,11 @@
+{
+  "version": "2.4.4",
+  "notes": "帯のデザインを大きく見直しました。右下に並んでいたチップ（コイン・目的・更新・ボタン類）を全部なくし、代わりに帯の「物」から開けるようにしました：進捗は机のリーダーボード（会社が育つと白板に進化）、目的と依頼はボード下の吊りメモ、コインは真鍮タグ、スタッフは電話機、応援はメガホン、設定は工具箱（更新があると赤いリボンが付きます）。隠すときは右上のグリップを軽くタップ。おやつも机の足元のおやつ箱からあげられます。ほか、スタッフ「シャム」の絵柄差し替え、荷物箱の大型化、出荷地点のグラフィック化も入っています。",
+  "pub_date": "2026-10-25T16:17:07Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmVXY3hOeWdvNjJQZ2RwUXJvK2N4ZmpuL285VmVVZ3lONTdkTEtNZ3pmSTVXeWlBOXd5NnpQajlXZ1BDcmIxQU9LKzFmR2hxTWFsZVVJREROd2pEb2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQ1MDI0CWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuNC40X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjQuNAp5R2dIS2g5eUlUdDhlUlBKTkR0OXBsMGZQNWlRRy9xQzcyQjhXd2tsb2tDcnBMUXh5S0diYnNoNXRoTTNiOUIxcERJaGxtYUdUV1kySzBuQmY5NitCUT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.4.4/myuke-setup-2.4.4-x64.exe"
+    }
+  }
+}

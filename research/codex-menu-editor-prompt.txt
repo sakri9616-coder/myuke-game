@@ -1,0 +1,33 @@
+You are the UI artist for the desktop idle game 『みゅけ、きょうも開発中』 (repo root: current directory). The management MENU window in game/index.html already has a first-pass dark "IDE" skin (CSS scoped to body:not(.strip), espresso-editor tokens from research/OFFICE_ART_DIRECTION.md §3). The owner (sakuri) has now directed: go MUCH further — make the menu artwork unmistakably a CODE EDITOR, while PRESERVING READABILITY. This is a skin/art pass: CSS-first, decorative micro-JS at most. No game logic changes.
+
+READ FIRST:
+1. research/OFFICE_ART_DIRECTION.md §3 (existing tokens/semantics) — extend, don't restart.
+2. The menu CSS + panel DOM in game/index.html (renderHeader / renderPanel / tab defs / folds / lock panels / staff cards / factory rate strip / hero card) and tools/miyuke-smoke.js to learn what must keep working (badge strings, lock markup, fold behavior, ids/classes).
+3. DESIGN.md sections on the menu IA redesign and tutorial locks (the compact IA and lock readability are settled decisions).
+
+GO BOLD with real editor signifiers (VS Code is the reference, espresso-warmth stays):
+- File tabs: full editor treatment — active tab fused with the editor surface, orange top indicator, dirty-dot/close glyphs as decoration, inactive tabs recessed.
+- GUTTER: a line-number gutter down the left of the content area (CSS counters or generated numbers; numbers are decoration, text starts after it). Panel content becomes "the file".
+- BREADCRUMBS under the tab row: `miyuke › <tab> › <context>` filled from existing state (project name / current selection) — one small decorative element, updated where renderHeader/renderPanel already runs.
+- SYNTAX-STYLED TEXT: section titles read as code comments or declarations; labels in keyword purple, values as number-green / string-orange / function-gold per the existing semantic map; locked (tutorial) sections styled like commented-out code — VISIBLY locked yet still legible.
+- FOLDS = code folding: chevrons, faint indent-guide lines, region feel.
+- FACTORY rate strip = CI pipeline (already started) — push it: step nodes with connecting line, running-step pulse.
+- PRIMARY buttons = editor "Run ▶" buttons (success green); secondary buttons = editor ghost buttons.
+- STATUS BAR: extend the existing one — left: branch glyph + `main`, diagnostics ✗ bugs / ⚠ bottleneck (already there); right: playful editor furniture (e.g. `UTF-8`, `🐱 MiyukeScript`, spaces) — tasteful, small.
+- MINIMAP whisper: a very subtle 6px decorative strip at the content's right edge with tiny colored dashes (low contrast decoration only) — include only if it stays subtle; cut it if it reads as clutter.
+- Cat speech bubbles and staff portrait wells KEEP the cream #FFF5E6 "image preview" wells (decided; the cats are the warmth). Pixel art must never be recolored.
+- Numerals/Latin in a monospace stack; Japanese body text stays in the readable sans (real editors fall back the same way).
+
+HARD GUARDRAILS (readability is the owner's explicit condition):
+- Body/functional text contrast >= 4.5:1 on its background — include a contrast table (foreground/background/ratio) for the main text pairs in your summary. Decorative-only elements (gutter numbers, minimap, indent guides) may be dimmer but must never carry information.
+- No font-size reductions anywhere; panel heights must not grow materially (the compact IA was hard-won: 7 of 9 tabs scroll-free at 1180x860 — verify with screenshots and compare against the pre-pass menu-ide-after-*.png evidence in the repo root).
+- IA/DOM frozen: no moving, renaming, adding or removing tabs, sections, buttons or controls; ids/classes/smoke expectations intact. Class additions and decorative spans/pseudo-elements are fine.
+- Tutorial lock panels must remain clearly readable on the new skin (screenshot one).
+- Smoke suite (tools/miyuke-smoke.js) all-green except the known pre-existing B9-B real-time flake (x=200.0x drift signature); balance sim untouched (you should not need to touch any logic).
+- Scope: menu window only (body:not(.strip)). The desktop strip is a different surface — do not touch strip CSS/rendering.
+- No version bump, no release, no commit.
+
+DELIVERABLES:
+- The reskin in game/index.html (+ DESIGN.md note recording the v2 editor direction).
+- Before/after screenshots at 1180x860 (new filenames, menu-editor2-*.png in repo root): project tab, staff tab, factory tab, one tutorial lock panel.
+- Final summary: what editor signifiers you added, the contrast table, panel-height comparison, smoke result.

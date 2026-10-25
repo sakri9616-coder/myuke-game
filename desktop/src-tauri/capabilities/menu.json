@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","description":"管理ウィンドウ (menu / viewer ロール) 用。帯との同期イベント (listen/emit/emitTo) と open_menu/close_menu 等のアプリコマンド invoke に必要な core:default だけを与える。updater / process 権限は付けない (更新の実行は帯 owner の領分。設計 §4.2/§5.1)","identifier":"menu","permissions":["core:default"],"windows":["menu"]}

@@ -1,0 +1,26 @@
+You are the pixel-art artist for the desktop idle game 『みゅけ、きょうも開発中』 (repo root: current directory). The human artist (sakuri) draws all CHARACTER art; you author the ENVIRONMENT pixel art first pass, which sakuri will later refactor in Aseprite. Having decent art now beats having none.
+
+READ FIRST (in this order):
+1. research/OFFICE_ART_DIRECTION.md — the art direction (programmer's office theme, IDE tokens, tier evolution).
+2. DESIGN.md — especially the officeTier() mapping (tier 0 garage-wood / tier 1 small office / tier 2 dev studio / tier 3 HQ) and strip layout facts.
+3. graphics/sprites.js — the game's sprite data. Study sakuri's sprites (miyuke_*, staff_*) for PALETTE characters, outline habits, flat-color style, chunky silhouettes. The global palette lives there and in game/index.html; REUSE existing palette characters wherever possible.
+4. game/index.html — find the strip rendering code (renderStrip and its furniture/board/shelf/desk drawing, prop usage, SPRITE_SCALES, stripHitRects) to learn each furniture item's CURRENT footprint and anchor on the 210px-tall strip. Your sprites must match those footprints so integration is a swap, not a redesign.
+
+DELIVERABLES (art only — do NOT edit game/index.html or graphics/sprites.js):
+1. A new file graphics/env-sprites.js exporting the environment sprites in the SAME data format as graphics/sprites.js (name -> array of equal-length strings using palette characters; '.' = transparent). Header comment per sprite: intended tier, anchor (bottom-center unless the footprint says otherwise), and the in-code footprint it replaces.
+2. PNG previews rendered from your data (write a small node script using the repo's existing tooling/patterns, e.g. how tools/ or graphics/ render sprites) into graphics/env-preview/<name>.png at 4x nearest-neighbor on a mid-gray background, plus one contact sheet graphics/env-preview/contact-sheet.png.
+3. research/ENV_ART_MANIFEST.md — per sprite: name, pixel size, tier, anchor, what it replaces, palette characters used, and any NEW colors you propose (hex + suggested char) with justification. Keep new colors minimal (aim <= 10); the existing 70-color palette covers most office materials (slates, laminate grays, white laminates, cardboard).
+
+SPRITE SET (priority order — finish each completely before moving on; if you must trim, cut from the bottom):
+1. prop_kanban — aluminum-frame whiteboard replacing the wooden project board face at tier>=1: TODO/DOING/DONE columns, pastel sticky notes (syntax colors), clean white surface. Must keep the SAME outer footprint as the current board face so the fat progress bar + giant % overlay still fits on it (check the board drawing code for its rect).
+2. desk_laminate_main + desk_laminate_2 — light-gray laminate desktop + dark metal legs replacing the wooden desk tops at tier>=1, same footprints as the current procedural desks (main desk cluster and second desk).
+3. prop_chair — office chair back (dark mesh) that sits behind the cat at the desk, tier>=1.
+4. prop_server_rack — server rack with LED dots, tier>=2, footprint of the unused prop_server placement area if present in code, else 48x64 native. (An old prop_server sprite exists; author a better one rather than reusing it blindly.)
+5. shelf_steel — steel/white-laminate shelf frame replacing the wooden works shelf at tier>=2, SAME footprint as current shelf (release boxes still land on it; cardboard boxes unchanged).
+6. prop_books — a tech-book row (colored spines, a couple leaning) sized to occupy one shelf level.
+7. prop_archive_boxes — labeled cardboard archive-box stack replacing the easel/poster spot at tier>=1.
+8. prop_mat — cool-gray anti-fatigue mat / carpet tile strip under the desk cluster, tier>=1.
+
+STYLE RULES (from sakuri's art): flat colors, firm silhouettes, outlines in the palette's dark brown/slate family (not pure black), no gradients, no anti-aliasing, bottom edges grounded (furniture stands ON the strip floor line, baseline discipline like the character art), readable at strip scale (drawn around 2x). Cute-but-office: keep one warm accent per item max (the game's warmth comes from the cats).
+
+Do not run the game, do not bump versions, do not commit. When done, print a short summary: sprites finished (with sizes), previews written, new colors proposed, anything you trimmed and why.

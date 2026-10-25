@@ -1,0 +1,14 @@
+{
+ "$schema": "../gen/schemas/desktop-schema.json",
+ "description": "標準の権限。Phase 2 の入力集計イベント（input-activity）をページが購読するために core:event の購読許可を含む。v2.3.5 で自動アップデート（updater の check/download/install）と、更新完了後の再起動（process の restart）も許可する。v2.3.9 で帯の ◥ グリップによるウィンドウドドラッグ移動 (core:window:allow-start-dragging) も許可する",
+ "identifier": "default",
+ "permissions": [
+  "core:default",
+  "updater:default",
+  "process:default",
+  "core:window:allow-start-dragging"
+ ],
+ "windows": [
+  "main"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "2.3.8",
+  "notes": "大きな更新です。管理メニューが別のウィンドウで開くようになり、開いても帯（デスクトップ上のみゅけ達）が消えなくなりました。帯にはプロジェクトボードが立って開発進捗が一目で分かり、生産の様子が見えるようになりました（仕掛品の山、流れるコードカード、リリース時のコイン噴水）。メニューは全面コードエディタ風デザインに刷新。チュートリアル導線で要素が少しずつ解放され、オフィスの家具は会社の規模に合わせて木の看板からカンバン・ラミネート机・サーバーラック・スチール棚へ進化します。新スタッフにシャム・サバトラ・ハチワレが加わり（sakuriさん描き下ろし）、毛糸あそびのアニメーションも入りました。歩行アニメと移動速度も同期するようになっています。自動アップデートで配信される版です。",
+  "pub_date": "2026-10-25T05:40:12Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNlJQcTMxaGlQMGxhSytVODZhMmdqWUhkM05JZjFmMVhKV1kwcEdwNUxCeHplZDFtTmd1U2Rhc0ZiVXNNZjdoY0FMbXR4OE42RmVkT2Y0Tnd3T3RnUEF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTA2ODA5CWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy44X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjMuOApzdDhwQkZLSEt5RjVPY2NSVWFWYVRTNkJma0FJVHMwZGQ1TFpyMHEyRlNzWUZUK2FkRkhFNnN3eTYwSFhCRW5MUWg3Z2RnRXErd0VlckV2QUZJQUtEQT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.8/myuke-setup-2.3.8-x64.exe"
+    }
+  }
+}

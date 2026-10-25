@@ -1,0 +1,11 @@
+{
+  "version": "2.4.2",
+  "notes": "不具合修正版です。プロジェクト進捗ゲージが進むときに一瞬左へ引っ込んでから伸びて見える表示の不具合を直しました。あわせて、みゅけを速く連打すると応援クリックが取りこぼされ、作業まで止まってしまう問題を解消しました（文句の台詞だけ残ります）。",
+  "pub_date": "2026-10-25T12:18:47Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNlFCWU53WTYwOG56RjdjbytlTjdIR2xhT2pSZThzRUpUcVVIc2VZa1B0SlVKcGZuZ0podW9lbVRYaHFpcnVyWWtCalJmSEZtWldYVHJmSCsyRjhTa3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTMwNzI1CWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuNC4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjQuMgpDeEFLdzFiS0JUT0xkZTlieUU5Yk1vSDhUTUxzbUtkaTJWclY0SlhaUk5uWWQwNWJzTEtKbTVCd2VtZGVEWnpTdXA1WFkzbWZKcHpJREI4RjlGdjRBZz09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.4.2/myuke-setup-2.4.2-x64.exe"
+    }
+  }
+}

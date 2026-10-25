@@ -1,0 +1,11 @@
+{
+  "version": "2.4.1",
+  "notes": "「メニューが開かない」問題への追加対策版です。管理ウィンドウを起動時にあらかじめ用意しておく作りに変え、「ひらく」の信号が万一届かない時でも別経路で開けるよう二重化しました。あわせて、トレイアイコンをダブルクリックしても管理メニューが開けるようになっています。前版の新機能 (帯の大きさ調整・家具の並べ替え) もそのまま入っています。",
+  "pub_date": "2026-10-25T11:32:05Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmZWQ2J2eTlETGFweE9kR1pidWhWVmNFdk9YSWFTa2k2eE9tZzdlQmhXeHVIdCtIb3dBN3hOL1M2S0NPRStkdEVDU0VFSDlMd0hPUG1wMm9NZUhwclFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTI3OTIzCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuNC4xX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjQuMQpJeHcxZ1YxMEw1QWkzdmtzYWNpSUhPTjI3NGd4TWI2aGZZZTk0b25pQTdzWlVoZ0hjUzZKVVFRYTFheC9wbXN0TU1oYWlzNmx6ZlBZMitDSjlHRXNDUT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.4.1/myuke-setup-2.4.1-x64.exe"
+    }
+  }
+}

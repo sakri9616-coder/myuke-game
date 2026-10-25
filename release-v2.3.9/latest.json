@@ -1,0 +1,11 @@
+{
+  "version": "2.3.9",
+  "notes": "修正と小さな追加の版です。v2.3.8 で「ひらくを押してもメニューが開かない」ことがある不具合を直しました（保存されていたメニュー位置が画面外だと、開いても見えなかったのが原因です。画面内に収まる時だけ保存位置を使うようになりました）。帯（デスクトップ上のみゅけ達）は右上の ◥ をドラッグして好きな高さへ動かせるようになりました。位置は保存され、設定から「画面下に戻す」もできます。スタッフの歩行アニメがファイルのタグ通りに正しくループするようになり、おやつアニメのループ範囲もタグに合わせました。みゅけの机には sakuri さん描き下ろしのコーヒーが置かれるようになりました。自動アップデートで配信される版です。",
+  "pub_date": "2026-10-25T07:02:32Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmJxMU5SSGp4WXRhTVFFSFZ5NUx2VzRGaXRoNU5XNUpxU09NczUrYWZ2OE5IRERuTHFVV2luUVhJSGUxZFNBWnZsN2ltemRENGM2Q2FEcERFTURNNHdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTExNzUwCWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuMy45X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjMuOQpmMjZzOC9FUUhNNnpoVmRxSjJiSHlDU3Q3Vy9sclhuNkdReW00N2ZyaEIzTlh6R1ZQVDIwU2hqVlRYcElJZXJscThOYUhWbGcxNlI3Q1ViZ1E4UFpBZz09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.3.9/myuke-setup-2.3.9-x64.exe"
+    }
+  }
+}

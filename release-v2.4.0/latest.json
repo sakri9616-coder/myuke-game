@@ -1,0 +1,11 @@
+{
+  "version": "2.4.0",
+  "notes": "新機能版です。(1) 帯の大きさを変えられるようになりました: 設定タブの「帯の大きさ」で 70%〜130% を選べます。常駐アプリなので、画面を広く使いたい時は小さめにどうぞ。(2) 家具の並べ替え: 帯の「✥ 並べ替え」ボタンを押すと並べ替えモードになり、作品棚や みゅけの机、研究机などをドラッグで好きな場所へ動かせます。配置は保存されるので、自分だけの見やすいオフィスにできます (設定タブから初期配置にも戻せます)。(3) Windows 実機で「ひらくを押してもメニューが開かない」問題への対策 (保存位置の厳格判定＋ウィンドウ処理の見直し) も引き続き入っています。自動アップデートで配信される版です。",
+  "pub_date": "2026-10-25T10:33:07Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDByR01WcEFkNmFUK1RhZGZQQlNDU1lBZ2tzdUYydnlZZWlVb2JiVk1SR3JpQ3lRL2FlcDFaU2tiY24ybjRybERzSVljN29rUFkvUFoyTU4xTDBvc1JmbkhFUW9JQmdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTI0Mzg1CWZpbGU644G/44KF44GR44CB44GN44KH44GG44KC6ZaL55m65LitXzIuNC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjQuMApaTVVzM1FYbjcwRmJGZHA1VlppVVdKVFFGejFTYWVVeTJPNjVoOUlRRXA5OVc4UmJ2Um9LSDd2RHJzaHc4SWJsZThCdnhWRDVMUENHN0JjQ3Jkd2NDUT09Cg==",
+      "url": "https://github.com/sakri9616-coder/myuke-game/releases/download/v2.4.0/myuke-setup-2.4.0-x64.exe"
+    }
+  }
+}
