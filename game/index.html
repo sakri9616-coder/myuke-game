@@ -15536,10 +15536,17 @@ function updOpenSettings(){
   switchTab("settings");
   window.__miyukeApplyMode("full");   /* ブラウザ (solo): 従来どおりページ内切替 */
 }
-/* 起動時: 少し待ってから無言で1回だけ確認する（ブラウザでは無操作） */
+/* 起動時: 少し待ってから無言で確認する（ブラウザでは無操作）。
+   次回リリース分: 起動時1回だけでは、起動中に公開された更新を再起動まで検出できない
+   (sakuri 実機報告: 動いたり動かなかったり)。30分ごとに無言で再確認する。
+   検出済み (available) や進行中は checkForUpdates 側のガードと状態条件で弾く */
 function initUpdater(){
   if(!inTauri() || !updApi()) return;
   setTimeout(() => { checkForUpdates(false); }, 4000);
+  setInterval(() => {
+    if(upd.status === "idle" || upd.status === "uptodate" || upd.status === "error")
+      checkForUpdates(false);
+  }, 30 * 60 * 1000);
 }
 
 /* ---------- 入力とリアクション ---------- */
