@@ -13,6 +13,15 @@ cd ~/workspace/miyuke-game/desktop
 VER=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
 echo "BUILD_VERSION=$VER"
 
+# リリースノートは版ごとの外部ファイル (release-notes/v<版数>.md) から読む。
+# latest.json へのハードコードは禁止。未用意ならビルド前に止める
+# (間違ったノート付き latest.json が生成される事故を防ぐ)。
+NOTES_FILE="../release-notes/v${VER}.md"
+if [ ! -f "$NOTES_FILE" ]; then
+  echo "RELEASE_NOTES_MISSING: $NOTES_FILE を用意してから再実行すること"
+  exit 1
+fi
+
 # Updater 署名鍵 (平文は .keys/ の外に出さない。鍵そのものは DESIGN.md 参照)
 # ※ set +x で囲む: xtrace が鍵をこのログへ書き出すのを防ぐ
 if [ -f .keys/updater.key ]; then
@@ -60,11 +69,11 @@ mkdir -p "$REL_DIR"
 cp "/tmp/winpkg/myuke-setup-${VER}-x64.exe" "$REL_DIR/myuke-setup-${VER}-x64.exe"
 if [ -f "$UPD_SIG" ]; then
   UPD_URL="https://github.com/sakri9616-coder/myuke-game/releases/download/v${VER}/myuke-setup-${VER}-x64.exe" \
-  UPD_SIG_CONTENT="$(cat "$UPD_SIG")" VER="$VER" python3 - <<'PYEOF'
+  UPD_SIG_CONTENT="$(cat "$UPD_SIG")" UPD_NOTES="$(cat "$NOTES_FILE")" VER="$VER" python3 - <<'PYEOF'
 import json, os, datetime
 data = {
   "version": os.environ["VER"],
-  "notes": "帯の表示サイズの基準を見直しました。今までの70%を新しい標準（100%）とし、設定の「帯の大きさ」はその基準で70〜130%に調整できます（今まで100%で使っていた方は同じ大きさのまま移行します）。あわせて、新しい標準サイズでも文字が読めるよう、リーダーボードや吹き出しなどの文字サイズを再設計しました。並べ替えボタンは帯の右上（グリップの脇）に戻し、クリックできる家具にマウスを乗せると黄色い枠が出るようになりました。出荷台とおやつ箱のグラフィックも描き直しています。",
+  "notes": os.environ["UPD_NOTES"],
   "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
   "platforms": {
     "windows-x86_64": {
