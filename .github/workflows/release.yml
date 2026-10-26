@@ -28,6 +28,10 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      # Windows ランナーの python 既定 cp1252 で tauri.conf.json の日本語が
+      # UnicodeDecodeError になるため UTF-8 を強制する (初回試験で実証)
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +45,7 @@ jobs:
           fi
           echo "VER=$VER" >> "$GITHUB_ENV"
           test -f "release-notes/v${VER}.md" || { echo "RELEASE_NOTES_MISSING: release-notes/v${VER}.md"; exit 1; }
-          CONF_VER=$(python -c "import json;print(json.load(open('desktop/src-tauri/tauri.conf.json'))['version'])")
+          CONF_VER=$(python -c "import json;print(json.load(open('desktop/src-tauri/tauri.conf.json', encoding='utf-8'))['version'])")
           [ "$CONF_VER" = "$VER" ] || { echo "VERSION_MISMATCH: tauri.conf=$CONF_VER target=$VER"; exit 1; }
           GAME_VER=$(python -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('game/index.html', encoding='utf-8').read()).group(1))")
           [ "$GAME_VER" = "$VER" ] || { echo "GAME_VERSION_MISMATCH: game=$GAME_VER target=$VER"; exit 1; }
