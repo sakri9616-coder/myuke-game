@@ -527,3 +527,28 @@ console.log("== Phase D: 子会社の配分感度（人員30・規模Lv3 の2社
   console.log("参考: 設立直後（人員5・Lv1・robot・配分100%）= " + first.toFixed(1) + "🪙/分 / 育成後3社（人員50・Lv6・中位ジャンル・均等）≈ " +
     Math.round(3 * subCoins(50, 6, 3, 33)) + "🪙/分（本社30日目の平均 ~30🪙/分 を大きく上回り、終盤の主収入になる設計）");
 }
+
+/* ===== Wave F: オーバークロックの寄与（承認済み仕様書 F 節の数値ゲート） =====
+   解析モデル（前提を明示）: 中盤のアクティブプレイヤーのスナップショット —
+   非クリック生産 P=330 DP/分（スタッフ+ブースト込み）、応援クリック 40回/分
+   （平均 +48.9 DP/分 = clickPower 0.25 × combo 平均 2.84 × クリEV 1.72、
+   レーンA 項目1 の実測値）、OS ブースト 30 DP/分。FEVER 定数は実装から抽出。
+   ゲート: フィーバーの総収入への上乗せが 15〜40%（カタルシスとして感じられ、
+   かつ常用生産の格を落とさない範囲） */
+console.log("");
+console.log("== Wave F: オーバークロックの寄与（アクティブ中盤スナップショット）==");
+{
+  const srcF = fs.readFileSync("/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+  const fm = srcF.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+) \}/);
+  if(!fm) throw new Error("FEVER extraction failed");
+  const F = { cB: +fm[1], cC: +fm[2], durS: +fm[3] / 1000, pM: +fm[4], kM: +fm[5] };
+  const P = 330, clickPerMin = 40, clickDPMin = 48.9, boostDPMin = 30, clickAvgGain = 48.9 / 40;
+  const chargeMin = boostDPMin * F.cB + clickPerMin * F.cC;
+  const cycleMin = 100 / chargeMin, duty = F.durS / (cycleMin * 60);
+  const prodUp = P * (F.pM - 1) * (F.durS / 60) / cycleMin;
+  const clickUp = (clickPerMin * F.durS / 60) * clickAvgGain * (F.kM - 1) / cycleMin;
+  const base = P + clickDPMin, up = prodUp + clickUp;
+  console.log("充填: " + chargeMin.toFixed(1) + "/分 → 満タン周期 " + cycleMin.toFixed(1) + " 分 / デューティ " + (duty * 100).toFixed(1) + "%");
+  console.log("上乗せ: 生産 +" + prodUp.toFixed(1) + " DP/分 / クリック +" + clickUp.toFixed(1) + " DP/分 → 総収入 " + base.toFixed(0) + " に対し +" + (up / base * 100).toFixed(1) + "%");
+  console.log("寄与判定（15〜40%）: " + (up / base >= 0.15 && up / base <= 0.40 ? "PASS" : "FAIL"));
+}

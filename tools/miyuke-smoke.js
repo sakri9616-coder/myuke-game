@@ -3325,6 +3325,52 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       run(sbOld, "propPlace('board').cx") === run(sbOld, "stripDeskCX()"));
   }
 
+  /* ================= Wave F: オーバークロック（フィーバー） ================= */
+  console.log("== Wave F: overclock gauge, activation, production/click multipliers ==");
+  {
+    const sbF = buildSandbox({});
+    loadGame(sbF);
+    check("WF: fresh state starts with an empty fever gauge",
+      run(sbF, "S.fever.gauge") === 0 && run(sbF, "feverActive()") === false);
+    run(sbF, "chargeFever(60)");
+    check("WF: charging accumulates and caps at 100",
+      run(sbF, "S.fever.gauge") === 60 && run(sbF, "chargeFever(60), S.fever.gauge") === 100);
+    run(sbF, "activateFever()");
+    check("WF: activation at full gauge starts the fever and drains the gauge",
+      run(sbF, "feverActive()") === true && run(sbF, "S.fever.gauge") === 0);
+    run(sbF, "chargeFever(50)");
+    check("WF: no charging while the fever is running",
+      run(sbF, "S.fever.gauge") === 0);
+    /* production: fever multiplies output but NOT bug accrual */
+    const mk = () => {
+      const sb = buildSandbox({});
+      loadGame(sb);
+      run(sb, "S.project = { name:'T', size:'S', genre:'app', totalDP: 900, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }; S.bugStock = 0");
+      return sb;
+    };
+    const sbBase = mk(); run(sbBase, "produceDP(100, 'l1')");
+    const sbFev = mk(); run(sbFev, "S.fever.gauge = 100; activateFever(); produceDP(100, 'l1')");
+    check("WF: fever multiplies WIP output by the production multiplier",
+      Math.abs(run(sbFev, "S.wip.code") - run(sbBase, "S.wip.code") * run(sbFev, "FEVER.prodMult")) < 0.001,
+      run(sbBase, "S.wip.code") + " -> " + run(sbFev, "S.wip.code"));
+    check("WF: fever does NOT multiply bug accrual or the bug stock",
+      Math.abs(run(sbFev, "S.project.bugs") - run(sbBase, "S.project.bugs")) < 0.001 &&
+      Math.abs(run(sbFev, "S.bugStock") - run(sbBase, "S.bugStock")) < 0.001,
+      run(sbBase, "S.project.bugs") + " vs " + run(sbFev, "S.project.bugs"));
+    /* activation refuses below full */
+    const sbLow = mk();
+    run(sbLow, "S.fever.gauge = 55; activateFever()");
+    check("WF: activation refuses below a full gauge",
+      run(sbLow, "feverActive()") === false && run(sbLow, "S.fever.gauge") === 55);
+    /* old save without the fever field loads with the guard */
+    const sbOldF = buildSandbox({});
+    sbOldF.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 5, staff: [] }));
+    let threwF = false;
+    try { loadGame(sbOldF); } catch (e) { threwF = true; }
+    check("WF: a save without the fever field loads with an empty gauge",
+      !threwF && run(sbOldF, "S.fever.gauge") === 0);
+  }
+
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
   if (failures.length) console.log("failed: " + failures.join(" | "));
   process.exit(FAIL ? 1 : 0);

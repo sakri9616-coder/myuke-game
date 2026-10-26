@@ -11878,6 +11878,7 @@ function freshState(){
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
     depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
     subs: [], subSeq: 0,
+    fever: { gauge: 0 },
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
@@ -11981,6 +11982,9 @@ function load(){
       if(typeof sub.alloc !== "number") sub.alloc = 0;
     }
     normalizeAlloc();
+    /* 拡張ウェーブ F: フィーバーゲージ（旧セーブには無い） */
+    if(!S.fever || typeof S.fever !== "object") S.fever = { gauge: 0 };
+    if(typeof S.fever.gauge !== "number") S.fever.gauge = 0;
     for(const st of S.staff) if(st.role === "sales" && !st.genre){
       const pool = unlockedGenres();
       st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
@@ -12688,19 +12692,55 @@ function bugFactor(){
   return S.bugStock > 8 ? Math.max(0.5, 1 - (S.bugStock - 8) * 0.02) : 1;
 }
 /* 生産: 倍率を掛けて対象ラインの実装バッファへ。バグは生産量に応じて全体に混入する */
+/* ---------- 拡張ウェーブ F: オーバークロック（フィーバー） ----------
+   実作業（入力ブースト）と応援クリックでゲージが貯まり、プレイヤーが任意の
+   タイミングで発動する 30 秒の加速時間（承認済み仕様書 F 節・数値は承認値）。
+   供給の線引きは入力ブーストと同じ: OS 集計が OFF のときはゲーム内クリック
+   だけで細く貯まる。発動中は生産 ×5（バグの発生は基礎量で数える — 加速の
+   代価にバグを増やさない）・応援クリック ×20・バグが湧きやすい */
+const FEVER = { chargePerBoostDP: 0.2, chargePerClick: 0.06, durationMs: 30000, prodMult: 5, clickMult: 20 };
+let feverUntil = 0;   /* 発動中だけ意味がある揮発状態（保存しない） */
+let feverBugNext = 0;
+function feverActive(){ return Date.now() < feverUntil; }
+function chargeFever(amount){
+  if(feverActive() || !S.fever) return;
+  const before = S.fever.gauge || 0;
+  S.fever.gauge = Math.min(100, before + amount);
+  if(before < 100 && S.fever.gauge >= 100 && !IS_VIEWER){
+    say("⚡ オーバークロック準備完了にゃ！ 机脇のゲージをクリックで発動できるよ");
+    addLog("⚡ オーバークロックのゲージが満タンになった");
+  }
+}
+function activateFever(){
+  if(feverActive()) return;
+  if(!S.fever || (S.fever.gauge || 0) < 100){
+    say("ゲージがまだ " + Math.floor((S.fever && S.fever.gauge) || 0) + "% にゃ。作業や応援で貯まるよ");
+    return;
+  }
+  S.fever.gauge = 0;
+  feverUntil = Date.now() + FEVER.durationMs;
+  feverBugNext = Date.now() + 3000;
+  SoundKit.play("releaseFanfare");
+  say("⚡ オーバークロック発動にゃ！！ 30秒、全力で回すよ！");
+  addLog("⚡ オーバークロック発動（30秒: 生産×5・クリック×20）");
+  if(document.body.classList.contains("strip"))
+    addStripFloater(stripDeskCX(), STRIP_GROUND - 62, "⚡ FEVER!", "#e2543e");
+  save(); renderPanel();
+}
 function produceDP(amount, target){
-  const a = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+  const a = aBase * (feverActive() ? FEVER.prodMult : 1);
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
   const proj = target === "l2" ? S.line2.project : S.project;
   const bugMul = (proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1;
-  if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += a * BAL.bugPerDP * bugMul; }
+  if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += aBase * BAL.bugPerDP * bugMul; }
   else {
     S.wip.code += a;
-    if(S.project) S.project.bugs += a * BAL.bugPerDP * bugMul;
+    if(S.project) S.project.bugs += aBase * BAL.bugPerDP * bugMul;
     S.totals.lines += a * 1.05; S.today.lines += a * 1.05;
   }
   S.runDP += a;
-  S.bugStock += a * BAL.bugPerDP * bugMul;
+  S.bugStock += aBase * BAL.bugPerDP * bugMul;
   /* チュートリアル: 初めてバグ在庫が積まれた瞬間だけ、ほったらかしで
      大丈夫なことを1回伝える (マイクロビート) */
   if(S.tut && !S.tut.seen.first_bug && S.bugStock >= 1 && !IS_VIEWER){
@@ -12932,9 +12972,10 @@ function spawnFish(now){
   say("✨ 金のひらめきフィッシュが現れたにゃ！クリックで捕まえて！");
   addLog("✨ 金のひらめきフィッシュが現れた");
 }
-function spawnBugSwarm(now){
+function spawnBugSwarm(now, count){
   const bugs = [];
-  for(let i = 0; i < 6; i++){
+  const n = count || 6;
+  for(let i = 0; i < n; i++){
     bugs.push({ x: 20 + Math.random()*200, y: 30 + Math.random()*118,
       vx: (Math.random()-0.5) * 22, vy: (Math.random()-0.5) * 14,
       /* Sprint 4: 帯側の這い位置（帯仮想座標。sx は帯幅に対する割合で持ち、
@@ -12947,6 +12988,11 @@ function spawnBugSwarm(now){
   addLog("🐛 バグ大量発生イベント！");
 }
 function eventTick(now){
+  /* F: フィーバー中はバグが湧きやすい（潰すとボーナス DP の的になる） */
+  if(feverActive() && !bugEvent && now >= feverBugNext){
+    spawnBugSwarm(now, 10);
+    feverBugNext = now + 12000;
+  }
   if(!fishEvent && !bugEvent){
     if(now >= nextFishAt && nextFishAt <= nextBugAt) spawnFish(now);
     else if(now >= nextBugAt) spawnBugSwarm(now);
@@ -12993,6 +13039,12 @@ function splatBug(i, bx, by){
   SoundKit.play("bugSquash");
   S.coins += 6; S.totals.coinsEarned += 6;
   S.totals.bugsSquashed++; S.today.bugs++; S.totals.eventBugs++;
+  if(feverActive()){
+    /* F: フィーバー中のバグ潰しはボーナス DP（応援クリック2回ぶん） */
+    const dp = clickPower() * comboMult() * 2;
+    produceDP(dp, "l1");
+    addFloater(bx, by - 16, "+" + dp.toFixed(0) + "DP", "#e2543e");
+  }
   addFloater(bx, by - 8, "+6🪙", "#5aa469");
   if(bugEvent.bugs.length === 0){
     S.coins += 20; S.totals.coinsEarned += 20;
@@ -13029,6 +13081,8 @@ function cheerClick(bx, by, part){
   const crit = Math.random() < critRate();
   let gain = clickPower() * comboMult();
   if(crit){ gain *= 10; S.totals.crits++; }
+  if(feverActive()) gain *= FEVER.clickMult;   /* F: フィーバー中は応援クリック ×20 */
+  else chargeFever(FEVER.chargePerClick);      /* F: 応援でもゲージが細く貯まる */
   /* Sprint 1: 応援の80%は工程を待たずその場でプロジェクト進捗になり
      （クリックでバーが即座に動く）、残り20%は通常どおり仕掛品へ流れる。
      企画中だけは直接計上できないので、全量を仕掛品に回す */
@@ -13197,6 +13251,7 @@ function tick(){
     let boost = keysAcc / BAL.keysPerDP + cursorAcc / BAL.cursorPxPerDP + clicksAcc / BAL.clicksPerDP;
     keysAcc = 0; cursorAcc = 0; clicksAcc = 0;
     boost = boostGate(boost);
+    if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
     if(boost > 0.01 && coding) produceDP(boost, "l1");
     else if(boost > 0.01) pendingBoost += boost;
     if(pendingBoost > 0 && coding){ produceDP(pendingBoost, "l1"); pendingBoost = 0; }
@@ -15896,6 +15951,7 @@ function renderStrip(){
   stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
   stripHitRects.calendar = null; stripHitRects.memo = null; stripHitRects.phone = null;
   stripHitRects.megaphone = null; stripHitRects.toolbox = null;
+  stripHitRects.fever = null;
   stripObjArt = {}; stripStaffArt = [];
   sctx.setTransform(1, 0, 0, 1, 0, 0);
   sctx.clearRect(0, 0, stripCv.width, stripCv.height);
@@ -15985,6 +16041,29 @@ function renderStrip(){
       sR(toolPl.cx - 1, toolPl.baseY - 23.5, 2, 5, "#e2543e");
       if(frame % 50 < 30) sR(toolPl.cx - 1.6, toolPl.baseY - 24.4, 3.2, 1.4, "#ffd94d");
     }
+  }
+  /* F: オーバークロック・ゲージ（机の右脇に立つ縦ゲージ。UI なのでコード描画可）。
+     溜まり具合は色＋量、満タンは金の明滅、発動中は赤で残り時間を減らして示す */
+  {
+    const gx = stripDeskCX() + 88, gh = 38, gw = 9;
+    const fActive = feverActive();
+    const fFrac = fActive ? Math.max(0, (feverUntil - Date.now()) / FEVER.durationMs)
+                          : (S.fever ? (S.fever.gauge || 0) / 100 : 0);
+    sR(gx - gw / 2 - 1.5, G - gh - 1.5, gw + 3, gh + 3, "#604B40");
+    sR(gx - gw / 2, G - gh, gw, gh, "#fff5e6");
+    if(fFrac > 0){
+      const fh = Math.max(1.5, gh * Math.min(1, fFrac));
+      sR(gx - gw / 2, G - fh, gw, fh, fActive ? "#e2543e" : (fFrac >= 1 ? (frame % 50 < 30 ? "#ffd94d" : "#f0b429") : "#4a90c2"));
+    }
+    if(fFrac >= 1 && !fActive && frame % 50 < 30){
+      sctx.save();
+      sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      sctx.fillText("⚡", gx, G - gh - 7);
+      sctx.restore();
+    }
+    if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
+      stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
+    stripHitRects.fever = { x: gx - 8, y: G - gh - 9, w: 16, h: gh + 11 };
   }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
   drawStripPiles();
@@ -16378,6 +16457,14 @@ if(stripCv){
       const nr = stripHitRects.snack;
       if(ux >= nr.x && ux <= nr.x + nr.w && uy >= nr.y && uy <= nr.y + nr.h){
         giveSnack();
+        return;
+      }
+    }
+    /* F: オーバークロック・ゲージのクリックで発動（家具タブ導線より先に判定） */
+    if(stripHitRects.fever){
+      const fr = stripHitRects.fever;
+      if(ux >= fr.x && ux <= fr.x + fr.w && uy >= fr.y && uy <= fr.y + fr.h){
+        activateFever();
         return;
       }
     }
@@ -17169,6 +17256,15 @@ function renderPanel(){
       statBlock("通算クリック", fmt(S.totals.clicks), "回") +
       "</div>";
     h += "<div class='note'>帯のみゅけをクリックで応援（80%はその場で進捗に）。金の魚やバグの群れもクリックで捕獲（逃がしてもペナルティなし）</div>";
+    /* 拡張ウェーブ F: オーバークロックの状態と発動（帯のゲージからも発動できる） */
+    {
+      const g = S.fever ? Math.floor(S.fever.gauge || 0) : 0;
+      const act = feverActive();
+      h += "<div class='kv'><span>⚡ オーバークロック</span><b>" +
+        (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×20）"
+             : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります）")) + "</b></div>";
+      if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">⚡ オーバークロック発動（30秒）</button>";
+    }
     h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
     h += "<div class='buygrid'>";
     for(const def of CLICK_DEFS){
@@ -17988,6 +18084,7 @@ const VERBS = {
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   dropRequest: dropRequestCore,
   foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
+  activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
