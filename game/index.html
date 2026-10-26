@@ -11495,7 +11495,10 @@ function tick(){
   // 第2ラインの生産
   if(S.line2.unlocked && S.line2.project) produceDP(line2Rate()/60, "l2");
   const _fd1 = S.wip.code - _fc1, _fd2 = S.line2.wip.code - _fc2;
-  // 工程処理: 第1ラインが先に容量を使い、第2ラインは残りを使う（QAも共有）
+  // 工程処理: 各ラインが独立の工程容量を持つ (sakuri 設計 2026-10-26:
+  // ライン2もライン1と同じ仕組みのハコを持つ)。旧方式 (ライン1優先・ライン2は
+  // 残り) は、生産に倍率が乗り工程容量に乗らないため進行したセーブで残りが
+  // 恒常的に 0 になり、ライン2が飢餓して永遠に完走しなかった (実機バグ)
   const bugF = bugFactor();
   const caps = { test: testRate()/60, build: buildRate()/60, ship: shipRate()/60 };
   /* 企画中プロジェクトは工程に流さない（仕掛品は実装バッファに溜まる） */
@@ -11503,16 +11506,8 @@ function tick(){
     ? { test:0, build:0, ship:0 }
     : processPipe(S.wip, caps, bugF, creditProject);
   let used2 = { test:0, build:0, ship:0 };
-  if(S.line2.unlocked){
-    // テスト容量はバグ係数を掛けた実効量で消費される（消費した素の容量 = used.test / bugF）
-    const rest = {
-      test: Math.max(0, caps.test - (bugF > 0 ? used.test / bugF : 0)),
-      build: Math.max(0, caps.build - used.build),
-      ship: Math.max(0, caps.ship - used.ship)
-    };
-    if(!(S.line2.project && S.line2.project.planning))
-      used2 = processPipe(S.line2.wip, rest, bugF, creditProject2);
-  }
+  if(S.line2.unlocked && !(S.line2.project && S.line2.project.planning))
+    used2 = processPipe(S.line2.wip, caps, bugF, creditProject2);
   /* 可視生産フローへの供給: 実フローの積分だけが帯の「物の流れ」になる */
   flowFeedTick(_fd1, _fd2, used, used2);
   // 研究員の研究Pトリクル

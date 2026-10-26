@@ -294,6 +294,19 @@ console.log("== Phase A: browser full mode (panels only) ==");
   check("60 ticks run without exceptions", tickOk);
   check("production accrues over ticks", run(sb, "S.runDP") > 0 || run(sb, "S.wip.code + S.wip.tested + S.wip.built") > 0);
 
+  /* --- 第2ライン飢餓の回帰防止 (2026-10-26 実機バグ): ライン1が全工程滞留＋
+     バグ在庫過多でも、ライン2は独立の工程容量で進む (旧: 残り容量方式で恒常 0) --- */
+  run(sb, "S.line2.unlocked = true; S.line2.genre = 'game'; S.dustTotal = 78;");
+  run(sb, "S.project = settleProject(genProject('M')); S.project.planning = false; S.projectDP = 0;");
+  run(sb, "S.line2.project = settleProject(genProject('S', 'game')); S.line2.project.planning = false; S.line2.projectDP = 0; S.line2.commitMark = 0;");
+  run(sb, "S.wip.code = 5000; S.wip.tested = 5000; S.wip.built = 5000; S.bugStock = 1837;");
+  const releasesBeforeL2 = run(sb, "S.totals.releases");
+  run(sb, "for(let i = 0; i < 600; i++) tick();");
+  check("line 2 progresses under full line-1 saturation (own pipe, no starvation)",
+    run(sb, "S.line2.projectDP") > 0 || run(sb, "S.totals.releases") > releasesBeforeL2,
+    "l2dp=" + run(sb, "Math.round(S.line2.projectDP)"));
+  check("line 1 still progresses in the same saturated state", run(sb, "S.projectDP") > 0);
+
   /* --- セーブ往復 & v1 マイグレーション --- */
   run(sb, "S.coins = 777; save();");
   const rawSaved = run(sb, "localStorage.getItem(SAVE_KEY)");

@@ -250,14 +250,13 @@ function simulate(days, active){
         wip2.code += produced2; runDP += produced2;
         bugStock += produced2 * BAL.bugPerDP;
       }
-      // --- 工程処理（第2ラインは残り容量） ---
+      // --- 工程処理（各ライン独立の工程容量。game 側と同期: 2026-10-26 飢餓修正） ---
       const bugF = bugStock > 8 ? Math.max(0.5, 1 - (bugStock - 8) * 0.02) : 1;
       const caps = { test: R.test, build: R.build, ship: R.ship };
       const used = project.planning ? { test:0, build:0, ship:0, credited:0 } : processPipe(wip, caps, bugF);
       projDP += used.credited;
       if(line2 && project2){
-        const rest = { test: Math.max(0, caps.test - used.test/Math.max(bugF, 0.0001)), build: Math.max(0, caps.build - used.build), ship: Math.max(0, caps.ship - used.ship) };
-        const used2 = project2.planning ? { credited:0 } : processPipe(wip2, rest, bugF);
+        const used2 = project2.planning ? { credited:0 } : processPipe(wip2, caps, bugF);
         proj2DP += used2.credited;
       }
       // --- バグ処理（QA＋みゅけのデバッグ叩き近似） ---
