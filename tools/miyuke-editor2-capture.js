@@ -1,14 +1,24 @@
 /* Disposable, deterministic browser evidence for the menu art pass.
    node tools/miyuke-editor2-capture.js --before=/path/to/pre-pass.html --tag=rev2
+   Self-check mode for verify-all (single version, no second file needed):
+   node tools/miyuke-editor2-capture.js --self --tag=verify --outdir=/path/to/dir
+   In --self mode, before defaults to the current game/index.html, so the
+   before/after comparison becomes a determinism + menu-health check: any
+   pageerror, broken hire fold, horizontal overflow, or newly-scrolling tab
+   in the CURRENT menu fails the run. --outdir defaults to the project root
+   (historical behavior); verify-all passes its own log directory.
    Requires Playwright and Chromium; never reads or writes the player's save.
    Optional: MIYUKE_PLAYWRIGHT_MODULE / MIYUKE_CHROME_PATH for local installs. */
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os");
 const root = path.resolve(__dirname, "..");
 const arg = name => (process.argv.find(x => x.startsWith("--" + name + "=")) || "").split("=").slice(1).join("=");
-const before = arg("before");
+const self = process.argv.includes("--self");
+const outdir = arg("outdir");
+let before = arg("before");
+if(self && !before) before = path.join(root, "game/index.html");
 const tag = arg("tag") || new Date().toISOString().replace(/[:.]/g, "-");
-if(!before || !fs.existsSync(before)) throw new Error("Supply --before=/path/to/pre-pass.html");
+if(!before || !fs.existsSync(before)) throw new Error("Supply --before=/path/to/pre-pass.html (or --self to compare the current game against itself)");
 if(!/^[\w-]+$/.test(tag)) throw new Error("Use letters, digits, underscores or hyphens in --tag");
 let chromium;
 for(const modulePath of [process.env.MIYUKE_PLAYWRIGHT_MODULE, "playwright", "/opt/muse/assets/spaces/ts-runtime/dist/node_modules/playwright"].filter(Boolean)){
@@ -24,7 +34,9 @@ const veteran = {
   research:{res_game:true,res_plant:true,res_line2:true}, upgrades:{keyboard:1},
   shelf:[{name:"旧作",genreName:"ゲーム",size:"M",date:"2026/10/01",devMin:30,lines:900,bugs:3,naps:0,icon:1}]
 };
-const out = name => path.join(root, "menu-editor2-" + name + "-" + tag);
+const outBase = outdir ? path.resolve(outdir) : root;
+if(outdir) fs.mkdirSync(outBase, {recursive:true});
+const out = name => path.join(outBase, "menu-editor2-" + name + "-" + tag);
 for(const version of ["before", "after"]){
   for(const tab of [...tabs, "lock"]){
     if(fs.existsSync(out(version + "-" + tab) + ".png")) throw new Error("Choose a new --tag; evidence must not be overwritten");
@@ -54,7 +66,11 @@ async function main(){
   let browser;
   const result = {viewport:{width:1180,height:860},before:{},after:{},errors:[]};
   try{
-    browser = await chromium.launch({executablePath,headless:true,args:["--no-sandbox","--disable-dev-shm-usage","--disable-crashpad-for-testing"]});
+    // NOTE: --disable-crashpad-for-testing is deliberately NOT passed here.
+    // It hangs page.goto on this Chromium build (/opt/meta-chromium/chrome);
+    // strip-capture.js hit the same hang on 2026-10-25 and removing the flag
+    // fixed it. Self-mode reproduced the hang before this change.
+    browser = await chromium.launch({executablePath,headless:true,args:["--no-sandbox","--disable-dev-shm-usage"]});
     for(const version of ["before", "after"]){
       for(const locked of [false, true]){
         const context = await browser.newContext({viewport:result.viewport,deviceScaleFactor:1});

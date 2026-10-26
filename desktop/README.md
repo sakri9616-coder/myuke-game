@@ -67,7 +67,7 @@ Rust側は「常駐のための枠」とモード切替だけを担当します�
 
 ## ビルド方法
 
-通常の再ビルドは `bash resync-rebuild.sh` 一発です（`game/index.html` の再同期→ Linux/Windows 両ビルド → 配布 zip `myuke-desktop-windows.zip` の再作成まで）。v2.3.5 からはスクリプトが Updater 用の署名も行い、GitHub Release 用の成果物（インストーラ／Updater zip／latest.json）を `../release-v<版数>/` にステージします。公開手順は同フォルダの `RELEASE_UPLOAD.md` と `../DESIGN.md` の「v2.3.5」節を参照。
+通常の再ビルドは `bash resync-rebuild.sh` 一発です（`game/index.html` の再同期→ Windows ビルド → 配布 zip `myuke-desktop-windows.zip` の再作成まで。納品物は Windows のみのため、既定では Linux deb をビルドしません。Linux deb も要る場合は `BUILD_LINUX=1 bash resync-rebuild.sh` または `bash resync-rebuild.sh --with-linux`）。ビルド前にリリースノート・署名鍵・版数一致を入口チェックし、不備があれば開始前に止まります。v2.3.5 からはスクリプトが Updater 用の署名も行い、GitHub Release 用の成果物（インストーラ／Updater zip／latest.json）を `../release-v<版数>/` にステージします。公開手順は同フォルダの `RELEASE_UPLOAD.md` と `../DESIGN.md` の「v2.3.5」節を参照。
 
 - **署名鍵の置き場所**: `desktop/.keys/`（`updater.key` が秘密鍵、`updater.key.password` がそのパスワード、`updater.key.pub` が公開鍵）。スクリプトが env 経由でビルドに渡します。**秘密鍵とパスワードはリポジトリや配布物に入れないこと**。失うと以後のアップデートを署名できなくなります。
 

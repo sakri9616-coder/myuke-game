@@ -3,6 +3,10 @@
    既存のプレイヤーセーブは読まない（新規プロファイルで開くため常に新規セーブ）。
    既存ファイルへの上書きはしない（証拠は常に新規ファイル名にする運用）。
    使い方: node tools/strip-capture.js --out=/path/to.png [--width=1280] [--height=210] [--wait=3000]
+     [--seed=/path/to/save.json]
+   --seed を渡すと、その JSON を localStorage の miyuke-save-v1 として先に投入してから
+   開く（進行後状態の帯撮影用。load() が既定値マージで補完するため部分セーブでよい）。
+   渡さない場合は従来どおり新規セーブ（新規プロファイルで既存セーブを読まない）。
    依存: Playwright + Chromium（miyuke-editor2-capture.js と同じ解決順）。
    終了コード: 0 = 撮影成功かつ JS エラーなし、1 = それ以外。 */
 "use strict";
@@ -13,6 +17,13 @@ const out = arg("out");
 const width = parseInt(arg("width") || "1280", 10);
 const height = parseInt(arg("height") || "210", 10);
 const waitMs = parseInt(arg("wait") || "3000", 10);
+const seedPath = arg("seed");
+let seedJson = null;
+if (seedPath) {
+  if (!fs.existsSync(seedPath)) throw new Error("Seed file not found: " + seedPath);
+  seedJson = fs.readFileSync(seedPath, "utf8");
+  JSON.parse(seedJson); // 早期に形だけ検証する（中身の妥当性は load() の既定値マージに委ねる）
+}
 if (!out) throw new Error("Supply --out=/path/to.png");
 if (fs.existsSync(out)) throw new Error("Refusing to overwrite existing file: " + out);
 let chromium;
@@ -28,6 +39,12 @@ async function main() {
   const browser = await chromium.launch({ executablePath, headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {
     const context = await browser.newContext({ viewport: { width, height } });
+    if (seedJson) {
+      await context.addInitScript(({ seed }) => {
+        localStorage.clear();
+        localStorage.setItem("miyuke-save-v1", seed);
+      }, { seed: seedJson });
+    }
     const page = await context.newPage();
     page.on("pageerror", e => errors.push("pageerror: " + (e && e.message)));
     page.on("console", m => { if (m.type() === "error") errors.push("console.error: " + m.text()); });
@@ -50,7 +67,7 @@ async function main() {
     const size = fs.statSync(out).size;
     if (!size) errors.push("screenshot is empty");
     console.log("STRIP_CAPTURE " + (errors.length ? "FAIL" : "OK") +
-      " out=" + out + " bytes=" + size +
+      " out=" + out + " bytes=" + size + " seed=" + (seedPath || "fresh") +
       " strip=" + info.stripClass + " canvas=" + info.canvasW + "x" + info.canvasH +
       " errors=" + errors.length);
     if (errors.length) { for (const e of errors) console.log("  error: " + e); process.exitCode = 1; }

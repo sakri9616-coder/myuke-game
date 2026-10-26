@@ -1,8 +1,15 @@
 #!/bin/bash
-# game/index.html の最新版を dist へ再同期し、Linux/Windows 両方を再ビルドして
+# game/index.html の最新版を dist へ再同期し、Windows を再ビルドして
 # 配布 zip (myuke-desktop-windows.zip) を作り直す。v2.3.5 からは Updater 用の
 # 署名 (desktop/.keys/) を env 経由で渡し、GitHub Release 用の成果物一式も
 # release-v<版数>/ へステージする (公開そのものは手作業)。
+# 納品物は Windows のみのため、既定では Linux deb をビルドしない
+# (HARNESS_AUDIT #4: 毎回両OSフルビルド約6分の無駄を削減)。
+# Linux deb も要る場合のみ `BUILD_LINUX=1 bash resync-rebuild.sh`
+# または `bash resync-rebuild.sh --with-linux` で両方ビルドする。
+# 入口チェック (HARNESS_AUDIT #4: fail-late の是正):
+# リリースノート・署名鍵・版数一致をビルド前に検証し、不備があれば
+# ビルド開始前に止まる。RESYNC_DONE が出るのは全工程の成功時のみ。
 LOG=~/workspace/miyuke-game/desktop/resync-rebuild.log
 exec > "$LOG" 2>&1
 set -x
@@ -22,6 +29,22 @@ if [ ! -f "$NOTES_FILE" ]; then
   exit 1
 fi
 
+# 入口チェック1: 署名鍵が無ければ、署名なし成果物を作って後段で気づく
+# fail-late にならないよう、ビルド前に止める (鍵の中身は読まない・出さない)。
+if [ ! -f .keys/updater.key ] || [ ! -f .keys/updater.key.password ]; then
+  echo "SIGNING_KEY_MISSING: desktop/.keys/updater.key(＋.password) が無いため開始しない"
+  exit 1
+fi
+
+# 入口チェック2: game/index.html の GAME_VERSION と tauri.conf.json の
+# version が一致しなければ、版違いの成果物を作る前に止める。
+GAME_VER=$(python3 -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('../game/index.html', encoding='utf-8').read()).group(1))")
+if [ "$GAME_VER" != "$VER" ]; then
+  echo "VERSION_MISMATCH: game/index.html の GAME_VERSION=v${GAME_VER} と tauri.conf.json の version=${VER} が不一致のため開始しない"
+  exit 1
+fi
+echo "ENTRY_CHECKS_OK: notes＋signing key＋version(${VER}) 一致"
+
 # Updater 署名鍵 (平文は .keys/ の外に出さない。鍵そのものは DESIGN.md 参照)
 # ※ set +x で囲む: xtrace が鍵をこのログへ書き出すのを防ぐ
 if [ -f .keys/updater.key ]; then
@@ -35,11 +58,25 @@ fi
 cp ../game/index.html dist/index.html
 cmp ../game/index.html dist/index.html && echo "FRONTEND_SYNCED"
 
-npx tauri build -b deb
-echo "LINUX_REBUILD_EXIT=$?"
+if [ "$BUILD_LINUX" = "1" ] || [ "$1" = "--with-linux" ]; then
+  npx tauri build -b deb
+  LINUX_REBUILD_EXIT=$?
+  echo "LINUX_REBUILD_EXIT=$LINUX_REBUILD_EXIT"
+  if [ "$LINUX_REBUILD_EXIT" != "0" ]; then
+    echo "LINUX_BUILD_FAILED: Linux ビルド失敗のため中断 (Windows ビルドへ進まない)"
+    exit 1
+  fi
+else
+  echo "LINUX_BUILD_SKIPPED: 既定は Windows のみ (Linux deb が要る場合は BUILD_LINUX=1 または --with-linux)"
+fi
 
 npx tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin -b nsis -- --xwin-arch x86_64
-echo "WIN_REBUILD_EXIT=$?"
+WIN_REBUILD_EXIT=$?
+echo "WIN_REBUILD_EXIT=$WIN_REBUILD_EXIT"
+if [ "$WIN_REBUILD_EXIT" != "0" ]; then
+  echo "WIN_BUILD_FAILED: Windows ビルド失敗のため中断 (RESYNC_DONE は出さない)"
+  exit 1
+fi
 
 NSIS_DIR="src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
 SETUP_EXE="$NSIS_DIR/みゅけ、きょうも開発中_${VER}_x64-setup.exe"
@@ -89,12 +126,15 @@ with open(out, "w", encoding="utf-8") as f:
 print("latest.json written:", out)
 PYEOF
 else
-  echo "UPDATER_ARTIFACT_MISSING: インストーラの .sig が見つからない（署名 env を確認）"
+  echo "UPDATER_ARTIFACT_MISSING: インストーラの .sig が見つからない（署名 env を確認）。latest.json 無しではステージが不完全なため中断する"
+  exit 1
 fi
 ls -lh "$REL_DIR" 2>/dev/null
 
-ls -lh src-tauri/target/release/bundle/deb/*.deb \
-       "$NSIS_DIR"/*.exe \
+if [ "$BUILD_LINUX" = "1" ] || [ "$1" = "--with-linux" ]; then
+  ls -lh src-tauri/target/release/bundle/deb/*.deb
+fi
+ls -lh "$NSIS_DIR"/*.exe \
        src-tauri/target/x86_64-pc-windows-msvc/release/miyuke.exe \
        ../myuke-desktop-windows.zip
 echo "RESYNC_DONE"

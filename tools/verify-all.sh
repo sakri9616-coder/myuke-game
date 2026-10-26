@@ -8,9 +8,13 @@
 # 使い方: tools/verify-all.sh [--tag=YYYYMMDD-HHMMSS] [--skip-shot]
 # 成果物: 目標 hidden_files/verify-logs/verify-<tag>.log（全ステップの生出力＋判定）
 #         <project>/verify-strip-<tag>.png（帯スクショ）
+#         目標 hidden_files/verify-logs/menu-<tag>/（メニュー全タブの撮影＋測定JSON）
 # 判定: PASS / PASS_WITH_WARNINGS / FAIL。終了コードは FAIL のときのみ 1。
-# 既知のフレーク: smoke の失敗が全て "B9-B:"（eat/celebrate の実時間ドリフト、
-#   v2.4.1 検証時から記録済み）の場合のみ、失敗扱いにしない。B9-B 以外の失敗は FAIL。
+# 既知のフレークはなし（2026-10-26 06:17回で撤去。旧マスクの経緯:
+#   B9-B は実時間 dt による x の微小ドリフトで eat/celebrate が確率的に失敗する
+#   既知フレークだったが、smoke の B9-B サンドボックスを偽時計化して根治し、
+#   同領域の本物の回帰を握り潰さないよう前方一致マスクを撤去した。
+#   smoke の失敗は全て FAIL）。
 # ゲート（DESIGN.md / balance-sim.js 末尾の Sprint ゲートと同一）:
 #   初リリース passive/active とも ≤5分 / 30日総量アクティブ ≥ 放置×1.3 /
 #   7日目以降の0リリース日 0/0 / 帯の初リリース中央値 ≤300秒。
@@ -77,13 +81,7 @@ else
     echo "SMOKE: PASS ($SMOKE_PASS passed)" >> "$LOG"
   else
     FAILED_NAMES="$(grep "^failed:" "$TMP/smoke.out" | sed 's/^failed: //' || true)"
-    UNKNOWN="$(echo "$FAILED_NAMES" | tr '|' '\n' | grep -v '^ *B9-B:' || true)"
-    if [ -z "$UNKNOWN" ]; then
-      echo "SMOKE: PASS_WITH_KNOWN_FLAKES ($SMOKE_PASS passed, $SMOKE_FAIL failed, all B9-B)" >> "$LOG"
-      WARNINGS="$WARNINGS smoke-known-flakes($SMOKE_FAIL);"
-    else
-      FAIL=1; echo "SMOKE: FAIL ($SMOKE_PASS passed, $SMOKE_FAIL failed; non-flake: $UNKNOWN)" >> "$LOG"
-    fi
+    FAIL=1; echo "SMOKE: FAIL ($SMOKE_PASS passed, $SMOKE_FAIL failed; failed: $FAILED_NAMES)" >> "$LOG"
   fi
 fi
 
@@ -134,6 +132,66 @@ else
   fi
 fi
 
+# 6) strip baseline diff (best-effort, WARNING only — never FAILs the run)
+# 帯はアニメーションするため同一条件の再撮影でも 0% にはならない。実測ノイズ
+# （2026-10-26: fresh 再撮影 1.43% / veteran 再撮影 5.68%・8.38%＝スタッフ歩行のランダム性）
+# を超えた変化だけを「目視せよ」の警告にする。詳細は tools/strip-baselines/README.md。
+diff_step() { # $1 = label, $2 = baseline, $3 = shot, $4 = warn-threshold-pct
+  local label="$1" base="$2" shot="$3" thresh="$4"
+  if [ ! -f "$base" ] || [ ! -s "$shot" ]; then
+    echo "DIFF-$label: WARNING (baseline or shot missing)" >> "$LOG"
+    WARNINGS="$WARNINGS diff-$label-missing;"
+    return
+  fi
+  if ! python3 "$ROOT/tools/strip-diff.py" --a="$base" --b="$shot" > "$TMP/diff-$label.out" 2>&1; then
+    echo "DIFF-$label: WARNING (diff tool unavailable, see step log)" >> "$LOG"
+    cat "$TMP/diff-$label.out" >> "$LOG"
+    WARNINGS="$WARNINGS diff-$label-tool;"
+    return
+  fi
+  cat "$TMP/diff-$label.out" >> "$LOG"
+  local pct
+  pct="$(grep -oE '\([0-9.]+%\)' "$TMP/diff-$label.out" | head -1 | tr -d '()%')"
+  if [ -n "$pct" ] && awk -v p="$pct" -v t="$thresh" 'BEGIN{exit !(p > t)}'; then
+    echo "DIFF-$label: WARNING (changed ${pct}% > ${thresh}% — review the shot)" >> "$LOG"
+    WARNINGS="$WARNINGS diff-$label-high;"
+  else
+    echo "DIFF-$label: OK (changed ${pct:-?}% <= ${thresh}%)" >> "$LOG"
+  fi
+}
+if [ "$SKIP_SHOT" != "1" ] && [ -s "$SHOT" ]; then
+  diff_step fresh "$ROOT/tools/strip-baselines/fresh.png" "$SHOT" 5
+  # 7) seeded (veteran) strip shot + diff — 進行後状態の帯も毎回撮る
+  SEED_SHOT="${SHOT%.png}-seed.png"
+  run_step shot-seed node "$ROOT/tools/strip-capture.js" --seed="$ROOT/tools/strip-seeds/veteran.json" --out="$SEED_SHOT"
+  if [ "$?" -ne 0 ] || [ ! -s "$SEED_SHOT" ]; then
+    echo "SHOT-SEED: WARNING (seeded capture failed, see step log)" >> "$LOG"
+    WARNINGS="$WARNINGS shot-seed-failed;"
+  else
+    echo "SHOT-SEED: OK ($SEED_SHOT)" >> "$LOG"
+    diff_step veteran "$ROOT/tools/strip-baselines/veteran.png" "$SEED_SHOT" 12
+  fi
+fi
+
+# 8) menu self-check (FAILs the run since 2026-10-26 11:17)
+# editor2-capture は本来 before/after 2版比較専用だが、verify-all の単一版では
+# --self（before＝現行 index.html）で自己比較する。全9タブ＋ロック画面を描画し、
+# pageerror・雇用フォールドの開閉・横溢れ・新規スクロール・内容肥大を検査する。
+# 08:17回の接続時は WARNING 専用だったが、08:17・09:17・10:17回の verify-all で
+# MENU OK が3回連続したため、接続時の条件（数回安定して回ること）を満たしたとして
+# FAIL 化した。メニュー側の事故（v2.3.7〜2.4.1）はまさにこの側だったため、以後は
+# メニューの自己チェック失敗をゲーム本体の失敗と同等に扱う。
+# （2026-10-26 08:17回：--disable-crashpad-for-testing がこの Chromium で goto を
+# hang させる既知問題を editor2-capture 側でも除去済み。strip-capture と同一根因。）
+MENU_OUT="$LOGDIR/menu-$TAG"
+run_step menu node "$ROOT/tools/miyuke-editor2-capture.js" --self --tag="$TAG" --outdir="$MENU_OUT"
+MENU_CODE=$?
+if [ "$MENU_CODE" -ne 0 ] || [ ! -f "$MENU_OUT/menu-editor2-measurements-$TAG.json" ]; then
+  FAIL=1; echo "MENU: FAIL (menu self-check failed, see step log)" >> "$LOG"
+else
+  echo "MENU: OK ($MENU_OUT, 10 tabs incl. lock, no errors)" >> "$LOG"
+fi
+
 echo "" >> "$LOG"
 if [ "$FAIL" -ne 0 ]; then
   VERDICT="FAIL"
@@ -146,5 +204,5 @@ echo "=== VERDICT: $VERDICT (warnings: ${WARNINGS:-none}) ===" >> "$LOG"
 echo "=== VERDICT: $VERDICT (warnings: ${WARNINGS:-none}) ==="
 echo "log: $LOG"
 [ "$SKIP_SHOT" = "1" ] || echo "shot: $SHOT"
-grep -E "^(VALIDATE|SMOKE|SIM|FRESH|SHOT):" "$LOG"
+grep -E "^(VALIDATE|SMOKE|SIM|FRESH|SHOT|DIFF|SHOT-SEED|MENU):" "$LOG"
 [ "$FAIL" -eq 0 ]

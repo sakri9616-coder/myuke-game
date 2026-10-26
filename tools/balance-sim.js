@@ -289,8 +289,9 @@ function simulate(days, active){
       };
       buyResearch("res_line2");
       for(const r of RESEARCH) buyResearch(r.id);
-      /* Sprint 4: 反復研究は RP の恒常シンク。余裕 +20 を残して貪欲に買う */
-      if(rp >= repeatCost(reportLv) + 20){ rp -= repeatCost(reportLv); reportLv++; }
+      /* 2026-10-26 決定（レビュー室「可」）: 反復研究は非反復研究の全取得後に買う。
+         旧方針（価格+20 の余裕・全取得ゲートなし）とは別物。証跡ツール側の前提のみで本体数値は不変 */
+      if(RESEARCH.every(r => res[r.id]) && rp >= repeatCost(reportLv)){ rp -= repeatCost(reportLv); reportLv++; }
       /* Sprint 4: 研究の枯渇タイミングを記録（ティア1 = 前提なし研究の全完了日、
          全研究 = 反復を除く全研究の完了日） */
       if(milestones.resT1Day === null && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) milestones.resT1Day = day;

@@ -37,53 +37,8 @@ function check(name, cond, extra) {
   else { FAIL++; failures.push(name); console.log("  FAIL  " + name + (extra ? "  -- " + extra : "")); }
 }
 
-/* ---------------- DOM スタブ ---------------- */
-function makeCtx(canvas) {
-  const store = { canvas };
-  return new Proxy(store, {
-    get(t, p) {
-      if (p in t) return t[p];
-      if (p === "measureText") return () => ({ width: 10 });
-      if (p === "createLinearGradient" || p === "createRadialGradient")
-        return () => ({ addColorStop() {} });
-      if (p === "getImageData") return () => ({ data: new Uint8ClampedArray(4) });
-      return () => undefined;
-    },
-    set(t, p, v) { t[p] = v; return true; }
-  });
-}
-function makeEl(tag) {
-  const el = {
-    tagName: String(tag || "div").toUpperCase(),
-    children: [], style: {}, dataset: {}, _listeners: {},
-    textContent: "", innerHTML: "", value: "", className: "",
-    width: 0, height: 0, offsetWidth: 100, offsetHeight: 20,
-    classList: {
-      _s: new Set(),
-      add(...cs) { cs.forEach(c => this._s.add(c)); },
-      remove(...cs) { cs.forEach(c => this._s.delete(c)); },
-      toggle(c, force) {
-        if (force === undefined) force = !this._s.has(c);
-        if (force) this._s.add(c); else this._s.delete(c);
-        return force;
-      },
-      contains(c) { return this._s.has(c); }
-    },
-    addEventListener(t, fn) { (this._listeners[t] = this._listeners[t] || []).push(fn); },
-    removeEventListener() {},
-    dispatch(t, ev) { (this._listeners[t] || []).slice().forEach(fn => fn(ev || {})); },
-    appendChild(c) { this.children.push(c); return c; },
-    setAttribute() {}, getAttribute() { return null; },
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    getBoundingClientRect() {
-      return this._rect || { left: 0, top: 0, width: 100, height: 20, right: 100, bottom: 20 };
-    },
-    getContext() { if (!this._ctx) this._ctx = makeCtx(this); return this._ctx; },
-    focus() {}, blur() {}, remove() {},
-    click() { if (this.onclick) this.onclick({}); }
-  };
-  return el;
-}
+/* ---------------- DOM スタブ（tools/dom-stub.cjs に共通化） ---------------- */
+const { makeCtx, makeEl, makeFakeDate } = require("./dom-stub.cjs");
 function buildSandbox(opts) {
   const byId = {};
   const el = id => {
@@ -131,6 +86,16 @@ function buildSandbox(opts) {
     _listeners: docListeners
   };
   if (opts.tauri) sandbox.__TAURI__ = opts.tauri;
+  /* 偽時計（opt-in）: fakeNow を渡したサンドボックスだけ、サンドボックス内の
+     Date を差し替える。ホストの実時間に依存するテスト（B9-B の移動 dt など）
+     を、ホスト側の advance 経由で決定的に進められるようにする。
+     渡さないサンドボックスは従来どおり実時計のまま。 */
+  if (opts.fakeNow != null) {
+    const fake = makeFakeDate(opts.fakeNow);
+    sandbox.Date = fake.FakeDate;
+    sandbox._advanceFake = fake.advance;
+    sandbox._fakeNow = fake.now;
+  }
   vm.createContext(sandbox);
   return sandbox;
 }
@@ -1707,13 +1672,13 @@ console.log("== Phase B11: walk cycle / ground speed sync ==");
   /* ---- スタッフ: 徘徊 (端クランプ後の実距離) と運搬 (30 u/s) ---- */
   run(sb, "S.staff = [{ id: 961, name: '黒', coat: 'kuro', role: 'prog', lv: 1 }]; S.staffSeq = 961; render();");
   run(sb, "const wk = stripWalkers[961]; wk.x = 100; wk.dir = 1; wk.speed = 8; wk.walkClock = 0;" +
-          "wk.sitting = false; wk.carrying = false; wk.chatUntil = 0;");
+          "wk.sitting = false; wk.carrying = false; wk.chatUntil = 0; wk.backing = false;");
   run(sb, "stripNow += 1000; stripUpdate(1.0);");
   check("B11: staff wander 8 units advances clock by 8/19.5 of a cycle (1600ms)",
     approx(run(sb, "stripWalkers[961].walkClock"), 8 / 19.5 * 3900, 0.6),
     String(run(sb, "stripWalkers[961].walkClock")));
   run(sb, "stripWalkers[961].x = stripVW - 26; stripWalkers[961].dir = 1; stripWalkers[961].walkClock = 0;" +
-          "stripWalkers[961].sitting = false; stripWalkers[961].carrying = false; stripWalkers[961].chatUntil = 0;");
+          "stripWalkers[961].sitting = false; stripWalkers[961].carrying = false; stripWalkers[961].chatUntil = 0; stripWalkers[961].backing = false;");
   run(sb, "stripNow += 1000; stripUpdate(1.0);");
   check("B11: edge clamp counts only the distance actually travelled (2 units -> 400ms)",
     approx(run(sb, "stripWalkers[961].walkClock"), 2 / 19.5 * 3900, 0.6) &&
@@ -1743,7 +1708,12 @@ console.log("== Phase B9: 60fps rendering + movement layer wins ==");
 {
   const invokes = [];
   const tauri = { core: { invoke: (cmd, args) => { invokes.push([cmd, args]); return Promise.resolve({}); } } };
-  const sb = buildSandbox({ hash: "#strip", tauri, width: 1280, height: 210 });
+  /* B9-B は偽時計で回す。根因: 帯の移動は speed × 実時間 dt で進むため、
+     実時計ではレンダ間のホスト実行時間がミリ秒境界を跨ぐたびに x が微小に
+     ずれ、eat/celebrate の x===200 厳密一致が確率的に崩れていた（既知フレーク）。
+     偽時計では dt=0 で x が動かず、到着・滞留・その場保持の意図そのものを
+     決定的に検証できる。開始時刻は fresh-measure と同じ固定昼間時刻。 */
+  const sb = buildSandbox({ hash: "#strip", tauri, width: 1280, height: 210, fakeNow: 1761370000000 });
   loadGame(sb);
 
   /* ---- A1: レンダラ周期 ---- */
@@ -1794,8 +1764,8 @@ console.log("== Phase B9: 60fps rendering + movement layer wins ==");
     drawn.some(d => d === "miyuke_yarn" || /^miyuke_yarn_\d+$/.test(d)) && !drawn.some(d => /^miyuke_walk_\d$/.test(d)),
     drawn.filter(d => d.startsWith("miyuke_")).join(","));
   check("B9-B: arrival starts a dwell (nextPick pushed into the future)",
-    run(sb, "miyukeStrip.nextPick") > Date.now() && run(sb, "miyukeStrip.moving") === false,
-    "nextPick-now=" + (run(sb, "miyukeStrip.nextPick") - Date.now()));
+    run(sb, "miyukeStrip.nextPick") > run(sb, "Date.now()") && run(sb, "miyukeStrip.moving") === false,
+    "nextPick-now=" + (run(sb, "miyukeStrip.nextPick") - run(sb, "Date.now()")));
   /* 確定した活動はその場: 遠い目標が残っていても移動せずポーズが出る */
   run(sb, "setState('eat', 600000); stateEnteredAt = Date.now(); miyukeStrip.targetX = 900; render();");
   drawn = run(sb, "window.__drawnB9.splice(0)");
