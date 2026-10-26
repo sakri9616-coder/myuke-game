@@ -12063,6 +12063,9 @@ function freshState(){
     /* 第2ウェーブ K 追加分: 挑戦中のチャレンジ { id, startCoins } と、
        獲得済みの永続報酬。報酬層は EXIT でも持株化でも消えない */
     challenge:null, challengeRewards:{},
+    /* 第2ウェーブ L 追加分: 市場トレンド { boom, slump, nextBoom, nextSlump,
+       cycleSec, announceAt }・開発ジャンルの方針・自社IP・常駐秒カウンタ */
+    trend:null, devGenrePref:null, ips:[], residentSec:0,
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
     researchLv:{}, buffs:{},
     /* チュートリアル導線 (TUTORIAL_DESIGN.md): 進行ステージ・見たビート・
@@ -12177,6 +12180,11 @@ function load(){
     /* 第2ウェーブ K: チャレンジ状態の補完（旧セーブは未挑戦・報酬なし） */
     if(S.challenge !== null && (typeof S.challenge !== "object" || !S.challenge.id)) S.challenge = null;
     if(!S.challengeRewards || typeof S.challengeRewards !== "object") S.challengeRewards = {};
+    /* 第2ウェーブ L: トレンド・IP・常駐カウンタの補完 */
+    if(S.trend !== null && (typeof S.trend !== "object" || !S.trend.boom)) S.trend = null;
+    if(typeof S.devGenrePref !== "string") S.devGenrePref = null;
+    if(!Array.isArray(S.ips)) S.ips = [];
+    if(typeof S.residentSec !== "number") S.residentSec = 0;
     for(const p of [S.project, S.line2 && S.line2.project]){
       if(p && typeof p.planning !== "boolean"){ p.planning = false; if(typeof p.ideaCost !== "number") p.ideaCost = 0; }
     }
@@ -12553,6 +12561,11 @@ function stripMemoText(){
     }
     return "📮 " + r.client + "の依頼：次の作品は「" + r.genreName + "」で作る" + (r.repName ? "（担当：" + r.repName + "）" : "");
   }
+  /* 第2ウェーブ L: トレンドの入れ替え直後だけメモでも知らせる（10分） */
+  if(S.trend && S.trend.announceAt && Date.now() - S.trend.announceAt < 600000){
+    const bg = GENRES.find(g => g.id === S.trend.boom);
+    return "📊 市場: 「" + (bg ? bg.name : "") + "」がブーム中（価格 ×1.5）";
+  }
   if(S.requests && S.requests.length) return "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
   return "";
 }
@@ -12793,9 +12806,18 @@ function makeHighlight(p, devMin, naps){
   for(let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0;
   return pool[h % pool.length];
 }
+/* 第2ウェーブ L: 開発ジャンルは方針 (devGenrePref) で重みづけして引く。
+   固定はしない — 方針のジャンルが3倍出やすいだけ */
+function pickDevGenre(gs){
+  let total = 0;
+  const ws = gs.map(g => { const w = 1 + (S.devGenrePref && g.id === S.devGenrePref ? 3 : 0); total += w; return w; });
+  let r = Math.random() * total;
+  for(let i = 0; i < gs.length; i++){ r -= ws[i]; if(r <= 0) return gs[i]; }
+  return gs[gs.length - 1];
+}
 function genProject(sizeOverride, genreId){
   const gs = unlockedGenres();
-  const genre = genreId ? GENRES.find(g=>g.id===genreId) : gs[Math.floor(Math.random()*gs.length)];
+  const genre = genreId ? GENRES.find(g=>g.id===genreId) : pickDevGenre(gs);
   const subj = SUBJECTS[Math.floor(Math.random()*SUBJECTS.length)];
   const size = sizeOverride || drawSizeByTime();
   const featPool = genre.feats.slice();
@@ -13236,7 +13258,7 @@ function doCommit(){
 function releaseProject(){
   const p = S.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1));   /* 第2ウェーブ K: ブラック企業は価格 ×2 */
+  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -13281,6 +13303,7 @@ function releaseProject(){
     icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8)),
     highlight: makeHighlight(p, devMin, S.totals.naps - p.napsAtStart)
   });
+  settleIP(p, coins, S.shelf[0]);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
   addLog("🎉 リリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬 "+requestBonus);
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
@@ -13297,7 +13320,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * (challengeActive("black") ? 2 : 1));
+  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
@@ -13315,6 +13338,7 @@ function releaseProject2(){
     highlight: makeHighlight(p, devMin, 0)
   });
   S.flags.line2Released = true;
+  settleIP(p, coins, S.shelf[0]);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
   addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬");
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
@@ -13684,6 +13708,12 @@ function tick(){
   /* 拡張ウェーブ G: 総務（ケア）が技術的負債を少しずつ返す（部署Lv は staffSums 経由で効く） */
   if(S.debt > 0 && ss.careW > 0) S.debt = Math.max(0, S.debt - ss.careW * 0.9 / 60);
   checkChallenge();   /* 第2ウェーブ K: 目標の充足は毎秒見る（Lv到達・累計コイン） */
+  /* 第2ウェーブ L: 常駐秒を積み、トレンドの周期と IP のロイヤリティを回す */
+  S.residentSec = (S.residentSec || 0) + 1;
+  ensureTrend();
+  S.trend.cycleSec = (S.trend.cycleSec || 0) + 1;
+  if(S.trend.cycleSec >= TREND_CYCLE_SEC) rotateTrend();
+  tickIPs();
   // 集中力
   if(coding){
     let drain = (100 / (25*60)) * (1 - 0.08*Math.min(5,(S.upgrades.chair||0)));
@@ -13905,7 +13935,8 @@ function pickRequestGenre(rep, power){
   const ws = pool.map(g => {
     let w = 1;
     if(S.reqGenrePref && g.id === S.reqGenrePref) w += prefW;
-    if(rep.genre && g.id === rep.genre) w += 2;
+    if(S.trend && g.id === S.trend.boom) w += 2;   /* 第2ウェーブ L: 重みの優先順位は 希望 ＞ トレンド ＞ 得意 */
+    if(rep.genre && g.id === rep.genre) w += 1;
     total += w; return w;
   });
   let r = Math.random() * total;
@@ -14244,7 +14275,8 @@ function doPrestigeCore(){
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
-  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
+  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
+  S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却で消える */   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = keptStaff ? [keptStaff] : [];
@@ -14271,6 +14303,7 @@ function doPrestigeCore(){
    通算星屑（eraDust＝星屑を買っても減らない）÷20・最低1 — 特典を買うことが
    星団を減らさない形にしてある */
 const LEGACY_TECHS = [
+  { id:"forecast", name:"トレンド予報",       cost:1, desc:"次の市場の流れ（ブームと不況）が先読みできます" },
   { id:"grade1",  name:"オフィスグレード I",   cost:1, desc:"帯の棚に金の星の置物が出ます" },
   { id:"cap1",    name:"上限拡張 I",           cost:2, desc:"スタッフ上限 +6" },
   { id:"ai_base", name:"AI 開発基盤",          cost:2, desc:"モジュールの品質上限 1.5 → 1.75" },
@@ -14320,6 +14353,7 @@ function doHoldingsCore(){
   S.research = {}; S.researchLv = {};
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
+  S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 持株化でも消える */
   S.subs = [];
   S.staff = []; S.clickUp = {}; S.studioLv = 1;
   S.wip = { code:0, tested:0, built:0 };
@@ -14388,6 +14422,99 @@ function checkChallenge(){
   say("チャレンジ達成にゃ〜！！ 『"+def.name+"』クリア！");
   SoundKit.play("releaseFanfare");
   save(); renderPanel();
+}
+
+/* ---------- 第2ウェーブ L: 市場トレンド＋自社IP ----------
+   トレンドは常駐時間で回る市場の流れ（2時間周期）: ブームのジャンルは
+   価格 ×1.5、不況は ×0.7。同じジャンルのブームは連続しない。開発の
+   ジャンル選びはプレイヤーの方針 (devGenrePref) で重みづけし、
+   依頼の自動獲得では 希望 ＞ トレンド ＞ 得意 の順に効く */
+const TREND_CYCLE_SEC = 7200;
+function trendPool(){ const u = unlockedGenres(); return (u.length ? u : GENRES).map(g => g.id); }
+function drawNextTrend(){
+  const t = S.trend;
+  if(!t) return;
+  const pool = trendPool().filter(id => id !== t.boom);   /* 連続ブームの禁止 */
+  t.nextBoom = pool[Math.floor(Math.random() * pool.length)];
+  const rest = trendPool().filter(id => id !== t.nextBoom);
+  t.nextSlump = rest[Math.floor(Math.random() * rest.length)];
+}
+function trendInit(){
+  const pool = trendPool();
+  const boom = pool[Math.floor(Math.random() * pool.length)];
+  let slump = pool[Math.floor(Math.random() * pool.length)];
+  if(slump === boom) slump = pool[(pool.indexOf(boom) + 1) % pool.length];
+  S.trend = { boom: boom, slump: slump, nextBoom: null, nextSlump: null, cycleSec: 0, announceAt: 0 };
+  drawNextTrend();
+}
+function ensureTrend(){ if(!S.trend || !S.trend.boom) trendInit(); }
+function trendMult(genreId){
+  ensureTrend();
+  return genreId === S.trend.boom ? 1.5 : genreId === S.trend.slump ? 0.7 : 1;
+}
+function trendTag(genreId){
+  ensureTrend();
+  return genreId === S.trend.boom ? "📈" : genreId === S.trend.slump ? "📉" : "";
+}
+function rotateTrend(){
+  const t = S.trend;
+  t.boom = t.nextBoom; t.slump = t.nextSlump; t.cycleSec = 0;
+  drawNextTrend();
+  t.announceAt = Date.now();
+  const bg = GENRES.find(g => g.id === t.boom), sg = GENRES.find(g => g.id === t.slump);
+  addLog("📊 市場の流れが変わった: 「"+(bg ? bg.name : "")+"」がブーム（価格 ×1.5）／「"+(sg ? sg.name : "")+"」は不況（×0.7）");
+  say("市場の流れが変わったにゃ。「"+(bg ? bg.name : "")+"」がブームだよ！");
+}
+function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel(); }
+/* 自社IP: M/L の作品をパネルで指定し、バグ0で出荷すると成立する。
+   即時に価格の30%、その後は価格の 0.1%/分 のロイヤリティが
+   12時間ごとに半減しながら48時間入る（生涯で約 ×1.65） */
+function designateIP(which){
+  const p = which === "l2" ? (S.line2 && S.line2.project) : S.project;
+  if(!p || p.ip) return;
+  if(p.size !== "M" && p.size !== "L"){ say("自社IPにできるのは M / L の作品だけにゃ"); return; }
+  if((S.ips || []).length >= 3){ say("自社IPは同時に3つまでにゃ"); return; }
+  p.ip = true;
+  addLog("🏷 『"+p.name+"』を自社IPに指定（バグ0で出荷すると IP 化します）");
+  say("『"+p.name+"』、自社IPねらいでいくにゃ！");
+  save(); renderPanel();
+}
+function settleIP(p, coins, work){
+  if(!p.ip) return;
+  if(Math.floor(S.bugStock) > 0){ addLog("🏷 『"+p.name+"』はバグが残っていたので自社IPにできなかったにゃ"); return; }
+  if((S.ips || []).length >= 3){ addLog("🏷 自社IPの枠がいっぱいで『"+p.name+"』は通常リリースに"); return; }
+  const bonus = Math.round(coins * 0.3);
+  S.coins += bonus; S.totals.coinsEarned += bonus;
+  if(!Array.isArray(S.ips)) S.ips = [];
+  S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: coins, bornSec: S.residentSec || 0, frac: 0 });
+  if(work) work.ip = true;
+  addLog("🏷 『"+p.name+"』が自社IPになった！ 即時ボーナス +"+fmt(bonus)+"🪙、これからロイヤリティが入るにゃ");
+  say("『"+p.name+"』、自社IPになったにゃ！");
+}
+function tickIPs(){
+  if(!S.ips || !S.ips.length) return;
+  const nowSec = S.residentSec || 0;
+  let changed = false;
+  for(const ip of S.ips.slice()){
+    const ageH = (nowSec - (ip.bornSec || 0)) / 3600;
+    if(ageH >= 48){
+      S.ips.splice(S.ips.indexOf(ip), 1);
+      addLog("🏷 自社IP『"+ip.name+"』はロイヤリティ期間を終えたにゃ（48時間）");
+      changed = true;
+      continue;
+    }
+    const decay = Math.pow(0.5, Math.floor(ageH / 12));
+    ip.frac = (ip.frac || 0) + ip.price * 0.001 * decay / 60;
+    if(ip.frac >= 1){
+      const pay = Math.floor(ip.frac);
+      ip.frac -= pay;
+      S.coins += pay; S.totals.coinsEarned += pay;
+      if(Math.random() < 0.25 && document.body.classList.contains("strip"))
+        addStripFloater(stripShelfCX(), STRIP_GROUND - 70, "💰 ロイヤリティ", "#c9962e");
+      changed = true;
+    }
+  }
+  if(changed) save();
 }
 function checkStamps(){
   for(const st of STAMP_DEFS){
@@ -15857,7 +15984,7 @@ function stripShelfBoxes(){
     const sl = slots[i];
     out.push({ x: sl.x, yb: sl.yb, w: sl.w, h: sl.h,
       color: SHELF_BOX_COLS[(view[i].icon || 0) % SHELF_BOX_COLS.length],
-      glow: i === 0 && frame < shelfGlowFrame });
+      glow: (i === 0 && frame < shelfGlowFrame) || !!view[i].ip });   /* 第2ウェーブ L: IP 作品は金の縁で常時点灯 */
   }
   return out;
 }
@@ -16121,7 +16248,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     const sizeTxt = p.size + " / " + fmt(p.totalDP) + "DP";
     const sizeW = sctx.measureText(sizeTxt).width + 6;
-    const genreW = p.genreName ? sctx.measureText(p.genreName).width + 6 : 0;
+    /* 第2ウェーブ L: ジャンルピルに市場の流れと IP 指定を足す */
+    const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") : "";
+    const genreW = genreTxt ? sctx.measureText(genreTxt).width + 6 : 0;
     const slotW = bn ? 15 : sizeW + (genreW ? genreW + 3 : 0);
     const nameLim = ix + iw - 3 - slotW;
     let nx = ix + 16.5 + pctW + 5;
@@ -16150,7 +16279,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
         px2 -= genreW + 3;
         sR(px2, iy + 3, genreW, 11.5, col);
         sctx.fillStyle = "#fff5e6";
-        sctx.fillText(p.genreName, px2 + genreW / 2, iy + 8.8);
+        sctx.fillText(genreTxt, px2 + genreW / 2, iy + 8.8);
       }
       sctx.textAlign = "left";
     }
@@ -17668,6 +17797,12 @@ function renderPanel(){
             (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
             "</div>";
         }
+        /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
+        if((p.size === "M" || p.size === "L") && !p.planning){
+          h += "<div style='margin-top:7px'>" + (p.ip
+            ? "<span class='vchip'>🏷 自社IPねらい（バグ0で出荷すると成立）</span>"
+            : "<button onclick='designateIP(\"l1\")'>🏷 自社IPにする（バグ0出荷で成立・即時30%＋ロイヤリティ）</button>") + "</div>";
+        }
         /* Wave H: モジュール（L 作品のみ） */
         if(p.modules){
           h += "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
@@ -18038,6 +18173,24 @@ function renderPanel(){
         const ownedN = S.challengeRewards ? Object.keys(S.challengeRewards).length : 0;
         h += foldSec("challenge", false, "🎯 チャレンジ", ownedN ? "報酬 " + ownedN + " / 3 獲得" : "縛りプレイで永続報酬", chRows + chNote);
       }
+    }
+    /* 第2ウェーブ L: 市場トレンド（価格の流れと開発方針・自社IP の台帳） */
+    {
+      ensureTrend();
+      const t = S.trend;
+      const gName = id => { const g = GENRES.find(x => x.id === id); return g ? g.name : "？"; };
+      let trBody = kv("📈 ブーム（価格 ×1.5）", gName(t.boom)) +
+        kv("📉 不況（価格 ×0.7）", gName(t.slump)) +
+        kv("次の入れ替えまで", "あと約 " + Math.max(1, Math.ceil((TREND_CYCLE_SEC - (t.cycleSec || 0)) / 60)) + " 分（常駐時間）");
+      if(hasLegacyTech("forecast")) trBody += kv("🔮 トレンド予報（次の流れ）", "📈 " + gName(t.nextBoom) + " ／ 📉 " + gName(t.nextSlump));
+      trBody += "<div class='stagehead'>開発ジャンルの方針（重みづけ・固定にはならない）</div><div>" +
+        "<button onclick='setDevGenrePref(null)'" + (!S.devGenrePref ? " class='primary'" : "") + ">おまかせ</button> " +
+        GENRES.map(g => "<button onclick='setDevGenrePref(\"" + g.id + "\")'" + (S.devGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button>").join(" ") + "</div>";
+      if((S.ips || []).length){
+        trBody += "<div class='stagehead'>🏷 自社IP（" + S.ips.length + " / 3）</div>" + S.ips.map(ip =>
+          kv("『" + ip.name + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
+      }
+      h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }
   }
   if(currentTab === "click"){
@@ -18884,6 +19037,7 @@ const VERBS = {
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,
   startChallenge: startChallenge, abandonChallenge: abandonChallenge,
+  setDevGenrePref: setDevGenrePref, designateIP: designateIP,
   doDeathMarch: doDeathMarchCore,
   outsourceBugs: outsourceBugsCore,
   moduleOutsource: moduleOutsourceCore,

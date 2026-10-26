@@ -3423,6 +3423,8 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       const sb = buildSandbox({});
       loadGame(sb);
       run(sb, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: ['a','b'], doneFeats: 2, startedAt: Date.now(), napsAtStart: 0 }; S.projectDP = 0; S.wip = { code: 0, tested: 0, built: 0 }; S.bugStock = 0; S.debt = 0; S.brand = 0");
+      /* Wave L 以降: 価格の実数チェックはトレンド中立が前提（実在しないジャンルを boom/slump に置く） */
+      run(sb, "S.trend = { boom: '__none1', slump: '__none2', nextBoom: '__none1', nextSlump: '__none2', cycleSec: 0, announceAt: 0 }");
       if(patch) run(sb, patch);
       return sb;
     };
@@ -3688,6 +3690,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       Math.abs(bugsBlack / run(sbKn, "S.bugStock") - 3) < 1e-6,
       "black=" + bugsBlack + " normal=" + run(sbKn, "S.bugStock"));
     const shipDelta = (sbX, black) => {
+      run(sbX, "S.trend = { boom: '__none1', slump: '__none2', nextBoom: '__none1', nextSlump: '__none2', cycleSec: 0, announceAt: 0 }");
       run(sbX, "S.coins = 0; S.project = genProject(); S.project.size = 'S'; S.project.genre = 'app'; S.project.modules = null; S.bugStock = 0;" +
         (black ? " S.challenge = { id: 'black', startCoins: 0 };" : ""));
       run(sbX, "releaseProject()");
@@ -3732,6 +3735,72 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       run(sbKa, "S.challenge") === null && run(sbKa, "S.dust") === 0);
     check("WK: bridge verbs route challenge actions",
       run(sbKa, "VERBS.startChallenge === startChallenge && VERBS.abandonChallenge === abandonChallenge") === true);
+    /* --- Wave L (wave 2): market trends + self-IP royalties --- */
+    const sbL = buildSandbox({});
+    loadGame(sbL);
+    run(sbL, "S.trend = { boom: 'app', slump: 'game', nextBoom: 'web', nextSlump: 'tool', cycleSec: 0, announceAt: 0 }");
+    check("WL: trend multipliers hit the release price (boom x1.5 / slump x0.7)",
+      run(sbL, "trendMult('app')") === 1.5 && run(sbL, "trendMult('game')") === 0.7 && run(sbL, "trendMult('web')") === 1 &&
+      run(sbL, "trendTag('app')") === "📈" && run(sbL, "trendTag('game')") === "📉");
+    run(sbL, "S.trend.cycleSec = TREND_CYCLE_SEC - 1; tick()");
+    check("WL: rotation takes the pre-drawn next pair and never repeats a boom",
+      run(sbL, "S.trend.boom") === "web" && run(sbL, "S.trend.nextBoom") !== "web" && run(sbL, "S.trend.cycleSec") >= 0);
+    const sbDev = buildSandbox({});
+    loadGame(sbDev);
+    run(sbDev, "S.devGenrePref = 'app'");
+    const devHits = run(sbDev, "(() => { const gs = [GENRES[0], GENRES[1]]; let n = 0; for(let i = 0; i < 500; i++) if(pickDevGenre(gs).id === 'app') n++; return n; })()");
+    check("WL: the development genre policy weights picks without locking them",
+      devHits > 340 && devHits < 500, "app picks=" + devHits + "/500 (weighted 4:1)");
+    const sbReq = buildSandbox({});
+    loadGame(sbReq);
+    run(sbReq, "S.studioLv = 6; S.reqGenrePref = null; S.trend = { boom: 'app', slump: 'game', nextBoom: 'web', nextSlump: 'tool', cycleSec: 0, announceAt: 0 }");
+    const reqCounts = run(sbReq, "(() => { const rep = { genre: 'site' }; const c = {}; for(let i = 0; i < 1100; i++){ const g = pickRequestGenre(rep, 5); c[g.id] = (c[g.id] || 0) + 1; } return c; })()");
+    check("WL: request genre weights rank trend above specialty",
+      reqCounts.app > reqCounts.site + 25 && reqCounts.site > (reqCounts.tool || 0) + 25,
+      JSON.stringify(reqCounts));
+    const shipIP = (patch) => {
+      const sb = buildSandbox({});
+      loadGame(sb);
+      run(sb, "S.trend = { boom: '__n1', slump: '__n2', nextBoom: '__n1', nextSlump: '__n2', cycleSec: 0, announceAt: 0 };" +
+        "S.project = { name:'IP作', size:'M', genre:'app', genreName:'アプリ', totalDP: BAL.sizes.M, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0, ip: true };" +
+        "S.projectDP = BAL.sizes.M; S.wip = { code: 0, tested: 0, built: 99999 }; S.bugStock = 0; S.coins = 0; S.debt = 0; S.brand = 0;" + patch);
+      run(sb, "releaseProject()");
+      return sb;
+    };
+    const sbIP = shipIP("");
+    check("WL: a clean designated release becomes an IP (instant 30% + shelf mark)",
+      run(sbIP, "S.ips.length") === 1 && run(sbIP, "S.shelf[0].ip") === true && run(sbIP, "S.coins") === 340 + Math.round(340 * 0.3),
+      "coins=" + run(sbIP, "S.coins") + " ips=" + run(sbIP, "S.ips.length"));
+    const sbIPBug = shipIP("S.bugStock = 5;");
+    check("WL: shipping with bugs left voids the IP designation",
+      run(sbIPBug, "S.ips.length") === 0 && !run(sbIPBug, "S.shelf[0].ip"));
+    const sbDes = buildSandbox({});
+    loadGame(sbDes);
+    run(sbDes, "S.project.size = 'S'");
+    run(sbDes, "designateIP('l1')");
+    const desS = run(sbDes, "!!S.project.ip");
+    run(sbDes, "S.project.size = 'M'; designateIP('l1')");
+    check("WL: designation is limited to M/L projects",
+      desS === false && run(sbDes, "S.project.ip") === true);
+    const sbRoy = buildSandbox({});
+    loadGame(sbRoy);
+    run(sbRoy, "S.ips = [{ name: 'R', genre: 'app', size: 'M', price: 100000, bornSec: 0, frac: 0 }]; S.residentSec = 0; S.coins = 0");
+    run(sbRoy, "for(let i = 0; i < 3600; i++){ S.residentSec++; tickIPs(); }");
+    check("WL: royalties pay 0.1% of the price per resident minute",
+      Math.abs(run(sbRoy, "S.coins") - 6000) <= 2, "coins=" + run(sbRoy, "S.coins"));
+    run(sbRoy, "S.ips[0].bornSec = 0; S.residentSec = 12 * 3600; S.coins = 0; S.ips[0].frac = 0; for(let i = 0; i < 60; i++){ S.residentSec++; tickIPs(); }");
+    check("WL: royalties halve after 12 resident hours",
+      Math.abs(run(sbRoy, "S.coins + S.ips[0].frac") - 50) < 2, "accrued=" + run(sbRoy, "S.coins + S.ips[0].frac"));
+    run(sbRoy, "S.residentSec = 48 * 3600 + 1; tickIPs()");
+    check("WL: IPs retire after 48 resident hours",
+      run(sbRoy, "S.ips.length") === 0);
+    const sbLX = mkG("S.ips = [{ name: 'X', genre: 'app', size: 'M', price: 100, bornSec: 0, frac: 0 }]; S.runDP = 24000");
+    run(sbLX, "doPrestigeCore()");
+    check("WL: EXIT sells the IPs with the company",
+      run(sbLX, "S.ips.length") === 0);
+    check("WL: the forecast tech joins the legacy tree at cost 1, and verbs route",
+      run(sbL, "LEGACY_TECHS.find(t => t.id === 'forecast').cost") === 1 &&
+      run(sbL, "VERBS.designateIP === designateIP && VERBS.setDevGenrePref === setDevGenrePref") === true);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
