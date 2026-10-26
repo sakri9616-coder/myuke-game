@@ -18,6 +18,10 @@ on:
         description: "下書きリリースにする"
         type: boolean
         default: true
+      build_only:
+        description: "ビルドと latest.json 生成だけ (リリースを作らない試験用)"
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -87,7 +91,14 @@ jobs:
           print("latest.json written")
           PYEOF
 
+      - name: ステージを成果物として保存 (検証用)
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-v${{ env.VER }}
+          path: stage/
+
       - name: リリース作成
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
