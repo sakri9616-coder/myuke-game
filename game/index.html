@@ -11049,6 +11049,10 @@ function perkLv(id){
   return typeof v === "number" ? v : (v ? 1 : 0);
 }
 function perkProdMult(){ return 1 + 0.02 * perkLv("starcharm"); }   /* 星のチャーム: 生産 +2%/Lv */
+/* レーンA・集中力 redesign: 集中力は生産倍率そのものになる。100% で +35%、
+   50% で +17.5%、0% でも ×1.0 を割らない＝罰でなく伸び。アニメ速度の
+   concentrationFactor() とは別物（あちらは再生速度、こちらは生産量）。 */
+function concProdMult(){ const c = Math.max(0, Math.min(100, S.concentration || 0)); return 1 + 0.35 * (c / 100); }
 function buffProdMult(){ return (S.buffs && S.buffs.prodUntil > Date.now()) ? 1.15 : 1; }  /* ご褒美バフ */
 function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 1.10 : 1; }
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
@@ -11077,7 +11081,7 @@ function bugFactor(){
 }
 /* 生産: 倍率を掛けて対象ラインの実装バッファへ。バグは生産量に応じて全体に混入する */
 function produceDP(amount, target){
-  const a = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
+  const a = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
   const proj = target === "l2" ? S.line2.project : S.project;
   const bugMul = (proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1;
@@ -11413,7 +11417,7 @@ function cheerClick(bx, by, part){
   if(S.project && S.project.planning){
     produceDP(gain * 0.8, "l1");
   } else if(S.project){
-    const direct = gain * 0.8 * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
+    const direct = gain * 0.8 * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
     S.runDP += direct;
     S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
     creditProject(direct);
@@ -13343,16 +13347,22 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     let r2 = "";
     if(m.planning) r2 = "💡 企画中： アイデア あと " + Math.max(0, (p.ideaCost || 0) - Math.floor(S.ideas)) + " 個で着工（必要 " + (p.ideaCost || 0) + " 個）";
     else if(p.desc) r2 = p.desc;
+    /* r2 右端: 進捗 DP 実数 + 生産 +N% (集中力 redesign の表示移設先。r5 中央は
+       机のみゅけの頭に隠れるため、説明行の空いた右へ置く — DP 実数と同じ前例。
+       企画中は生産が発生しないため DP 実数と同じ !planning ゲートに載せる) */
+    const dpTxt = !m.planning ? "📈 " + fmt(Math.floor(dp)) + " / " + fmt(p.totalDP) + " DP" : "";
+    const prodTxt = !m.planning ? "生産 +" + Math.round((concProdMult() - 1) * 100) + "%" : "";
     if(r2){
-      while(r2.length > 1 && sctx.measureText(r2).width > iw - 6) r2 = r2.slice(0, -1);
+      let lim = iw - 6;
+      if(!m.planning) lim -= sctx.measureText(dpTxt).width + 7 + sctx.measureText(prodTxt).width + 7;
+      while(r2.length > 1 && sctx.measureText(r2).width > lim) r2 = r2.slice(0, -1);
       sctx.fillText(r2, ix + 2, iy + 20.5);
     }
-    /* r2 右端: 進捗 DP 実数 (ヒーローの chiprow 📈。r5 中央は机のみゅけの頭に
-       隠れるため、説明行の空いた右へ置く) */
     if(!m.planning){
       sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "right";
-      sctx.fillText("📈 " + fmt(Math.floor(dp)) + " / " + fmt(p.totalDP) + " DP", ix + iw - 3, iy + 20.5);
+      sctx.fillText(prodTxt, ix + iw - 3 - sctx.measureText(dpTxt).width - 7, iy + 20.5);
+      sctx.fillText(dpTxt, ix + iw - 3, iy + 20.5);
       sctx.textAlign = "left";
     }
   }
@@ -14642,7 +14652,8 @@ function renderPanel(){
       }
       h += "<div class='concrow'><span>🧠 集中力</span>" +
         "<div class='meter conc'><i id='conc-bar' style='width:" + Math.round(S.concentration) + "%'></i></div>" +
-        "<b>" + Math.round(S.concentration) + "%</b></div>";
+        "<b>" + Math.round(S.concentration) + "%</b>" +
+        "<span>生産 +" + Math.round((concProdMult() - 1) * 100) + "%</span></div>";
       h += "<div class='chiprow'>" +
         "<span class='vchip'>📈 進捗 <b>" + fmt(S.projectDP) + " / " + fmt(p.totalDP) + " DP</b></span>" +
         "<span class='vchip'>🐛 バグ在庫 <b>" + fmt(S.bugStock) + "</b></span>" +

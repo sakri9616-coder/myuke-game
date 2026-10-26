@@ -464,9 +464,17 @@ if(ra7.snapshot7){
     " DP/分 → アクティブ " + (ra7.snapshot7.passivePerMin + ra7.snapshot7.clickPerMin).toFixed(1) +
     " DP/分 = 約 " + ra7.snapshot7.ratio.toFixed(2) + " 倍");
 }
-console.log("30日リリース比（アクティブ/パッシブ）: " + (ra7.totalReleasesEver / Math.max(1, rp7.totalReleasesEver)).toFixed(2) + " 倍");
-console.log("Sprint 1 ゲート: 初リリース ≤ 約5分（両タイプ） / 30日総量アクティブ ≥ 放置×1.3 / 7日目以降は全日 ≥1 リリース");
-console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstReleaseMin + "分 active=" + ra7.milestones.firstReleaseMin + "分 / 比率 " +
-  (ra7.totalReleasesEver/Math.max(1,rp7.totalReleasesEver)).toFixed(2) + "倍 / 7日目以降の0リリース日 passive=" +
+/* ゲート定義の改訂（レビュー室【可】・2026-10-26、レーンA 集中力の件で反映）:
+   旧ゲート文言は「30日総量」だが実装はリリース件数比だった不一致を直す。
+   主指標＝通算コイン収入比 ≥1.3、副指標＝星屑通算比を併記、件数比は廃止せず
+   報告指標として残し合格条件は「積極が放置を下回らないこと（≥1.0）」。
+   初リリース ≤5分・7日目以降0リリース日 0 は不変。 */
+const coinRatio = ra7.econ.coinsEarned / Math.max(1, rp7.econ.coinsEarned);
+const dustRatio = ra7.dustTotal / Math.max(1, rp7.dustTotal);
+const countRatio = ra7.totalReleasesEver / Math.max(1, rp7.totalReleasesEver);
+console.log("30日コイン比（アクティブ/パッシブ）: " + coinRatio.toFixed(2) + " 倍 / 星屑比: " + dustRatio.toFixed(2) + " 倍 / 件数比: " + countRatio.toFixed(2) + " 倍");
+console.log("Sprint 1 ゲート（改訂）: 初リリース ≤ 約5分（両タイプ） / 主指標＝通算コイン収入比 ≥1.3 かつ 件数比 ≥1.0（星屑比は併記） / 7日目以降は全日 ≥1 リリース");
+console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstReleaseMin + "分 active=" + ra7.milestones.firstReleaseMin + "分 / コイン比 " +
+  coinRatio.toFixed(2) + " / 星屑比 " + dustRatio.toFixed(2) + " / 件数比 " + countRatio.toFixed(2) + " / 7日目以降の0リリース日 passive=" +
   rp7.releasesByDay.slice(6).filter(x=>x===0).length + " active=" + ra7.releasesByDay.slice(6).filter(x=>x===0).length);
 console.log("Sprint 3: 星屑ショップ最小モデル（初期資金→集中を貪欲購入）を有効化。プレステージ到達日と引っ越し後の回復は各レポートの「回復の速さ」行を参照");

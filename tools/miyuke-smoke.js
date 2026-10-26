@@ -213,15 +213,17 @@ console.log("== Phase A: browser full mode (panels only) ==");
   run(sb, "comboN = 0; lastClickAt = 0;");
   const dpBefore = run(sb, "S.projectDP"), wipBefore = run(sb, "S.wip.code");
   const fbNow = run(sb, "firstBoost()");
+  const concNow = run(sb, "concProdMult()");
   run(sb, "cheerClick(96, 100, null)");
   const dpDelta = run(sb, "S.projectDP") - dpBefore;
   const wipDelta = run(sb, "S.wip.code") - wipBefore;
-  /* gain = 0.25 × combo 1.1 = 0.275。80% が直接進捗 (×firstBoost)、20% が仕掛品。
+  /* gain = 0.25 × combo 1.1 = 0.275。80% が直接進捗 (×firstBoost ×concProdMult)、
+     20% が仕掛品 (produceDP 経由で同じく ×concProdMult)。
      Sprint 4: firstBoost は 3.4（旧 1.5）なので期待値は実関数から取る */
   check("one cheer click moves projectDP immediately (direct credit)",
-    Math.abs(dpDelta - 0.275 * 0.8 * fbNow) < 0.03, "delta=" + dpDelta.toFixed(3) + " fb=" + fbNow);
+    Math.abs(dpDelta - 0.275 * 0.8 * fbNow * concNow) < 0.03, "delta=" + dpDelta.toFixed(3) + " fb=" + fbNow + " conc=" + concNow);
   check("the rest of the click flows into WIP",
-    Math.abs(wipDelta - 0.275 * 0.2 * fbNow) < 0.03, "delta=" + wipDelta.toFixed(3));
+    Math.abs(wipDelta - 0.275 * 0.2 * fbNow * concNow) < 0.03, "delta=" + wipDelta.toFixed(3));
   check("click sets the progress pulse", run(sb, "progressPulseUntil") > Date.now() - 1000);
   run(sb, "Math.random = window.__mr;");
 
@@ -981,6 +983,42 @@ console.log("== Phase B: strip mode with fake Tauri ==");
     Math.abs(run(sb, "S.concentration = 100; concentrationFactor()") - 2.0) < 1e-9);
   check("concentration factor: 50 -> x1.25 and monotonic",
     Math.abs(run(sb, "S.concentration = 50; concentrationFactor()") - 1.25) < 1e-9);
+  /* レーンA・集中力 redesign: 生産倍率 concProdMult (アニメ速度の
+     concentrationFactor とは別物。0% でも x1.0 を割らない＝罰でなく伸び) */
+  check("concProdMult: 0 -> x1.0 (punishment-free floor)",
+    Math.abs(run(sb, "S.concentration = 0; concProdMult()") - 1.0) < 1e-9);
+  check("concProdMult: 50 -> x1.175",
+    Math.abs(run(sb, "S.concentration = 50; concProdMult()") - 1.175) < 1e-9);
+  check("concProdMult: 100 -> x1.35",
+    Math.abs(run(sb, "S.concentration = 100; concProdMult()") - 1.35) < 1e-9);
+  check("concProdMult: clamped outside 0..100",
+    Math.abs(run(sb, "S.concentration = 150; concProdMult()") - 1.35) < 1e-9 &&
+    Math.abs(run(sb, "S.concentration = -20; concProdMult()") - 1.0) < 1e-9);
+  /* produceDP に concProdMult が乗ること: 他の倍率を固定し、集中力だけを
+     変えた runDP の伸び比が 1.35 になる (firstBoost を切るため releases=1) */
+  const concRatio = run(sb, "S.totals.releases = 1; if(S.tut && S.tut.seen) S.tut.seen.first_bug = true; S.concentration = 0; S.runDP = 0; produceDP(100, 'l1'); const d0 = S.runDP; S.concentration = 100; S.runDP = 0; produceDP(100, 'l1'); S.runDP / d0;");
+  check("produceDP scales with concentration (100 vs 0 -> x1.35)",
+    Math.abs(concRatio - 1.35) < 1e-9, "ratio=" + concRatio);
+  /* 応援クリック直接分 (80%) にも同じく乗ること: クリティカルを乱数固定で
+     封じ、偽プロジェクトへの projectDP 伸び比を測る。状態は全て復元する */
+  const cheerRatio = run(sb, `(() => {
+    const oldProj = S.project, oldDP = S.projectDP, oldMark = S.commitMark, oldRel = S.totals.releases, oldRand = Math.random;
+    try {
+      Math.random = () => 0.99;
+      S.totals.releases = 1;
+      S.project = { planning:false, totalDP:100000, feats:['a','b','c'], doneFeats:0 };
+      S.projectDP = 0; S.commitMark = 0;
+      if(S.tut && S.tut.seen) S.tut.seen.first_bug = true;
+      S.concentration = 0; lastClickAt = 0; cheerClick(0, 0, 'body'); const d0 = S.projectDP;
+      S.projectDP = 0; S.commitMark = 0;
+      S.concentration = 100; lastClickAt = 0; cheerClick(0, 0, 'body'); const d1 = S.projectDP;
+      return d1 / d0;
+    } catch(e) { return -1; } finally {
+      Math.random = oldRand; S.project = oldProj; S.projectDP = oldDP; S.commitMark = oldMark; S.totals.releases = oldRel;
+    }
+  })()`);
+  check("cheerClick direct share scales with concentration (100 vs 0 -> x1.35)",
+    Math.abs(cheerRatio - 1.35) < 1e-9, "ratio=" + cheerRatio);
   run(sb, "S.concentration = 100; codePhaseMs = 0; advanceCodePhase(150);");
   check("coding phase advances at x2 when concentration is full (150ms -> 300ms, bit flips)",
     run(sb, "codePhaseMs") === 300 && run(sb, "codeFrameBit()") === 1,
