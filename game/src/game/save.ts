@@ -1,16 +1,15 @@
 /* ---------- 2ウィンドウ化 (Phase 0/1): ロールと同期の共有状態 ----------
    owner (帯) がシミュレーションとセーブの唯一の所有者。viewer (管理ウィンドウ) は
-   スナップショットで描画し、操作はコマンドで帯へ送る。solo (ブラウザ) は従来どおり。
+   スナップショットで描画し、操作はコマンドで帯へ送る。ブラウザ版 (solo) は廃止。
    プロトコル本体はファイル末尾 (初期化の直前) の「同期プロトコル」節に置く。
    ここでは各所 (say / SoundKit / save / tick 等) が実行時に参照する状態だけを
    先に宣言しておく (let の TDZ を避けるため)。設計: research/TWO_WINDOW_ARCHITECTURE.md */
 const ROLE = (function(){
   const r = (typeof window !== "undefined") ? window.__MIYUKE_ROLE__ : null;
-  if(r === "owner" || r === "viewer" || r === "solo") return r;
-  return (typeof window !== "undefined" && window.__TAURI__) ? "owner" : "solo";
+  return r === "viewer" ? "viewer" : "owner";   /* 既定は帯 (Tauri の無い検証環境も owner) */
 })();
 const IS_VIEWER = ROLE === "viewer";
-const RUNS_SIM = !IS_VIEWER;   /* owner と solo だけが tick/save/load を持つ */
+const RUNS_SIM = !IS_VIEWER;   /* owner だけが tick/save/load を持つ */
 window.__MIYUKE_ROLE__ = ROLE;
 let menuAwake = false;   /* owner の認識: menu が生きているか (heartbeat 5秒以内) */
 let menuLastBeat = 0;    /* owner が最後に menu の heartbeat を受けた時刻 */
@@ -228,7 +227,7 @@ function say(text){
   stripSay = { text: text, until: Date.now() + 4200 };
   /* 2ウィンドウ化: セリフは live の変化として即時スナップショットで menu に届ける。
      sendSnapshotNow は末尾のプロトコル節 (関数宣言なので巻き上げ済み)。
-     solo/viewer では内部ガードで無操作になる */
+     viewer では内部ガードで無操作になる */
   bumpRev();
   sendSnapshotNow();
 }

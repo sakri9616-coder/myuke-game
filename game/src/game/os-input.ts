@@ -41,7 +41,7 @@ function tauriCmd(cmd, args?){
     return p;
   }catch(e){ return null; }
 }
-/* 設定値を Rust 側へ反映する（ブラウザでは何もしない） */
+/* 設定値を Rust 側へ反映する（Tauri が無ければ何もしない） */
 function applyInputCounting(){
   osInputWanted = !!(S.settings && S.settings.inputCount);
   if(!inTauri()) return;

@@ -1286,10 +1286,15 @@ console.log("== Phase B4: Strip Canon furniture (zones / shelf / gating) ==");
   check("hit zones include the shelf (clickable furniture, empty stays click-through)",
     zones.some(z => Math.abs((z[0] + z[2] / 2) - scxCss) < 30 && z[1] < 120),
     "zones=" + JSON.stringify(zones));
+  /* ブラウザ版の廃止で、帯は自分ではタブを開かない。open_menu を Rust に頼むだけ
+     (帯は変形しない)。呼び出しは偽 invoke で記録する */
+  run(sb, `window.__inv = []; window.__TAURI__ = { core: { invoke: (c, a) => { window.__inv.push([c, a]); return Promise.resolve(); } } };`);
   sb._el("strip").dispatch("pointerdown", { clientX: scxCss, clientY: (116 - 28) / 120 * 210 });
-  check("clicking the shelf opens the shelf tab in full mode",
-    run(sb, "currentTab") === "shelf" && !sb.document.body.classList.contains("strip"),
-    "tab=" + run(sb, "currentTab"));
+  check("clicking the shelf asks Rust to open the menu on the shelf tab (strip stays a strip)",
+    run(sb, "JSON.stringify(window.__inv)") === JSON.stringify([["open_menu", { tab: "shelf" }]]) &&
+    sb.document.body.classList.contains("strip"),
+    run(sb, "JSON.stringify(window.__inv)"));
+  run(sb, "delete window.__TAURI__;");
 
   /* --- §c.7: 詰まりの ⚠ は Stage 3 でリーダーボードが担う (B12 で描画検証) --- */
   run(sb, "S.bugStock = 40;");
@@ -2060,11 +2065,13 @@ console.log("== Phase B12: strip project board (glanceable progress / hit zone /
   check("hit zones include the project board",
     zones.some(z => bcxCss >= z[0] && bcxCss <= z[0] + z[2] && bcyCss >= z[1] && bcyCss <= z[1] + z[3]),
     "zones=" + zones.length);
-  run(sb, "switchTab('staff');");
+  run(sb, `window.__inv = []; window.__TAURI__ = { core: { invoke: (c, a) => { window.__inv.push([c, a]); return Promise.resolve(); } } };`);
   sb._el("strip").dispatch("pointerdown", { clientX: bcxCss, clientY: bcyCss });
-  check("clicking the board opens the project tab (solo path)",
-    run(sb, "currentTab") === "proj" && !sb.document.body.classList.contains("strip"),
-    "tab=" + run(sb, "currentTab"));
+  check("clicking the board asks Rust to open the menu on the project tab",
+    run(sb, "JSON.stringify(window.__inv)") === JSON.stringify([["open_menu", { tab: "proj" }]]) &&
+    sb.document.body.classList.contains("strip"),
+    run(sb, "JSON.stringify(window.__inv)"));
+  run(sb, "delete window.__TAURI__;");
 
   /* --- typebox 撤去の回帰ガード: プロジェクトパネルに欄が残っていないこと --- */
   run(sb, "window.__miyukeApplyMode('full'); switchTab('proj'); renderPanel();");
@@ -2645,15 +2652,15 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
   check("capabilities grant updater:default + process:default",
     caps.permissions.includes("updater:default") && caps.permissions.includes("process:default"));
 
-  /* --- ブラウザ（Tauri なし）では機能ごと隠れる --- */
+  /* --- Updater プラグインが無い環境（Tauri なしの検証スタブ）では操作できない --- */
   {
     const sb = buildSandbox({});
     loadGame(sb);
     check("browser: updApi() is null", run(sb, "updApi()") === null);
     run(sb, "paintUpd(); switchTab('settings'); renderPanel();");
     const html = sb._el("panel").innerHTML;
-    check("browser: settings shows デスクトップ版のみ for updates",
-      html.includes("アップデート") && html.includes("デスクトップ版のみ"));
+    check("no updater: settings shows the update row as unavailable",
+      html.includes("アップデート") && html.includes("利用できません"));
     check("browser: strip update chip is removed (Stage 3: toolbox ribbon instead)",
       !HTML.includes('id="strip-upd"') && !HTML.includes('id="strip-hud"'));
     check("browser: GAME_VERSION is v2.6.0", run(sb, "GAME_VERSION") === "v2.6.0");

@@ -91,7 +91,7 @@ function tutLatchQuests(){
   tutPrimed = true;
   return changed;
 }
-/* 進行チェック本体: tick と各アクションの末尾から呼ばれる (owner/solo のみ) */
+/* 進行チェック本体: tick と各アクションの末尾から呼ばれる (owner のみ) */
 function tutCheck(){
   if(IS_VIEWER || !S.tut) return;
   const now = Date.now();
@@ -120,7 +120,7 @@ function tutCheck(){
   /* OS入力カウントの文脈ヒント: Stage 1 以降に吹き出し1回だけ。
      同意の取得ではなく「存在の通知」 (有効化は設定タブでのみ起きる) */
   if(!S.tut.seen.input_hint){
-    if(S.settings.inputCount || !inTauri() || S.tut.skipped){
+    if(S.settings.inputCount || S.tut.skipped){
       S.tut.seen.input_hint = true;   /* 既に有効 / 対象外なら静かに消費 */
     } else if(S.tut.stage >= TUT_STAGE.RELEASE && !tutPendingBeat){
       S.tut.seen.input_hint = true;

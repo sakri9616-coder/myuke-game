@@ -4,15 +4,15 @@
    二度と変形しない。管理画面は第2ウィンドウ (ラベル menu, ロール viewer) が
    同じ index.html を「フル形態」で読み、帯からのスナップショットで描画する。
    形態はウィンドウごとに固定で、「切替」ではなく boot 時に1回だけ決まる。
-   ブラウザ (Tauri でない環境) は従来どおり1ページで両形態を切り替える solo。
    Tauri からは初期化スクリプトで __MIYUKE_MODE__ / __MIYUKE_ROLE__ が渡される。
-   ブラウザ確認用に #strip ハッシュでもストリップに入れる（旧 #overlay も互換）。 */
+   ブラウザ版は廃止 (デスクトップ専用)。Tauri が無い環境 (検証ツールのスタブ・
+   Playwright での撮影) は帯ウィンドウ (owner) として扱い、#strip ハッシュで
+   ストリップ形態に入れる（旧 #overlay も互換）。 */
 (function(){
   "use strict";
   var isTauri = !!window.__TAURI__;
   var role = window.__MIYUKE_ROLE__;
-  if(role !== "owner" && role !== "viewer" && role !== "solo")
-    role = isTauri ? "owner" : "solo";
+  if(role !== "owner" && role !== "viewer") role = "owner";
   window.__MIYUKE_ROLE__ = role;
   function tauriInvoke(cmd, args?){
     try{
@@ -58,7 +58,7 @@
     var back = document.getElementById("btn-to-overlay");
     if(back) back.style.display = (mode === "full" && isTauri) ? "" : "none";
     if(mode === "full" && isTauri && role !== "viewer"){
-      /* solo/旧来経路の防御策: フル形態では全域ヒットゾーンを1回送り、帯用の
+      /* 旧来経路の防御策: フル形態では全域ヒットゾーンを1回送り、帯用の
          クリック透過が残っていても管理画面では絶対に素通しにならないようにする。
          viewer は帯のヒットゾーンを決して上書きしない（送るのは帯だけ） */
       var fp = tauriInvoke("set_hit_zones", { zones: [[0, 0, window.innerWidth || 0, window.innerHeight || 0]] });
@@ -72,7 +72,6 @@
   applyMode(initialMode());
   var openBtn = document.getElementById("strip-open");
   if(openBtn) openBtn.addEventListener("click", function(){
-    if(!isTauri){ applyMode("full"); return; }  /* ブラウザプレビューではページ内切替だけ */
     /* 帯は変形しない。「ひらく」= 管理ウィンドウ (menu) を Rust に出してもらう。
        2.3.8 の実バグ修正: open_menu は tab: Option<String> を取るが、空オブジェクト
        {} を渡すと引数解決に失敗し、返る promise が reject されて無言で死んでいた
@@ -135,6 +134,5 @@
     }
     var p = tauriInvoke("set_mode_strip");
     if(p && p.then) p.then(function(){ applyMode("strip"); }, function(){});
-    else if(!isTauri) applyMode("strip");
   });
 })();

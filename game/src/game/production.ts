@@ -89,7 +89,7 @@ function applyShipQuality(p){
    ボーナスは満額（releaseProject の通常経路を通すため）。代価は負債
    （飛ばした割合 × サイズ係数 ＋ 残バグ ×2）とブランド -2 で、
    applyShipQuality の通常計上は dmRelease で止めてこちらで一括計上する。
-   確認ダイアログは呼び出し側（solo ラッパー / viewer スタブ）だけが持つ */
+   確認ダイアログは呼び出し側（帯側のラッパー / viewer スタブ）だけが持つ */
 const DM_SIZE_FACTOR = { TUT: 15, XS: 30, S: 60, M: 120, L: 240 };
 /* ---------- Wave H: モジュール完成の箱運び（配達猫の型の流用） ---------- */
 let stripModCart = null;

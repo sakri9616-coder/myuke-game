@@ -73,7 +73,7 @@ function publishHitZones(force){
   hitZonesCurrent = zones;
   if(!zones.length) return;   /* 空ゾーンは送らない（帯が丸ごと素通しになる事故防止） */
   const T = window.__TAURI__;
-  if(!T) return;   /* ブラウザプレビューでは計算だけ（送信先が無い） */
+  if(!T) return;   /* Tauri の無い検証環境では計算だけ（送信先が無い） */
   const now = Date.now();
   if(!force){
     if(now - hitZonesLastSent < 200) return;

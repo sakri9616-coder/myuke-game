@@ -15,17 +15,13 @@ const SoundKit = (function(){
      SOUND_GATE_MENU_ONLY は旧案 (menu が開いている間だけ鳴る) の名残として残すが
      既定 false (この原則に反するので通常は触らない)。true のときだけ旧案に戻る */
   const SOUND_GATE_MENU_ONLY = false;
-  function isStrip(){ try{ return document.body.classList.contains("strip"); }catch(e){ return false; } }
   function enabled(){
     if(typeof S === "undefined" || !S.settings) return false;
     if(typeof S.settings.sound === "boolean") return S.settings.sound;
-    if(typeof ROLE !== "undefined" && ROLE !== "solo"){
-      /* owner / viewer: 未設定でも鳴る側に倒す (ニュートラル状態=帯が完全な体験)。
-         旧案ゲートが明示的に true の場合だけ owner は menuAwake 連動に戻る */
-      if(ROLE === "owner" && SOUND_GATE_MENU_ONLY) return !!menuAwake;
-      return true;
-    }
-    return !isStrip();   /* solo (ブラウザ) は従来どおり形態で判定 */
+    /* 未設定でも鳴る側に倒す (ニュートラル状態=帯が完全な体験)。
+       旧案ゲートが明示的に true の場合だけ owner は menuAwake 連動に戻る */
+    if(ROLE === "owner" && SOUND_GATE_MENU_ONLY) return !!menuAwake;
+    return true;
   }
   function volume(){
     const v = (typeof S !== "undefined" && S.settings) ? S.settings.soundVol : undefined;

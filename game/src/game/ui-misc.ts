@@ -89,7 +89,7 @@ function serializeSave(){
   try { return localStorage.getItem(SAVE_KEY) || ""; } catch(e){ return ""; }
 }
 /* ダウンロード実行だけを切り出した共通部品 (UI 操作は呼び出し側の領分)。
-   solo/owner の exportSave と、コマンド経由でテキストを受け取った viewer の両方が使う */
+   owner の exportSave と、コマンド経由でテキストを受け取った viewer の両方が使う */
 function downloadSaveText(text){
   try {
     const blob = new Blob([text], { type: "application/json" });

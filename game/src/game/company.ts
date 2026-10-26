@@ -398,7 +398,7 @@ function buyLegacyTech(id){
   say("『"+def.name+"』、取得にゃ！");
   save(); renderPanel();
 }
-/* 確認なしの本体（doPrestigeCore と同じ分担: 確認は solo ラッパーと
+/* 確認なしの本体（doPrestigeCore と同じ分担: 確認は帯側のラッパーと
    viewer スタブ側。帯で confirm を出すと全体が固まる） */
 function doHoldingsCore(){
   const hp = holdingsPreview();

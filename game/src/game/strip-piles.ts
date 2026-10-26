@@ -178,9 +178,8 @@ function drawStripFlowItems(){
 function openBottleneckFixPanel(){
   if(IS_VIEWER){ gotoBottleneckFix(); return; }
   if(!document.body.classList.contains("strip")){ gotoBottleneckFix(); return; }
-  if(inTauri()){ const f = bottleneckFix(); tauriCmd("open_menu", { tab: f ? f.tab : "factory" }); return; }
-  window.__miyukeApplyMode("full");   /* ブラウザ (solo) */
-  gotoBottleneckFix();
+  const f = bottleneckFix();
+  tauriCmd("open_menu", { tab: f ? f.tab : "factory" });
 }
 
 /* サーバーラック（0.55W の空きスロット）: tier>=2 (開発スタジオ規模) かつ
@@ -238,9 +237,7 @@ function drawStripTrophy(){
 function openTabPanel(tab){
   if(IS_VIEWER){ switchTab(tab); return; }
   if(!document.body.classList.contains("strip")){ switchTab(tab); return; }
-  if(inTauri()){ tauriCmd("open_menu", { tab: tab }); return; }
-  switchTab(tab);
-  window.__miyukeApplyMode("full");   /* ブラウザ (solo): 従来どおりページ内切替 */
+  tauriCmd("open_menu", { tab: tab });
 }
 function openShelfPanel(){ openTabPanel("shelf"); }
 /* プロジェクトボードのクリック → 管理ウィンドウのプロジェクトタブを開く

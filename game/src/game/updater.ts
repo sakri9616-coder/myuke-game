@@ -4,7 +4,7 @@
    ページ側は「見つける→知らせる→落とす→再起動を促す」だけを担う。
    起動時の自動チェックは無言（見つけた時だけ帯の吹き出し＋チップと
    管理画面のカードで知らせる。遊びは止めない）。手動チェックは設定タブ。
-   ブラウザ版では機能ごと隠す（updApi が null の間は何も表示されない）。 */
+   Updater プラグインが無い環境（検証スタブ）では updApi が null で何もしない。 */
 let upd = { status: "idle", obj: null, version: null, body: "", got: 0, total: 0, dismissed: false };
 function updApi(){
   try{
@@ -118,11 +118,9 @@ function updDismiss(){ upd.dismissed = true; paintUpd(); }
 function updOpenSettings(){
   if(IS_VIEWER){ switchTab("settings"); return; }
   if(!document.body.classList.contains("strip")){ switchTab("settings"); return; }
-  if(inTauri()){ tauriCmd("open_menu", { tab: "settings" }); return; }
-  switchTab("settings");
-  window.__miyukeApplyMode("full");   /* ブラウザ (solo): 従来どおりページ内切替 */
+  tauriCmd("open_menu", { tab: "settings" });
 }
-/* 起動時: 少し待ってから無言で確認する（ブラウザでは無操作）。
+/* 起動時: 少し待ってから無言で確認する（Updater が無ければ無操作）。
    次回リリース分: 起動時1回だけでは、起動中に公開された更新を再起動まで検出できない
    (sakuri 実機報告: 動いたり動かなかったり)。30分ごとに無言で再確認する。
    検出済み (available) や進行中は checkForUpdates 側のガードと状態条件で弾く */

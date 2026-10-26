@@ -3,7 +3,7 @@
    経過時間では絶対に進まない。ロックは表示と導線だけの話で、価格・レート・
    経済定数には一切触らない。ロック判定の原則は全箇所共通:
      locked = stageBelow(feature) && !ownsAny(feature)   (所持が常に勝つ)
-   進行とセーブは owner/solo だけが持ち、viewer はスナップショットの
+   進行とセーブは owner だけが持ち、viewer はスナップショットの
    S.tut を鏡写しにして同じロック・バッジ・チップを描く (プロトコル変更なし)。
    帯にモーダルや暗転は出さない。解放は吹き出し (say) と目的チップだけで知らせる */
 const TUT_STAGE = { START:0, RELEASE:1, RESEARCH:2, CLICK:3, STAFF:4, REQUEST:5, LINE2:6, PRESTIGE:7 };

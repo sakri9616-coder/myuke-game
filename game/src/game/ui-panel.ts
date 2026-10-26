@@ -205,7 +205,7 @@ function renderPanel(){
        メーター本体は下の if(p) ブロック内でヒーローの一部として出す */
     /* (あそびかた説明はヒーローの後ろの折りたたみへ移動。
        自由タイピング欄は撤去済み: 入力ブーストは OS 入力カウント (帯 owner) と
-       menu-input 転送が担う。solo でも欄は出ないのが仕様) */
+       menu-input 転送が担う。owner でも欄は出ないのが仕様) */
     const p = S.project;
     if(p){
       const pct = Math.min(100, Math.round(S.projectDP / p.totalDP * 100));   /* v2.4.2: renderHeader と同じ丸めに統一 (floor だと再構築のたびに最大1%後退して見えた) */
@@ -807,7 +807,7 @@ function renderPanel(){
     h += "<div class='item buy slim'><div><span class='sock'>🎚️</span><span class='nm'>音量</span><div class='ds'>効果音の大きさ</div></div>"+
       "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' style='width:110px'></div>";
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
-      (inTauri() ? "<button onclick='resetStripPos()'>画面下に戻す</button>" : "<button disabled>デスクトップ版のみ</button>") + "</div>";
+      "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
     {
       const curPct = Math.round((S.settings.stripSize || 1) * 100);
@@ -825,28 +825,24 @@ function renderPanel(){
       "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>⏸️</span><span class='nm'>入力カウントを一時停止</span><div class='ds'>タイピング／カーソルの集計を止めます（基本進捗は続きます）</div></div>"+
       "<button onclick='togglePause()'>"+(S.settings.pauseInput?"再開する":"停止する")+"</button></div>";
-    /* Phase 2: OS全体の入力カウント（既定OFF・デスクトップ版のみ） */
+    /* Phase 2: OS全体の入力カウント（既定OFF） */
     {
       const osDesc = "他のアプリでの<b>打鍵の回数</b>と<b>カーソルの移動距離</b>も数えて開発ブーストに使います（内容は記録しません・通信なし・既定OFF）。"+
         "管理者として実行されているウィンドウへの入力は、Windows の仕組み上 数えられません";
-      let osBtn, osStatus = "";
-      if(inTauri()){
-        osBtn = "<button class='switch"+(S.settings.inputCount?" on":"")+"' onclick='toggleInputCount()'>"+(S.settings.inputCount?"ON（数えています）":"OFF")+"</button>";
-        if(S.settings.inputCount && osInputLast.at){
-          osStatus = "<div class='ds'>直近の集計: キー "+osInputLast.keys+" 回 ／ カーソル "+(osInputLast.distPx/3779).toFixed(1)+" m ／ クリック "+osInputLast.clicks+" 回</div>";
-        }
-      } else {
-        osBtn = "<button disabled>デスクトップ版のみ</button>";
+      let osStatus = "";
+      const osBtn = "<button class='switch"+(S.settings.inputCount?" on":"")+"' onclick='toggleInputCount()'>"+(S.settings.inputCount?"ON（数えています）":"OFF")+"</button>";
+      if(S.settings.inputCount && osInputLast.at){
+        osStatus = "<div class='ds'>直近の集計: キー "+osInputLast.keys+" 回 ／ カーソル "+(osInputLast.distPx/3779).toFixed(1)+" m ／ クリック "+osInputLast.clicks+" 回</div>";
       }
       h += "<div class='item buy slim'><div><span class='sock'>🖥️</span><span class='nm'>OS全体の入力カウント</span><div class='ds'>"+osDesc+"</div>"+osStatus+"</div>"+osBtn+"</div>";
     }
-    /* v2.3.5: 自動アップデート（GitHub Releases・デスクトップ版のみ） */
+    /* v2.3.5: 自動アップデート（GitHub Releases） */
     {
       const updDesc = "GitHub の配布ページで新版を確認します（更新ファイルは署名検証されます）。現在のバージョン: " + GAME_VERSION;
       let updBtn, updStatus = "";
       /* viewer には updater 権限が無い (実行は帯の領分) が、状態表示と操作ボタンは
          live.upd スナップショットで駆動する (ボタン自体はコマンド化される) */
-      if(inTauri() && (updApi() || IS_VIEWER)){
+      if(updApi() || IS_VIEWER){
         if(upd.status === "downloading") updBtn = "<button disabled>ダウンロード中…</button>";
         else if(upd.status === "ready") updBtn = "<button onclick='updRelaunch()'>再起動して更新する</button>";
         else if(upd.status === "available") updBtn = "<button onclick='updDownload()'>更新する（" + updVerLabel() + "）</button>";
@@ -855,7 +851,7 @@ function renderPanel(){
         const msg = updStatusText();
         if(msg) updStatus = "<div class='ds' id='upd-status'>" + msg + "</div>";
       } else {
-        updBtn = "<button disabled>デスクトップ版のみ</button>";
+        updBtn = "<button disabled>利用できません</button>";   /* Updater プラグインが無い (検証環境など) */
       }
       h += "<div class='item buy slim'><div><span class='sock'>🔄</span><span class='nm'>アップデート</span><div class='ds'>"+updDesc+"</div>"+updStatus+"</div>"+updBtn+"</div>";
     }
