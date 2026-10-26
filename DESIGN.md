@@ -681,3 +681,15 @@ sakuri から5ファイル受領し、標準手順（インポーター流用・
 - **chashiro（新規・茶白）**: 茶と白のバイカラー、15f 標準構成。登録は hachiware_gray と同手順。新規色 +4。
 
 パレットは 99 → **105**。CHAR_POOL の残りは 2 文字（‡ €）— 次の作画バッチで新規色が3色以上出る場合は、先にパレット符号化の Tier 1 移行（ひらがな＋カタカナ追加、`research/PALETTE_ENCODING_MIGRATION_PLAN.md`）を実施すること。検証: validate PASS / 監査 全5ファイル 0 diff / smoke 647 / verify-all 全 PASS。版数は据え置き（次回リリース同梱）。
+
+## スタッフバッチ14＋小物3点（2026-10-26、全毛柄の歩行リビジョン＋スパナ/第2机/メガホン）
+
+sakuri から .aseprite 9点＋PNG 3点を受領し、標準手順で統合した。本バッチの新規色は計17色（残りプール2文字を超過）だったため、統合に先立って **パレット符号化 Tier 1 移行を実施**: `tools/import-sakuri-art.py` の CHAR_POOL 末尾に計画書どおりのひらがな86＋カタカナ90を追加（84 → 260文字、既存割当は不変・衝突なしを機械検証済み）。
+
+- **スタッフ8毛柄すべて歩行サイクルのリビジョン**: kuro / shiro / syamu / chashiro は歩行F0–6のみ差し替え、sabatora は歩行6フレーム、hachiware / hachiware_gray は歩行全9フレーム（sit は不変、14f・sit 5f の構成も不変）。chatora は staff_chatora-3 が全面描き直し（陰影を濃く＋新規色 #DAA671）。syamu / hachiware_gray / chashiro の基礎絵（=作画フレーム複製）は歩行F0の変更に追随。不可視スペック（F0 (24,34) alpha 23）は chatora / sabatora / syamu に出たため前例どおり透明へ正規化。
+- **staff__chatora2.aseprite は中身が茶白だった**: 統合済み chashiro との差は8px、同時受領の staff__chashiro-2 とは1px差 — 茶白リビジョンの別名輸出と判定し、chashiro の統合には正規のファイル名の staff__chashiro-2 を採用（両者は実質同一リビジョン）。sakuri へ報告済み。
+- **スパナ (icon_wrench)**: 28×28 の新規作画に差し替え（SPRITE_SPEC / validator を [28,28] へ追随）。新規色 +2。
+- **デスク (prop_desk2)**: 旧 40×24（段ボール付き小型机）の描き直しと判定し 64×64 の木の机＋ノートPC＋引き出しに差し替え。第2ライン机の描画は全ティアで本作画を使い（旧 desk_laminate_2_sprite のティア差し替えは絵の形が合わないため引退、データ自体は残置）、下端の透過3行ぶんアンカーを +6 押し下げて接地。ノートPC画面内の進捗表示（アイコン/gitログ/進捗バー）とミニ山の置き場を新しい天板・画面域へ再較正した。新規色 +9。
+- **メガホン (prop_megaphone)**: 24×24 のまま作画差し替え。原画の内容下端が row 22（最下行は透明）のため、validator に coffee と同じ流儀の特例を追加し、描画アンカーを +1 押し下げて接地。新規色 +5。
+
+パレットは 105 → **122**。検証: 再レンダリング監査 全11点 0 diff / validate PASS / smoke 658 / verify-all PASS（警告は diff-veteran-high のみ — 意図した作画差し替えによる差分）。版数は据え置き（次回リリース同梱）。

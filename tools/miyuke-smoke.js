@@ -713,13 +713,13 @@ console.log("== Phase A5: Sprint 4 (research tier2 / names / treats / save IO / 
     window.__miyukeApplyMode('full');`);
   const drawnS4 = run(sb, "window.__drawnS4");
   /* この時点の S は育った会社 (リリース済み + 第2ライン解放) = officeTier 2。
-     棚は shelf_steel・第2机は desk_laminate_2_sprite の姿で描かれる
-     (ティア別の出し分け自体は Phase B14 が専用シードで検証する) */
+     棚は shelf_steel の姿で描かれる。第2机はバッチ14以降、全ティアで
+     sakuri 作画 prop_desk2 (64×64) (ティア別の出し分け自体は Phase B14 が専用シードで検証する) */
   check("strip render requests shelf + all three converted decor sprites (tier2 steel shelf)",
     ["shelf_steel", "prop_wall_1", "prop_wall_2", "prop_wall_3"].every(n => drawnS4.includes(n)),
     drawnS4.join(","));
-  check("strip render requests the line-2 desk sprite (tier>=1: desk_laminate_2_sprite)",
-    drawnS4.includes("desk_laminate_2_sprite"));
+  check("strip render requests the line-2 desk sprite (batch 14: prop_desk2 at all tiers)",
+    drawnS4.includes("prop_desk2") && !drawnS4.includes("desk_laminate_2_sprite"));
   check("strip render requests the research station plant (prop_plant)", drawnS4.includes("prop_plant"));
 }
 
@@ -788,8 +788,8 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 105 after batch 13)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
+  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 122 after batch 14)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#F1BF41')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#211711')"));
   check("game version is v2.4.8", run(sb, "GAME_VERSION") === "v2.4.8");
@@ -826,8 +826,8 @@ console.log("== Phase A8: sakuri art batch 4 (happy anim for the celebrate state
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 105 after batch 13)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
+  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 122 after batch 14)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFC710')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFE07B')"));
   check("ANIMS.miyuke_happy has 10 frames x 300ms, plays exactly once",
@@ -865,7 +865,7 @@ console.log("== Phase A9: sakuri art batch 5 (walk anim, art gate ON) ==");
   loadGame(sb);
 
   check("batch 5 palette colors incl. walk's #B99E7E still present (99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#B99E7E')"));
   check("ANIMS.miyuke_walk has 7 frames with the file's own durations and loops forever",
     run(sb, "ANIMS.miyuke_walk && ANIMS.miyuke_walk.frames.length") === 7 &&
@@ -1250,11 +1250,11 @@ console.log("== Phase B4: Strip Canon furniture (zones / shelf / gating) ==");
   run(sb, "S.coins = 100000; hireStaff('research');");
   run(sb, "render();");
   drawn = run(sb, "window.__drawnB4.splice(0)");
-  /* 第2ライン解放だけでも officeTier は 2 になるため、第2机はラミネート版
-     (desk_laminate_2_sprite)、棚はスチール (shelf_steel) で描かれる。
+  /* 第2ライン解放だけでも officeTier は 2 になる。第2机はバッチ14以降
+     全ティアで sakuri 作画 prop_desk2、棚はスチール (shelf_steel) で描かれる。
      イーゼルのポスターは段ボール箱にテープ留めで残る (prop_wall_1) */
-  check("unlocked strip draws desk2 (tier2 laminate) + easel poster + desk calendar + trophy + research plant",
-    ["desk_laminate_2_sprite", "prop_wall_1", "prop_wall_2", "prop_wall_3", "prop_plant"].every(n => drawn.includes(n)),
+  check("unlocked strip draws desk2 (batch 14 sakuri desk) + easel poster + desk calendar + trophy + research plant",
+    ["prop_desk2", "prop_wall_1", "prop_wall_2", "prop_wall_3", "prop_plant"].every(n => drawn.includes(n)),
     drawn.join(","));
   run(sb, "sDrawSprite = __osdsB4;");
 
@@ -2294,6 +2294,11 @@ console.log("== Phase B14: staff batch 9 + env art tier wiring + mike2 retiremen
     run(sb, "ANIMS.staff_hachiware_gray_walk.durations.join(',')") === "600,600,300,600,600,600,600");
   check("B14: recoatFor is deterministic and always lands in COATS",
     run(sb, "[1,2,3,7,42,100,999].every(id => COATS.includes(recoatFor({ id }))) && recoatFor({ id: 7 }) === recoatFor({ id: 7 })"));
+  check("B14b: batch-14 art sizes (desk2 64x64 sakuri desk / wrench 28x28) and staff ANIMS shapes unchanged",
+    run(sb, "JSON.stringify(spriteSize('prop_desk2'))") === "[64,64]" &&
+    run(sb, "JSON.stringify(spriteSize('icon_wrench'))") === "[28,28]" &&
+    run(sb, "JSON.stringify(spriteSize('prop_megaphone'))") === "[24,24]" &&
+    run(sb, "COATS.every(c => ANIMS['staff_' + c + '_walk'].durations.join(',') === '600,600,300,600,600,600,600')"));
 
   /* ---- ポートレートと帯の描画経路 (syamu) ---- */
   run(sb, "spriteCache['staff_syamu_sit_0'].toDataURL = () => 'data:SYAMU_SIT0';" +
@@ -2436,14 +2441,15 @@ console.log("== Phase B14: staff batch 9 + env art tier wiring + mike2 retiremen
     (() => { const r = run(sb1, "stripHitRects.board"); return r && r.w === 204 && r.h === 64; })(),
     JSON.stringify(run(sb1, "stripHitRects.board")));
 
-  /* tier 2 (第2ライン+CI): スチール棚/本/ラック/第2机ラミネートが加わる */
+  /* tier 2 (第2ライン+CI): スチール棚/本/ラックが加わる。第2机はバッチ14
+     以降ティア不変で sakuri 作画 prop_desk2 (旧ラミネート版は引退) */
   const sb2 = newEnvSb();
   run(sb2, "S.totals.releases = 1; S.staff.push({ id: 1, name: 'a', coat: 'kuro', role: 'prog', lv: 1 });" +
            "S.line2.unlocked = true; S.upgrades.ci = 2; S.shelf = [{ name: 'w1', icon: 0 }]; render();");
   const d2 = drawnEnv(sb2);
-  check("B14: tier 2 + CI machine draws steel shelf, books, server rack and laminate desk 2",
-    ["shelf_steel", "prop_books", "prop_server_rack", "desk_laminate_2_sprite"]
-      .every(n => d2.includes(n)) && !d2.includes("prop_shelf"),
+  check("B14: tier 2 + CI machine draws steel shelf, books, server rack and sakuri desk 2",
+    ["shelf_steel", "prop_books", "prop_server_rack", "prop_desk2"]
+      .every(n => d2.includes(n)) && !d2.includes("prop_shelf") && !d2.includes("desk_laminate_2_sprite"),
     d2.join(","));
 
   /* ラックの二重ゲート: tier 2 でも CI 未所持なら出ない */

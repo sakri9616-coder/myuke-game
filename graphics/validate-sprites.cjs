@@ -48,7 +48,7 @@ const required = [
 ];
 const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28, 28], prop_coffee_1: [28, 28], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_ship: [48, 48], prop_snackbox: [24, 24], prop_snackbox_shut: [24, 24],
   /* Sprint 4: 第2ラインの机と壁飾りスロット（仮絵・さくら差し替え可） */
-  prop_desk2: [40, 24], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16],
+  prop_desk2: [64, 64], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16],
   /* 環境ドット絵 (Codex 一次作): 家具は帯の実フットプリント寸法が正本 */
   prop_kanban: [132, 30], prop_kanban_wide: [204, 64], prop_phone: [24, 24], prop_megaphone: [24, 24], prop_toolbox: [24, 24], desk_laminate_main: [116, 3], desk_laminate_2: [80, 16],
   desk_laminate_2_sprite: [40, 24], prop_chair: [32, 36], prop_server_rack: [48, 64],
@@ -64,6 +64,7 @@ function expected(name) {
      バッチ13: hachiware_gray / chashiro も同様 (旧絵が無い新規毛柄) */
   if (/^staff_(syamu|hachiware_gray|chashiro)_(?:sit|walk)$/.test(name)) return [48, 40];
   if (name === 'icon_box') return [28, 28];   /* バッチ12: sakuri 作画の荷物箱は 28×28 */
+  if (name === 'icon_wrench') return [28, 28];   /* バッチ14: sakuri 作画のスパナは 28×28 */
   return name.startsWith('miyuke_') ? [48, 40] : name.startsWith('staff_') ? [32, 24]
     : name.startsWith('duck_') ? [24, 20] : name.startsWith('bot_') ? [24, 20]
     : name.startsWith('icon_') ? [16, 16] : props[name];
@@ -120,7 +121,7 @@ const extraLabels = {
 };
 
 for (const name of required) assert.ok(sprites[name], `required sprite missing: ${name}`);
-assert.equal(Object.keys(palette).length, 105, 'Shared palette count changed (23 base + 82 sakuri extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro)');
+assert.equal(Object.keys(palette).length, 122, 'Shared palette count changed (23 base + 99 sakuri extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone)');
 for (const [key, value] of Object.entries(palette)) {
   assert.equal(key.length, 1); assert.notEqual(key, '.'); assert.match(value, /^#[0-9a-f]{6}$/i);
 }
@@ -176,6 +177,12 @@ for (const [name, rows] of Object.entries(sprites)) {
     check(/[^.]/.test(rows[h-1]) || /[^.]/.test(rows[h-2]), `${name}: ground contact in bottom 2 rows`);
     continue;
   }
+  if (name === 'prop_megaphone') {
+    // sakuri作画バッチ14: 原画は内容が row 22 までで最下行が透明。接地は
+    // row 22 で担保し、描画側はアンカーを 1 押し下げて地面に載せる
+    check(/[^.]/.test(rows[22]), `${name}: content bottom contact at row 22 (sakuri megaphone)`);
+    continue;
+  }
   if (envSprite) {
     // 環境ドット絵: 最下行に画素があること (接地) だけを担保する
     check(/[^.]/.test(rows[h-1]), `${name}: bottom-row contact (env)`);
@@ -186,6 +193,13 @@ for (const [name, rows] of Object.entries(sprites)) {
     // 内容下端)。接地は row 25 で担保し、描画側はアンカーを 2*scale 押し下げて
     // 天板に載せる。湯気は上端近くまで届く本人の構図が正本
     check(/[^.]/.test(rows[25]), `${name}: content bottom contact at row 25 (sakuri coffee)`);
+    continue;
+  }
+  if (name === 'prop_desk2') {
+    // sakuri作画バッチ14: 原画 (64×64) は内容が row 60 までで下3行が透明。
+    // 接地は row 60 で担保し、描画側はアンカーを 3行×2倍 = 6 押し下げて
+    // 脚・引き出しの下端を地面に載せる (prop_coffee と同じ流儀)
+    check(/[^.]/.test(rows[60]), `${name}: content bottom contact at row 60 (sakuri desk2)`);
     continue;
   }
   if (!name.startsWith('icon_') && name !== 'miyuke_happy') {
