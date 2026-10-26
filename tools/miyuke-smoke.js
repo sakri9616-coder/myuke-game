@@ -3807,6 +3807,68 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("WL: the forecast tech joins the legacy tree at cost 1, and verbs route",
       run(sbL, "LEGACY_TECHS.find(t => t.id === 'forecast').cost") === 1 &&
       run(sbL, "VERBS.designateIP === designateIP && VERBS.setDevGenrePref === setDevGenrePref") === true);
+    /* --- Wave M (wave 2): executive cats carried over at EXIT --- */
+    const mkStaffW = (sb, list) => run(sb, "S.staff = " + JSON.stringify(list) + "; S.runDP = 24000");
+    const stAW = { id: 901, name: "えー", coat: "kuro", role: "prog", lv: 3, act: 100 };
+    const stBW = { id: 902, name: "びー", coat: "shiro", role: "test", lv: 9, act: 10 };
+    const sbActW = buildSandbox({});
+    loadGame(sbActW);
+    run(sbActW, "S.staff = [{ id: 903, name: 'act', coat: 'kuro', role: 'prog', lv: 1, act: 0 }]; tick(); tick(); tick()");
+    check("WM: the act counter accrues with real work",
+      run(sbActW, "S.staff[0].act") > 0, "act=" + run(sbActW, "S.staff[0].act"));
+    const sbMW = buildSandbox({});
+    loadGame(sbMW);
+    mkStaffW(sbMW, [stBW, stAW]);
+    check("WM: executive candidates are the top 3 by act",
+      run(sbMW, "execCandidates().map(c => c.id).join(',')") === "901,902");
+    run(sbMW, "doPrestigeCore()");
+    check("WM: the default EXIT seats the hardest worker as an executive",
+      run(sbMW, "S.executives.length") === 1 && run(sbMW, "S.executives[0].name") === "えー" &&
+      run(sbMW, "S.staff.length") === 0);
+    run(sbMW, "S.staff = [{ id: 910, name: 'new', coat: 'kuro', role: 'prog', lv: 1 }]");
+    const sbMWW0 = buildSandbox({});
+    loadGame(sbMWW0);
+    run(sbMWW0, "S.staff = [{ id: 910, name: 'new', coat: 'kuro', role: 'prog', lv: 1 }]");
+    check("WM: an executive's aura pays +10% to their own role only",
+      Math.abs(run(sbMW, "staffOutMult(S.staff[0])") / run(sbMWW0, "staffOutMult(S.staff[0])") - 1.1) < 1e-9);
+    run(sbMW, "S.executives.push({ name: 'e2', coat: 'shiro', role: 'prog' }); S.staff[0].role = 'prog'");
+    check("WM: same-role executive auras stack additively",
+      Math.abs(run(sbMW, "staffOutMult(S.staff[0])") / run(sbMWW0, "staffOutMult(S.staff[0])") - 1.2) < 1e-9);
+    const sbNoneW = buildSandbox({});
+    loadGame(sbNoneW);
+    mkStaffW(sbNoneW, [stAW]);
+    run(sbNoneW, "doPrestigeCore('__none')");
+    check("WM: the player may decline the carry-over",
+      run(sbNoneW, "S.executives.length") === 0);
+    const sbSwapW = buildSandbox({});
+    loadGame(sbSwapW);
+    run(sbSwapW, "S.executives = [{ name: 'E1', coat: 'kuro', role: 'prog' }, { name: 'E2', coat: 'shiro', role: 'test' }, { name: 'E3', coat: 'syamu', role: 'carry' }]");
+    mkStaffW(sbSwapW, [stAW]);
+    run(sbSwapW, "doPrestigeCore(undefined, undefined, 1)");
+    check("WM: a full bench swaps the chosen seat and graduates the replaced executive",
+      run(sbSwapW, "S.executives[1].name") === "えー" && run(sbSwapW, "S.execAlumni.length") === 1 &&
+      run(sbSwapW, "S.execAlumni[0].name") === "E2");
+    const sbGradW = buildSandbox({});
+    loadGame(sbGradW);
+    run(sbGradW, "S.executives = [{ name: 'E1', coat: 'kuro', role: 'prog' }, { name: 'E2', coat: 'shiro', role: 'test' }, { name: 'E3', coat: 'syamu', role: 'carry' }]");
+    mkStaffW(sbGradW, [stAW]);
+    run(sbGradW, "doPrestigeCore()");
+    check("WM: without a swap the candidate graduates into the record",
+      run(sbGradW, "S.executives.length") === 3 && run(sbGradW, "S.execAlumni[0].name") === "えー");
+    const sbVetW = buildSandbox({});
+    loadGame(sbVetW);
+    run(sbVetW, "S.dustPerks = { veteran: true }");
+    mkStaffW(sbVetW, [stAW, stBW]);
+    run(sbVetW, "doPrestigeCore()");
+    check("WM: the veteran pick comes from the remaining staff, never the executive",
+      run(sbVetW, "S.executives[0].name") === "えー" && run(sbVetW, "S.staff.length") === 1 &&
+      run(sbVetW, "S.staff[0].name") === "びー");
+    const sbHoldW = buildSandbox({});
+    loadGame(sbHoldW);
+    run(sbHoldW, "S.executives = [{ name: 'E1', coat: 'kuro', role: 'prog' }]; S.maxStudioLv = 6; S.prestiges = 5; S.eraDust = 40; S.subs = [{ id: 1, name: 's1', genre: 'app', staff: 5, lv: 1, alloc: 50 }, { id: 2, name: 's2', genre: 'web', staff: 5, lv: 1, alloc: 50 }]");
+    run(sbHoldW, "doHoldingsCore()");
+    check("WM: executives survive holdings (that is their rank)",
+      run(sbHoldW, "S.executives.length") === 1 && run(sbHoldW, "S.executives[0].name") === "E1");
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");

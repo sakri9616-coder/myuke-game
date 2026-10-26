@@ -11782,6 +11782,11 @@ function staffOutMult(st){
   let m = staffMult(st) * (st.lv >= 10 ? 1.3 : st.lv >= 5 ? 1.15 : 1);
   if(challengeActive("minority")) m *= 1.25;   /* 第2ウェーブ K: 少人数の補正 */
   if(S.challengeRewards && S.challengeRewards.minority) m *= 1.1;   /* 第2ウェーブ K: 永続報酬 */
+  /* 第2ウェーブ M: 役員のオーラ — 同じ役職の役員1匹につき +10%（加算で重なる） */
+  if(S.executives && S.executives.length){
+    const n = S.executives.filter(e => e.role === st.role).length;
+    if(n) m *= 1 + 0.1 * n;
+  }
   return m;
 }
 /* ---------- Phase C: 部署（既存ロールの束ね＋部署Lv） ----------
@@ -12066,6 +12071,8 @@ function freshState(){
     /* 第2ウェーブ L 追加分: 市場トレンド { boom, slump, nextBoom, nextSlump,
        cycleSec, announceAt }・開発ジャンルの方針・自社IP・常駐秒カウンタ */
     trend:null, devGenrePref:null, ips:[], residentSec:0,
+    /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
+    executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
     researchLv:{}, buffs:{},
     /* チュートリアル導線 (TUTORIAL_DESIGN.md): 進行ステージ・見たビート・
@@ -12185,6 +12192,9 @@ function load(){
     if(typeof S.devGenrePref !== "string") S.devGenrePref = null;
     if(!Array.isArray(S.ips)) S.ips = [];
     if(typeof S.residentSec !== "number") S.residentSec = 0;
+    /* 第2ウェーブ M: 役員と卒業記録の補完 */
+    if(!Array.isArray(S.executives)) S.executives = [];
+    if(!Array.isArray(S.execAlumni)) S.execAlumni = [];
     for(const p of [S.project, S.line2 && S.line2.project]){
       if(p && typeof p.planning !== "boolean"){ p.planning = false; if(typeof p.ideaCost !== "number") p.ideaCost = 0; }
     }
@@ -14233,6 +14243,7 @@ function prestigePreview(){
   }
   if(hasPerk("seedmoney")) keeps.push("初期資金 300🪙");
   if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大500🪙を持ち越し）");
+  if(S.executives && S.executives.length) keeps.push("役員 " + S.executives.map(e => "『"+e.name+"』").join(""));   /* 第2ウェーブ M */
   return {
     gain, subGain,
     curMult: 1 + BAL.dustBonus * total,
@@ -14240,26 +14251,91 @@ function prestigePreview(){
     resets, keeps
   };
 }
+/* ---------- 第2ウェーブ M: 役員猫の引き継ぎ ----------
+   EXIT のとき、この会社で一番働いた（act = 実働の蓄積）猫が「役員」と
+   して次の会社に残る。役員は頭数に数えず生産もしないが、同じ役職の
+   部門に +10%/匹 のオーラを出す（staffOutMult）。上限3匹・持株化でも
+   残る。選出は EXIT プレビュー（作品タブの売却カード）で行い、
+   ベテラン指名は役員に選ばれなかった猫から行う */
+let pendingExecPick, pendingVetPick, pendingExecSwap;
+function execCandidates(){
+  return S.staff.slice().sort((a, b) => (b.act || 0) - (a.act || 0)).slice(0, 3);
+}
+function resolvedExecPickId(){
+  if(pendingExecPick === null) return null;
+  if(typeof pendingExecPick === "number") return pendingExecPick;
+  const c = execCandidates();
+  return c.length ? c[0].id : null;
+}
+function pickExec(id){ pendingExecPick = id; renderPanel(); }
+function pickVet(id){ pendingVetPick = id; renderPanel(); }
+function pickSwap(i){ pendingExecSwap = i; renderPanel(); }
+function execSelectHTML(){
+  if(!S.staff.length) return "";
+  const roleName = r => (STAFF_ROLES[r] || {}).name || r;
+  const cands = execCandidates();
+  let hh = "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
+    "<div style='font-size:12px'><b>🎗 役員の引き継ぎ</b> <span style='color:var(--sub)'>この会社で一番働いた猫が次の会社の役員になります（上限3匹・頭数に数えず、同じ役職に +10% のオーラ）</span></div>" +
+    "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:4px'>";
+  for(const c of cands){
+    const sel = pendingExecPick === undefined ? c === cands[0] : pendingExecPick === c.id;
+    hh += "<button onclick='pickExec(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">🎗 " + c.name + "（" + roleName(c.role) + "）</button>";
+  }
+  hh += "<button onclick='pickExec(null)'" + (pendingExecPick === null ? " class='primary'" : "") + ">引き継がない</button></div>";
+  if((S.executives || []).length >= 3 && pendingExecPick !== null){
+    hh += "<div style='font-size:12px;margin-top:5px'>役員は満席です。入れ替える相手を選んでください（選ばなければ候補は記録に卒業します）</div>" +
+      "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
+    S.executives.forEach((e, i) => { hh += "<button onclick='pickSwap(" + i + ")'" + (pendingExecSwap === i ? " class='primary'" : "") + ">" + e.name + " と入替</button>"; });
+    hh += "<button onclick='pickSwap(-1)'" + (pendingExecSwap === undefined || pendingExecSwap === -1 ? " class='primary'" : "") + ">入れ替えない</button></div>";
+  }
+  if(hasPerk("veteran")){
+    const rest = S.staff.filter(s => s.id !== resolvedExecPickId()).sort((a, b) => b.lv - a.lv).slice(0, 3);
+    if(rest.length){
+      hh += "<div style='font-size:12px;margin-top:6px'><b>⭐ ベテランの引き継ぎ</b> <span style='color:var(--sub)'>役員とは別に、1人だけスタッフとして一緒に来ます</span></div>" +
+        "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
+      for(const c of rest){
+        const sel = pendingVetPick === undefined ? c === rest[0] : pendingVetPick === c.id;
+        hh += "<button onclick='pickVet(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">" + c.name + "（Lv" + c.lv + "・" + roleName(c.role) + "）</button>";
+      }
+      hh += "</div>";
+    }
+  }
+  return hh + "</div>";
+}
+function execSelArg(){ const id = resolvedExecPickId(); return id === null ? "__none" : id; }
+function vetSelArg(){ return typeof pendingVetPick === "number" ? pendingVetPick : "__auto"; }
+function swapSelArg(){ return typeof pendingExecSwap === "number" ? pendingExecSwap : -1; }
 function doPrestige(){
   const pv = prestigePreview();
   const gain = pv.gain;
   if(gain < 3){ say("売却には星屑3個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
   if(!confirm("会社を売却しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+pv.curMult.toFixed(2)+" → ×"+pv.nextMult.toFixed(2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
-  doPrestigeCore();
+  doPrestigeCore(execSelArg(), vetSelArg(), swapSelArg());
 }
 /* 確認なしの本体。menu (viewer) からは VERBS 経由でこちらが呼ばれ、確認は
    viewer 側スタブで済ませる (resetSave / doResetSave と同じ分担)。
    帯 (owner) で confirm を出すと帯のスレッドがモーダルで止まり、cmd-result も
    スナップショットも返らなくなって全体が固まる (v2.4.7 実機バグ・二窓リグで再現済み) */
-function doPrestigeCore(){
+function doPrestigeCore(execSel, vetSel, swapSel){
   const pv = prestigePreview();
   const gain = pv.gain;
   if(gain < 3) return;   /* 第2ウェーブ I: 小口 EXIT の下限は 3 個 */
   const coinsBefore = S.coins;   /* 星の貯金箱の持ち越し計算用（リセット前に確保） */
-  /* 特典の引き継ぎ対象はリセット前に確保する */
+  /* 第2ウェーブ M: 役員候補はリセット前に確定する（未指定なら act 1位） */
+  let execCand = null;
+  if(execSel !== "__none" && S.staff.length){
+    execCand = (typeof execSel === "number")
+      ? (S.staff.find(s => s.id === execSel) || null)
+      : (execCandidates()[0] || null);
+  }
+  /* 特典の引き継ぎ対象はリセット前に確保する。ベテランは役員候補を
+     除いた残りから選ぶ（同じ猫が両方になることはない） */
   let keptStaff = null;
   if(hasPerk("veteran") && S.staff.length){
-    keptStaff = JSON.parse(JSON.stringify(S.staff.slice().sort((a,b) => b.lv - a.lv)[0]));
+    const rest = S.staff.filter(s => !execCand || s.id !== execCand.id);
+    const pick = (typeof vetSel === "number") ? rest.find(s => s.id === vetSel) : null;
+    const vet = pick || rest.slice().sort((a,b) => b.lv - a.lv)[0];
+    if(vet) keptStaff = JSON.parse(JSON.stringify(vet));
   }
   let keptResearch = null;
   if(hasPerk("notebook")){
@@ -14294,12 +14370,34 @@ function doPrestigeCore(){
   S.wip = { code:0, tested:0, built:0 };
   S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
   addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round(BAL.dustBonus*S.dustTotal*100)+"%）");
+  /* 第2ウェーブ M: 役員の就任・交代・卒業（役員枠は EXIT では消えない） */
+  if(execCand){
+    const snap = { name: execCand.name, coat: execCand.coat, role: execCand.role };
+    if(!Array.isArray(S.executives)) S.executives = [];
+    if(!Array.isArray(S.execAlumni)) S.execAlumni = [];
+    if(S.executives.length < 3){
+      S.executives.push(snap);
+      addLog("🎗 役員就任: 『"+snap.name+"』が新会社の役員になった（同じ役職に +10% のオーラ）");
+    } else if(typeof swapSel === "number" && swapSel >= 0 && swapSel < S.executives.length){
+      const out = S.executives[swapSel];
+      S.execAlumni.push({ name: out.name, role: out.role });
+      S.executives[swapSel] = snap;
+      addLog("🎗 役員交代: 『"+snap.name+"』が就任し、『"+out.name+"』は記録に卒業した");
+    } else {
+      S.execAlumni.push({ name: snap.name, role: snap.role });
+      addLog("🎗 『"+snap.name+"』は役員に空きがなく、記録に卒業した");
+    }
+  }
   if(keptStaff) addLog("⭐ ベテラン制度: "+keptStaff.name+"（Lv"+keptStaff.lv+"）が一緒についてきた");
   if(keptResearch && keptResearch.length) addLog("⭐ 研究ノート: 『"+(RESEARCH_DEFS.find(r=>r.id===keptResearch[0])||{}).name+"』を引き継いだ");
   if(hasPerk("seedmoney")) addLog("⭐ 初期資金: 300🪙 からスタート");
   if(hasPerk("piggybank") && S.coins > (hasPerk("seedmoney") ? 300 : 0)) addLog("⭐ 星の貯金箱: 前の会社のコインを持ち越した");
   say("売却成立だにゃ〜！ 星屑"+gain+"個ゲット");
   startProject("S");
+  /* 第2ウェーブ M: 役員がいる会社の創業は「おかえり」から始まる */
+  if(S.executives && S.executives.length)
+    say("『"+S.executives[0].name+"』、おかえりにゃ。また一緒にやるにゃ！");
+  pendingExecPick = pendingVetPick = pendingExecSwap = undefined;
   checkStamps(); save(); renderPanel();
   tutCheck();   /* tut は引っ越しリセット対象外 (卒業状態を維持する) */
 }
@@ -16996,6 +17094,22 @@ function renderStrip(){
     if(stripChat && stripChat.whoId === st.id && now < stripChat.until)
       drawStripChatBubble(wk.x, srect.y - 2, stripChat.text);
   }
+  /* --- 第2ウェーブ M: 役員猫（デスクの脇に座る常駐メンバー） ---
+     生産はせず、頭数にも数えない。🎗 は部長の ⭐ と並ぶ頭上バッジ */
+  (S.executives || []).slice(0, 3).forEach((ex, i) => {
+    const exX = stripDeskCX() - 96 - i * 32;
+    const base = "staff_" + ex.coat + "_sit";
+    const sa = ANIMS[base];
+    let nm = base, esc = SPRITE_SCALES.strip.staff;
+    if(sa && sa.frames.some(f => hasSprite(f))){ nm = animFrameAt(base, stripNow - i * 700); esc = SPRITE_SCALES.strip.staff48; }
+    sShadow(exX, G - 0.5, 34);
+    if(!sDrawSprite(nm, exX, G, esc)) sDrawStaffFallback(ex.coat, exX, G);
+    const esz = spriteSize(nm);
+    sctx.save();
+    sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+    sctx.fillText("🎗", exX, G - (esz ? esz[1] * esc : 30) - 4);
+    sctx.restore();
+  });
   /* --- Sprint 3: 訪問猫（雇っていない毛柄が横切るだけ・干渉なし） ---
      バッチ6: その毛柄に ANIMS があれば歩行アニメで横切る */
   if(stripVisitor){
@@ -17869,6 +17983,12 @@ function renderPanel(){
     const ss = staffSums();
     const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪", sales:"💼" };  /* メニュー刷新 P1: 行アイコンソケット用 */
     h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・"+companyRank()+" Lv"+S.studioLv+"）</h3>";
+    /* 第2ウェーブ M: 役員は頭数外の常駐メンバー。オーラの内訳を見せる */
+    if((S.executives || []).length){
+      h += "<div class='stagehead'>🎗 役員（頭数に数えません・同じ役職に +10%/匹 のオーラ）</div>" +
+        S.executives.map(e => kv("🎗 " + e.name, (STAFF_ROLES[e.role] || {}).name + " のオーラ +10%")).join("") +
+        ((S.execAlumni || []).length ? kv("卒業した役員・候補", S.execAlumni.map(a => a.name).join("・")) : "");
+    }
     /* IA: 在籍スタッフを最初に — スプライトカードで顔ぶれが一目で分かる。
        雇用・ご褒美はカード群の下 (折りたたみ) へ、スタジオ拡張は細い行で常設 */
     if(S.buffs.prodUntil > Date.now() || S.buffs.clickUntil > Date.now()){
@@ -18122,6 +18242,7 @@ function renderPanel(){
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
         prestigeBtn + "</div>"+
         "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
+      h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
       const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能）") +
@@ -19220,6 +19341,7 @@ function makeVerbStub(verb){
       const pv = prestigePreview();
       if(pv.gain < 3){ showViewerNote("売却には星屑3個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
       if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
+      args.push(execSelArg(), vetSelArg(), swapSelArg());   /* 第2ウェーブ M: 役員とベテランの選択を帯へ渡す */
     }
     if(verb === "doHoldings"){
       /* 持株化の確認も menu 側で済ませる (doPrestige と同じ分担) */
