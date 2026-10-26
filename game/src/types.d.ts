@@ -170,6 +170,7 @@ interface Window {
   __MIYUKE_ROLE__?: Role;
   __MIYUKE_MODE__?: string;
   __MIYUKE_BEACON__?: any;
+  __MIYUKE_SAVE__?: string | null;   /* Rust が起動時に読んだセーブファイル (帯ウィンドウだけに渡る) */
   MIYUKE_SPRITES: { palette: Record<string, string>; [name: string]: any };
   MIYUKE_ANIMS: Record<string, AnimDef>;
   __miyukeApplyMode?: (mode: string) => void;

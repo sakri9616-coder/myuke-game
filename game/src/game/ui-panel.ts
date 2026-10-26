@@ -801,7 +801,7 @@ function renderPanel(){
   if(currentTab === "settings"){
     h += "<h3>⚙️ 設定</h3>";
     /* IA: プライバシーの約束は1行に圧縮して常設 (信頼情報なので畳まない) */
-    h += "<div class='note' style='font-size:12px'>🔒 記録するのはタイピングの<b>回数</b>とカーソルの<b>移動距離</b>だけ。内容は読み取らず、通信もしません（保存先はこの端末の localStorage のみ）</div>";
+    h += "<div class='note' style='font-size:12px'>🔒 記録するのはタイピングの<b>回数</b>とカーソルの<b>移動距離</b>だけ。内容は読み取らず、通信もしません（保存先はこの PC のアプリ用フォルダだけ）</div>";
     h += "<div class='item buy slim'><div><span class='sock'>🎵</span><span class='nm'>サウンド</span><div class='ds'>Web Audio 合成の効果音。帯で鳴ります（メニューの開閉には連動しません）</div></div>"+
       "<button class='switch"+(SoundKit.enabled()?" on":"")+"' onclick='toggleSound()'>"+(SoundKit.enabled()?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🎚️</span><span class='nm'>音量</span><div class='ds'>効果音の大きさ</div></div>"+

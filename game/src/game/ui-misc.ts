@@ -82,8 +82,8 @@ function setSoundVol(v){
   save();
 }
 /* ---------- Sprint 4: セーブの書き出し／読み込み ----------
-   書き出しは localStorage の現物を JSON ファイルに。読み込みは形だけを
-   軽く検証してから load() に通す（壊れた/別物のファイルで状態を壊さない） */
+   書き出しは直前に save() した localStorage の現物を JSON ファイルに。読み込みは
+   形だけを軽く検証してから load() に通す（壊れた/別物のファイルで状態を壊さない） */
 function serializeSave(){
   save();
   try { return localStorage.getItem(SAVE_KEY) || ""; } catch(e){ return ""; }
@@ -114,9 +114,9 @@ function importSaveText(text){
   try { obj = JSON.parse(text); } catch(e){ return false; }
   if(!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
   if(typeof obj.coins !== "number" && !obj.totals) return false;
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(obj)); } catch(e){ return false; }
-  const ok = load();
+  const ok = load(JSON.stringify(obj));
   if(ok){
+    save();   /* 読み込んだ内容をファイルと localStorage の両方へ確定する */
     sessBase = { releases: S.totals.releases, coinsEarned: S.totals.coinsEarned, startedAt: Date.now() };
     renderPanel(); renderHeader();
   }

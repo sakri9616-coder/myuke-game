@@ -19,6 +19,7 @@
    Phase D: v2.3.5 自動アップデート（設定ファイル整合 + 偽 Updater のフロー）
    Phase E: 2ウィンドウ化（owner/viewer 2コンテキスト + 偽イベントバスで
             単一書き手・コマンド一回実行・スナップショット描画を検証）
+   Phase A12: セーブのファイル保存（起動時注入の採否 / save_game への書き込み / 読み込み機能）
    Phase F: チュートリアル導線（段階的開示: 事実ベースのステージ進行 /
             ロックと「所持が勝つ」原則 / ベテラン移行 / スキップと見直し /
             viewer がスナップショットだけで同じロック・🆕 を描くこと） */
@@ -954,6 +955,54 @@ console.log("== Phase A11: sakuri prop batch (prop_coffee steam anim) ==");
   run(sb2, "render()");
   check("strip render draws an animated coffee frame on the main desk",
     run(sb2, "window.__stripDrawn.splice(0)").some(d => /^prop_coffee_[01]$/.test(d)));
+}
+
+/* ================= Phase A12: セーブのファイル保存 ================= */
+/* 正本は Rust 側のファイル (起動時に window.__MIYUKE_SAVE__ で渡り、save_game で書く)。
+   localStorage にも同じものを書き、起動時は lastTick の新しい方を採る */
+console.log("== Phase A12: file-backed save (Rust save_game + startup injection) ==");
+{
+  const seed = (coins, lastTick) => JSON.stringify({ coins, ideas: 0, lastTick });
+  /* ファイルだけ (localStorage が消えた状態) → ファイルから復元される */
+  const sbF = buildSandbox({});
+  sbF.__MIYUKE_SAVE__ = seed(1234, 1000);
+  loadGame(sbF);
+  check("file-only save is restored (localStorage was wiped)", run(sbF, "S.coins") === 1234, "coins=" + run(sbF, "S.coins"));
+  check("startup file save is consumed once", run(sbF, "window.__MIYUKE_SAVE__") === null);
+  /* 両方ある → lastTick の新しい方 (ここでは localStorage) */
+  const sbN = buildSandbox({});
+  sbN.__MIYUKE_SAVE__ = seed(111, 1000);
+  sbN.localStorage.setItem("miyuke-save-v1", seed(222, 2000));
+  loadGame(sbN);
+  check("newer of file / localStorage wins (localStorage newer)", run(sbN, "S.coins") === 222, "coins=" + run(sbN, "S.coins"));
+  const sbO = buildSandbox({});
+  sbO.__MIYUKE_SAVE__ = seed(333, 3000);
+  sbO.localStorage.setItem("miyuke-save-v1", seed(444, 2000));
+  loadGame(sbO);
+  check("newer of file / localStorage wins (file newer)", run(sbO, "S.coins") === 333, "coins=" + run(sbO, "S.coins"));
+  /* save() は localStorage と save_game の両方へ同じ JSON を書く */
+  const calls = [];
+  const sbW = buildSandbox({ tauri: { core: { invoke: (c, a) => { calls.push([c, a]); return Promise.resolve(); } },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve() } } });
+  loadGame(sbW);
+  calls.length = 0;
+  run(sbW, "S.coins = 777; save();");
+  const sg = calls.filter(c => c[0] === "save_game");
+  check("save() sends the same JSON to Rust save_game and localStorage",
+    sg.length === 1 && JSON.parse(sg[0][1].data).coins === 777 &&
+    sg[0][1].data === sbW.localStorage.getItem("miyuke-save-v1"), "calls=" + sg.length);
+  /* 読み込み機能: 渡したテキストを読み、ファイルへ確定する (起動時セーブで上書きしない) */
+  calls.length = 0;
+  check("importSaveText loads the given text (not the startup save)",
+    run(sbW, `importSaveText(${JSON.stringify(seed(4321, 1))})`) === true && run(sbW, "S.coins") === 4321);
+  check("imported save is written through to the file",
+    calls.some(c => c[0] === "save_game" && JSON.parse(c[1].data).coins === 4321));
+  /* Rust 側: コマンド登録・帯以外からの書き込み拒否・帯にだけ起動時セーブを渡す */
+  const rs = fs.readFileSync(GAME_HTML.DESK_DIR + "src-tauri/src/main.rs", "utf8");
+  check("main.rs registers save_game and rejects writers other than the strip window",
+    /generate_handler!\[[\s\S]*\bsave_game\b[\s\S]*\]/.test(rs) && rs.includes("window.label() != WIN_STRIP"));
+  check("main.rs injects the startup save into the strip window only",
+    (rs.match(/save_init_script\(app\.handle\(\)\)/g) || []).length === 1 && rs.includes("__MIYUKE_SAVE__"));
 }
 
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */

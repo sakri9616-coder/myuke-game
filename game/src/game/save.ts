@@ -76,6 +76,31 @@ let S: GameState = freshState();
 /* 今セッションの開始時点の累計（save() が lastSession = 前回のあらすじ を作るための基準）。
    初期化時に load() 後の累計で差し替える */
 let sessBase = { releases:0, coinsEarned:0, startedAt:Date.now() };
+/* セーブの置き場所: 正本は Rust 側のファイル (app_data_dir/miyuke-save.json、
+   save_game コマンドで書く)。WebView の localStorage にも同じものを書いておき、
+   起動時は両方を見て lastTick の新しい方を採る (ファイルが無い旧セーブは
+   localStorage から読み、次の save() でファイルへ移る) */
+function writeSaveFile(json: string){
+  const T = window.__TAURI__;
+  if(!T || !T.core || !T.core.invoke) return;
+  try{
+    const p = T.core.invoke("save_game", { data: json });
+    if(p && p.catch) p.catch(function(){});
+  }catch(e){}
+}
+function saveLastTick(raw: string){
+  try{ return Number(JSON.parse(raw).lastTick) || 0; }catch(e){ return -1; }
+}
+/* 起動時のセーブ文字列。ファイル側は1回だけ使う (以降の load() は localStorage を見る) */
+function readStartupSave(): string | null {
+  const fileRaw = typeof window.__MIYUKE_SAVE__ === "string" ? window.__MIYUKE_SAVE__ : null;
+  window.__MIYUKE_SAVE__ = null;
+  let lsRaw = null;
+  try{ lsRaw = localStorage.getItem(SAVE_KEY); }catch(e){}
+  if(!fileRaw) return lsRaw;
+  if(!lsRaw) return fileRaw;
+  return saveLastTick(lsRaw) > saveLastTick(fileRaw) ? lsRaw : fileRaw;
+}
 function save(){
   if(IS_VIEWER) return;   /* 単一書き手: viewer はセーブに一切触らない (第2層ガード) */
   try{
@@ -88,13 +113,16 @@ function save(){
         endedAt: Date.now()
       };
     }
-    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    const json = JSON.stringify(S);
+    try{ localStorage.setItem(SAVE_KEY, json); }catch(e){}
+    writeSaveFile(json);
   }catch(e){}
 }
-function load(){
+/* rawText を渡せばそれを読む (セーブの読み込み機能)。省略時は起動時のセーブ */
+function load(rawText?: string){
   if(IS_VIEWER) return false;   /* viewer は load もしない (レプリカはスナップショット由来) */
   try{
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = rawText !== undefined ? rawText : readStartupSave();
     if(!raw) return false;
     const data = JSON.parse(raw);
     const f = freshState();
