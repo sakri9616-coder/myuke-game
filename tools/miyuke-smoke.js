@@ -482,6 +482,25 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
   check("dust spent on perks (40 - 28 - 5 = 7) but dustTotal (multiplier base) unchanged",
     run(sb, "S.dust") === 7 && run(sb, "S.dustTotal") === 30 &&
     Math.abs(run(sb, "dustMult()") - (1 + 0.04 * 30)) < 1e-9);
+  /* レーンA・星屑シンク拡張: Lv制特典の上限 Lv5→Lv10（価格 ×1.8 曲線は不変）。
+     Lv5→6 の単価は starcharm ceil(3×1.8^5)=57、luckyfin ceil(2×1.8^5)=38。
+     Lv10 では生産 +20%、フィッシュ間隔 ×0.2。 */
+  run(sb, "S.dust = 1000; S.dustPerks.starcharm = 5; S.dustPerks.luckyfin = 5;");
+  run(sb, "buyDustPerk('starcharm'); buyDustPerk('luckyfin');");
+  check("levelable dust perks reach Lv6 past the old cap (cost 57 + 38 = 95)",
+    run(sb, "perkLv('starcharm')") === 6 && run(sb, "perkLv('luckyfin')") === 6 &&
+    run(sb, "S.dust") === 905,
+    "starcharm=" + run(sb, "perkLv('starcharm')") + " luckyfin=" + run(sb, "perkLv('luckyfin')") + " dust=" + run(sb, "S.dust"));
+  check("Lv6 multipliers: starcharm production x1.12, luckyfin fish interval x0.52",
+    Math.abs(run(sb, "perkProdMult()") - 1.12) < 1e-9 &&
+    Math.abs(run(sb, "fishIntervalMul()") - 0.52) < 1e-9);
+  run(sb, "S.dustPerks.starcharm = 10; S.dustPerks.luckyfin = 10;");
+  check("Lv10 multipliers: starcharm production x1.20, luckyfin fish interval x0.20",
+    Math.abs(run(sb, "perkProdMult()") - 1.20) < 1e-9 &&
+    Math.abs(run(sb, "fishIntervalMul()") - 0.20) < 1e-9);
+  run(sb, "buyDustPerk('starcharm');");
+  check("Lv10 is the cap: buying at max spends no dust and stays Lv10",
+    run(sb, "perkLv('starcharm')") === 10 && run(sb, "S.dust") === 905);
   run(sb, "window.__miyukeApplyMode('strip'); render(); window.__miyukeApplyMode('full');");
   check("strip render with star decor (on the shelf) does not throw", true);
 

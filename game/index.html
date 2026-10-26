@@ -11723,8 +11723,8 @@ const DUST_PERKS = [
   { id:"notebook",  name:"研究ノート",   cost:6,  desc:"引っ越し時に、完了した研究を1件（最も研究Pが高かったもの）引き継ぎます" },
   { id:"veteran",   name:"ベテラン制度", cost:8,  desc:"引っ越し時に、最も育ったスタッフ1人を連れて行けます" },
   /* Sprint 4: レベル制（反復購入できる星屑シンク）。S.dustPerks[id] に数値で持つ */
-  { id:"starcharm", name:"星のチャーム", lv:true, baseCost:3, costMul:1.8, maxLv:5, desc:"生産 +2%/Lv（最大Lv5）" },
-  { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:5, desc:"フィッシュの間隔 -8%/Lv（最大Lv5）" }
+  { id:"starcharm", name:"星のチャーム", lv:true, baseCost:3, costMul:1.8, maxLv:10, desc:"生産 +2%/Lv（最大Lv10）" },
+  { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:10, desc:"フィッシュの間隔 -8%/Lv（最大Lv10）" }
 ];
 function fishIntervalMul(){ return 1 - 0.08 * perkLv("luckyfin"); }
 function buyDustPerk(id){
