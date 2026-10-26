@@ -11,6 +11,9 @@
 - `veteran.png` — `tools/strip-seeds/veteran.json` を投入した進行後セーブの帯
   （スタッフ3匹・第2ライン机・研究机・棚の作品・50%ボード・5000コイン）。
   verify-all の SHOT-SEED と比較。
+- `fresh-1920.png`／`veteran-1920.png` — 上記と同じ条件の 1920×210 版（2026-10-26 15:05回で追加）。
+  帯は全幅表示のため幅で家具間隔が変わるので、幅依存の崩れを拾うために verify-all の
+  SHOT-WIDE／SHOT-WIDE-SEED と比較する。閾値は 1280幅と同じ fresh 5%・veteran 12%。
 
 ## 実測ノイズ（2026-10-26、同一条件の再撮影2回）
 
@@ -19,6 +22,8 @@
 | fresh vs fresh | 1.43% | コーディングアニメのフレーム・吹き出しの有無 |
 | veteran vs veteran | 5.68%・8.38%（2回実測） | 上記＋スタッフの歩行位置（ランダム） |
 | fresh vs veteran | 31.24% | 家具・スタッフ・ボード進捗の違い（＝意図した差） |
+| fresh-1920 vs fresh-1920 | 0.947% | 1280幅の fresh ノイズと同程度 |
+| veteran-1920 vs veteran-1920 | 5.853% | 1280幅の veteran ノイズと同程度（スタッフ歩行） |
 
 ## 閾値（verify-all.sh に固定）
 
