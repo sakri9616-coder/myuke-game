@@ -1605,7 +1605,7 @@ console.log("== Phase B8: staff ANIMS (shiro walk/sit routing, per-coat fallback
     JSON.stringify(drawn.filter(d => d[0].startsWith("staff_shiro"))));
   check("B8: walkClock stays frozen while sitting",
     run(sb, "stripWalkers[951].walkClock") === sitClock);
-  run(sb, "stripWalkers[952].sitting = true; stripWalkers[952].until = Date.now() + 100000; render();");
+  run(sb, "stripWalkers[952].sitting = true; stripWalkers[952].sitStart = stripNow; stripWalkers[952].until = Date.now() + 100000; render();");
   drawn = run(sb, "window.__drawnB8.splice(0)");
   check("B8: sitting hachiware draws sit ANIMS frame 0 at staff48 scale (batch 10)",
     drawn.some(d => d[0] === "staff_hachiware_sit_0" && d[3] === 1.5),
