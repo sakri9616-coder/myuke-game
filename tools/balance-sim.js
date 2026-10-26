@@ -585,7 +585,7 @@ console.log("== Phase D: 子会社の配分感度（人員30・規模Lv3 の2社
 console.log("");
 console.log("== Wave F: オーバークロックの寄与（再設計版・アクティブ中盤スナップショット）==");
 {
-  const srcF = fs.readFileSync("/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+  const srcF = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
   const fm = srcF.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+), passiveMax: ([\d.]+) \}/);
   if(!fm) throw new Error("FEVER extraction failed");
   const F = { cB: +fm[1], cC: +fm[2], durS: +fm[3] / 1000, pM: +fm[4], kM: +fm[5], pMax: +fm[6] };

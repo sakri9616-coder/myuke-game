@@ -26,7 +26,10 @@
 const fs = require("fs");
 const vm = require("vm");
 
-const HTML = fs.readFileSync("/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+/* 読み先は MIYUKE_GAME_HTML で差し替え可能（既定はライブツリー）。
+   worktree-verify.sh が git archive スナップショットを指すために使う。
+   未設定時の挙動は従来どおり。 */
+const HTML = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
 const BLOCKS = [...HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 if (BLOCKS.length < 2) { console.error("script blocks not found"); process.exit(1); }
 
@@ -2613,7 +2616,7 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
 console.log("== Phase D: auto-update (config + fake updater flows) ==");
 (async () => {
   /* --- 設定ファイル側の整合（実ファイルを読む） --- */
-  const DESK = "/home/hatch/workspace/miyuke-game/desktop/";
+  const DESK = process.env.MIYUKE_DESK || "/home/hatch/workspace/miyuke-game/desktop/";
   const conf = JSON.parse(fs.readFileSync(DESK + "src-tauri/tauri.conf.json", "utf8"));
   check("tauri version is 2.5.0", conf.version === "2.5.0", "got " + conf.version);
   check("GAME_VERSION label matches tauri version",

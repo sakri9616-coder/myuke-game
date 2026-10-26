@@ -4,7 +4,8 @@
 const fs = require("fs");
 const vm = require("vm");
 
-const HTML = fs.readFileSync("/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+/* smoke と同じく MIYUKE_GAME_HTML で読み先を差し替え可能（既定はライブツリー）。 */
+const HTML = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
 const BLOCKS = [...HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 
 /* DOM スタブと偽時計は tools/dom-stub.cjs に共通化（smoke と同一物を使う） */
