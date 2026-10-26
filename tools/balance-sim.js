@@ -137,7 +137,7 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin){
   return PLAYER.clicksPerMin * base * avgMult * critF;
 }
 
-function simulate(days, active, reqMode, prestigeAt, profile){
+function simulate(days, active, reqMode, prestigeAt, profile, eraDust = 0){
   seed = 20261024; // プレイヤー間で乱数を揃える
   /* 第2ウェーブ K のプロファイル: minority = 上限6＋スタッフ生産 ×1.25 /
      idle = ブーストとクリックなし / black = バグ ×3・価格 ×2 */
@@ -145,7 +145,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   const bugPerDP = BAL.bugPerDP * (profile === "black" ? 3 : 1);
   const up = {}, res = {}, cu = {};
   let staff = [], studioLv = 1;
-  let coins = 0, rp = 0, dust = 0, dustTotal = 0, runDP = 0, bugStock = 0;
+  let coins = 0, rp = 0, dust = eraDust, dustTotal = eraDust, runDP = 0, bugStock = 0;
   let brand = 0;   /* Wave G: ブランド力（品質出荷で蓄積・価格に複利・EXIT で清算） */
   let simDebt = 0;   /* Wave K: ブラック検証用に、実機の負債ドラッグだけを局所モデル化（day sim 本体は負債なしが既定） */
   /* Sprint 3: 星屑ショップの最小モデル。特典は永続し、倍率は通算獲得
@@ -154,6 +154,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   let reportLv = 0;             /* Sprint 4: 反復研究レベル（引っ越しでリセット） */
   let coinsEarned = 0, econ = null;   /* Sprint 4: 30日目の支出可能性の材料 */
   let runCoins = 0;   /* Wave K: 1ラン（設立〜EXIT）単位の累計コイン。ブラック目標の校正用 */
+  let postLv6 = 0;    /* Wave J era: Lv6 到達後に貯めた収入（子会社2社ぶんの設立費到達日用） */
   let wip = { code:0, tested:0, built:0 }, wip2 = { code:0, tested:0, built:0 };
   let line2 = false;
   let ideas = 0, bigStreak = 0, reqDone = 0, curDay = 1;   /* reqDone/curDay: Phase C の依頼比較用 */
@@ -162,7 +163,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   let totalReleasesEver = 0;
   const releasesByDay = [];
   const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null, prestigeCount: 0, hold5Day: null, hold5Dust: 0,
-                       firstUpgradeDay: null, firstHireDay: null, line2Day: null,
+                       firstUpgradeDay: null, firstHireDay: null, line2Day: null, lv6Day: null, sub2CashDay: null,
                        resT1Day: null, resAllDay: null,
                        /* Phase B・社格到達日: Lv1 は開始時（0日目）。売却で Lv1 に戻っても
                           初回到達日は上書きしない（最高到達の記録として読む） */
@@ -444,6 +445,11 @@ function simulate(days, active, reqMode, prestigeAt, profile){
         if(!acted) break;
       }
     }
+    /* 第2ウェーブ J era: Lv6 初到達日と、Lv6 到達後に収入を全額貯めた場合の
+       子会社2社ぶん（15000＋30000）到達日。子会社そのものは day sim に未モデル
+       のため、設立費の貯金到達日で代用し、貯金中は購入を止めるランク追い方針を仮定する */
+    if(milestones.lv6Day === null && studioLv >= 6) milestones.lv6Day = day;
+    if(milestones.lv6Day !== null && milestones.sub2CashDay === null){ postLv6 += dayCoins; if(postLv6 >= 45000) milestones.sub2CashDay = day; }
     releasesByDay.push(dayReleases);
     /* Sprint 4: その日の経済スナップショット（引っ越し判定の前に取る）。
        ご褒美価格は game の treatCost と同じ式（その日の初回購入価格） */
@@ -781,3 +787,39 @@ console.log("\n== Wave L: 自社IP の生涯価値・価格スタック ==");
    小さく、情緒（古参が残る）が主・数字は従という仕様の置きどおり */
 console.log("\n== Wave M: 役員オーラ ==");
 console.log("上限: 同役職 ×1.3（3匹集中）／ 分散時は各役職 +10%。日次 sim の主指標には載せない（EXIT ごとの選択依存のため）");
+
+/* ===== 第2ウェーブ J: 時代モデル（era-climbing）による初回持株化日の計測 =====
+   仕様書 J 節の反証条件（初回持株化が sim 14〜17日目以内か）を、時代モデルで
+   測るための節。構成は2段:
+   (1) 小刻み周回: 益5（Wave I の推奨方針）または益3（最小益ラッシュ）で EXIT を
+       重ね、5回目の EXIT 日（hold5Day）とその時点の時代の通算星屑（hold5Dust）
+       を取る。益5方針では周回中の社格は Lv3 止まりで、ランク追いは別ランに
+       なる（小刻みと社格登りは両立しない — EXIT が社格をリセットするため）。
+   (2) 登りラン: 5回目の EXIT 直後の新会社で、時代の通算星屑を eraDust に引き継ぎ、
+       売却せずに Lv6＋子会社2社ぶんの貯金（15000＋30000）まで登る。子会社そのもの
+       は day sim に未モデルなので、Lv6 到達後に収入を全額貯金するランク追い方針で
+       代用する（貯金到達日 = sub2CashDay）。
+   時代の日数 = hold5Day + sub2CashDay。1日 = 常駐180分のため ×3 が常駐時間の目安。
+   この節は計測専用で、本線の数値（初リリース・比率・0リリース日）には触れない */
+console.log("\n== Wave J era: 初回持株化日の時代モデル ==");
+{
+  const eraLine = (label, p, c) => {
+    const tot = (p.milestones.hold5Day && c.milestones.sub2CashDay) ? p.milestones.hold5Day + c.milestones.sub2CashDay : null;
+    return label + ": 5回目 EXIT " + (p.milestones.hold5Day || "未達") + "日目（通算 " + p.milestones.hold5Dust + "）＋登り " +
+      (c.milestones.sub2CashDay || "未達") + "日目（Lv6 " + (c.milestones.lv6Day || "未達") + "日目）＝ 時代 " +
+      (tot === null ? "未達" : tot + "日目（常駐約 " + (tot * 3) + "時間）");
+  };
+  const eraVerdict = (p, c) => {
+    const tot = (p.milestones.hold5Day && c.milestones.sub2CashDay) ? p.milestones.hold5Day + c.milestones.sub2CashDay : null;
+    return tot === null ? "未達" : (tot <= 17 ? tot + "日目で 17日目以内" : tot + "日目で 17日目を超過");
+  };
+  for(const gain of [5, 3]){
+    const pP = simulate(30, false, undefined, gain), pA = simulate(30, true, undefined, gain);
+    const cP = simulate(30, false, undefined, 99999, undefined, pP.milestones.hold5Dust);
+    const cA = simulate(30, true, undefined, 99999, undefined, pA.milestones.hold5Dust);
+    console.log("益" + gain + "方針（" + (gain === 5 ? "Wave I 推奨" : "最小益ラッシュ") + "）:");
+    console.log("  " + eraLine("passive", pP, cP));
+    console.log("  " + eraLine("active ", pA, cA));
+    console.log("  時代モデルの読み（仕様書 J 節の反証条件 14〜17日目）: passive " + eraVerdict(pP, cP) + " / active " + eraVerdict(pA, cA));
+  }
+}
