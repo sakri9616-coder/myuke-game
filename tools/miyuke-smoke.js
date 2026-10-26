@@ -220,10 +220,10 @@ console.log("== Phase A: browser full mode (panels only) ==");
   /* gain = 0.25 × combo 1.1 = 0.275。80% が直接進捗 (×firstBoost ×concProdMult)、
      20% が仕掛品 (produceDP 経由で同じく ×concProdMult)。
      Sprint 4: firstBoost は 3.4（旧 1.5）なので期待値は実関数から取る */
-  check("one cheer click moves projectDP immediately (direct credit)",
-    Math.abs(dpDelta - 0.275 * 0.8 * fbNow * concNow) < 0.03, "delta=" + dpDelta.toFixed(3) + " fb=" + fbNow + " conc=" + concNow);
-  check("the rest of the click flows into WIP",
-    Math.abs(wipDelta - 0.275 * 0.2 * fbNow * concNow) < 0.03, "delta=" + wipDelta.toFixed(3));
+  check("one cheer click moves projectDP immediately (direct credit — F redesign: 20% penetration share)",
+    Math.abs(dpDelta - 0.275 * 0.2 * fbNow * concNow) < 0.03, "delta=" + dpDelta.toFixed(3) + " fb=" + fbNow + " conc=" + concNow);
+  check("the rest of the click flows into WIP (F redesign: 80% pipe-first inflow)",
+    Math.abs(wipDelta - 0.275 * 0.8 * fbNow * concNow) < 0.03, "delta=" + wipDelta.toFixed(3));
   check("click sets the progress pulse", run(sb, "progressPulseUntil") > Date.now() - 1000);
   run(sb, "Math.random = window.__mr;");
 
@@ -3369,6 +3369,44 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     try { loadGame(sbOldF); } catch (e) { threwF = true; }
     check("WF: a save without the fever field loads with an empty gauge",
       !threwF && run(sbOldF, "S.fever.gauge") === 0);
+    /* --- F 再設計（Argon フォローアップ） --- */
+    const sbR = buildSandbox({});
+    loadGame(sbR);
+    run(sbR, "S.project = { name:'T', size:'S', genre:'app', totalDP: 900, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }");
+    check("WR: the hybrid click base grows with the auto-production rate",
+      Math.abs(run(sbR, "autoProdEMA = 100, clickBaseDP() - clickPower()") - 5) < 0.001);
+    run(sbR, "autoProdEMA = 0");
+    check("WR: the click bucket grants its burst capacity then blocks",
+      run(sbR, "clickBucket = 15; clickBucketAt = Date.now(); let ok = 0; for(let i = 0; i < 20; i++) if(clickBucketTake()) ok++; ok") === 15 &&
+      run(sbR, "clickBucketTake()") === false);
+    check("WR: the bucket refills over time",
+      run(sbR, "clickBucketAt = Date.now() - 1000, clickBucketTake()") === true);
+    const sbSplit = buildSandbox({});
+    loadGame(sbSplit);
+    run(sbSplit, "S.project = { name:'T', size:'S', genre:'app', totalDP: 100000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }; S.projectDP = 0");
+    run(sbSplit, "cheerClick(100, 100, 'body')");
+    check("WR: click inflow is pipe-first (wip share >= 3x the direct share)",
+      run(sbSplit, "S.wip.code") >= run(sbSplit, "S.projectDP") * 3,
+      "wip=" + run(sbSplit, "S.wip.code") + " direct=" + run(sbSplit, "S.projectDP"));
+    const sbMute = buildSandbox({});
+    loadGame(sbMute);
+    run(sbMute, "S.project = { name:'T', size:'S', genre:'app', totalDP: 900, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }; S.fever.gauge = 100; activateFever()");
+    const wipMuted = run(sbMute, "prodMuted = true; const b = S.wip.code; produceDP(100, 'l1'); S.wip.code - b");
+    const wipAuto = run(sbMute, "prodMuted = false; const b2 = S.wip.code; produceDP(100, 'l1'); S.wip.code - b2");
+    check("WR: fever production multiplier never stacks onto input-derived DP",
+      Math.abs(wipAuto / wipMuted - run(sbMute, "FEVER.prodMult")) < 0.01 && wipMuted > 0,
+      "auto=" + wipAuto + " muted=" + wipMuted);
+    const sbPas = buildSandbox({});
+    loadGame(sbPas);
+    run(sbPas, "S.project = { name:'T', size:'S', genre:'app', totalDP: 900, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }; S.fever.gauge = 100");
+    const wipPas = run(sbPas, "const b = S.wip.code; produceDP(100, 'l1'); S.wip.code - b");
+    const sbPas0 = buildSandbox({});
+    loadGame(sbPas0);
+    run(sbPas0, "S.project = { name:'T', size:'S', genre:'app', totalDP: 900, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; S.wip = { code: 0, tested: 0, built: 0 }");
+    const wipPas0 = run(sbPas0, "const b = S.wip.code; produceDP(100, 'l1'); S.wip.code - b");
+    check("WR: a full un-fired gauge passively boosts production by passiveMax",
+      Math.abs(wipPas / wipPas0 - (1 + run(sbPas, "FEVER.passiveMax"))) < 0.01,
+      wipPas0 + " -> " + wipPas);
   }
 
   /* ================= Wave G: 技術的負債・ブランド・デスマーチ・外注 ================= */

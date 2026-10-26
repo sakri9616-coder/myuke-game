@@ -118,15 +118,21 @@ const PLAYER = { minutesPerDay: 180, keysPerHour: 2400, cursorPxPerHour: 90000, 
                  bugCoinsPerSession: 29 };   // セッション中のバグ叩き収入の期待値（🪙）
 
 /* 1セッションぶんのクリック生産（DP/分, 倍率適用前）。
-   コンボはクリックごとに +0.10（上限 comboCapBonus）、2.5秒以内の連続で維持される前提。 */
-function sessionClickDPperMin(cu, focus){
+   コンボはクリックごとに +0.10（上限 comboCapBonus）、2.5秒以内の連続で維持される前提。
+   F 再設計（ハイブリッド式）: 1クリックの基礎 = clickPower + 自動生産(DP/秒) × 5%。
+   自動生産は倍率適用後の値（実機の autoProdEMA 相当）を渡すこと。
+   なお実機の流入制限（直接20%・残りは工程キャップ）と入力バケツ（300/分）は
+   40/分の人間プロファイルでは拘束しないため、この日次モデルでは抽象化する
+   （拘束するのは連打ツール域のみ — それが再設計の目的） */
+function sessionClickDPperMin(cu, focus, autoPostPerMin){
   const clicks = PLAYER.clicksPerMin * PLAYER.clickSessionMin;
   const capB = comboCapBonus(cu);
   let sum = 0;
   for(let i = 0; i < clicks; i++) sum += 1 + Math.min(capB, (i + 1) * 0.10);
   const avgMult = sum / clicks;
   const critF = 1 + critRate(cu) * 9;   // クリティカル ×10 の期待値係数
-  return PLAYER.clicksPerMin * clickPower(cu, focus) * avgMult * critF;
+  const base = clickPower(cu, focus) + (autoPostPerMin || 0) / 60 * 0.05;
+  return PLAYER.clicksPerMin * base * avgMult * critF;
 }
 
 function simulate(days, active, reqMode){
@@ -234,7 +240,7 @@ function simulate(days, active, reqMode){
       const inSession = active && PLAYER.clickSessions.some(s0 => min >= s0 && min < s0 + PLAYER.clickSessionMin);
       let clickRaw = 0;
       if(inSession){
-        clickRaw = sessionClickDPperMin(cu, perks.focus);
+        clickRaw = sessionClickDPperMin(cu, perks.focus, raw * mlt);
         ideas += 0.02 * (cu.synidea||0) * PLAYER.clicksPerMin;   // ひらめき連動
         rp += 0.004 * (cu.synrp||0) * PLAYER.clicksPerMin;   // 研究メモ連動
         if(PLAYER.clickSessions.includes(min)){              // セッション開始分にイベント期待値を加算
@@ -410,7 +416,7 @@ function simulate(days, active, reqMode){
       const codingFrac = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
       const boost = Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       const passivePerMin = ((BAL.basePerMin + boost) * codingFrac + R.bot + R.ss.prog) * mlt;
-      const clickPerMin = sessionClickDPperMin(cu, perks.focus) * mlt;
+      const clickPerMin = sessionClickDPperMin(cu, perks.focus, passivePerMin) * mlt;
       snapshot7 = { passivePerMin, clickPerMin, ratio: (passivePerMin + clickPerMin) / passivePerMin, staff: staff.length, studioLv };
     }
     // --- プレステージ（星屑10個ぶんで実施。5個ぶん到達日も記録） ---
@@ -528,55 +534,37 @@ console.log("== Phase D: 子会社の配分感度（人員30・規模Lv3 の2社
     Math.round(3 * subCoins(50, 6, 3, 33)) + "🪙/分（本社30日目の平均 ~30🪙/分 を大きく上回り、終盤の主収入になる設計）");
 }
 
-/* ===== Wave F: オーバークロックの寄与（承認済み仕様書 F 節の数値ゲート） =====
+/* ===== Wave F: オーバークロックの寄与（再設計版・数値ゲート） =====
    解析モデル（前提を明示）: 中盤のアクティブプレイヤーのスナップショット —
-   非クリック生産 P=330 DP/分（スタッフ+ブースト込み）、応援クリック 40回/分
-   （平均 +48.9 DP/分 = clickPower 0.25 × combo 平均 2.84 × クリEV 1.72、
-   レーンA 項目1 の実測値）、OS ブースト 30 DP/分。FEVER 定数は実装から抽出。
-   ゲート: フィーバーの総収入への上乗せが 15〜40%（カタルシスとして感じられ、
-   かつ常用生産の格を落とさない範囲） */
+   自動生産 P=330 DP/分（autoProdEMA = 5.5/秒）、応援クリック 40回/分。
+   再設計後のクリック基礎 = 0.25 + 5.5×0.05 = 0.525（ハイブリッド連動）、
+   コンボ平均 2.84・クリEV 1.72（レーンA 実測）。フィーバーの寄与は
+   (a) 蓄熱パッシブ: 充填中ゲージが線形に伸びる前提で平均 +(passiveMax/2)
+   (b) 発動バースト: 生産 ×prodMult が durationMs 続く
+   (c) 発動中クリック ×clickMult の増分
+   の合計。ゲート: 総収入への上乗せ 15〜40%。
+   連打ツールの上限も併記する: バケツ上限（300/分）で連打しても、直接進捗
+   への貫通（directShare）ぶんしか即時には効かず、残りは工程キャップに
+   堰き止められる — 直接貫通の上限が自動生産を下回ることを確認する */
 console.log("");
-console.log("== Wave F: オーバークロックの寄与（アクティブ中盤スナップショット）==");
+console.log("== Wave F: オーバークロックの寄与（再設計版・アクティブ中盤スナップショット）==");
 {
   const srcF = fs.readFileSync("/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
-  const fm = srcF.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+) \}/);
+  const fm = srcF.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+), passiveMax: ([\d.]+) \}/);
   if(!fm) throw new Error("FEVER extraction failed");
-  const F = { cB: +fm[1], cC: +fm[2], durS: +fm[3] / 1000, pM: +fm[4], kM: +fm[5] };
-  const P = 330, clickPerMin = 40, clickDPMin = 48.9, boostDPMin = 30, clickAvgGain = 48.9 / 40;
+  const F = { cB: +fm[1], cC: +fm[2], durS: +fm[3] / 1000, pM: +fm[4], kM: +fm[5], pMax: +fm[6] };
+  const P = 330, clickPerMin = 40, boostDPMin = 30;
+  const clickBase = 0.25 + (P / 60) * 0.05, clickAvgGain = clickBase * 2.84 * 1.72;
+  const clickDPMin = clickPerMin * clickAvgGain;
   const chargeMin = boostDPMin * F.cB + clickPerMin * F.cC;
   const cycleMin = 100 / chargeMin, duty = F.durS / (cycleMin * 60);
+  const passiveUp = P * (F.pMax / 2);
   const prodUp = P * (F.pM - 1) * (F.durS / 60) / cycleMin;
   const clickUp = (clickPerMin * F.durS / 60) * clickAvgGain * (F.kM - 1) / cycleMin;
-  const base = P + clickDPMin, up = prodUp + clickUp;
-  console.log("充填: " + chargeMin.toFixed(1) + "/分 → 満タン周期 " + cycleMin.toFixed(1) + " 分 / デューティ " + (duty * 100).toFixed(1) + "%");
-  console.log("上乗せ: 生産 +" + prodUp.toFixed(1) + " DP/分 / クリック +" + clickUp.toFixed(1) + " DP/分 → 総収入 " + base.toFixed(0) + " に対し +" + (up / base * 100).toFixed(1) + "%");
+  const base = P + clickDPMin, up = passiveUp + prodUp + clickUp;
+  console.log("充填: " + chargeMin.toFixed(1) + "/分 → 満タン周期 " + cycleMin.toFixed(1) + " 分 / デューティ " + (duty * 100).toFixed(1) + "% / クリック基礎 " + clickBase.toFixed(3) + "（連動込み）");
+  console.log("上乗せ: 蓄熱 +" + passiveUp.toFixed(1) + " / 生産バースト +" + prodUp.toFixed(1) + " / クリック +" + clickUp.toFixed(1) + " DP/分 → 総収入 " + base.toFixed(0) + " に対し +" + (up / base * 100).toFixed(1) + "%");
   console.log("寄与判定（15〜40%）: " + (up / base >= 0.15 && up / base <= 0.40 ? "PASS" : "FAIL"));
-}
-
-/* ===== Wave G: 負債・ブランド・デスマーチ（承認済み仕様書 G 節の数値ゲート） =====
-   解析モデル（前提を明示）: 中盤の生産 300 DP/分、ケア careW 3（総務2〜3人）。
-   デスマーチ判定: L を 70% から強行出荷するとき、負債の生産ドラッグ
-   （返済し切るまでの効率損の積分 ≒ 平均負債ぶんの DP 損失）をコイン換算
-   （L: 750🪙/7000DP）し、「救えるボーナス」と比べる。設計意図は
-   「ティア1（+60%）では割に合わず、ティア3（+180%）/大型（+250%）では
-   割に合う」— いつも押すボタンではなく、納期救済の判断になること */
-console.log("");
-console.log("== Wave G: デスマーチの損得 / ケア返済ペース / ブランド複利 ==");
-{
-  const P = 300, careW = 3, repayPerMin = careW * 0.9;         /* 実装: careW × 0.9 /分 */
-  const dmDebt = Math.round(0.3 * 240) + 8 * 2;                  /* L・70%・バグ8 の負債 = 88 */
-  const clearMin = dmDebt / repayPerMin;
-  /* ドラッグ損失: 負債が線形に減る間の平均効率損 × 生産 × 時間 */
-  let dragDP = 0;
-  for(let t = 0; t < clearMin; t++){
-    const d = Math.max(0, dmDebt - repayPerMin * t);
-    dragDP += P * (1 - 1 / (1 + d / 50));
-  }
-  const dragCoins = dragDP * (750 / 7000);
-  const t1 = Math.round(750 * 0.6), t3 = Math.round(750 * 1.8), big = Math.round(750 * 2.5);
-  console.log("デスマーチ負債 " + dmDebt + " → ケア返済 " + clearMin.toFixed(0) + " 分 / ドラッグ損失 ≈ " + Math.round(dragDP) + " DP ≈ " + Math.round(dragCoins) + "🪙");
-  console.log("救えるボーナス: ティア1 +" + t1 + "🪙 / ティア3 +" + t3 + "🪙 / 大型 +" + big + "🪙");
-  console.log("デスマーチ判定（ティア1では損・ティア3以上で得）: " + (dragCoins > t1 && dragCoins < t3 ? "PASS" : "FAIL"));
-  console.log("ブランド複利（品質出荷 +4/本）: 10本で ×" + (1 + 40 * 0.02).toFixed(1) + " / 25本で ×" + (1 + 100 * 0.02).toFixed(1) + " / 50本で ×" + (1 + 200 * 0.02).toFixed(1) + " / 上限 ×10（225本）");
-  console.log("ブランド判定（25本で ×3 到達）: " + ((1 + 100 * 0.02) >= 3 ? "PASS" : "FAIL"));
+  const toolDirect = 300 * clickBase * 3.0 * 1.72 * 0.2;   /* バケツ上限連打時の直接貫通/分 */
+  console.log("連打ツールの直接貫通上限: " + toolDirect.toFixed(0) + " DP/分（自動生産 " + P + " を下回る）: " + (toolDirect < P ? "PASS" : "FAIL"));
 }

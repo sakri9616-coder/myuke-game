@@ -12815,11 +12815,43 @@ function outsourceBugs(){
    タイミングで発動する 30 秒の加速時間（承認済み仕様書 F 節・数値は承認値）。
    供給の線引きは入力ブーストと同じ: OS 集計が OFF のときはゲーム内クリック
    だけで細く貯まる。発動中は生産 ×5（バグの発生は基礎量で数える — 加速の
-   代価にバグを増やさない）・応援クリック ×20・バグが湧きやすい */
-const FEVER = { chargePerBoostDP: 0.2, chargePerClick: 0.06, durationMs: 30000, prodMult: 5, clickMult: 20 };
+   代価にバグを増やさない）・応援クリック ×3（再設計で ×20 から変更）・バグが湧きやすい */
+const FEVER = { chargePerBoostDP: 0.2, chargePerClick: 0.06, durationMs: 30000, prodMult: 5, clickMult: 3, passiveMax: 0.2 };
 let feverUntil = 0;   /* 発動中だけ意味がある揮発状態（保存しない） */
 let feverBugNext = 0;
 function feverActive(){ return Date.now() < feverUntil; }
+/* 未発動のゲージは「蓄熱」として自動生産を底上げする（最大 +20%）。
+   発動中はこの分は発動倍率に内包されるので二重には掛けない */
+function feverPassive(){ return feverActive() ? 1 : 1 + FEVER.passiveMax * ((S.fever && S.fever.gauge) || 0) / 100; }
+/* ---------- F 再設計（Argon フォローアップ 2026-10-26） ----------
+   ・クリック式のハイブリッド化: 1クリック = 基礎値 + 自動生産(DP/秒) × 5%
+     （成長軸は基礎値でなく会社の自動生産への連動に移る）
+   ・入力バケツ: DP が付くクリックは秒 5 回まで（発動中は 8 回）。人間の
+     クリックは届かない速度で、連打ツールへの堰として働く。反応やコンボは
+     バケツの外でも止めない（v2.4.2 の原則）
+   ・流入制限は案B（減衰貫通）の読み替え: クリック DP の直接進捗への
+     貫通は 20% に絞り、残り 80% は第1工程への流入として工程キャップ
+     （テスト/ビルド/出荷レート）に堰き止めさせる。案A でない理由は
+     dev-log に記録（当社の工程はライン内で全段が常時存在し、段階解放
+     されるのは第2ラインと部署のため）
+   ・フィーバーのクリック倍率は ×20 → ×3（×20 は無上限の貫通構造に
+     乗ると連打ツールで爆発する、という Argon の警告による置換。
+     承認仕様の字面との差分として報告に明記する）                    */
+const CLINK = { linkRate: 0.05, bucketMax: 15, bucketPerSec: 5, bucketPerSecFever: 8, directShare: 0.2 };
+let clickBucket = CLINK.bucketMax, clickBucketAt = Date.now();
+let autoProdEMA = 0;        /* 自動生産レート (DP/秒) の指数移動平均 */
+let autoProdSecAcc = 0;     /* 直近1秒の自動生産の積算（tick で EMA へ） */
+let prodMuted = false;      /* true の間の produceDP は「入力由来」: 自動生産に数えず、フィーバー生産倍率も掛けない */
+function clickBaseDP(){ return clickPower() + autoProdEMA * CLINK.linkRate; }
+function clickBucketTake(){
+  const now = Date.now();
+  const rate = feverActive() ? CLINK.bucketPerSecFever : CLINK.bucketPerSec;
+  clickBucket = Math.min(CLINK.bucketMax, clickBucket + (now - clickBucketAt) / 1000 * rate);
+  clickBucketAt = now;
+  if(clickBucket < 1) return false;
+  clickBucket -= 1;
+  return true;
+}
 function chargeFever(amount){
   if(feverActive() || !S.fever) return;
   const before = S.fever.gauge || 0;
@@ -12840,14 +12872,16 @@ function activateFever(){
   feverBugNext = Date.now() + 3000;
   SoundKit.play("releaseFanfare");
   say("⚡ オーバークロック発動にゃ！！ 30秒、全力で回すよ！");
-  addLog("⚡ オーバークロック発動（30秒: 生産×5・クリック×20）");
+  addLog("⚡ オーバークロック発動（30秒: 生産×5・クリック×3）");
   if(document.body.classList.contains("strip"))
     addStripFloater(stripDeskCX(), STRIP_GROUND - 62, "⚡ FEVER!", "#e2543e");
   save(); renderPanel();
 }
 function produceDP(amount, target){
-  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff();
-  const a = aBase * (feverActive() ? FEVER.prodMult : 1);
+  const fromInput = prodMuted;
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+  const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
+  if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
   const proj = target === "l2" ? S.line2.project : S.project;
   const bugMul = (proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1;
@@ -13168,9 +13202,11 @@ function splatBug(i, bx, by){
   S.coins += 6; S.totals.coinsEarned += 6;
   S.totals.bugsSquashed++; S.today.bugs++; S.totals.eventBugs++;
   if(feverActive()){
-    /* F: フィーバー中のバグ潰しはボーナス DP（応援クリック2回ぶん） */
-    const dp = clickPower() * comboMult() * 2;
+    /* F: フィーバー中のバグ潰しはボーナス DP（応援クリック2回ぶん・入力由来として扱う） */
+    const dp = clickBaseDP() * comboMult() * 2;
+    prodMuted = true;
     produceDP(dp, "l1");
+    prodMuted = false;
     addFloater(bx, by - 16, "+" + dp.toFixed(0) + "DP", "#e2543e");
   }
   addFloater(bx, by - 8, "+6🪙", "#5aa469");
@@ -13195,9 +13231,9 @@ function updateComboUI(){
   if(!el) return;
   if(comboN >= 2){
     el.textContent = "👆 応援コンボ ×" + comboMult().toFixed(1) + "（" + comboN + "連続） 1クリック +" +
-      (clickPower() * comboMult()).toFixed(1) + "DP";
+      (clickBaseDP() * comboMult()).toFixed(1) + "DP";
   } else {
-    el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + clickPower().toFixed(1) +
+    el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + clickBaseDP().toFixed(1) +
       "DP（連続でコンボ、たまにクリティカル×10）";
   }
 }
@@ -13207,27 +13243,30 @@ function cheerClick(bx, by, part){
   lastClickAt = now;
   S.totals.clicks++;
   const crit = Math.random() < critRate();
-  let gain = clickPower() * comboMult();
+  let gain = clickBaseDP() * comboMult();   /* F再設計: ハイブリッド式（基礎＋自動生産連動） */
   if(crit){ gain *= 10; S.totals.crits++; }
-  if(feverActive()) gain *= FEVER.clickMult;   /* F: フィーバー中は応援クリック ×20 */
-  else chargeFever(FEVER.chargePerClick);      /* F: 応援でもゲージが細く貯まる */
-  /* Sprint 1: 応援の80%は工程を待たずその場でプロジェクト進捗になり
-     （クリックでバーが即座に動く）、残り20%は通常どおり仕掛品へ流れる。
-     企画中だけは直接計上できないので、全量を仕掛品に回す */
-  produceDP(gain * 0.2, "l1");
-  if(S.project && S.project.planning){
-    produceDP(gain * 0.8, "l1");
-  } else if(S.project){
-    const direct = gain * 0.8 * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
-    S.runDP += direct;
-    S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
-    creditProject(direct);
-    progressPulseUntil = Date.now() + 500;
-    addFloater(bx, by - 22, "+" + direct.toFixed(1) + "DP すすんだ！", "#e8873a");
-  }
-  if(crit){
-    addFloater(bx, by - 12, "CRITICAL! +" + gain.toFixed(0) + "DP", "#d9534f");
-    say("クリティカル応援！！ すごいパワーだにゃ！");
+  if(feverActive()) gain *= FEVER.clickMult;   /* F再設計: 発動中のクリックは ×3（旧 ×20 は Argon の警告で置換） */
+  /* F再設計: バケツを通ったクリックだけが DP を生む（反応・コンボは無条件）。
+     流入は案B 読み替え: 直接進捗は 20%、残り 80% は第1工程へ流して
+     工程キャップに堰き止めさせる。企画中は全量が仕掛品になる */
+  if(clickBucketTake()){
+    if(!feverActive()) chargeFever(FEVER.chargePerClick);
+    prodMuted = true;
+    produceDP(gain * (1 - CLINK.directShare), "l1");
+    if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
+    prodMuted = false;
+    if(S.project && !S.project.planning){
+      const direct = gain * CLINK.directShare * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+      S.runDP += direct;
+      S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
+      creditProject(direct);
+      progressPulseUntil = Date.now() + 500;
+      addFloater(bx, by - 22, "+" + direct.toFixed(1) + "DP すすんだ！", "#e8873a");
+    }
+    if(crit){
+      addFloater(bx, by - 12, "CRITICAL! +" + gain.toFixed(0) + "DP", "#d9534f");
+      say("クリティカル応援！！ すごいパワーだにゃ！");
+    }
   }
   // 連動シナジー（端数は貯めて整数化）
   ideaFrac += 0.02 * (S.clickUp.synidea||0);
@@ -13382,10 +13421,15 @@ function tick(){
     keysAcc = 0; cursorAcc = 0; clicksAcc = 0;
     boost = boostGate(boost);
     if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
+    prodMuted = true;   /* F再設計: ブーストは入力由来（自動生産に数えず、発動倍率も二重に掛けない） */
     if(boost > 0.01 && coding) produceDP(boost, "l1");
     else if(boost > 0.01) pendingBoost += boost;
     if(pendingBoost > 0 && coding){ produceDP(pendingBoost, "l1"); pendingBoost = 0; }
+    prodMuted = false;
   }
+  /* F再設計: 自動生産レートの EMA を毎秒更新（クリック連動ボーナスの基礎） */
+  autoProdEMA = autoProdEMA * 0.9 + autoProdSecAcc * 0.1;
+  autoProdSecAcc = 0;
   tutCheck();   /* チュートリアル導線: 事実ベースの進行チェック (毎秒) */
   renderHeader();
 }
@@ -16690,7 +16734,7 @@ if(stripCv){
     const crit = cheerClick(ux, uy, part);
     stripSparks.push({ x: ux, y: uy, born: Date.now() });
     if(stripSparks.length > 10) stripSparks.shift();
-    if(!crit) addStripFloater(ux, uy - 9, "+" + (clickPower() * comboMult()).toFixed(1) + "DP");
+    if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
       if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); say("ん。…悪くないにゃ"); }
@@ -17458,7 +17502,7 @@ function renderPanel(){
     h += "<h3>👆 応援クリック</h3>";
     /* IA: 威力は文章でなく大きな数字で。説明は1行だけに圧縮 */
     h += "<div class='statgrid'>" +
-      statBlock("1クリックの威力", clickPower().toFixed(2), "DP") +
+      statBlock("1クリックの威力", clickBaseDP().toFixed(2), "DP") +
       statBlock("コンボ上限", "×" + (1 + comboCapBonus()).toFixed(2), "") +
       statBlock("クリティカル", Math.round(critRate()*100) + "%", "当たると ×10") +
       statBlock("通算クリック", fmt(S.totals.clicks), "回") +
@@ -17469,8 +17513,8 @@ function renderPanel(){
       const g = S.fever ? Math.floor(S.fever.gauge || 0) : 0;
       const act = feverActive();
       h += "<div class='kv'><span>⚡ オーバークロック</span><b>" +
-        (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×20）"
-             : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります）")) + "</b></div>";
+        (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×3）"
+             : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります・蓄熱で生産 +" + Math.round(FEVER.passiveMax * g) + "%）")) + "</b></div>";
       if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">⚡ オーバークロック発動（30秒）</button>";
     }
     h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
