@@ -12934,10 +12934,13 @@ function attachModules(p){
   }
   return p;
 }
+/* 品質の天井はこの1箇所で決める（読み取り・磨き込み・デスマーチの
+   強制品質が同じ天井を見ること。J の事後チェック指摘で統一） */
+function moduleQualityCap(){ return hasLegacyTech("ai_base") ? 1.75 : 1.5; }
 function moduleQuality(m){
   if(m.out) return 0.8;
   if(m.forcedQ) return m.forcedQ;
-  return Math.min(hasLegacyTech("ai_base") ? 1.75 : 1.5, m.inv / m.need);   /* 第2ウェーブ J: AI 開発基盤で天井 1.75 */
+  return Math.min(moduleQualityCap(), m.inv / m.need);
 }
 function moduleComplete(m){ return !!(m.out || m.done || m.inv >= m.need); }
 function modulesDone(p){ return !p || !p.modules || p.modules.every(moduleComplete); }
@@ -12952,7 +12955,7 @@ function divertToModules(a){
   const p = S.project;
   if(!p || !p.modules) return 0;
   const open = p.modules.filter(m => !m.out && !moduleComplete(m));
-  const polish = p.modules.filter(m => !m.out && moduleComplete(m) && moduleQuality(m) < 1.5);
+  const polish = p.modules.filter(m => !m.out && moduleComplete(m) && moduleQuality(m) < moduleQualityCap());
   const targets = open.length ? open : polish;
   if(!targets.length) return 0;
   const pool = a * (open.length ? MOD_FLOW : MOD_FLOW_POLISH);
@@ -13008,7 +13011,7 @@ function doDeathMarchCore(){
   /* Wave H: デスマーチはモジュールの統合も強制完了する（品質は投資率
      そのまま・最低 0.5。価格にはその品質で乗る） */
   if(S.project.modules) for(const m of S.project.modules){
-    if(!moduleComplete(m)){ m.forcedQ = Math.max(0.5, Math.min(1.5, m.inv / m.need)); m.done = true; }
+    if(!moduleComplete(m)){ m.forcedQ = Math.max(0.5, Math.min(moduleQualityCap(), m.inv / m.need)); m.done = true; }
   }
   addLog("🔥 デスマーチ出荷！『" + p.name + "』残工程を飛ばして即リリース（技術的負債 +" + info.debtAdd + "・ブランド -2）");
   say("デスマーチにゃ！ えいやで出すよ（負債 +" + info.debtAdd + "）");

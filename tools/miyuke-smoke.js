@@ -3629,10 +3629,19 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     const sbAi = buildSandbox({});
     loadGame(sbAi);
     run(sbAi, "S.legacy = 10");
-    const qBefore = run(sbAi, "moduleQuality({ inv: 99999, need: 1000 })");
+    /* 実フローで検証する: 完成済みモジュールへの磨き込み (divertToModules の
+       polish 経路) が天井で止まる/伸びること。合成 inv では経路を踏めない */
+    run(sbAi, "S.project = { size: 'L', genre: 'app', planning: false, modules: [{ name: 'm1', need: 100, inv: 160, w: 1, done: true }] }");
+    const qBefore = run(sbAi, "moduleQuality(S.project.modules[0])");
+    run(sbAi, "produceDP(500, 'l1')");
+    const invBefore = run(sbAi, "S.project.modules[0].inv");
     run(sbAi, "buyLegacyTech('ai_base')");
-    check("WJ: AI platform raises the module quality cap 1.5 -> 1.75",
-      qBefore === 1.5 && run(sbAi, "moduleQuality({ inv: 99999, need: 1000 })") === 1.75);
+    run(sbAi, "produceDP(500, 'l1')");
+    check("WJ: AI platform raises the module quality cap 1.5 -> 1.75 on the real polish path",
+      qBefore === 1.5 && invBefore === 160 &&
+      run(sbAi, "S.project.modules[0].inv") > 160 &&
+      run(sbAi, "moduleQuality(S.project.modules[0])") > 1.5,
+      "inv after polish=" + run(sbAi, "S.project.modules[0].inv"));
     const sbGrp = buildSandbox({});
     loadGame(sbGrp);
     run(sbGrp, "S.legacy = 10");
