@@ -61,6 +61,10 @@ jobs:
         shell: bash
         run: cp game/index.html desktop/dist/index.html
 
+      - name: npm 依存の導入 (tauri CLI)
+        working-directory: desktop
+        run: npm ci
+
       - name: Tauri ビルド (NSIS, 署名あり)
         working-directory: desktop
         env:
