@@ -11810,7 +11810,7 @@ function freshState(){
     upgrades:{}, research:{}, stamps:{},
     project:null, projectDP:0, commitMark:0,
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
-    depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0,
+    depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
@@ -11900,6 +11900,7 @@ function load(){
     if(typeof S.bigDeal === "undefined") S.bigDeal = null;
     if(typeof S.reqGenrePref === "undefined") S.reqGenrePref = null;
     if(typeof S.salesRot !== "number") S.salesRot = 0;
+    if(typeof S.reqHoldUntil !== "number") S.reqHoldUntil = 0;
     for(const st of S.staff) if(st.role === "sales" && !st.genre){
       const pool = unlockedGenres();
       st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
@@ -13004,7 +13005,7 @@ function tick(){
   } else if(otNow < officeTierSeen) officeTierSeen = otNow;
   /* Phase C: 受注枠が空いていれば営業が自動で埋める（読み込み直後の回復もここ）。
      大型案件の期限切れもここで静かに処理する */
-  if(!S.activeRequest && salesReps().length) autoAcquireRequest();
+  if(!S.activeRequest && salesReps().length && now > (S.reqHoldUntil || 0)) autoAcquireRequest();
   if(S.bigDeal && now > S.bigDeal.expiresAt){
     addLog("🌟 大型案件は期限切れになった: "+S.bigDeal.client+"（ペナルティなし）");
     S.bigDeal = null; save();
@@ -13257,7 +13258,10 @@ function genRequests(){
   }
 }
 function acceptRequest(idx){
-  if(S.activeRequest){ say("いま受けてる依頼があるにゃ"); return; }
+  /* Phase C 事後チェック対応: 自動受注の依頼は手で差し替えできる（仕様書§4）。
+     大型案件だけは誤操作防止のため差し替え不可 */
+  if(S.activeRequest && S.activeRequest.big){ say("大型案件の対応中は差し替えできないにゃ"); return; }
+  if(S.activeRequest) addLog("依頼を差し替えた: "+S.activeRequest.client+" → "+S.requests[idx].client);
   S.activeRequest = S.requests[idx];
   S.requests.splice(idx,1);
   /* Sprint 1: 依頼は「次の作品への予約」。進行中のプロジェクトは絶対に消さない */
@@ -13290,7 +13294,7 @@ function salesReps(){ return S.staff.filter(s => s.role === "sales"); }
 function pickRequestGenre(rep, power){
   const pool = unlockedGenres();
   if(!pool.length) return null;
-  const prefW = 2 + Math.floor(power / 3);   /* 力量が高いほど希望どおりに寄る */
+  const prefW = 3 + Math.floor(power / 3);   /* 希望ジャンルは得意ジャンルより常に優位に、力量が高いほど差が開く */
   let total = 0;
   const ws = pool.map(g => {
     let w = 1;
@@ -13375,6 +13379,22 @@ function setReqGenrePref(gid){
   addLog("📮 依頼の希望ジャンルを「"+(g ? g.name : "おまかせ")+"」に設定（営業が寄せて取ってくる）");
   say(g ? "これからは"+g.name+"の依頼を多めに取ってくるにゃ" : "希望ジャンルはおまかせに戻したにゃ");
   save(); renderPanel();
+}
+/* 受注中の依頼の見送り（ペナルティなし）。自動で取ってきた依頼を手で
+   差し替えるための出口 — 見送った後90秒は自動獲得が割り込まないので、
+   その間に候補から選び直せる（猶予が過ぎれば自動が再開する） */
+function dropRequestCore(){
+  if(!S.activeRequest) return;
+  addLog("依頼を見送った: "+S.activeRequest.client+"（ペナルティなし）");
+  S.activeRequest = null; S.nextRequestGenre = null;
+  S.reqHoldUntil = Date.now() + 90000;
+  save(); renderPanel();
+}
+function dropRequest(){
+  if(S.activeRequest && S.activeRequest.big){
+    if(!confirm("大型案件（"+S.activeRequest.client+"）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+  }
+  dropRequestCore();
 }
 /* ---------- Sprint 3: 星屑ショップ（永続特典）と引っ越しプレビュー ----------
    星屑は「所持分（S.dust）」を消費して特典を買う。生産倍率は通算獲得
@@ -16693,11 +16713,12 @@ function renderPanel(){
         "<div class='ds'>次の作品（" + r.genreName + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
-        (r.repName ? " ・ 担当: " + r.repName : "") + "</div></div>";
+        (r.repName ? " ・ 担当: " + r.repName : "") + "</div>" +
+        "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";
     }
     S.requests.forEach((r,i)=>{
       h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + r.client + "</span><div class='ds'>" + r.text + "</div></div>" +
-        "<button onclick='acceptRequest(" + i + ")' " + (S.activeRequest ? "disabled" : "") + ">受ける</button></div>";
+        "<button onclick='acceptRequest(" + i + ")' " + (S.activeRequest && S.activeRequest.big ? "disabled" : "") + ">受ける</button></div>";
     });
     if(!S.requests.length && !S.activeRequest) h += "<button onclick='genRequests();save();renderPanel()'>依頼を探す</button>";
     /* Phase C: 希望ジャンル（プレイヤーの方針）。営業は力量が高いほど寄せて取る */
@@ -17463,6 +17484,7 @@ const VERBS = {
   buyTreat: buyTreat, buyStudio: buyStudio, buyLine2: buyLine2,
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
+  dropRequest: dropRequestCore,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
@@ -17626,6 +17648,12 @@ function makeVerbStub(verb){
       const pv = prestigePreview();
       if(pv.gain < 5){ showViewerNote("売却には星屑5個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
       if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
+    }
+    if(verb === "dropRequest"){
+      /* 大型案件の見送りだけ menu 側で確認する (帯側では confirm を出さない) */
+      if(S.activeRequest && S.activeRequest.big){
+        if(!confirm("大型案件（" + S.activeRequest.client + "）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+      }
     }
     let btn = null;
     try{

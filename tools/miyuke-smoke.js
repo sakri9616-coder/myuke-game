@@ -2354,6 +2354,15 @@ console.log("== Phase B14: staff batch 9 + env art tier wiring + mike2 retiremen
         const small = setup("S"), large = setup("L");
         return large > small * 1.5;
       })());
+    run(sb, "S.activeRequest = { client: 'a', genre: 'app', genreName: 'アプリ', bonus: 0.9, tier: 1, repName: 'r', auto: true }; dropRequestCore();");
+    check("C: dropping an auto request is penalty-free and opens a 90s replacement hold",
+      run(sb, "S.activeRequest === null && S.reqHoldUntil > Date.now()"));
+    run(sb, "tick();");
+    check("C: tick does not instantly refill a dropped request during the hold",
+      run(sb, "S.activeRequest === null"));
+    run(sb, "S.reqHoldUntil = 0; S.requests = [{ client: 'm', genre: 'tool', genreName: 'ツール', text: 't' }]; S.activeRequest = { client: 'a', genre: 'app', genreName: 'アプリ', bonus: 0.9, tier: 1, auto: true }; acceptRequest(0);");
+    check("C: accepting a manual candidate replaces a non-big active request (spec §4 manual swap)",
+      run(sb, "!!S.activeRequest && S.activeRequest.client === 'm'"));
   }
 
   /* ---- ポートレートと帯の描画経路 (syamu) ---- */
