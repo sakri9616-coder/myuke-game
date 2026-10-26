@@ -15,9 +15,9 @@
 #   既知フレークだったが、smoke の B9-B サンドボックスを偽時計化して根治し、
 #   同領域の本物の回帰を握り潰さないよう前方一致マスクを撤去した。
 #   smoke の失敗は全て FAIL）。
-# ゲート（DESIGN.md / balance-sim.js 末尾の Sprint ゲートと同一。2026-10-26 改訂）:
-#   初リリース passive/active とも ≤5分 / 主指標＝通算コイン収入比 ≥1.3
-#   かつ 件数比 ≥1.0（星屑比は併記）/ 7日目以降の0リリース日 0/0 /
+# ゲート（DESIGN.md / balance-sim.js 末尾の Sprint ゲートと同一。2026-10-26 改訂2・レビュー室【可】）:
+#   初リリース passive/active とも ≤5分 / 主指標＝星屑通算比 ≥1.3
+#   かつ コイン比 ≥1.1 かつ 件数比 ≥1.0（3指標とも出力に残す）/ 7日目以降の0リリース日 0/0 /
 #   帯の初リリース中央値 ≤300秒。
 # 帯スクショは「可能なら」の工程：Playwright/Chromium が無い環境では WARNING に留め、
 #   ゲーム本体の判定（1〜4）には影響させない。
@@ -95,13 +95,14 @@ else
   P_MIN="$(echo "$GATE_LINE" | sed -E 's/.*初リリース passive=([0-9]+)分.*/\1/')"
   A_MIN="$(echo "$GATE_LINE" | sed -E 's/.*初リリース passive=[0-9]+分 active=([0-9]+)分.*/\1/')"
   COIN_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*コイン比 ([0-9.]+).*/\1/')"
+  DUST_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*星屑比 ([0-9.]+).*/\1/')"
   COUNT_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*件数比 ([0-9.]+).*/\1/')"
   Z_DAYS="$(echo "$GATE_LINE" | sed -E 's/.*0リリース日 passive=([0-9]+) active=([0-9]+).*/\1 \2/')"
-  GATE_OK="$(awk -v c="$COIN_RATIO" -v n="$COUNT_RATIO" 'BEGIN{print (c >= 1.30 && n >= 1.00) ? "ok" : "no"}')"
+  GATE_OK="$(awk -v d="$DUST_RATIO" -v c="$COIN_RATIO" -v n="$COUNT_RATIO" 'BEGIN{print (d >= 1.30 && c >= 1.10 && n >= 1.00) ? "ok" : "no"}')"
   if [ "$P_MIN" -le 5 ] && [ "$A_MIN" -le 5 ] && [ "$GATE_OK" = "ok" ] && [ "$Z_DAYS" = "0 0" ]; then
-    echo "SIM: PASS (first release passive=${P_MIN}分 active=${A_MIN}分 / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
+    echo "SIM: PASS (first release passive=${P_MIN}分 active=${A_MIN}分 / dust ratio ${DUST_RATIO} / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
   else
-    FAIL=1; echo "SIM: FAIL (first release passive=${P_MIN}分 active=${A_MIN}分 / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
+    FAIL=1; echo "SIM: FAIL (first release passive=${P_MIN}分 active=${A_MIN}分 / dust ratio ${DUST_RATIO} / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
   fi
 fi
 
