@@ -510,16 +510,21 @@ if(ra7.snapshot7){
     " DP/分 → アクティブ " + (ra7.snapshot7.passivePerMin + ra7.snapshot7.clickPerMin).toFixed(1) +
     " DP/分 = 約 " + ra7.snapshot7.ratio.toFixed(2) + " 倍");
 }
-/* ゲート定義の改訂（レビュー室【可】・2026-10-26、レーンA 集中力の件で反映）:
-   旧ゲート文言は「30日総量」だが実装はリリース件数比だった不一致を直す。
-   主指標＝通算コイン収入比 ≥1.3、副指標＝星屑通算比を併記、件数比は廃止せず
-   報告指標として残し合格条件は「積極が放置を下回らないこと（≥1.0）」。
-   初リリース ≤5分・7日目以降0リリース日 0 は不変。 */
+/* ゲート定義の改訂（レビュー室【可】・2026-10-26、663b362 提案の反映）:
+   Wave G のブランドは全プレイヤーの出荷に効く共通の複利乗数（7日目で価格
+   ×2.2 前後）で、価格モデルに入れると共通項が分母を膨らませコイン比が
+   構造的に 1 へ圧縮される（実測: ブランド未モデル 1.54 → モデル化後 1.26）。
+   進行を決める通貨である星屑を主指標に据える改訂で、厳しさの水準 1.3 は維持。
+   主指標＝星屑通算比 ≥1.3 かつ コイン比 ≥1.1（下限）かつ 件数比 ≥1.0。
+   3指標とも出力に残す。初リリース ≤5分・7日目以降0リリース日 0 は不変。
+   将来また「共通乗数で圧縮された」と主張する際は、ブランド OFF の対照ランを
+   必ず添付すること（レビュー室の条件）。件数比の余裕は薄い（1.08 対下限 1.0）
+   ため、次に削れたら較正の問題ではなく実信号として扱う。 */
 const coinRatio = ra7.econ.coinsEarned / Math.max(1, rp7.econ.coinsEarned);
 const dustRatio = ra7.dustTotal / Math.max(1, rp7.dustTotal);
 const countRatio = ra7.totalReleasesEver / Math.max(1, rp7.totalReleasesEver);
 console.log("30日コイン比（アクティブ/パッシブ）: " + coinRatio.toFixed(2) + " 倍 / 星屑比: " + dustRatio.toFixed(2) + " 倍 / 件数比: " + countRatio.toFixed(2) + " 倍");
-console.log("Sprint 1 ゲート（改訂）: 初リリース ≤ 約5分（両タイプ） / 主指標＝通算コイン収入比 ≥1.3 かつ 件数比 ≥1.0（星屑比は併記） / 7日目以降は全日 ≥1 リリース");
+console.log("Sprint 1 ゲート（改訂2）: 初リリース ≤ 約5分（両タイプ） / 主指標＝星屑通算比 ≥1.3 かつ コイン比 ≥1.1 かつ 件数比 ≥1.0 / 7日目以降は全日 ≥1 リリース");
 console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstReleaseMin + "分 active=" + ra7.milestones.firstReleaseMin + "分 / コイン比 " +
   coinRatio.toFixed(2) + " / 星屑比 " + dustRatio.toFixed(2) + " / 件数比 " + countRatio.toFixed(2) + " / 7日目以降の0リリース日 passive=" +
   rp7.releasesByDay.slice(6).filter(x=>x===0).length + " active=" + ra7.releasesByDay.slice(6).filter(x=>x===0).length);
@@ -594,4 +599,68 @@ console.log("== Wave F: オーバークロックの寄与（再設計版・ア�
   console.log("寄与判定（15〜40%）: " + (up / base >= 0.15 && up / base <= 0.40 ? "PASS" : "FAIL"));
   const toolDirect = 300 * clickBase * 3.0 * 1.72 * 0.2;   /* バケツ上限連打時の直接貫通/分 */
   console.log("連打ツールの直接貫通上限: " + toolDirect.toFixed(0) + " DP/分（自動生産 " + P + " を下回る）: " + (toolDirect < P ? "PASS" : "FAIL"));
+}
+
+/* ===== Wave G: デスマーチの損得 / ケア返済ペース（承認済み仕様書 G 節の数値ゲート・復元） =====
+復元の経緯: 519686a の F 再設計コミットで eabfd00 の Wave G セクションが
+丸ごと消え、デスマーチの損得ゲートが sim のどこにも無くなっていた
+（レビュー室の F 再設計チェックの残件）。本ブロックで復元する。
+ブランド複利の判定は復元しない — 日次 sim がブランドを帯域ルールで
+モデル化しており（663b362）、旧解析節（品質出荷 +4/本の一律）より強い
+カバレッジになっているため。旧ブランド行の廃止理由はここに明記する。
+解析モデル（前提を明示）: 中盤の生産 300 DP/分、ケア careW 3（総務2〜3人）。
+デスマーチ判定: L を 70% から強行出荷するとき、負債の生産ドラッグ
+（返済し切るまでの効率損の積分 ≒ 平均負債ぶんの DP 損失）をコイン換算
+（L: 750🪙/7000DP）し、「救えるボーナス」と比べる。設計意図は
+「ティア1（+60%）では割に合わず、ティア3（+180%）/大型（+250%）では
+割に合う」— いつも押すボタンではなく、納期救済の判断になること。
+注記（レビュー室）: ティア1の分岐（ドラッグ ≈454🪙 対 +450🪙）は
+モデルの誤差範囲内で、前提が少し動けば反転する。不変条件として扱わない。 */
+console.log("");
+console.log("== Wave G: デスマーチの損得 / ケア返済ペース ==");
+{
+const P = 300, careW = 3, repayPerMin = careW * 0.9; /* 実装: careW × 0.9 /分 */
+const dmDebt = Math.round(0.3 * 240) + 8 * 2; /* L・70%・バグ8 の負債 = 88 */
+const clearMin = dmDebt / repayPerMin;
+/* ドラッグ損失: 負債が線形に減る間の平均効率損 × 生産 × 時間 */
+let dragDP = 0;
+for(let t = 0; t < clearMin; t++){
+const d = Math.max(0, dmDebt - repayPerMin * t);
+dragDP += P * (1 - 1 / (1 + d / 50));
+}
+const dragCoins = dragDP * (750 / 7000);
+const t1 = Math.round(750 * 0.6), t3 = Math.round(750 * 1.8), big = Math.round(750 * 2.5);
+console.log("デスマーチ負債 " + dmDebt + " → ケア返済 " + clearMin.toFixed(0) + " 分 / ドラッグ損失 ≈ " + Math.round(dragDP) + " DP ≈ " + Math.round(dragCoins) + "🪙");
+console.log("救えるボーナス: ティア1 +" + t1 + "🪙 / ティア3 +" + t3 + "🪙 / 大型 +" + big + "🪙");
+console.log("デスマーチ判定（ティア1では損・ティア3以上で得）: " + (dragCoins > t1 && dragCoins < t3? "PASS": "FAIL"));
+}
+
+/* ===== Wave H: モジュールの損得（承認済み仕様書 H 節の数値ゲート） =====
+   解析モデル（前提を明示）: L 作品（totalDP 7000・素の価格 750🪙）、
+   モジュール 2.5 個 × 必要 32.5% ≈ 計 5,700 DP、ライン1の自動生産
+   （流入）500 DP/分の中盤〜終盤スナップショット。実態として本体の
+   完成は流入でなく工程キャップ（テスト/ビルド/出荷 ≈ 各 100/分）で
+   律速される — その局面では配分 30% は余剰流入から賄われ、本体の
+   出荷ペースは変わらない。流入律速の薄いチームでは内製が時間を
+   延ばす（その場合は外注が出口）— 最悪側の数字も併記する。
+   品質は完了時 1.0、統合待ちの間に磨き（配分 10%）が進めば更に上がる */
+console.log("");
+console.log("== Wave H: モジュール内製/外注の損得（L・工程キャップ律速モデル）==");
+{
+  const totalDP = 7000, basePrice = 750, modDP = 5700, flow = 500, cap = 100, n = 2.5;
+  const plainMin = totalDP / cap;                       /* 本体は出荷キャップ律速 */
+  const modMin = modDP / (flow * 0.3);                  /* 内製モジュールの所要 */
+  const inHouseMin = Math.max(plainMin, modMin);        /* 統合は本体完成までに間に合う */
+  const polishDP = Math.max(0, (plainMin - modMin)) * flow * 0.1;
+  const qPolish = Math.min(1.5, 1 + polishDP / modDP * 0.5);
+  const multQ10 = Math.pow(1.2, n), multQP = Math.pow(0.8 + 0.4 * qPolish, n), multOut = Math.pow(1.12, n);
+  const outCost = Math.round(modDP * 0.5);
+  const rate = (price, min) => Math.round(price / min * 60);
+  console.log("所要: 素 " + plainMin.toFixed(0) + "分（キャップ律速）/ 内製モジュール " + modMin.toFixed(0) + "分（本体と並行）/ 外注は即時＋" + outCost + "🪙");
+  console.log("価格倍率: 内製（品質1.0）×" + multQ10.toFixed(2) + " / 内製（磨き " + qPolish.toFixed(2) + "）×" + multQP.toFixed(2) + " / 外注 ×" + multOut.toFixed(2));
+  console.log("時間あたり価格: 素 " + rate(basePrice, plainMin) + " / 内製 " + rate(basePrice * multQ10, inHouseMin) + "〜" + rate(basePrice * multQP, inHouseMin) + " / 外注 " + rate(basePrice * multOut, plainMin) + "（🪙/時・外注は費用別）");
+  console.log("判定（内製が素を上回る・外注も素超え）: " +
+    (rate(basePrice * multQ10, inHouseMin) > rate(basePrice, plainMin) && rate(basePrice * multOut, plainMin) > rate(basePrice, plainMin) ? "PASS" : "FAIL"));
+  const thinMin = Math.max(totalDP / (flow * 0.7), modDP / (flow * 0.3));
+  console.log("最悪側（流入律速の薄いチーム）: 内製 " + thinMin.toFixed(0) + "分・時間あたり " + rate(basePrice * multQ10, thinMin) + "（素比 " + Math.round(rate(basePrice * multQ10, thinMin) / rate(basePrice, totalDP / flow) * 100) + "%）— その局面では外注が出口になる");
 }

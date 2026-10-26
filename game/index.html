@@ -12659,6 +12659,7 @@ function genProject(sizeOverride, genreId){
 function startProject(sizeOverride, genreId){
   if(!genreId && S.nextRequestGenre){ genreId = S.nextRequestGenre; S.nextRequestGenre = null; }
   S.project = settleProject(genProject(sizeOverride, genreId));
+  attachModules(S.project);   /* Wave H: L 作品にモジュール（第1ラインのみ） */
   S.projectDP = 0; S.commitMark = 0;
   addLog("新しいプロジェクト『"+S.project.name+"』を開始（"+S.project.size+" / "+S.project.totalDP+"DP）");
   say("新プロジェクト『"+S.project.name+"』、はじめるにゃ。");
@@ -12751,6 +12752,101 @@ function applyShipQuality(p){
    applyShipQuality の通常計上は dmRelease で止めてこちらで一括計上する。
    確認ダイアログは呼び出し側（solo ラッパー / viewer スタブ）だけが持つ */
 const DM_SIZE_FACTOR = { TUT: 15, XS: 30, S: 60, M: 120, L: 240 };
+/* ---------- Wave H: モジュール完成の箱運び（配達猫の型の流用） ---------- */
+let stripModCart = null;
+function spawnStripModCart(name){
+  if(stripModCart) return;
+  const coats = S.staff.map(s => s.coat).filter(Boolean);
+  stripModCart = { x: stripVW + 24, name, coat: coats.length ? coats[Math.floor(Math.random() * coats.length)] : "kuro", dir: -1, done: false };
+}
+/* ---------- Wave H: モジュールツリー（L サイズの部品化） ----------
+   L の作品はジャンルに応じた 2〜3 個のモジュールを持つ（セーブは
+   project.modules の追加のみ・第1ラインだけ）。内製は自動生産の
+   一部がミニラインとしてモジュールへ流れ（配分は重み・既定は均等）、
+   必要 DP への投資率がそのまま品質になる（最大 1.5）。外注は
+   コインで即完成・品質 0.8。本体のビルド工程は全モジュールの完成を
+   待つ（統合）。価格には Π(0.8 + 0.4×品質) が乗る              */
+const MOD_NAMES = {
+  app: ["基盤ライブラリ", "UIキット", "データ層"],
+  tool: ["解析エンジン", "プラグイン基盤", "レポート出力"],
+  sns: ["フィード基盤", "通知システム", "モデレーション"],
+  site: ["CMSコア", "決済連携", "サイト内検索"],
+  widget: ["描画コア", "設定まわり", "連携API"],
+  game: ["ゲームエンジン", "UIまわり", "サウンド"],
+  ai: ["学習基盤", "推論エンジン", "データ収集"],
+  robot: ["制御ファーム", "センサー融合", "音声まわり"]
+};
+const MOD_FLOW = 0.3;          /* 未完成モジュールへの自動生産の配分率 */
+const MOD_FLOW_POLISH = 0.1;   /* 全完成後の品質磨きへの配分率 */
+function attachModules(p){
+  if(!p || p.size !== "L" || p.modules) return p;
+  const names = (MOD_NAMES[p.genre] || MOD_NAMES.app).slice();
+  const off = Math.floor(Math.random() * names.length);
+  const n = 2 + (Math.random() < 0.5 ? 1 : 0);
+  p.modules = [];
+  for(let i = 0; i < n; i++){
+    p.modules.push({ name: names[(off + i) % names.length],
+      need: Math.round(p.totalDP * (0.25 + Math.random() * 0.15)),
+      inv: 0, out: false, w: 1, done: false });
+  }
+  return p;
+}
+function moduleQuality(m){
+  if(m.out) return 0.8;
+  if(m.forcedQ) return m.forcedQ;
+  return Math.min(1.5, m.inv / m.need);
+}
+function moduleComplete(m){ return !!(m.out || m.done || m.inv >= m.need); }
+function modulesDone(p){ return !p || !p.modules || p.modules.every(moduleComplete); }
+function modulePriceMult(p){
+  if(!p || !p.modules) return 1;
+  let mult = 1;
+  for(const m of p.modules) mult *= 0.8 + 0.4 * moduleQuality(m);
+  return mult;
+}
+function moduleOutCost(m){ return Math.ceil(m.need * 0.5); }   /* 外注単価: 必要DP × 0.5（納期を買う手段として sim で調整） */
+function divertToModules(a){
+  const p = S.project;
+  if(!p || !p.modules) return 0;
+  const open = p.modules.filter(m => !m.out && !moduleComplete(m));
+  const polish = p.modules.filter(m => !m.out && moduleComplete(m) && moduleQuality(m) < 1.5);
+  const targets = open.length ? open : polish;
+  if(!targets.length) return 0;
+  const pool = a * (open.length ? MOD_FLOW : MOD_FLOW_POLISH);
+  const wsum = targets.reduce((s, m) => s + (m.w || 1), 0);
+  for(const m of targets){
+    m.inv += pool * (m.w || 1) / wsum;
+    if(!m.done && m.inv >= m.need){
+      m.done = true;
+      addLog("🧩 モジュール『" + m.name + "』が完成！");
+      say("モジュール『" + m.name + "』できたにゃ！");
+      spawnStripModCart(m.name);
+    }
+  }
+  return pool;
+}
+function moduleOutsourceCore(i){
+  const p = S.project;
+  if(!p || !p.modules || !p.modules[i]) return;
+  const m = p.modules[i];
+  if(m.out || moduleComplete(m)) return;
+  const cost = moduleOutCost(m);
+  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
+  S.coins -= cost; m.out = true; m.done = true;
+  addLog("🧩 モジュール『" + m.name + "』を外注した（-" + cost + "🪙・品質 0.8）");
+  say("『" + m.name + "』は外注したにゃ。無難な出来になるよ");
+  save(); renderPanel();
+}
+function moduleWeightCore(i, d){
+  const p = S.project;
+  if(!p || !p.modules || !p.modules[i]) return;
+  const m = p.modules[i];
+  m.w = Math.max(1, Math.min(3, (m.w || 1) + d));
+  save(); renderPanel();
+}
+/* パネルのボタンから呼ばれる素の入口（viewer ではスタブが差し替える） */
+function moduleOutsource(i){ moduleOutsourceCore(i); }
+function moduleWeight(i, d){ moduleWeightCore(i, d); }
 function deathMarchInfo(){
   const p = S.project;
   if(!p || p.planning || !p.totalDP) return null;
@@ -12766,6 +12862,11 @@ function doDeathMarchCore(){
   const p = S.project;
   S.debt = Math.min(500, (S.debt || 0) + info.debtAdd);
   S.brand = Math.max(0, (S.brand || 0) - 2);
+  /* Wave H: デスマーチはモジュールの統合も強制完了する（品質は投資率
+     そのまま・最低 0.5。価格にはその品質で乗る） */
+  if(S.project.modules) for(const m of S.project.modules){
+    if(!moduleComplete(m)){ m.forcedQ = Math.max(0.5, Math.min(1.5, m.inv / m.need)); m.done = true; }
+  }
   addLog("🔥 デスマーチ出荷！『" + p.name + "』残工程を飛ばして即リリース（技術的負債 +" + info.debtAdd + "・ブランド -2）");
   say("デスマーチにゃ！ えいやで出すよ（負債 +" + info.debtAdd + "）");
   dmRelease = true;
@@ -12888,7 +12989,10 @@ function produceDP(amount, target){
   const bugMul = (proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1;
   if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += aBase * BAL.bugPerDP * bugMul; }
   else {
-    S.wip.code += a;
+    /* Wave H: 自動生産の一部はモジュールのミニラインへ（入力由来は対象外） */
+    let inflow = a;
+    if(!fromInput && S.project && S.project.modules && !S.project.planning) inflow -= divertToModules(a);
+    S.wip.code += inflow;
     if(S.project) S.project.bugs += aBase * BAL.bugPerDP * bugMul;
     S.totals.lines += a * 1.05; S.today.lines += a * 1.05;
   }
@@ -12968,7 +13072,7 @@ function doCommit(){
 function releaseProject(){
   const p = S.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult());
+  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p));
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -13066,6 +13170,7 @@ function startProjectSoft(){
   if(S.nextRequestGenre){ genreId = S.nextRequestGenre; S.nextRequestGenre = null; }
   const nr = settleProject(genProject(null, genreId));
   S.project = nr; S.projectDP = 0; S.commitMark = 0;
+  attachModules(S.project);   /* Wave H */
   addLog("次のプロジェクト『"+nr.name+"』を用意した（"+nr.size+"）");
 }
 
@@ -13365,10 +13470,14 @@ function tick(){
   // 恒常的に 0 になり、ライン2が飢餓して永遠に完走しなかった (実機バグ)
   const bugF = bugFactor();
   const caps = { test: testRate()/60, build: buildRate()/60, ship: shipRate()/60 };
+  /* Wave H・統合: 第1ラインのビルド工程は全モジュールの完成を待つ
+     （第2ラインは従来どおり独立なので、キャップはライン1側だけ差し替える） */
+  const capsL1 = (S.project && S.project.modules && !modulesDone(S.project))
+    ? { test: caps.test, build: 0, ship: caps.ship } : caps;
   /* 企画中プロジェクトは工程に流さない（仕掛品は実装バッファに溜まる） */
   const used = (S.project && S.project.planning)
     ? { test:0, build:0, ship:0 }
-    : processPipe(S.wip, caps, bugF, creditProject);
+    : processPipe(S.wip, capsL1, bugF, creditProject);
   let used2 = { test:0, build:0, ship:0 };
   if(S.line2.unlocked && !(S.line2.project && S.line2.project.planning))
     used2 = processPipe(S.line2.wip, caps, bugF, creditProject2);
@@ -15334,6 +15443,19 @@ function stripAmbientUpdate(dt){
     }
     if(v.x > stripVW + 30) stripVendor = null;
   }
+  /* Wave H: モジュールの箱運び（右から箱を持って机へ・帰りは手ぶら） */
+  if(stripModCart){
+    const v = stripModCart;
+    v.x += v.dir * 17 * dt;
+    v.walkClock = (v.walkClock || 0) + walkAdvanceMs("staff_" + v.coat + "_walk", 17 * dt);
+    if(!v.done && Math.abs(v.x - stripDeskCX()) < 14){
+      v.done = true; v.dir = 1;
+      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
+      if(stripSparks.length > 10) stripSparks.shift();
+      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "🧩 モジュール到着！", "#58a64a");
+    }
+    if(v.x > stripVW + 30) stripModCart = null;
+  }
 }
 function drawStripChatBubble(hx, topY, text){
   sctx.save();
@@ -15793,6 +15915,28 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.textAlign = "left";
   }
   sctx.restore();
+  /* Wave H: モジュールチップ列（ボード右側に吊るす縦タグ — ボード下は
+     机と猫に遮られるため側面に置く）。統合待ちでテスト済みが詰まって
+     いる間は赤く明滅する（動き＋色の二経路） */
+  if(!small && p && p.modules && p.modules.length){
+    const waiting = !modulesDone(p) && S.wip.tested >= 30;
+    const blink = waiting && (Math.floor(stripNow / 400) % 2 === 0);
+    const cw = 66;
+    sctx.save();
+    sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+    sctx.textAlign = "center"; sctx.textBaseline = "middle";
+    p.modules.forEach((md, i) => {
+      const cxp = bx + bw + 4, cyp = top + 14 + i * 13;
+      const done = moduleComplete(md);
+      sR(cxp, cyp, cw, 11, blink ? "#e2543e" : (done ? "#58a64a" : "#2d2d2d"));
+      sR(cxp, cyp, cw, 1, done ? "#3d7a34" : "#454545");
+      sctx.fillStyle = "#f5efe2";
+      const label = md.name + " " + (md.out ? "外注" : done ? "★" + moduleQuality(md).toFixed(1) : Math.min(100, Math.floor(md.inv / md.need * 100)) + "%");
+      sctx.fillText(label, cxp + cw / 2, cyp + 5.8);
+    });
+    sctx.restore();
+    sctx.textAlign = "left";
+  }
   /* Phase B・社格チップ（リーダーボード右上）: r1 は作品名＋ピル、r2 は DP 実数＋
      生産 +N% で既に満杯で、ボード上端は帯の上端から 3px しかないため、面の中に
      押し込まず右端にタブとして張り出す。帯の上段はボード以外に高い家具がなく、
@@ -16427,6 +16571,14 @@ function renderStrip(){
     if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
       sDrawStaffFallback(v.coat, v.x, G);
     if(v.done) sDrawSprite("icon_bug", v.x - 16 * v.dir, G - 46, 0.7);
+  }
+  if(stripModCart){
+    const v = stripModCart;
+    const vbase = "staff_" + v.coat + "_walk";
+    sShadow(v.x, G - 0.5, 50);
+    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
+      sDrawStaffFallback(v.coat, v.x, G);
+    if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
   /* --- Sprint 4: 帯のクリックイベント（金の魚・バグの群れ） ---
      帯の上でクリックイベントとして描き、クリックで捕まえられる。
@@ -17201,6 +17353,25 @@ function renderPanel(){
             (dl !== null ? "<span class='vchip'>⏰ 納期 あと約 " + dl + " 分" + (dl <= 10 ? "（急いで！）" : "") + "</span>" : "") +
             (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
             "</div>";
+        }
+        /* Wave H: モジュール（L 作品のみ） */
+        if(p.modules){
+          h += "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
+            "<div style='font-size:12px'><b>🧩 モジュール</b> <span style='color:var(--sub)'>完成するまで本体のビルドは待機します。価格は品質の掛け算（現在 ×" + modulePriceMult(p).toFixed(2) + "）</span></div>";
+          p.modules.forEach((m, i) => {
+            const q = moduleQuality(m), done = moduleComplete(m);
+            const pct = Math.min(150, Math.round(m.inv / m.need * 100));
+            h += "<div style='display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px'>" +
+              "<span style='min-width:96px'>" + (done ? "✅" : "🧩") + " " + m.name + "</span>" +
+              (m.out ? "<span class='tag'>外注・品質 0.8</span>"
+                     : "<span style='flex:1;background:#1a1a1a;border:1px solid var(--line);height:8px'><span style='display:block;height:100%;width:" + Math.min(100, pct / 1.5) + "%;background:" + (done ? "#58a64a" : "#4a90c2") + "'></span></span>" +
+                       "<span style='min-width:86px'>投資 " + pct + "%・品質 " + q.toFixed(2) + "</span>" +
+                       (done ? "<span class='tag'>完成</span>"
+                             : "<span>重み <button onclick='moduleWeight(" + i + ",-1)'>−</button> " + (m.w || 1) + " <button onclick='moduleWeight(" + i + ",1)'>＋</button></span>" +
+                               "<button onclick='moduleOutsource(" + i + ")'>外注 " + fmt(moduleOutCost(m)) + "🪙</button>")) +
+              "</div>";
+          });
+          h += "</div>";
         }
       }
     } else {
@@ -18342,6 +18513,8 @@ const VERBS = {
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   doDeathMarch: doDeathMarchCore,
   outsourceBugs: outsourceBugsCore,
+  moduleOutsource: moduleOutsourceCore,
+  moduleWeight: moduleWeightCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
@@ -18679,7 +18852,7 @@ if(IS_VIEWER){
   /* Sprint 2: セッション基準（このセッションの実績が、次回の「あらすじ」になる） */
   sessBase = { releases: S.totals.releases, coinsEarned: S.totals.coinsEarned, startedAt: Date.now() };
   if(hadSave) setupReturnCeremony();
-  if(!S.project){ S.project = settleProject(genProject(S.totals.releases===0 && S.shelf.length===0 ? "TUT" : null)); S.projectDP = 0; }
+  if(!S.project){ S.project = settleProject(genProject(S.totals.releases===0 && S.shelf.length===0 ? "TUT" : null)); S.projectDP = 0; attachModules(S.project); }
   if(S.line2.unlocked && !S.line2.project){ S.line2.project = settleProject(genProject(null, S.line2.genre)); S.line2.projectDP = 0; S.line2.commitMark = 0; }
   if(!S.requests.length && !S.activeRequest) genRequests();
   if(!hadSave){

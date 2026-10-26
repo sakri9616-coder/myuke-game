@@ -3487,6 +3487,47 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     try { loadGame(sbOldG); } catch (e) { threwG = true; }
     check("WG: a save without debt/brand loads with zeros",
       !threwG && run(sbOldG, "S.debt") === 0 && run(sbOldG, "S.brand") === 0 && run(sbOldG, "S.vendorReadyAt") === 0);
+    /* --- Wave H: モジュールツリー --- */
+    const sbH = buildSandbox({});
+    loadGame(sbH);
+    run(sbH, "S.project = { name:'T', size:'L', genre:'game', totalDP: 7000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; attachModules(S.project)");
+    const modN = run(sbH, "S.project.modules.length");
+    check("WH: an L project gets 2-3 modules with needs at 25-40% of totalDP",
+      (modN === 2 || modN === 3) && run(sbH, "S.project.modules.every(m => m.need >= 1750 && m.need <= 2800)"));
+    run(sbH, "S.project = { name:'T', size:'M', genre:'app', totalDP: 2600, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0 }; attachModules(S.project)");
+    check("WH: non-L projects get no modules", run(sbH, "!!S.project.modules") === false);
+    const sbDiv = buildSandbox({});
+    loadGame(sbDiv);
+    run(sbDiv, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0, modules: [{ name:'A', need: 2000, inv: 0, out: false, w: 1, done: false }, { name:'B', need: 2000, inv: 0, out: false, w: 3, done: false }] }; S.wip = { code: 0, tested: 0, built: 0 }");
+    run(sbDiv, "produceDP(1000, 'l1')");
+    check("WH: auto production diverts 30% to modules, split by weight",
+      Math.abs(run(sbDiv, "S.project.modules[1].inv / S.project.modules[0].inv") - 3) < 0.05 &&
+      Math.abs(run(sbDiv, "(S.project.modules[0].inv + S.project.modules[1].inv) / (S.project.modules[0].inv + S.project.modules[1].inv + S.wip.code)") - 0.3) < 0.01,
+      "invA=" + run(sbDiv, "S.project.modules[0].inv") + " invB=" + run(sbDiv, "S.project.modules[1].inv") + " wip=" + run(sbDiv, "S.wip.code"));
+    const sbGate = buildSandbox({});
+    loadGame(sbGate);
+    run(sbGate, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0, modules: [{ name:'A', need: 2000, inv: 0, out: false, w: 1, done: false }] }; S.wip = { code: 0, tested: 500, built: 0 }");
+    run(sbGate, "tick()");
+    check("WH: the build stage waits for module integration",
+      run(sbGate, "S.wip.built") === 0 && run(sbGate, "S.wip.tested") > 0);
+    run(sbGate, "S.project.modules[0].inv = 2000; tick(); tick(); tick()");
+    check("WH: build flows once every module is complete", run(sbGate, "S.projectDP") > 0);
+    const sbOut = buildSandbox({});
+    loadGame(sbOut);
+    run(sbOut, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0, modules: [{ name:'A', need: 2000, inv: 0, out: false, w: 1, done: false }, { name:'B', need: 2000, inv: 0, out: false, w: 1, done: false }] }; S.coins = 5000");
+    run(sbOut, "moduleOutsourceCore(0)");
+    check("WH: outsourcing completes instantly at quality 0.8 for need x0.5 coins",
+      run(sbOut, "S.project.modules[0].out") === true && run(sbOut, "S.coins") === 4000 &&
+      Math.abs(run(sbOut, "modulePriceMult(S.project)") - (0.8 + 0.4 * 0.8) * (0.8 + 0.4 * 0)) < 0.001);
+    run(sbOut, "S.project.modules[1].inv = 3000");
+    check("WH: full-quality in-house modules price at 1.4x each",
+      Math.abs(run(sbOut, "modulePriceMult(S.project)") - (0.8 + 0.4 * 0.8) * 1.4) < 0.001);
+    const sbDMH = buildSandbox({});
+    loadGame(sbDMH);
+    run(sbDMH, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: [], doneFeats: 0, startedAt: Date.now(), napsAtStart: 0, modules: [{ name:'A', need: 2000, inv: 0, out: false, w: 1, done: false }] }; S.projectDP = 5600; S.runDP = 0");
+    run(sbDMH, "doDeathMarchCore()");
+    check("WH: death march force-completes module integration and still ships",
+      run(sbDMH, "S.totals.releases") >= 1);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
