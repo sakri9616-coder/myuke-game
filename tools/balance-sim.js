@@ -155,7 +155,7 @@ function simulate(days, active, reqMode, prestigeAt){
   let project2 = null, proj2DP = 0;
   let totalReleasesEver = 0;
   const releasesByDay = [];
-  const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null, prestigeCount: 0,
+  const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null, prestigeCount: 0, hold5Day: null, hold5Dust: 0,
                        firstUpgradeDay: null, firstHireDay: null, line2Day: null,
                        resT1Day: null, resAllDay: null,
                        /* Phase B・社格到達日: Lv1 は開始時（0日目）。売却で Lv1 に戻っても
@@ -453,6 +453,8 @@ function simulate(days, active, reqMode, prestigeAt){
       milestones.prestigeCount++;
       if(milestones.prestigeDay === null) milestones.prestigeDay = day;
       dust += gain; dustTotal += gain; runDP = 0; rp = 0; bugStock = 0; ideas = 0;
+      /* 第2ウェーブ J: 5回目の EXIT 時点の時代の通算星屑（星団の材料の実測） */
+      if(milestones.prestigeCount === 5 && milestones.hold5Day === null){ milestones.hold5Day = day; milestones.hold5Dust = dustTotal; }
       brand = 0;   /* Wave G: ブランドは EXIT で清算（承認済み仕様） */
       reportLv = 0;   /* Sprint 4: 反復研究もリセット対象 (game と同一) */
       coins = perks.seedmoney ? 300 : 0;   /* Sprint 3: 星屑特典「初期資金」 */
@@ -688,4 +690,27 @@ console.log("== Wave I: EXIT 小刻み化（初回到達と小刻み周回）=="
   const firstOk = fP >= 3 && fP <= 5 && fA >= 2 && fA <= fP;
   const cycleOk = cycP.milestones.prestigeCount >= 8 && cycA.milestones.prestigeCount >= cycP.milestones.prestigeCount;
   console.log("Wave I 判定（初回が passive 4〜5日目・小刻みで周回が回る）: " + (firstOk && cycleOk ? "PASS" : "FAIL"));
+}
+
+
+/* ===== 第2ウェーブ J: ホールディングス化の時代モデル（承認済み仕様書 J 節） =====
+   持株化の条件のうち、sim で測れるのは星屑側（EXIT 5回＋時代の通算星屑）。
+   社格 Lv6 と子会社 2社は day sim の範囲外（Lv6 は EXIT 後の到達点という
+   Phase B の設計で、子会社は day sim に未モデル）— そちらは到達可能性を
+   別途の実績（Phase B/D の到達日）で担保し、ここでは星団の初回量を測る。
+   星団 = floor(時代の通算星屑 ÷ 20)・最低1。時代の通算は小刻み方針
+   （益5で売却）のランで数えるのが実態に近い */
+console.log("");
+console.log("== Wave J: ホールディングス化（星団の初回量）==");
+{
+  const jP = simulate(30, false, undefined, 5), jA = simulate(30, true, undefined, 5);
+  /* 5回目の EXIT は条件の「下限」であって時代の終わりではない。プレイヤーは
+     Lv6 と子会社を追う間も EXIT を続け、時代の通算は伸び続ける。星団の
+     初回量は「30日時点の時代の通算」で読む（5回目時点は下限の参考値） */
+  const line = (label, r) => label + ": 5回目の EXIT = " + (r.milestones.hold5Day ? r.milestones.hold5Day + "日目（通算 " + r.milestones.hold5Dust + "）" : "未達") +
+    " / 30日時点の時代の通算星屑 = " + r.dustTotal + " → 星団 +" + Math.max(1, Math.floor(r.dustTotal / 20));
+  console.log(line("passive", jP));
+  console.log(line("active ", jA));
+  const gP = Math.floor(jP.dustTotal / 20), gA = Math.floor(jA.dustTotal / 20);
+  console.log("Wave J 判定（初回星団が passive 2 以上・active 3 以上＝最初の技術選択が成立する量）: " + (gP >= 2 && gA >= 3 ? "PASS" : "FAIL"));
 }

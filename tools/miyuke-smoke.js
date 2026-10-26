@@ -792,8 +792,8 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 137 after annex sign)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
+  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 163 after wave J gold props)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 163 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#F1BF41')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#211711')"));
   check("game version is v2.5.1", run(sb, "GAME_VERSION") === "v2.5.1");
@@ -830,8 +830,8 @@ console.log("== Phase A8: sakuri art batch 4 (happy anim for the celebrate state
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 137 after annex sign)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
+  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 163 after wave J gold props)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 163 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFC710')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFE07B')"));
   check("ANIMS.miyuke_happy has 10 frames x 300ms, plays exactly once",
@@ -869,7 +869,7 @@ console.log("== Phase A9: sakuri art batch 5 (walk anim, art gate ON) ==");
   loadGame(sb);
 
   check("batch 5 palette colors incl. walk's #B99E7E still present (99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 163 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#B99E7E')"));
   check("ANIMS.miyuke_walk has 7 frames with the file's own durations and loops forever",
     run(sb, "ANIMS.miyuke_walk && ANIMS.miyuke_walk.frames.length") === 7 &&
@@ -3583,6 +3583,72 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("WI: staff activity (act) accrues per tick and keeps growing",
       act1 > 0 && run(sbAct, "S.staff[0].act") > act1,
       "act after 3 ticks=" + act1);
+    /* --- Wave J (wave 2): holdings (second prestige layer) --- */
+    const sbJ = buildSandbox({});
+    loadGame(sbJ);
+    check("WJ: holdings is locked until rank record, subsidiaries and EXIT count all line up",
+      run(sbJ, "holdingsPreview().can") === false);
+    run(sbJ, "S.maxStudioLv = 6; S.prestiges = 5; S.eraDust = 137; S.dust = 50; S.dustTotal = 500; S.dustPerks = { focus: true }; S.subs = [{ id: 1, name: 'a', genre: 'app', staff: 10, lv: 2, alloc: 50 }, { id: 2, name: 'b', genre: 'sns', staff: 5, lv: 1, alloc: 50 }]; S.stamps.teststamp = '2026-01-01'");
+    check("WJ: preview gain is era dust / 20",
+      run(sbJ, "holdingsPreview().can") === true && run(sbJ, "holdingsPreview().gain") === 6);
+    run(sbJ, "doHoldingsCore()");
+    check("WJ: holdings folds the whole first layer (dust, perks, lifetime total, era)",
+      run(sbJ, "S.holdings") === 1 && run(sbJ, "S.legacy") === 6 &&
+      run(sbJ, "S.dust") === 0 && run(sbJ, "S.dustTotal") === 0 &&
+      run(sbJ, "Object.keys(S.dustPerks).length") === 0 && run(sbJ, "S.eraDust") === 0);
+    check("WJ: holdings resets the company but keeps stamps and the rank record",
+      run(sbJ, "S.studioLv") === 1 && run(sbJ, "S.subs.length") === 0 &&
+      run(sbJ, "S.maxStudioLv") === 6 && run(sbJ, "S.stamps.teststamp") === "2026-01-01");
+    const sbJmin = mkG("S.maxStudioLv = 6; S.prestiges = 5; S.eraDust = 10; S.subs = [{ id: 1 }, { id: 2 }]");
+    run(sbJmin, "doHoldingsCore()");
+    check("WJ: the cluster gain never drops below 1",
+      run(sbJmin, "S.legacy") === 1);
+    const sbEra = mkG("S.runDP = 24000");
+    run(sbEra, "doPrestigeCore()");
+    check("WJ: era dust accrues on EXIT (and on subsidiary sales)",
+      run(sbEra, "S.eraDust") === 3, "eraDust=" + run(sbEra, "S.eraDust"));
+    const sbTech = buildSandbox({});
+    loadGame(sbTech);
+    run(sbTech, "S.studioLv = 6; S.legacy = 10");
+    const capBase = run(sbTech, "staffCap()");
+    run(sbTech, "buyLegacyTech('cap2')");
+    check("WJ: tiered tech refuses without its prerequisite and spends nothing",
+      run(sbTech, "S.legacy") === 10 && run(sbTech, "staffCap()") === capBase);
+    run(sbTech, "buyLegacyTech('cap1')");
+    const cap1 = run(sbTech, "staffCap()");
+    run(sbTech, "buyLegacyTech('cap2')");
+    check("WJ: cap extensions raise the staff cap 36 -> 42 -> 48",
+      capBase === 36 && cap1 === 42 && run(sbTech, "staffCap()") === 48);
+    const sbQ = buildSandbox({});
+    loadGame(sbQ);
+    run(sbQ, "S.legacy = 10");
+    const emBefore = run(sbQ, "extraMult()");
+    run(sbQ, "buyLegacyTech('quantum')");
+    check("WJ: quantum computer multiplies all production by 1.25",
+      Math.abs(run(sbQ, "extraMult()") / emBefore - 1.25) < 1e-9);
+    const sbAi = buildSandbox({});
+    loadGame(sbAi);
+    run(sbAi, "S.legacy = 10");
+    const qBefore = run(sbAi, "moduleQuality({ inv: 99999, need: 1000 })");
+    run(sbAi, "buyLegacyTech('ai_base')");
+    check("WJ: AI platform raises the module quality cap 1.5 -> 1.75",
+      qBefore === 1.5 && run(sbAi, "moduleQuality({ inv: 99999, need: 1000 })") === 1.75);
+    const sbGrp = buildSandbox({});
+    loadGame(sbGrp);
+    run(sbGrp, "S.legacy = 10");
+    const subDef = "{ staff: 20, lv: 3, genre: 'app', alloc: 50 }";
+    const srBefore = run(sbGrp, "subRates(" + subDef + ").coins");
+    run(sbGrp, "buyLegacyTech('group')");
+    check("WJ: group management lifts subsidiary income by 30%",
+      Math.abs(run(sbGrp, "subRates(" + subDef + ").coins") / srBefore - 1.3) < 1e-9);
+    check("WJ: bridge verbs route holdings actions to the confirm-free functions",
+      run(sbGrp, "VERBS.doHoldings === doHoldingsCore && typeof VERBS.buyLegacyTech === 'function'") === true);
+    const sbOldJ = buildSandbox({});
+    sbOldJ.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 5, staff: [], dust: 12, dustTotal: 34 }));
+    let threwJ = false;
+    try { loadGame(sbOldJ); } catch (e) { threwJ = true; }
+    check("WJ: an old save backfills era dust from the lifetime total",
+      !threwJ && run(sbOldJ, "S.eraDust") === 34 && run(sbOldJ, "S.legacy") === 0 && run(sbOldJ, "S.holdings") === 0);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
