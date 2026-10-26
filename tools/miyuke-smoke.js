@@ -458,9 +458,9 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
 
   /* --- あと○○ヒント（収入レート推定つき） --- */
   run(sb, "incomeSamples = [{ t: Date.now() - 60000, c: 0, r: 0 }, { t: Date.now(), c: 6000, r: 0 }];");
-  run(sb, "S.coins = 150; switchTab('staff');");
+  run(sb, "S.coins = 80; switchTab('staff');");
   const staffHtml = run(sb, "document.getElementById('panel').innerHTML");
-  check("almost-affordable hire shows the あと hint (carry 220 - 150 = 70)",
+  check("almost-affordable hire shows the あと hint (carry 150 - 80 = 70)",
     staffHtml.includes("あと 70"), staffHtml.slice(0, 200));
   run(sb, "S.coins = 500; renderPanel();");
   check("button pulses the moment it becomes affordable",
@@ -2663,15 +2663,15 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("E: viewer balance resynced (100000)", run(sbV, "S.coins") === 100000);
     const cmdBefore = busLog.filter(l => l.event === "menu-cmd").length;
     run(sbV, "buyUpgrade('bot')");   /* viewer 側はスタブに差し替わっている */
-    check("E: command executed exactly once on owner (bot Lv1, -500 coins)",
-      run(sbO, "S.upgrades.bot") === 1 && run(sbO, "S.coins") === 99500,
+    check("E: command executed exactly once on owner (bot Lv1, -350 coins)",
+      run(sbO, "S.upgrades.bot") === 1 && run(sbO, "S.coins") === 99650,
       "bot=" + run(sbO, "S.upgrades.bot") + " coins=" + run(sbO, "S.coins"));
     check("E: exactly one menu-cmd was sent",
       busLog.filter(l => l.event === "menu-cmd").length === cmdBefore + 1);
     check("E: cmd-result returned to viewer",
       busLog.some(l => l.event === "cmd-result" && l.to === "menu"));
     check("E: viewer replica shows bot Lv1 after snapshot",
-      run(sbV, "S.upgrades.bot") === 1 && run(sbV, "S.coins") === 99500);
+      run(sbV, "S.upgrades.bot") === 1 && run(sbV, "S.coins") === 99650);
     const vPanel = sbV._el("panel").innerHTML;
     check("E: viewer factory panel renders bot row with Lv1",
       vPanel.includes("子ねこボット") && vPanel.includes("Lv1"),

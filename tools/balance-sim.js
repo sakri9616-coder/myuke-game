@@ -47,7 +47,7 @@ const BAL = {
 const UPGRADE_DEFS = [
   { id:"keyboard", base:40, max:10 }, { id:"ide", base:120, max:10 }, { id:"monitor", base:260, max:5 },
   { id:"chair", base:180, max:5 }, { id:"duck", base:60, max:10 }, { id:"tester", base:240, max:8 },
-  { id:"ci", base:200, max:10 }, { id:"pack", base:160, max:10 }, { id:"bot", base:500, max:3 }
+  { id:"ci", base:200, max:10 }, { id:"pack", base:160, max:10 }, { id:"bot", base:350, max:3 }
 ];
 const cost = (def, lv) => Math.ceil(def.base * Math.pow(1.15, lv));
 const dpMult = up => 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);
@@ -68,14 +68,14 @@ const RESEARCH = [
 const repeatCost = lv => Math.ceil(10 * Math.pow(1.6, lv));
 /* スタッフ（game と同一） */
 const STAFF_ROLES = {
-  prog:    { base:300, out:2.2 }, test: { base:260, out:0.5 }, carry: { base:220, out:5 },
-  research:{ base:350, out:0.25 }, care: { base:240, out:1 }
+  prog:    { base:210, out:2.2 }, test: { base:180, out:0.5 }, carry: { base:150, out:5 },
+  research:{ base:245, out:0.25 }, care: { base:170, out:1 }
 };
 const STAFF_CAPS = [3, 5, 7, 9, 12];
 const STAFF_POLICY_MAX_LV = 6;   // 方針: 育成は Lv6 まで（ゲーム上限は Lv10）
 const hireCost = (staff, role) => Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, staff.filter(s=>s.role===role).length));
 const trainCost = st => Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));   /* Sprint 4: 1.45→1.35 */
-const studioCost = lv => 600 * Math.pow(3, lv - 1);
+const studioCost = lv => 400 * Math.pow(3, lv - 1);
 function staffSums(staff){
   const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, byRole:{} };
   for(const st of staff){

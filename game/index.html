@@ -10041,7 +10041,7 @@ const UPGRADE_DEFS = [
   { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:8 },
   { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"コイン +10%/Lv・全DP +3%/Lv・ビルド速度 +5 DP/分/Lv", max:10 },
   { id:"pack",     name:"自働梱包機",           stage:"ビルド", base:160, desc:"全DP +4%/Lv・ビルド速度 +4 DP/分/Lv", max:10 },
-  { id:"bot",      name:"子ねこボット",         stage:"運搬", base:500, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:3 }
+  { id:"bot",      name:"子ねこボット",         stage:"運搬", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:3 }
 ];
 function upgradeCost(def, lv){ return Math.ceil(def.base * Math.pow(1.15, lv)); }
 function dpMult(up){
@@ -10074,16 +10074,16 @@ function recoatFor(st){
   return COATS[h % COATS.length];
 }
 const STAFF_ROLES = {
-  prog:    { name:"プログラマ猫", stage:"実装",   base:300, out:2.2,  unit:"DP/分",   desc:"コード生産 +2.2 DP/分" },
-  test:    { name:"テスター",     stage:"テスト", base:260, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +4 DP/分" },
-  carry:   { name:"運搬係",       stage:"出荷",   base:220, out:5,    unit:"DP/分",   desc:"出荷速度 +5 DP/分" },
-  research:{ name:"研究員",       stage:"研究",   base:350, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
-  care:    { name:"お世話係",     stage:"お世話", base:240, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" }
+  prog:    { name:"プログラマ猫", stage:"実装",   base:210, out:2.2,  unit:"DP/分",   desc:"コード生産 +2.2 DP/分" },
+  test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +4 DP/分" },
+  carry:   { name:"運搬係",       stage:"出荷",   base:150, out:5,    unit:"DP/分",   desc:"出荷速度 +5 DP/分" },
+  research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
+  care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" }
 };
 const STAFF_CAPS = [3, 5, 7, 9, 12];        // スタジオLv1..5 の雇用上限
 const STAFF_MAX_LV = 10;
 function staffCap(){ return STAFF_CAPS[S.studioLv - 1]; }
-function studioCost(lv){ return 600 * Math.pow(3, lv - 1); }  // Lv1→2: 600, →3: 1800, →4: 5400, →5: 16200
+function studioCost(lv){ return 400 * Math.pow(3, lv - 1); }  // Lv1→2: 400, →3: 1200, →4: 3600, →5: 10800（レーンA・序盤価格の緩和、×3 曲線は不変）
 function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;
