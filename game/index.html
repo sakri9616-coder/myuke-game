@@ -11892,6 +11892,7 @@ function freshState(){
     depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
     subs: [], subSeq: 0,
     fever: { gauge: 0 },
+    debt: 0, brand: 0, vendorReadyAt: 0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
@@ -11998,6 +11999,10 @@ function load(){
     /* 拡張ウェーブ F: フィーバーゲージ（旧セーブには無い） */
     if(!S.fever || typeof S.fever !== "object") S.fever = { gauge: 0 };
     if(typeof S.fever.gauge !== "number") S.fever.gauge = 0;
+    /* 拡張ウェーブ G: 負債・ブランド・外注クールダウン（旧セーブには無い） */
+    if(typeof S.debt !== "number") S.debt = 0;
+    if(typeof S.brand !== "number") S.brand = 0;
+    if(typeof S.vendorReadyAt !== "number") S.vendorReadyAt = 0;
     for(const st of S.staff) if(st.role === "sales" && !st.genre){
       const pool = unlockedGenres();
       st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
@@ -12384,6 +12389,11 @@ function stripMemoText(){
   if(S.bigDeal) return "🌟 大型案件: " + S.bigDeal.client + "（" + S.bigDeal.genreName + "・L以上）担当 " + S.bigDeal.repName + " が待ってるにゃ";
   if(S.activeRequest){
     const r = S.activeRequest;
+    /* 拡張ウェーブ G: 納期が迫ったらメモにも残り時間を出す（帯で気づけるように） */
+    if(r.deadlineAt){
+      const left = Math.ceil((r.deadlineAt - Date.now()) / 60000);
+      if(left <= 10) return "⏰ 納期 あと " + Math.max(0, left) + " 分！" + r.client + "の依頼（" + r.genreName + "）";
+    }
     return "📮 " + r.client + "の依頼：次の作品は「" + r.genreName + "」で作る" + (r.repName ? "（担当：" + r.repName + "）" : "");
   }
   if(S.requests && S.requests.length) return "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
@@ -12704,6 +12714,101 @@ function line2Rate(){
 function bugFactor(){
   return S.bugStock > 8 ? Math.max(0.5, 1 - (S.bugStock - 8) * 0.02) : 1;
 }
+/* ---------- 拡張ウェーブ G: 技術的負債とブランド力 ----------
+   負債は会社の生産効率を逓減させ（1/(1+debt/50): 50で×0.5、450で約×0.1、
+   ゲームオーバーにはならない）、ブランドは品質出荷の蓄積で価格に乗る
+   （1 + brand×0.02、上限 brand 450 で ×10）。どちらも EXIT で清算される */
+function debtEff(){ return 1 / (1 + (S.debt || 0) / 50); }
+function brandMult(){ return 1 + Math.min(450, S.brand || 0) * 0.02; }
+let dmRelease = false;   /* デスマーチ出荷の最中だけ立つ揮発フラグ（ブランド評価の対象外にする） */
+function applyShipQuality(p){
+  if(dmRelease) return;   /* デスマーチの負債・ブランドは doDeathMarchCore 側で一括計上する */
+  const shippedBugs = Math.floor(S.bugStock);
+  if(shippedBugs > 0){
+    const add = Math.round(shippedBugs * 1.5);
+    if(add > 0){
+      S.debt = Math.min(500, (S.debt || 0) + add);
+      if(add >= 5) addLog("🐛 バグを抱えたままの出荷で技術的負債 +" + add + "（現在 " + Math.round(S.debt) + "・生産効率 ×" + debtEff().toFixed(2) + "）");
+    }
+  }
+  let delta = 0;
+  const featsDone = p.doneFeats >= (p.feats ? p.feats.length : 0);
+  if(shippedBugs === 0) delta = featsDone ? 4 : 3;
+  else if(shippedBugs <= 3) delta = 1;
+  else if(shippedBugs >= 10) delta = -3;
+  if(delta !== 0){
+    S.brand = Math.max(0, Math.min(450, (S.brand || 0) + delta));
+    addLog(delta > 0
+      ? "⭐ 評判アップ: ブランド力 " + Math.round(S.brand) + "（単価 ×" + brandMult().toFixed(2) + "）"
+      : "📉 評判ダウン: ブランド力 " + Math.round(S.brand) + "（単価 ×" + brandMult().toFixed(2) + "）");
+  }
+}
+/* ---------- 拡張ウェーブ G': デスマーチ出荷 ----------
+   DP 70% 以上の作品を、残工程を飛ばして即リリースする。納期内なら依頼
+   ボーナスは満額（releaseProject の通常経路を通すため）。代価は負債
+   （飛ばした割合 × サイズ係数 ＋ 残バグ ×2）とブランド -2 で、
+   applyShipQuality の通常計上は dmRelease で止めてこちらで一括計上する。
+   確認ダイアログは呼び出し側（solo ラッパー / viewer スタブ）だけが持つ */
+const DM_SIZE_FACTOR = { TUT: 15, XS: 30, S: 60, M: 120, L: 240 };
+function deathMarchInfo(){
+  const p = S.project;
+  if(!p || p.planning || !p.totalDP) return null;
+  const frac = S.projectDP / p.totalDP;
+  if(frac < 0.7) return null;
+  const bugs = Math.floor(S.bugStock);
+  const debtAdd = Math.round((1 - frac) * (DM_SIZE_FACTOR[p.size] || 60)) + bugs * 2;
+  return { frac, debtAdd, bugs };
+}
+function doDeathMarchCore(){
+  const info = deathMarchInfo();
+  if(!info) return;
+  const p = S.project;
+  S.debt = Math.min(500, (S.debt || 0) + info.debtAdd);
+  S.brand = Math.max(0, (S.brand || 0) - 2);
+  addLog("🔥 デスマーチ出荷！『" + p.name + "』残工程を飛ばして即リリース（技術的負債 +" + info.debtAdd + "・ブランド -2）");
+  say("デスマーチにゃ！ えいやで出すよ（負債 +" + info.debtAdd + "）");
+  dmRelease = true;
+  S.projectDP = p.totalDP;
+  S.wip = { code: 0, tested: 0, built: 0 };
+  releaseProject();
+  dmRelease = false;
+  save(); renderPanel();
+}
+function doDeathMarch(){
+  const info = deathMarchInfo();
+  if(!info) return;
+  if(!confirm("デスマーチ出荷しますか？\n残りの工程を飛ばして『" + S.project.name + "』を即リリースします。\n代価: 技術的負債 +" + info.debtAdd + " / ブランド -2")) return;
+  doDeathMarchCore();
+}
+/* ---------- 拡張ウェーブ G': バグ外注（sakuri 案） ----------
+   バグ在庫と負債が積んだときの、金で買うリリーフバルブ。射程は承認どおり
+   「バグ在庫の全消し＋負債 −40%」、費用は少々重く（バグ ×30 ＋ 負債 ×15）、
+   クールダウン 10 分。総務のケア（人で返す）との二択が経営判断になる */
+function vendorCost(){
+  const bugs = Math.floor(S.bugStock);
+  const debtCut = Math.floor((S.debt || 0) * 0.4);
+  return { bugs, debtCut, coins: bugs * 30 + Math.floor(S.debt || 0) * 15 };
+}
+function outsourceBugsCore(){
+  const c = vendorCost();
+  if(Date.now() < (S.vendorReadyAt || 0)){ say("ベンダーさんは前の仕事中だにゃ。あと " + Math.max(1, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000)) + " 分待ってね"); return; }
+  if(c.bugs <= 0 && c.debtCut <= 0){ say("いまは外注するものがないにゃ（バグも負債もきれいだよ）"); return; }
+  if(S.coins < c.coins){ say("コインが足りないにゃ（必要 " + fmt(c.coins) + "🪙）"); return; }
+  S.coins -= c.coins;
+  S.bugStock = 0;
+  S.debt = Math.max(0, (S.debt || 0) - c.debtCut);
+  S.vendorReadyAt = Date.now() + 10 * 60000;
+  addLog("🧳 外注ベンダーに依頼: バグ " + c.bugs + " 匹を一掃・技術的負債 -" + c.debtCut + "（-" + fmt(c.coins) + "🪙）");
+  say("ベンダーさんがバグを全部持って帰ったにゃ！ すっきりしたね");
+  spawnStripVendor();
+  save(); renderPanel();
+}
+function outsourceBugs(){
+  const c = vendorCost();
+  if(c.bugs <= 0 && c.debtCut <= 0){ outsourceBugsCore(); return; }
+  if(!confirm("外注ベンダーに依頼しますか？\nバグ " + c.bugs + " 匹を全消し ＋ 技術的負債 -" + c.debtCut + "\n費用: " + fmt(c.coins) + "🪙")) return;
+  outsourceBugsCore();
+}
 /* 生産: 倍率を掛けて対象ラインの実装バッファへ。バグは生産量に応じて全体に混入する */
 /* ---------- 拡張ウェーブ F: オーバークロック（フィーバー） ----------
    実作業（入力ブースト）と応援クリックでゲージが貯まり、プレイヤーが任意の
@@ -12741,7 +12846,7 @@ function activateFever(){
   save(); renderPanel();
 }
 function produceDP(amount, target){
-  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff();
   const a = aBase * (feverActive() ? FEVER.prodMult : 1);
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
   const proj = target === "l2" ? S.line2.project : S.project;
@@ -12828,7 +12933,7 @@ function doCommit(){
 function releaseProject(){
   const p = S.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult());
+  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult());
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -12844,10 +12949,18 @@ function releaseProject(){
       rate = rate / 2;
       shortNote = "（要求サイズ未満のためボーナス半額）";
     }
+    /* 拡張ウェーブ G: 納期を過ぎた出荷はボーナスが消える（作品は通常価格で売れる） */
+    let lateNote = "";
+    if(rq.deadlineAt && Date.now() > rq.deadlineAt){
+      rate = 0;
+      lateNote = "（納期を過ぎたためボーナスなし）";
+    }
     const bonus = Math.round(coins * rate);
     coins += bonus; rp += 1;
-    requestBonus = "（依頼達成ボーナス +"+bonus+"🪙）";
-    addLog("依頼達成！『"+p.name+"』"+requestBonus+shortNote);
+    requestBonus = rate > 0 ? "（依頼達成ボーナス +"+bonus+"🪙）" : "";
+    addLog(rate > 0
+      ? "依頼達成！『"+p.name+"』"+requestBonus+shortNote
+      : "依頼は完了: 『"+p.name+"』"+lateNote);
     S.activeRequest = null; genRequests();
     maybeSpawnBigDeal();
     maybeAutoAcquire();   /* Phase C: 枠が空いたら営業が次を取ってくる */
@@ -12856,6 +12969,7 @@ function releaseProject(){
   S.rp += rp;
   S.totals.releases++; S.today.releases++;
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
+  applyShipQuality(p);   /* 拡張ウェーブ G: 出荷品質 → 負債とブランド */
   S.shelf.unshift({
     name: p.name, genreName: p.genreName, size: p.size,
     date: new Date().toLocaleDateString("ja-JP"),
@@ -12880,7 +12994,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult());
+  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult());
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
@@ -12888,6 +13002,7 @@ function releaseProject2(){
   S.rp += rp;
   S.totals.releases++; S.today.releases++;
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
+  applyShipQuality(p);   /* 拡張ウェーブ G: 出荷品質 → 負債とブランド（第2ラインも同じ会社の評判） */
   S.shelf.unshift({
     name: p.name, genreName: p.genreName, size: p.size,
     date: new Date().toLocaleDateString("ja-JP"),
@@ -13250,6 +13365,8 @@ function tick(){
       }
     }
   }
+  /* 拡張ウェーブ G: 総務（ケア）が技術的負債を少しずつ返す（部署Lv は staffSums 経由で効く） */
+  if(S.debt > 0 && ss.careW > 0) S.debt = Math.max(0, S.debt - ss.careW * 0.9 / 60);
   // 集中力
   if(coding){
     let drain = (100 / (25*60)) * (1 - 0.08*Math.min(5,(S.upgrades.chair||0)));
@@ -13428,6 +13545,8 @@ function acceptRequest(idx){
   if(S.activeRequest && S.activeRequest.big){ say("大型案件の対応中は差し替えできないにゃ"); return; }
   if(S.activeRequest) addLog("依頼を差し替えた: "+S.activeRequest.client+" → "+S.requests[idx].client);
   S.activeRequest = S.requests[idx];
+  if((S.activeRequest.tier || 0) >= 3 && !S.activeRequest.deadlineAt)
+    S.activeRequest.deadlineAt = Date.now() + 60 * 60000;   /* 拡張ウェーブ G: ティア3の手動受注にも納期 */
   S.requests.splice(idx,1);
   /* Sprint 1: 依頼は「次の作品への予約」。進行中のプロジェクトは絶対に消さない */
   S.nextRequestGenre = S.activeRequest.genre;
@@ -13488,7 +13607,8 @@ function autoAcquireRequest(){
   const client = clients[Math.floor(Math.random() * clients.length)];
   S.activeRequest = { client, genre: g.id, genreName: g.name, text: requestText(client, g.name),
     tier, bonus: REQUEST_TIERS[tier].bonus, reqSize: tier >= 1 ? SIZE_ORDER[tier] : null,
-    repId: rep.id, repName: rep.name, auto: true };
+    repId: rep.id, repName: rep.name, auto: true,
+    deadlineAt: tier >= 3 ? Date.now() + 60 * 60000 : null };   /* 拡張ウェーブ G: ティア3には納期（60分） */
   S.nextRequestGenre = g.id;
   addLog("💼 営業の"+rep.name+"が依頼を取ってきた: "+client+"（"+g.name+"・"+REQUEST_TIERS[tier].name+"）");
   say("営業の"+rep.name+"が"+client+"の依頼を取ってきたにゃ");
@@ -13525,7 +13645,8 @@ function acceptBigDeal(){
   if(S.activeRequest){ say("いま受けてる依頼があるにゃ。それが終わってからね"); return; }
   S.activeRequest = { client: bd.client, genre: bd.genre, genreName: bd.genreName,
     text: requestText(bd.client, bd.genreName), tier: 3, bonus: bd.bonus, reqSize: bd.reqSize,
-    repId: bd.repId, repName: bd.repName, auto: true, big: true };
+    repId: bd.repId, repName: bd.repName, auto: true, big: true,
+    deadlineAt: Date.now() + 45 * 60000 };   /* 拡張ウェーブ G: 大型案件には納期（45分） */
   S.nextRequestGenre = bd.genre;
   S.bigDeal = null;
   addLog("🌟 大型案件を受注: "+bd.client+"（"+bd.genreName+"）");
@@ -13785,6 +13906,7 @@ function doPrestigeCore(){
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
   S.coins = hasPerk("seedmoney") ? 300 : 0;
   S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
+  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
   S.research = {};
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
@@ -15089,6 +15211,7 @@ function maybeStartChatter(now, force){
 let stripVisitor = null;   /* { x, dir, coat, speed } */
 let subCoinFrac = 0;       /* Phase D: 子会社コインの端数（セーブしない。<1枚の端数は再起動で消える） */
 let stripDelivery = null;  /* Phase D: 子会社の配達猫 { x, dir, coat, speed, walkClock, done } */
+let stripVendor = null;    /* 拡張ウェーブ G: 外注ベンダーの猫（バグを回収に来る） */
 let nextDeliveryAt = 0;
 let nextVisitorAt = 0;
 function spawnStripVisitor(){
@@ -15107,6 +15230,14 @@ function spawnStripDelivery(){
   const coat = COATS[Math.floor(Math.random() * COATS.length)];
   stripDelivery = { x: stripVW + 20, dir: -1, coat, speed: 17, walkClock: 0, done: false };
   return stripDelivery;
+}
+/* 拡張ウェーブ G: ベンダーの猫は右から手ぶらで来て、机でバグを受け取り、
+   バグを持って右へ帰る（配達猫と逆の物流） */
+function spawnStripVendor(){
+  if(stripVendor) return stripVendor;
+  const coat = COATS[Math.floor(Math.random() * COATS.length)];
+  stripVendor = { x: stripVW + 20, dir: -1, coat, speed: 17, walkClock: 0, done: false };
+  return stripVendor;
 }
 function stripAmbientUpdate(dt){
   /* 雑談: たまに試みる（成立条件は maybeStartChatter 側で判定） */
@@ -15144,6 +15275,19 @@ function stripAmbientUpdate(dt){
       stripDelivery = null;
       nextDeliveryAt = stripNow + (3 + Math.random() * 3) * 60000;
     }
+  }
+  /* 拡張ウェーブ G: ベンダーの猫（机でバグを受け取って帰る） */
+  if(stripVendor){
+    const v = stripVendor;
+    v.x += v.dir * v.speed * dt;
+    v.walkClock = (v.walkClock || 0) + walkAdvanceMs("staff_" + v.coat + "_walk", v.speed * dt);
+    if(!v.done && Math.abs(v.x - stripDeskCX()) < 14){
+      v.done = true; v.dir = 1;
+      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
+      if(stripSparks.length > 10) stripSparks.shift();
+      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "🧳 バグ回収！", "#8a6a44");
+    }
+    if(v.x > stripVW + 30) stripVendor = null;
   }
 }
 function drawStripChatBubble(hx, topY, text){
@@ -16078,6 +16222,20 @@ function renderStrip(){
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
     stripHitRects.fever = { x: gx - 3, y: G - gh - 9, w: 13, h: gh + 11 };
   }
+  /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
+     ダイジェティック表現: 数字を見なくても「荒れてきた」が分かる） */
+  {
+    const dNow = S.debt || 0;
+    const stacks = dNow >= 250 ? 3 : dNow >= 120 ? 2 : dNow >= 40 ? 1 : 0;
+    const spots = [stripDeskCX() - 128, stripDeskCX() + 122, stripDeskCX() - 148];
+    for(let i = 0; i < stacks; i++){
+      const px = spots[i];
+      for(let j = 0; j < 3; j++)
+        sR(px - 7 + (j % 2) * 1.5, G - 2 - j * 2.2, 14, 2, j % 2 ? "#e9e0c8" : "#f7f1de");
+      sR(px - 6, G - 8.6, 12, 1, "#d8cfb8");
+      if(i === 2) sR(px + 9, G - 3, 6, 3, "#c9a86a");   /* 3段目は倒れた箱も */
+    }
+  }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
   drawStripPiles();
   drawStripLine2Piles();
@@ -16215,6 +16373,15 @@ function renderStrip(){
     if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
       sDrawStaffFallback(v.coat, v.x, G);
     if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
+  }
+  /* --- 拡張ウェーブ G: 外注ベンダーの猫（帰りはバグを持っている） --- */
+  if(stripVendor){
+    const v = stripVendor;
+    const vbase = "staff_" + v.coat + "_walk";
+    sShadow(v.x, G - 0.5, 50);
+    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
+      sDrawStaffFallback(v.coat, v.x, G);
+    if(v.done) sDrawSprite("icon_bug", v.x - 16 * v.dir, G - 46, 0.7);
   }
   /* --- Sprint 4: 帯のクリックイベント（金の魚・バグの群れ） ---
      帯の上でクリックイベントとして描き、クリックで捕まえられる。
@@ -16979,6 +17146,18 @@ function renderPanel(){
         (bottleneckLine() ? "<span class='vchip'>⚠ 詰まりは第" + bottleneckLine() + "ライン</span>" : "") +
         "</div>";
       h += "</div>";
+      /* 拡張ウェーブ G': デスマーチ出荷（DP 70%以上で出現）と納期の表示 */
+      {
+        const dmi = deathMarchInfo();
+        const dl = S.activeRequest && S.activeRequest.deadlineAt
+          ? Math.max(0, Math.ceil((S.activeRequest.deadlineAt - Date.now()) / 60000)) : null;
+        if(dmi || dl !== null){
+          h += "<div style='margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap'>" +
+            (dl !== null ? "<span class='vchip'>⏰ 納期 あと約 " + dl + " 分" + (dl <= 10 ? "（急いで！）" : "") + "</span>" : "") +
+            (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
+            "</div>";
+        }
+      }
     } else {
       /* プロジェクトが無い瞬間だけのフォールバック (従来の集中力メーター) */
       h += "<div style='margin-top:10px;font-size:12px;color:var(--sub)'>集中力</div>" +
@@ -17135,6 +17314,22 @@ function renderPanel(){
   if(currentTab === "factory"){
     const bn = bottleneckInfo();
     h += "<h3>🏭 開発工場</h3>";
+    /* 拡張ウェーブ G: 会社の経営状態（負債とブランド）。数値は大きく、説明は短く */
+    {
+      const d = Math.round(S.debt || 0), b = Math.round(S.brand || 0);
+      h += "<div class='statgrid'>" +
+        statBlock("技術的負債", d, "生産効率 ×" + debtEff().toFixed(2)) +
+        statBlock("ブランド力", b, "単価 ×" + brandMult().toFixed(2)) +
+        "</div>" +
+        "<div class='note'>バグを抱えたまま出荷すると負債が積みます（総務が少しずつ返済）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます</div>";
+      /* 拡張ウェーブ G': バグ外注（金で買うリリーフバルブ） */
+      const vc = vendorCost();
+      const vLeft = Math.max(0, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000));
+      h += "<div style='margin:7px 0'><button onclick='outsourceBugs()' " +
+        (vLeft > 0 || (vc.bugs <= 0 && vc.debtCut <= 0) || S.coins < vc.coins ? "disabled" : "") +
+        ">🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙</button>" +
+        (vLeft > 0 ? " <span class='note'>ベンダー対応中… あと約 " + vLeft + " 分</span>" : "") + "</div>";
+    }
     /* IA: 信号機図とレート表を1本の帯に統合 (図が主役・数字は大きく)。
        Strip Canon §c.7: 信号機は工場パネルの図に一本化（stageStatus の合算判定）。
        緑=流れている / 黄=素材待ち・溜まり気味 / 赤=バグ詰まり・在庫飽和。
@@ -17307,8 +17502,8 @@ function renderPanel(){
     h += "</div>";
   }
   if(currentTab === "requests"){
-    h += "<h3>📮 依頼ボード</h3><div class='note'>期限・ペナルティなし。受けると<b>次の作品</b>がそのジャンルに（進行中は消えません）。リリースでボーナス" +
-      (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "</div>";
+    h += "<h3>📮 依頼ボード</h3><div class='note'>ペナルティなし。受けると<b>次の作品</b>がそのジャンルに（進行中は消えません）。リリースでボーナス" +
+      (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "。大型案件とティア3には<b>納期</b>があります（過ぎるとボーナス消滅）</div>";
     if(S.bigDeal){
       const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
       h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + bd.client + "</span>" +
@@ -17322,7 +17517,8 @@ function renderPanel(){
         "<div class='ds'>次の作品（" + r.genreName + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
-        (r.repName ? " ・ 担当: " + r.repName : "") + "</div>" +
+        (r.repName ? " ・ 担当: " + r.repName : "") +
+        (r.deadlineAt ? " ・ ⏰ 納期 あと約 " + Math.max(0, Math.ceil((r.deadlineAt - Date.now()) / 60000)) + "分" : "") + "</div>" +
         "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";
     }
     S.requests.forEach((r,i)=>{
@@ -18099,6 +18295,8 @@ const VERBS = {
   foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
+  doDeathMarch: doDeathMarchCore,
+  outsourceBugs: outsourceBugsCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
@@ -18261,6 +18459,22 @@ function makeVerbStub(verb){
       const pv = prestigePreview();
       if(pv.gain < 5){ showViewerNote("売却には星屑5個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
       if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
+    }
+    if(verb === "outsourceBugs"){
+      /* 外注の確認は menu 側で済ませる (帯側では confirm を出さない) */
+      const bugs = Math.floor(S.bugStock), debtCut = Math.floor((S.debt || 0) * 0.4);
+      const coins = bugs * 30 + Math.floor(S.debt || 0) * 15;
+      if((bugs > 0 || debtCut > 0) && !confirm("外注ベンダーに依頼しますか？\nバグ " + bugs + " 匹を全消し ＋ 技術的負債 -" + debtCut + "\n費用: " + coins + "🪙")) return;
+    }
+    if(verb === "doDeathMarch"){
+      /* デスマーチの確認は menu 側で済ませる (帯側では confirm を出さない) */
+      const p = S.project;
+      if(p && p.totalDP){
+        const frac = S.projectDP / p.totalDP;
+        const bugs = Math.floor(S.bugStock);
+        const debtAdd = Math.round((1 - frac) * ({ TUT: 15, XS: 30, S: 60, M: 120, L: 240 }[p.size] || 60)) + bugs * 2;
+        if(frac >= 0.7 && !confirm("デスマーチ出荷しますか？\n残りの工程を飛ばして『" + p.name + "』を即リリースします。\n代価: 技術的負債 +" + debtAdd + " / ブランド -2")) return;
+      }
     }
     if(verb === "dropRequest"){
       /* 大型案件の見送りだけ menu 側で確認する (帯側では confirm を出さない) */

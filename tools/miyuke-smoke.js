@@ -3371,6 +3371,86 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       !threwF && run(sbOldF, "S.fever.gauge") === 0);
   }
 
+  /* ================= Wave G: 技術的負債・ブランド・デスマーチ・外注 ================= */
+  console.log("== Wave G: debt efficiency, brand price, death march, outsourcing ==");
+  {
+    const mkG = (patch) => {
+      const sb = buildSandbox({});
+      loadGame(sb);
+      run(sb, "S.project = { name:'T', size:'L', genre:'app', totalDP: 7000, bugs: 0, planning: false, feats: ['a','b'], doneFeats: 2, startedAt: Date.now(), napsAtStart: 0 }; S.projectDP = 0; S.wip = { code: 0, tested: 0, built: 0 }; S.bugStock = 0; S.debt = 0; S.brand = 0");
+      if(patch) run(sb, patch);
+      return sb;
+    };
+    check("WG: debt efficiency curve (0 -> x1, 50 -> x0.5, 450 -> x0.1)",
+      Math.abs(run(mkG("S.debt = 50"), "debtEff()") - 0.5) < 0.001 &&
+      Math.abs(run(mkG("S.debt = 450"), "debtEff()") - 0.1) < 0.001);
+    check("WG: brand multiplier (0 -> x1, 100 -> x3, capped at x10)",
+      run(mkG(""), "brandMult()") === 1 &&
+      Math.abs(run(mkG("S.brand = 100"), "brandMult()") - 3) < 0.001 &&
+      Math.abs(run(mkG("S.brand = 999"), "brandMult()") - 10) < 0.001);
+    const sbD0 = mkG(""); run(sbD0, "produceDP(100, 'l1')");
+    const sbD9 = mkG("S.debt = 450"); run(sbD9, "produceDP(100, 'l1')");
+    check("WG: debt drags produceDP output (x0.1 at debt 450)",
+      Math.abs(run(sbD9, "S.wip.code") / run(sbD0, "S.wip.code") - 0.1) < 0.01,
+      run(sbD0, "S.wip.code") + " -> " + run(sbD9, "S.wip.code"));
+    const sbQ1 = mkG("S.bugStock = 0");
+    run(sbQ1, "applyShipQuality(S.project)");
+    check("WG: a clean full-feat release grows brand by 4 and adds no debt",
+      run(sbQ1, "S.brand") === 4 && run(sbQ1, "S.debt") === 0);
+    const sbQ2 = mkG("S.bugStock = 12");
+    run(sbQ2, "applyShipQuality(S.project)");
+    check("WG: shipping with 12 bugs adds debt 18 and costs brand",
+      run(sbQ2, "S.debt") === 18 && run(sbQ2, "S.brand") === 0);
+    /* deadline: an overdue tier-3 request pays no bonus */
+    const sbLate = mkG("S.project.genre = 'app'; S.activeRequest = { client:'X', genre:'app', genreName:'アプリ', bonus: 1.8, deadlineAt: Date.now() - 1000 }");
+    run(sbLate, "S.coins = 0; S.projectDP = 7000; releaseProject()");
+    check("WG: an overdue deadline voids the request bonus (base price only)",
+      run(sbLate, "S.coins") === 750, "coins=" + run(sbLate, "S.coins"));
+    const sbOnTime = mkG("S.project.genre = 'app'; S.activeRequest = { client:'X', genre:'app', genreName:'アプリ', bonus: 1.8, deadlineAt: Date.now() + 3600000 }");
+    run(sbOnTime, "S.coins = 0; S.projectDP = 7000; releaseProject()");
+    check("WG: an in-time deadline pays the full request bonus",
+      run(sbOnTime, "S.coins") === 750 + Math.round(750 * 1.8), "coins=" + run(sbOnTime, "S.coins"));
+    /* death march */
+    const sbDM = mkG("S.projectDP = 4900; S.bugStock = 8; S.brand = 10");
+    const dmInfo = run(sbDM, "deathMarchInfo()");
+    check("WG: death march is offered at 70% with the spec debt price",
+      !!dmInfo && dmInfo.debtAdd === Math.round(0.3 * 240) + 16, JSON.stringify(dmInfo));
+    run(sbDM, "doDeathMarchCore()");
+    check("WG: death march ships immediately, charges debt and brand, resets the flag",
+      run(sbDM, "S.totals.releases") === 1 && run(sbDM, "S.debt") === dmInfo.debtAdd &&
+      run(sbDM, "S.brand") === 8 && run(sbDM, "dmRelease") === false,
+      "debt=" + run(sbDM, "S.debt") + " brand=" + run(sbDM, "S.brand"));
+    const sbDM2 = mkG("S.projectDP = 3000");
+    run(sbDM2, "doDeathMarchCore()");
+    check("WG: death march refuses below 70%",
+      run(sbDM2, "S.totals.releases") === 0 && run(sbDM2, "deathMarchInfo()") === null);
+    /* outsourcing */
+    const sbV = mkG("S.coins = 10000; S.bugStock = 12; S.debt = 100");
+    run(sbV, "outsourceBugsCore()");
+    check("WG: outsourcing clears all bugs and 40% of debt at the heavy price",
+      run(sbV, "S.bugStock") === 0 && run(sbV, "S.debt") === 60 &&
+      run(sbV, "S.coins") === 10000 - (12 * 30 + 100 * 15), "coins=" + run(sbV, "S.coins"));
+    run(sbV, "S.bugStock = 5; outsourceBugsCore()");
+    check("WG: the vendor cooldown blocks an immediate second call",
+      run(sbV, "S.bugStock") === 5);
+    const sbV2 = mkG("S.coins = 10; S.bugStock = 12; S.debt = 100");
+    run(sbV2, "outsourceBugsCore()");
+    check("WG: outsourcing refuses when coins are short",
+      run(sbV2, "S.bugStock") === 12 && run(sbV2, "S.coins") === 10);
+    /* prestige clears both */
+    const sbP = mkG("S.debt = 200; S.brand = 120; S.runDP = 60000");
+    run(sbP, "doPrestigeCore()");
+    check("WG: EXIT clears debt and brand for the new company",
+      run(sbP, "S.debt") === 0 && run(sbP, "S.brand") === 0);
+    /* old save guards */
+    const sbOldG = buildSandbox({});
+    sbOldG.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 5, staff: [] }));
+    let threwG = false;
+    try { loadGame(sbOldG); } catch (e) { threwG = true; }
+    check("WG: a save without debt/brand loads with zeros",
+      !threwG && run(sbOldG, "S.debt") === 0 && run(sbOldG, "S.brand") === 0 && run(sbOldG, "S.vendorReadyAt") === 0);
+  }
+
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
   if (failures.length) console.log("failed: " + failures.join(" | "));
   process.exit(FAIL ? 1 : 0);

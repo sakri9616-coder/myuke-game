@@ -552,3 +552,31 @@ console.log("== Wave F: オーバークロックの寄与（アクティブ中�
   console.log("上乗せ: 生産 +" + prodUp.toFixed(1) + " DP/分 / クリック +" + clickUp.toFixed(1) + " DP/分 → 総収入 " + base.toFixed(0) + " に対し +" + (up / base * 100).toFixed(1) + "%");
   console.log("寄与判定（15〜40%）: " + (up / base >= 0.15 && up / base <= 0.40 ? "PASS" : "FAIL"));
 }
+
+/* ===== Wave G: 負債・ブランド・デスマーチ（承認済み仕様書 G 節の数値ゲート） =====
+   解析モデル（前提を明示）: 中盤の生産 300 DP/分、ケア careW 3（総務2〜3人）。
+   デスマーチ判定: L を 70% から強行出荷するとき、負債の生産ドラッグ
+   （返済し切るまでの効率損の積分 ≒ 平均負債ぶんの DP 損失）をコイン換算
+   （L: 750🪙/7000DP）し、「救えるボーナス」と比べる。設計意図は
+   「ティア1（+60%）では割に合わず、ティア3（+180%）/大型（+250%）では
+   割に合う」— いつも押すボタンではなく、納期救済の判断になること */
+console.log("");
+console.log("== Wave G: デスマーチの損得 / ケア返済ペース / ブランド複利 ==");
+{
+  const P = 300, careW = 3, repayPerMin = careW * 0.9;         /* 実装: careW × 0.9 /分 */
+  const dmDebt = Math.round(0.3 * 240) + 8 * 2;                  /* L・70%・バグ8 の負債 = 88 */
+  const clearMin = dmDebt / repayPerMin;
+  /* ドラッグ損失: 負債が線形に減る間の平均効率損 × 生産 × 時間 */
+  let dragDP = 0;
+  for(let t = 0; t < clearMin; t++){
+    const d = Math.max(0, dmDebt - repayPerMin * t);
+    dragDP += P * (1 - 1 / (1 + d / 50));
+  }
+  const dragCoins = dragDP * (750 / 7000);
+  const t1 = Math.round(750 * 0.6), t3 = Math.round(750 * 1.8), big = Math.round(750 * 2.5);
+  console.log("デスマーチ負債 " + dmDebt + " → ケア返済 " + clearMin.toFixed(0) + " 分 / ドラッグ損失 ≈ " + Math.round(dragDP) + " DP ≈ " + Math.round(dragCoins) + "🪙");
+  console.log("救えるボーナス: ティア1 +" + t1 + "🪙 / ティア3 +" + t3 + "🪙 / 大型 +" + big + "🪙");
+  console.log("デスマーチ判定（ティア1では損・ティア3以上で得）: " + (dragCoins > t1 && dragCoins < t3 ? "PASS" : "FAIL"));
+  console.log("ブランド複利（品質出荷 +4/本）: 10本で ×" + (1 + 40 * 0.02).toFixed(1) + " / 25本で ×" + (1 + 100 * 0.02).toFixed(1) + " / 50本で ×" + (1 + 200 * 0.02).toFixed(1) + " / 上限 ×10（225本）");
+  console.log("ブランド判定（25本で ×3 到達）: " + ((1 + 100 * 0.02) >= 3 ? "PASS" : "FAIL"));
+}
