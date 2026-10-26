@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>みゅけ、きょうも開発中</title>
+<style>
+@@STYLES@@
+</style>
+</head>
+<body>
+<div id="strip-wrap">
+  <canvas id="strip"></canvas>
+  <div id="strip-grip" title="ドラッグで帯を移動">◥</div>
+  <button id="strip-layout" type="button" title="家具の並べ替えモード">✥ 並べ替え</button>
+  <!-- Stage 3 (2026-10-26): 右下チップ列は廃止。情報と導線は帯の物へ移設済み:
+       節目/進捗=リーダーボード、目的=吊りメモ、コイン=真鍮タグ、更新=工具箱の
+       リボン、ひらく=各タブのオブジェクト、並べ替え=設定タブ、かくす=グリップのタップ -->
+</div>
+<header>
+  <h1>🐱 みゅけ、きょうも開発中 <small id="ver-label">v2.1</small></h1>
+  <span class="res"><span class="res-ic">🪙</span> <span id="r-coins">0</span> <small>にゃんコイン</small></span>
+  <span class="res"><span class="res-ic">💡</span> <span id="r-ideas">0</span> <small>アイデア</small></span>
+  <span class="res"><span class="res-ic">📦</span> <span id="r-pkg">0</span> <small>パッケージ</small></span>
+  <span class="res res-bugs"><span class="res-ic">🐛</span> <span id="r-bugs">0</span> <small>バグ在庫</small></span>
+  <span class="res diag" id="r-bneck" style="display:none"><span class="res-ic">⚠</span> <span>詰まり</span></span>
+  <span class="res"><span class="res-ic">🔬</span> <span id="r-rp">0</span> <small>研究P</small></span>
+  <span class="res"><span class="res-ic">⭐</span> <span id="r-dust">0</span> <small>星屑</small></span>
+  <button id="btn-to-overlay" type="button" style="display:none">🖥️ デスクトップに戻す</button>
+</header>
+<main>
+  <!-- Strip Canon: 部屋ステージは廃止。管理画面はパネルのみ (R11)。
+       みゅけのセリフ・集中力・進捗バー・応援ボタンは
+       プロジェクトタブのパネル内へ移設した (renderPanel の proj 節) -->
+  <div class="side">
+    <div id="return-card" style="display:none"></div>
+    <div id="update-card" style="display:none"></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="editor-breadcrumbs" aria-hidden="true"><span>miyuke</span><span>›</span><span id="editor-breadcrumb-tab"></span><span>›</span><span id="editor-breadcrumb-context"></span></div>
+    <div class="panel" id="panel"></div>
+  </div>
+</main>
+
+<script>
+@@BOOT@@
+</script>
+
+<script>
+@@MAIN@@
+</script>
+</body>
+</html>

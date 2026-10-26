@@ -28,17 +28,18 @@
    ============================================================ */
 /* ---- リファクタ (2026-10-26・振る舞い不変): 共有定数の単一ソース化 ----
    BAL / UPGRADE_DEFS / RESEARCH_DEFS / STAFF_ROLES / STAFF_CAPS / studioCost は
-   game/index.html から読み込み時に抽出する。sim 側に写しを持たないので、
+   ゲーム HTML (tools/game-html.cjs: 既定はソースからビルドした desktop/dist/index.html)
+   から読み込み時に抽出する。sim 側に写しを持たないので、
    数値変更は game 側だけで済む。抽出に失敗したら sim は即座にエラーで止まる
    (古い写しで静かに回り続ける事故を防ぐ)。 */
 const fs = require("fs");
 const path = require("path");
-const GAME_SRC = fs.readFileSync(path.join(__dirname, "..", "game", "index.html"), "utf8");
+const GAME_SRC = require("./game-html.cjs").readGameHtml();
 function extractLiteral(name){
-  const marker = "const " + name + " =";
-  const start = GAME_SRC.indexOf(marker);
-  if(start < 0) throw new Error("balance-sim: game/index.html に " + marker + " が見つからない (抽出失敗)");
-  let i = start + marker.length;
+  /* 型注釈はビルドで空白になるので「const 名前 <空白> =」を許す */
+  const m = new RegExp("const " + name + "\\s*=").exec(GAME_SRC);
+  if(!m) throw new Error("balance-sim: ゲーム HTML に const " + name + " = が見つからない (抽出失敗)");
+  let i = m.index + m[0].length;
   while(/\s/.test(GAME_SRC[i])) i++;
   if(GAME_SRC[i] !== "{" && GAME_SRC[i] !== "[") throw new Error("balance-sim: " + name + " はリテラルではない");
   let depth = 0, inStr = null, esc = false, inLine = false, inBlock = false;
@@ -602,7 +603,7 @@ console.log("== Phase D: 子会社の配分感度（人員30・規模Lv3 の2社
 console.log("");
 console.log("== Wave F: オーバークロックの寄与（再設計版・アクティブ中盤スナップショット）==");
 {
-  const srcF = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+  const srcF = GAME_SRC;
   const fm = srcF.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+), passiveMax: ([\d.]+) \}/);
   if(!fm) throw new Error("FEVER extraction failed");
   const F = { cB: +fm[1], cC: +fm[2], durS: +fm[3] / 1000, pM: +fm[4], kM: +fm[5], pMax: +fm[6] };

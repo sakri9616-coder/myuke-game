@@ -1,5 +1,5 @@
 #!/bin/bash
-# game/index.html の最新版を dist へ再同期し、Windows を再ビルドして
+# game/src からフロントエンドを型チェック＋ビルドして dist へ出し、Windows を再ビルドして
 # 配布 zip (myuke-desktop-windows.zip) を作り直す。v2.3.5 からは Updater 用の
 # 署名 (desktop/.keys/) を env 経由で渡し、GitHub Release 用の成果物一式も
 # release-v<版数>/ へステージする (公開そのものは手作業)。
@@ -36,11 +36,11 @@ if [ ! -f .keys/updater.key ] || [ ! -f .keys/updater.key.password ]; then
   exit 1
 fi
 
-# 入口チェック2: game/index.html の GAME_VERSION と tauri.conf.json の
+# 入口チェック2: game/src/game/save.ts の GAME_VERSION と tauri.conf.json の
 # version が一致しなければ、版違いの成果物を作る前に止める。
-GAME_VER=$(python3 -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('../game/index.html', encoding='utf-8').read()).group(1))")
+GAME_VER=$(python3 -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('../game/src/game/save.ts', encoding='utf-8').read()).group(1))")
 if [ "$GAME_VER" != "$VER" ]; then
-  echo "VERSION_MISMATCH: game/index.html の GAME_VERSION=v${GAME_VER} と tauri.conf.json の version=${VER} が不一致のため開始しない"
+  echo "VERSION_MISMATCH: game/src/game/save.ts の GAME_VERSION=v${GAME_VER} と tauri.conf.json の version=${VER} が不一致のため開始しない"
   exit 1
 fi
 echo "ENTRY_CHECKS_OK: notes＋signing key＋version(${VER}) 一致"
@@ -55,8 +55,8 @@ if [ -f .keys/updater.key ]; then
   echo "SIGNING_KEY_LOADED"
 fi
 
-cp ../game/index.html dist/index.html
-cmp ../game/index.html dist/index.html && echo "FRONTEND_SYNCED"
+(cd ../game && npm ci && npm run typecheck && npm run build) || { echo "FRONTEND_BUILD_FAILED"; exit 1; }
+echo "FRONTEND_SYNCED"
 
 if [ "$BUILD_LINUX" = "1" ] || [ "$1" = "--with-linux" ]; then
   npx tauri build -b deb

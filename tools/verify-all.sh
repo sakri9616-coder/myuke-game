@@ -1,5 +1,6 @@
 #!/bin/bash
 # verify-all.sh — みゅけ検証の常設化: 変更ごとに回す一括検証。
+#   0) game の型チェック（tsc）とビルド（game/build.mjs → desktop/dist/index.html）
 #   1) graphics/validate-sprites.cjs（スプライト契約）
 #   2) tools/miyuke-smoke.js（スモークテスト）
 #   3) tools/balance-sim.js（バランスsimゲート）
@@ -23,7 +24,7 @@
 #   ゲーム本体の判定（1〜4）には影響させない。
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOGDIR="/home/hatch/workspace/goals/desktop-game-v2-windows-build/hidden_files/verify-logs"
+LOGDIR="${MIYUKE_VERIFY_LOGDIR:-/home/hatch/workspace/goals/desktop-game-v2-windows-build/hidden_files/verify-logs}"
 TAG=""
 SKIP_SHOT=0
 for a in "$@"; do
@@ -60,6 +61,13 @@ run_step() { # $1 = name, $2.. = command
 
 FAIL=0
 WARNINGS=""
+
+# 0) 型チェックとビルド（以降のステップはこのビルド成果物を検証する）
+if run_step typecheck npm --prefix "$ROOT/game" run -s typecheck && run_step build node "$ROOT/game/build.mjs"; then
+  echo "TYPECHECK+BUILD: PASS" >> "$LOG"
+else
+  FAIL=1; echo "TYPECHECK+BUILD: FAIL" >> "$LOG"
+fi
 
 # 1) validate-sprites
 run_step validate node "$ROOT/graphics/validate-sprites.cjs"

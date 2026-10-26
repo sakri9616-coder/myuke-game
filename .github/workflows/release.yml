@@ -1,6 +1,6 @@
 # タグ push で Windows 版をビルド・署名・公開する (sakuri 決定 2026-10-26, Route A)。
 # ローカル手順 desktop/resync-rebuild.sh の CI 版: 入口チェック (ノート存在・
-# 版数一致) → game/index.html を desktop/dist へ同期 → Tauri NSIS ビルド
+# 版数一致) → game の型チェックとビルド (desktop/dist/index.html を生成) → Tauri NSIS ビルド
 # (署名は Actions secrets の TAURI_SIGNING_PRIVATE_KEY / _PASSWORD) →
 # latest.json 生成 (resync-rebuild.sh と同一形式) → gh release create。
 # workflow_dispatch では下書きリリースで試験できる (既定は下書き)。
@@ -47,7 +47,7 @@ jobs:
           test -f "release-notes/v${VER}.md" || { echo "RELEASE_NOTES_MISSING: release-notes/v${VER}.md"; exit 1; }
           CONF_VER=$(python -c "import json;print(json.load(open('desktop/src-tauri/tauri.conf.json', encoding='utf-8'))['version'])")
           [ "$CONF_VER" = "$VER" ] || { echo "VERSION_MISMATCH: tauri.conf=$CONF_VER target=$VER"; exit 1; }
-          GAME_VER=$(python -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('game/index.html', encoding='utf-8').read()).group(1))")
+          GAME_VER=$(python -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('game/src/game/save.ts', encoding='utf-8').read()).group(1))")
           [ "$GAME_VER" = "$VER" ] || { echo "GAME_VERSION_MISMATCH: game=$GAME_VER target=$VER"; exit 1; }
           echo "ENTRY_CHECKS_OK: $VER"
 
@@ -57,9 +57,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: フロントエンド同期
-        shell: bash
-        run: cp game/index.html desktop/dist/index.html
+      - name: フロントエンドの型チェックとビルド
+        working-directory: game
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
 
       - name: npm 依存の導入 (tauri CLI)
         working-directory: desktop

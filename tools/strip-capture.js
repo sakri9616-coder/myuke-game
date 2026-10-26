@@ -1,4 +1,4 @@
-/* strip-capture.js — Playwright で game/index.html#strip を開き、帯（既定 1280×210）の
+/* strip-capture.js — Playwright でビルド済みゲーム (desktop/dist/index.html)#strip を開き、帯（既定 1280×210）の
    スクリーンショットを撮る。検証の常設化（tools/verify-all.sh）の一部。
    既存のプレイヤーセーブは読まない（新規プロファイルで開くため常に新規セーブ）。
    既存ファイルへの上書きはしない（証拠は常に新規ファイル名にする運用）。
@@ -50,7 +50,7 @@ async function main() {
     page.on("console", m => { if (m.type() === "error") errors.push("console.error: " + m.text()); });
     // NOTE: waitUntil "load" never fires for this page (as in miyuke-editor2-capture.js);
     // domcontentloaded is the established working condition.
-    await page.goto("file://" + path.join(root, "game/index.html") + "#strip", { waitUntil: "domcontentloaded", timeout: 20000 });
+    await page.goto("file://" + require("./game-html.cjs").gameHtmlPath() + "#strip", { waitUntil: "domcontentloaded", timeout: 20000 });
     await page.waitForTimeout(waitMs);
     const info = await page.evaluate(() => {
       const canvas = document.getElementById("strip");

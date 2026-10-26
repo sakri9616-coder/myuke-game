@@ -17,10 +17,9 @@ import-sakuri-art.py — sakuriさんの手描きドット絵をゲームのス�
 
 アニメーション定義はデータ駆動: フレーム別 durations 配列とループ区間
 (loopFrom/loopTo/loopCount) を window.MIYUKE_ANIMS として sprites.js 内の
-生成ブロック（マーカー区間）に書き出し、game/index.html の同ブロックへ同期する。
-ゲーム側の ANIMS はこの生成物をそのまま使う（手写し定数は持たない）。
+生成ブロック（マーカー区間）に書き出す。ゲームのビルド (game/build.mjs) は
+sprites.js をそのまま取り込むので、ゲーム側にコピーは無く同期も不要。
 
-同時に game/index.html 内の同梱コピー（スプライト代入＋ANIMSブロック）も同期し、
 最後に graphics/validate-sprites.cjs を自動実行する（--no-validate で抑止）。
 
 使い方:
@@ -36,6 +35,7 @@ import-sakuri-art.py — sakuriさんの手描きドット絵をゲームのス�
 """
 import argparse
 import json
+import os
 import re
 import struct
 import subprocess
@@ -47,9 +47,9 @@ try:
 except ImportError:
     sys.exit("Pillow が必要です: pip install Pillow")
 
-DEFAULT_SPRITES = "/home/hatch/workspace/miyuke-game/graphics/sprites.js"
-DEFAULT_GAME = "/home/hatch/workspace/miyuke-game/game/index.html"
-DEFAULT_VALIDATE = "/home/hatch/workspace/miyuke-game/graphics/validate-sprites.cjs"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_SPRITES = os.path.join(REPO_ROOT, "graphics", "sprites.js")
+DEFAULT_VALIDATE = os.path.join(REPO_ROOT, "graphics", "validate-sprites.cjs")
 # パレット拡張に使う候補文字（'.' は透過マーカーなので絶対に使わない）。
 # バッチ9 (syamu/sabatora) で当初プールが枯渇したため末尾に $ ` c o r を追加
 # (二重引用符文字列の中で安全な文字のみ。既存の割当は接頭辞が不変なので不変)
@@ -441,44 +441,6 @@ def update_anims_block(text, anims):
     return text.rstrip("\n") + "\n" + block
 
 
-def sync_game(game_path, sprites_text):
-    """game/index.html 内の window.MIYUKE_SPRITES 代入と MIYUKE_ANIMS ブロックを
-    sprites.js と同一にする"""
-    game = open(game_path, encoding="utf-8").read()
-    changed = False
-
-    def grab(txt):
-        i = txt.index("window.MIYUKE_SPRITES")
-        j = txt.index("\n};", i) + 3
-        return txt[i:j], i, j
-    new_assign, _, _ = grab(sprites_text)
-    _, gi, gj = grab(game)
-    if game[gi:gj] != new_assign:
-        game = game[:gi] + new_assign + game[gj:]
-        changed = True
-    # ANIMS ブロック（マーカー区間ごと差し替え。ゲーム側に無ければ代入の直後へ挿入）
-    if ANIMS_BEGIN not in sprites_text:
-        if changed:
-            open(game_path, "w", encoding="utf-8").write(game)
-        return changed
-    sb = sprites_text.index(ANIMS_BEGIN)
-    se = sprites_text.index(ANIMS_END) + len(ANIMS_END)
-    sblock = sprites_text[sb:se]
-    if ANIMS_BEGIN in game:
-        gb = game.index(ANIMS_BEGIN)
-        ge = game.index(ANIMS_END) + len(ANIMS_END)
-        if game[gb:ge] != sblock:
-            game = game[:gb] + sblock + game[ge:]
-            changed = True
-    else:
-        _, gi, gj = grab(game)
-        game = game[:gj] + "\n" + sblock + game[gj:]
-        changed = True
-    if changed:
-        open(game_path, "w", encoding="utf-8").write(game)
-    return changed
-
-
 # ------------------------------------------------------------------ main ---
 def main():
     ap = argparse.ArgumentParser(description="sakuriさんのドット絵をゲーム用スプライトに変換")
@@ -496,8 +458,6 @@ def main():
     ap.add_argument("--static", action="store_true",
                     help="アニメにせず base 名そのままで 1 枚だけ取り込む (小物用)")
     ap.add_argument("--sprites", default=DEFAULT_SPRITES)
-    ap.add_argument("--game", default=DEFAULT_GAME)
-    ap.add_argument("--no-game", action="store_true", help="game/index.html へ同期しない")
     ap.add_argument("--no-validate", action="store_true", help="終了時の自動検証をしない")
     ap.add_argument("--fail-on-new-color", action="store_true",
                     help="未知の色があったらパレット拡張せずエラーにする")
@@ -524,10 +484,9 @@ def main():
                     print("WARNING: frame sprite '%s' not found in sprites.js" % fn)
         new_text = update_anims_block(sprites_text, anims)
         open(args.sprites, "w", encoding="utf-8").write(new_text)
-        synced = sync_game(args.game, new_text) if not args.no_game else False
         print("== import audit: anims (%s) ==" % args.input)
         print("anims now: %s" % ", ".join(sorted(anims)))
-        print("sprites.js updated; game/index.html synced: %s" % synced)
+        print("sprites.js updated")
         if not args.no_validate:
             print("== validate-sprites.cjs ==")
             r = subprocess.run(["node", DEFAULT_VALIDATE], capture_output=True, text=True)
@@ -596,10 +555,6 @@ def main():
 
     open(args.sprites, "w", encoding="utf-8").write(new_text)
 
-    synced = False
-    if not args.no_game:
-        synced = sync_game(args.game, new_text)
-
     # ---- audit 出力
     print("== import audit: %s (%s) ==" % (args.name, args.kind))
     print("frames: %d" % len(all_rows))
@@ -624,7 +579,7 @@ def main():
     if audit["semi_alpha"]:
         print("WARNING: %d semi-transparent pixels (first: %s)"
               % (len(audit["semi_alpha"]), audit["semi_alpha"][0]))
-    print("sprites.js updated; game/index.html synced: %s" % synced)
+    print("sprites.js updated")
 
     # ---- 検証を自動実行
     if not args.no_validate:

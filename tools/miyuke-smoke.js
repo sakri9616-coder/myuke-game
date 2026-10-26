@@ -1,4 +1,4 @@
-/* miyuke-smoke.js — Node + DOMスタブで game/index.html を通し実行するスモークテスト。
+/* miyuke-smoke.js — Node + DOMスタブでゲーム HTML (game/src からビルド) を通し実行するスモークテスト。
    Phase A: ブラウザ フルモード（パネルのみ。Strip Canon で部屋シーンは廃止）
    Phase B: ストリップモード + 偽 __TAURI__（ヒットゾーン送信経路）
    Phase B4: Strip Canon 家具（ゾーン/棚/研究机/第2机/装飾/信号機図/⚠チップ）
@@ -26,10 +26,11 @@
 const fs = require("fs");
 const vm = require("vm");
 
-/* 読み先は MIYUKE_GAME_HTML で差し替え可能（既定はライブツリー）。
+/* 読み先は tools/game-html.cjs が決める（MIYUKE_GAME_HTML で差し替え可能。既定はソースからビルド）。
    worktree-verify.sh が git archive スナップショットを指すために使う。
-   未設定時の挙動は従来どおり。 */
-const HTML = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+   未設定時は game/build.mjs で desktop/dist/index.html を作ってから読む。 */
+const GAME_HTML = require("./game-html.cjs");
+const HTML = GAME_HTML.readGameHtml();
 const BLOCKS = [...HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 if (BLOCKS.length < 2) { console.error("script blocks not found"); process.exit(1); }
 
@@ -2616,7 +2617,7 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
 console.log("== Phase D: auto-update (config + fake updater flows) ==");
 (async () => {
   /* --- 設定ファイル側の整合（実ファイルを読む） --- */
-  const DESK = process.env.MIYUKE_DESK || "/home/hatch/workspace/miyuke-game/desktop/";
+  const DESK = GAME_HTML.DESK_DIR;
   const conf = JSON.parse(fs.readFileSync(DESK + "src-tauri/tauri.conf.json", "utf8"));
   check("tauri version is 2.6.0", conf.version === "2.6.0", "got " + conf.version);
   check("GAME_VERSION label matches tauri version",
