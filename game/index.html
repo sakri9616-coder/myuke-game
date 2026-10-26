@@ -11762,7 +11762,10 @@ const STAFF_MAX_LV = 10;
 const COMPANY_RANKS = ["インディー", "零細", "中小", "中堅", "準大手", "大企業"];
 function rankName(lv){ return COMPANY_RANKS[Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1]; }
 function companyRank(){ return rankName(S.studioLv); }
-function staffCap(){ return STAFF_CAPS[S.studioLv - 1] + (hasLegacyTech("cap1") ? 6 : 0) + (hasLegacyTech("cap2") ? 6 : 0); }   /* 第2ウェーブ J: 上限拡張 I/II で 36→42→48 */
+function staffCap(){
+  if(challengeActive("minority")) return 6;   /* 第2ウェーブ K: 少数精鋭は社格・技術の上限を上書きする */
+  return STAFF_CAPS[S.studioLv - 1] + (hasLegacyTech("cap1") ? 6 : 0) + (hasLegacyTech("cap2") ? 6 : 0);   /* 第2ウェーブ J: 上限拡張 I/II で 36→42→48 */
+}
 const STUDIO_COSTS = [0, 400, 1200, 3600, 7200, 18000];
 function studioCost(lv){ return STUDIO_COSTS[lv]; }  // STUDIO_COSTS[現Lv] = 次Lvへの費用: 400/1200/3600/7200/18000（上段は停滞是正のレーンAで圧縮、2026-10-26）
 function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
@@ -11775,7 +11778,12 @@ function trainCost(st){
   return Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));
 }
 /* Sprint 4: 熟練ボーナス（Lv5 で +15%、Lv10 で +30%）。育成の終着点を作る */
-function staffOutMult(st){ return staffMult(st) * (st.lv >= 10 ? 1.3 : st.lv >= 5 ? 1.15 : 1); }
+function staffOutMult(st){
+  let m = staffMult(st) * (st.lv >= 10 ? 1.3 : st.lv >= 5 ? 1.15 : 1);
+  if(challengeActive("minority")) m *= 1.25;   /* 第2ウェーブ K: 少人数の補正 */
+  if(S.challengeRewards && S.challengeRewards.minority) m *= 1.1;   /* 第2ウェーブ K: 永続報酬 */
+  return m;
+}
 /* ---------- Phase C: 部署（既存ロールの束ね＋部署Lv） ----------
    部署は新しい人員システムではなく、ロールの読み替え＋部署Lv の倍率だけ。
    倍率は staffSums の集計にのみ掛かり、他の計算は従来どおり */
@@ -12052,6 +12060,9 @@ function freshState(){
     /* 第2ウェーブ J 追加分: 第2層プレステージ（星団・レガシー技術・持株化回数・
        その時代の通算星屑）。持株化でのみ増減し、EXIT では消えない */
     legacy:0, legacyTech:{}, holdings:0, eraDust:0,
+    /* 第2ウェーブ K 追加分: 挑戦中のチャレンジ { id, startCoins } と、
+       獲得済みの永続報酬。報酬層は EXIT でも持株化でも消えない */
+    challenge:null, challengeRewards:{},
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
     researchLv:{}, buffs:{},
     /* チュートリアル導線 (TUTORIAL_DESIGN.md): 進行ステージ・見たビート・
@@ -12163,6 +12174,9 @@ function load(){
     if(typeof S.legacy !== "number") S.legacy = 0;
     if(!S.legacyTech || typeof S.legacyTech !== "object") S.legacyTech = {};
     if(typeof S.holdings !== "number") S.holdings = 0;
+    /* 第2ウェーブ K: チャレンジ状態の補完（旧セーブは未挑戦・報酬なし） */
+    if(S.challenge !== null && (typeof S.challenge !== "object" || !S.challenge.id)) S.challenge = null;
+    if(!S.challengeRewards || typeof S.challengeRewards !== "object") S.challengeRewards = {};
     for(const p of [S.project, S.line2 && S.line2.project]){
       if(p && typeof p.planning !== "boolean"){ p.planning = false; if(typeof p.ideaCost !== "number") p.ideaCost = 0; }
     }
@@ -12836,7 +12850,7 @@ function buffProdMult(){ return (S.buffs && S.buffs.prodUntil > Date.now()) ? 1.
 function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 1.10 : 1; }
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
-function extraMult(){ return resMult() * perkProdMult() * buffProdMult() * legacyMult(); }
+function extraMult(){ return resMult() * perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
 function qaRate(){
   return qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa;
 }
@@ -12881,6 +12895,8 @@ function applyShipQuality(p){
   if(shippedBugs === 0) delta = featsDone ? 4 : 3;
   else if(shippedBugs <= 3) delta = 1;
   else if(shippedBugs >= 10) delta = -3;
+  /* 第2ウェーブ K: ブラック企業の永続報酬はブランドの増え幅 +50%（減る側は据え置き） */
+  if(delta > 0 && S.challengeRewards && S.challengeRewards.black) delta = Math.round(delta * 1.5);
   if(delta !== 0){
     S.brand = Math.max(0, Math.min(450, (S.brand || 0) + delta));
     addLog(delta > 0
@@ -13132,7 +13148,7 @@ function produceDP(amount, target){
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
   const proj = target === "l2" ? S.line2.project : S.project;
-  const bugMul = (proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1;
+  const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * (challengeActive("black") ? 3 : 1);   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
   if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += aBase * BAL.bugPerDP * bugMul; }
   else {
     /* Wave H: 自動生産の一部はモジュールのミニラインへ（入力由来は対象外） */
@@ -13144,6 +13160,8 @@ function produceDP(amount, target){
   }
   S.runDP += a;
   S.bugStock += aBase * BAL.bugPerDP * bugMul;
+  /* 第2ウェーブ K: 完全放置中はフィーバーが自動生産から細く貯まる */
+  if(!fromInput && challengeActive("idle")) chargeFever(a * 0.02);
   /* チュートリアル: 初めてバグ在庫が積まれた瞬間だけ、ほったらかしで
      大丈夫なことを1回伝える (マイクロビート) */
   if(S.tut && !S.tut.seen.first_bug && S.bugStock >= 1 && !IS_VIEWER){
@@ -13218,7 +13236,7 @@ function doCommit(){
 function releaseProject(){
   const p = S.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p));
+  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1));   /* 第2ウェーブ K: ブラック企業は価格 ×2 */
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -13279,7 +13297,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult());
+  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * (challengeActive("black") ? 2 : 1));
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
@@ -13501,7 +13519,7 @@ function cheerClick(bx, by, part){
   /* F再設計: バケツを通ったクリックだけが DP を生む（反応・コンボは無条件）。
      流入は案B 読み替え: 直接進捗は 20%、残り 80% は第1工程へ流して
      工程キャップに堰き止めさせる。企画中は全量が仕掛品になる */
-  if(clickBucketTake()){
+  if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
     prodMuted = true;
     produceDP(gain * (1 - CLINK.directShare), "l1");
@@ -13665,6 +13683,7 @@ function tick(){
   }
   /* 拡張ウェーブ G: 総務（ケア）が技術的負債を少しずつ返す（部署Lv は staffSums 経由で効く） */
   if(S.debt > 0 && ss.careW > 0) S.debt = Math.max(0, S.debt - ss.careW * 0.9 / 60);
+  checkChallenge();   /* 第2ウェーブ K: 目標の充足は毎秒見る（Lv到達・累計コイン） */
   // 集中力
   if(coding){
     let drain = (100 / (25*60)) * (1 - 0.08*Math.min(5,(S.upgrades.chair||0)));
@@ -14224,7 +14243,8 @@ function doPrestigeCore(){
   S.research = {};
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
-  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
+  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
+  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = keptStaff ? [keptStaff] : [];
@@ -14299,6 +14319,7 @@ function doHoldingsCore(){
   S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
   S.research = {}; S.researchLv = {};
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
+  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
   S.subs = [];
   S.staff = []; S.clickUp = {}; S.studioLv = 1;
   S.wip = { code:0, tested:0, built:0 };
@@ -14314,6 +14335,59 @@ function doHoldings(){
   if(!hp.can){ say("持株化の条件がまだ揃ってないにゃ"); return; }
   if(!confirm("ホールディングス化しますか？\n星団 "+hp.gain+" 個を得ます。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
   doHoldingsCore();
+}
+
+/* ---------- 第2ウェーブ K: チャレンジ周回 ----------
+   会社を設立した直後（初回 EXIT 以降・Lv1・実績が1星屑ぶん未満）だけ
+   受けられる縛りプレイ。同時に1つだけ、放棄はいつでも無償。目標を
+   満たした瞬間に達成となり、報酬は EXIT でも持株化でも消えない
+   永続パッシブ層 (challengeRewards) に入る。未達のまま会社を手放すと
+   チャレンジは消える (ペナルティはそれだけ) */
+const BLACK_RUN_COINS_GOAL = 300000;
+const CHALLENGE_DEFS = [
+  { id:"minority", name:"少数精鋭",     rule:"スタッフ上限 6人（社格・技術より優先）／ スタッフの出力 +25%", goal:"スタジオ Lv4 到達", reward:"全スタッフの出力 +10%（永続）" },
+  { id:"black",    name:"ブラック企業", rule:"バグ発生率 ×3 ／ 販売価格 ×2", goal:"この会社で累計 300,000🪙 稼ぐ", reward:"ブランドの増え幅 +50%（永続）" },
+  { id:"idle",     name:"完全放置",     rule:"応援クリックと実作業ブーストが DP を生まない ／ フィーバーは自動生産から細く貯まる", goal:"スタジオ Lv4 到達", reward:"自動生産 +15%（永続）" }
+];
+function challengeDef(id){ return CHALLENGE_DEFS.find(c => c.id === id) || null; }
+function challengeActive(id){ return !!(S.challenge && S.challenge.id === id); }
+function challengeStartable(){
+  return !S.challenge && ((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1) &&
+    S.studioLv === 1 && S.runDP < BAL.prestigeDPPerDust;
+}
+function startChallenge(id){
+  if(!challengeDef(id) || S.challenge) return;
+  if(!challengeStartable()){ say("チャレンジは会社を設立した直後だけ受けられるにゃ"); return; }
+  S.challenge = { id: id, startCoins: S.totals.coinsEarned || 0 };
+  addLog("🎯 チャレンジ開始: 『"+challengeDef(id).name+"』— "+challengeDef(id).rule);
+  say("チャレンジ『"+challengeDef(id).name+"』、はじめるにゃ！");
+  save(); renderPanel();
+}
+function abandonChallenge(){
+  if(!S.challenge) return;
+  addLog("🎯 チャレンジ『"+challengeDef(S.challenge.id).name+"』をやめた（ペナルティなし）");
+  S.challenge = null;
+  say("チャレンジはやめたにゃ。また今度ね");
+  save(); renderPanel();
+}
+function challengeGoalMet(){
+  const c = S.challenge;
+  if(!c) return false;
+  if(c.id === "black") return (S.totals.coinsEarned || 0) - (c.startCoins || 0) >= BLACK_RUN_COINS_GOAL;
+  return S.studioLv >= 4;   /* minority / idle は Lv4 到達が目標 */
+}
+function checkChallenge(){
+  const c = S.challenge;
+  if(!c || !challengeGoalMet()) return;
+  const def = challengeDef(c.id);
+  if(!def) { S.challenge = null; return; }
+  if(!S.challengeRewards || typeof S.challengeRewards !== "object") S.challengeRewards = {};
+  S.challengeRewards[c.id] = true;
+  S.challenge = null;
+  addLog("🏆 チャレンジ達成: 『"+def.name+"』！ 報酬「"+def.reward+"」を獲得");
+  say("チャレンジ達成にゃ〜！！ 『"+def.name+"』クリア！");
+  SoundKit.play("releaseFanfare");
+  save(); renderPanel();
 }
 function checkStamps(){
   for(const st of STAMP_DEFS){
@@ -16181,7 +16255,8 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   {
     const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人" +
       (S.subs && S.subs.length ? " ・ グループ" + S.subs.length + "社・総勢" + totalPeople() + "人" : "") +
-      (S.holdings ? " ・ 持株×" + S.holdings : "");   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
+      (S.holdings ? " ・ 持株×" + S.holdings : "") +   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
+      (S.challenge ? " ・ 🎯" + (challengeDef(S.challenge.id) || {}).name : "");   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
     sctx.save();
     sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";
@@ -17938,6 +18013,32 @@ function renderPanel(){
         h += foldSec("legacy", false, "🌌 レガシー技術", "所持 " + fmt(S.legacy || 0) + " 🌌 ・ 持株化 " + (S.holdings || 0) + " 回", techBody);
       }
     }
+    /* 第2ウェーブ K: チャレンジ周回（設立直後のエントリー・放棄無償・報酬は永続） */
+    if(!tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
+      if(S.challenge){
+        const cdef = challengeDef(S.challenge.id);
+        if(cdef){
+          const prog = S.challenge.id === "black"
+            ? fmt(Math.min(BLACK_RUN_COINS_GOAL, (S.totals.coinsEarned || 0) - (S.challenge.startCoins || 0))) + " / " + fmt(BLACK_RUN_COINS_GOAL) + "🪙"
+            : "現在 Lv" + S.studioLv + " / 目標 Lv4";
+          h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
+            "<span class='sock'>🎯</span><span class='nm'>チャレンジ中: " + cdef.name + "</span>" +
+            "<div class='ds'>" + cdef.rule + "<br>目標: " + cdef.goal + "（" + prog + "）／ 報酬: " + cdef.reward + "</div></div>" +
+            "<button onclick='abandonChallenge()'>やめる</button></div></div>";
+        }
+      } else {
+        let chRows = "";
+        for(const cdef of CHALLENGE_DEFS){
+          const owned = S.challengeRewards && S.challengeRewards[cdef.id];
+          chRows += "<div class='item buy slim'><div><span class='nm'>" + cdef.name + "</span>" + (owned ? " <span class='tagchip'>✅ 報酬獲得済み</span>" : "") +
+            "<div class='ds'>" + cdef.rule + "<br>目標: " + cdef.goal + " ／ 報酬: " + cdef.reward + "</div></div>" +
+            "<button class='buybtn' onclick='startChallenge(\"" + cdef.id + "\")'" + (challengeStartable() ? "" : " disabled") + "><span class='buy-act'>挑戦する</span></button></div>";
+        }
+        const chNote = challengeStartable() ? "" : "<div class='note'>チャレンジは、会社を設立した直後（Lv1・実績が星屑1個ぶん未満）だけ受けられます。初回 EXIT のあと解放されます</div>";
+        const ownedN = S.challengeRewards ? Object.keys(S.challengeRewards).length : 0;
+        h += foldSec("challenge", false, "🎯 チャレンジ", ownedN ? "報酬 " + ownedN + " / 3 獲得" : "縛りプレイで永続報酬", chRows + chNote);
+      }
+    }
   }
   if(currentTab === "click"){
     h += "<h3>👆 応援クリック</h3>";
@@ -18482,6 +18583,7 @@ function feedOsActivity(p){
   const clicks = Math.max(0, Math.floor(Number(p.clicks) || 0));
   osInputLast = { keys: keys, distPx: dist, clicks: clicks, at: Date.now() };
   if(S.settings.pauseInput) return;   /* 一時停止中はページ内と同じく集計しない */
+  if(challengeActive("idle")) return;   /* 第2ウェーブ K: 完全放置中は入力カウント自体が止まる */
   if(keys > 0 || dist > 0 || clicks > 0){
     keysAcc += keys; cursorAcc += dist; clicksAcc += clicks;
     S.totals.keys += keys; S.today.keys += keys;
@@ -18781,6 +18883,7 @@ const VERBS = {
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,
+  startChallenge: startChallenge, abandonChallenge: abandonChallenge,
   doDeathMarch: doDeathMarchCore,
   outsourceBugs: outsourceBugsCore,
   moduleOutsource: moduleOutsourceCore,

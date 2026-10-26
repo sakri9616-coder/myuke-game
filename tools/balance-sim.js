@@ -137,17 +137,23 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin){
   return PLAYER.clicksPerMin * base * avgMult * critF;
 }
 
-function simulate(days, active, reqMode, prestigeAt){
+function simulate(days, active, reqMode, prestigeAt, profile){
   seed = 20261024; // プレイヤー間で乱数を揃える
+  /* 第2ウェーブ K のプロファイル: minority = 上限6＋スタッフ生産 ×1.25 /
+     idle = ブーストとクリックなし / black = バグ ×3・価格 ×2 */
+  const capOf = () => profile === "minority" ? 6 : STAFF_CAPS[studioLv - 1];
+  const bugPerDP = BAL.bugPerDP * (profile === "black" ? 3 : 1);
   const up = {}, res = {}, cu = {};
   let staff = [], studioLv = 1;
   let coins = 0, rp = 0, dust = 0, dustTotal = 0, runDP = 0, bugStock = 0;
   let brand = 0;   /* Wave G: ブランド力（品質出荷で蓄積・価格に複利・EXIT で清算） */
+  let simDebt = 0;   /* Wave K: ブラック検証用に、実機の負債ドラッグだけを局所モデル化（day sim 本体は負債なしが既定） */
   /* Sprint 3: 星屑ショップの最小モデル。特典は永続し、倍率は通算獲得
      (dustTotal) で決まる。貪欲方針: 初期資金(3) → 集中ブースト(5) の順に買う */
   const perks = {};
   let reportLv = 0;             /* Sprint 4: 反復研究レベル（引っ越しでリセット） */
   let coinsEarned = 0, econ = null;   /* Sprint 4: 30日目の支出可能性の材料 */
+  let runCoins = 0;   /* Wave K: 1ラン（設立〜EXIT）単位の累計コイン。ブラック目標の校正用 */
   let wip = { code:0, tested:0, built:0 }, wip2 = { code:0, tested:0, built:0 };
   let line2 = false;
   let ideas = 0, bigStreak = 0, reqDone = 0, curDay = 1;   /* reqDone/curDay: Phase C の依頼比較用 */
@@ -160,7 +166,7 @@ function simulate(days, active, reqMode, prestigeAt){
                        resT1Day: null, resAllDay: null,
                        /* Phase B・社格到達日: Lv1 は開始時（0日目）。売却で Lv1 に戻っても
                           初回到達日は上書きしない（最高到達の記録として読む） */
-                       rankDays: { 1: 0 } };
+                       rankDays: { 1: 0 }, coinsAtLv5: null, maxBugStock: 0, maxRunCoins: 0 };
   /* チュートリアル導線 (research/TUTORIAL_DESIGN.md §5) との対応 — 導線の解放
      トリガーは、その段階で買う物の価格以下に置いてあり、sim の購入マイル
      ストーンより先に (または同時に) 発火する。経済定数は導線と無関係:
@@ -199,7 +205,7 @@ function simulate(days, active, reqMode, prestigeAt){
   function drawProject(){
     // 所要時間ベース抽選（game の drawSizeByTime と同じ）: 実効スループットで 40分〜3時間
     const R = rates();
-    const boost = Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
+    const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
     const cf = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
     const prodSide = ((BAL.basePerMin + boost) * cf + R.bot + R.ss.prog) * dpMult(up) * dustMult() * firstBoost();
     const rate = Math.max(1, Math.min(prodSide, R.test, R.build, R.ship));
@@ -223,12 +229,14 @@ function simulate(days, active, reqMode, prestigeAt){
       c += Math.round(c * rate * 0.9); r += 1; reqDone++;
     }
     else if(!isLine2 && rnd() < PLAYER.requestMatchRate){ c += Math.round(c * 0.6); r += 1; reqDone++; }
-    coins += Math.round(c); coinsEarned += Math.round(c); dayCoins += Math.round(c); rp += r; ideas += 2;
+    if(profile === "black") c = Math.round(c * 2);
+    coins += Math.round(c); coinsEarned += Math.round(c); dayCoins += Math.round(c); runCoins += Math.round(c); rp += r; ideas += 2;
     totalReleasesEver++;
     /* Wave G: ブランド増減は実機どおり出荷時のバグ在庫で決まる
        （0 → +3 / 〜3 → +1 / 10〜 → −3 / その他 0。feat 全達成の +4 は未モデル） */
     { const fb2 = Math.floor(bugStock);
-      brand = Math.max(0, Math.min(450, brand + (fb2 <= 0 ? 3 : fb2 <= 3 ? 1 : fb2 >= 10 ? -3 : 0))); }
+      brand = Math.max(0, Math.min(450, brand + (fb2 <= 0 ? 3 : fb2 <= 3 ? 1 : fb2 >= 10 ? -3 : 0)));
+      if(profile === "black") simDebt = Math.min(500, simDebt + Math.round(fb2 * 1.5)); }
     return drawProject();
   }
   let dayCoins = 0;
@@ -239,12 +247,13 @@ function simulate(days, active, reqMode, prestigeAt){
     dayCoins = 0;
     for(let min = 0; min < PLAYER.minutesPerDay; min++){
       const R = rates(), ss = R.ss;
+      if(profile === "minority"){ ss.prog *= 1.25; ss.progW *= 1.25; }
       const mlt = dpMult(up) * dustMult();
       const codingFrac = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*ss.careW);
       // --- 生産 ---
-      const boost = Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
+      const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       let raw = (BAL.basePerMin + boost) * codingFrac + R.bot + ss.prog;
-      const inSession = active && PLAYER.clickSessions.some(s0 => min >= s0 && min < s0 + PLAYER.clickSessionMin);
+      const inSession = profile !== "idle" && active && PLAYER.clickSessions.some(s0 => min >= s0 && min < s0 + PLAYER.clickSessionMin);
       let clickRaw = 0;
       if(inSession){
         clickRaw = sessionClickDPperMin(cu, perks.focus, raw * mlt);
@@ -263,12 +272,13 @@ function simulate(days, active, reqMode, prestigeAt){
       const feverF = active ? 1.18 : 1.04;
       /* F 再設計の流入（直接20%・工程80%）: 工程ぶんは自動生産と合算して
          仕掛品へ（この sim 自身の工程キャップで堰き止められる） */
-      const produced = (raw + clickRaw * 0.8) * mlt * fb * resMultV * feverF;
+      const debtF = profile === "black" ? 1 / (1 + simDebt / 50) : 1;   /* 実機 produceDP の debtEff と同じ形 */
+      const produced = (raw + clickRaw * 0.8) * mlt * fb * resMultV * feverF * debtF;
       wip.code += produced; runDP += produced;
-      bugStock += produced * BAL.bugPerDP;
+      bugStock += produced * bugPerDP;
       // 応援クリックの20%だけが工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
       if(clickRaw > 0){
-        if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * BAL.bugPerDP; }
+        if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * bugPerDP; }
         else { const direct = clickRaw * 0.2 * mlt * fb * resMultV * feverF; projDP += direct; runDP += direct; }
       }
       ideas += IDEA_PER_MIN + 0.3 * ss.careW;
@@ -278,9 +288,9 @@ function simulate(days, active, reqMode, prestigeAt){
       }
       if(line2){
         /* Sprint 4: 第2ライン高速化 (res_eff2 ×1.5) と反復研究も反映 */
-        const produced2 = (BAL.line2BaseRate + 0.8 * ss.progW) * mlt * mlt * (res.res_eff2 ? 1.5 : 1) * resMultV;  // 出荷版の二重適用を再現
+        const produced2 = (BAL.line2BaseRate + 0.8 * ss.progW) * mlt * mlt * (res.res_eff2 ? 1.5 : 1) * resMultV * debtF;  // 出荷版の二重適用を再現
         wip2.code += produced2; runDP += produced2;
-        bugStock += produced2 * BAL.bugPerDP;
+        bugStock += produced2 * bugPerDP;
       }
       // --- 工程処理（各ライン独立の工程容量。game 側と同期: 2026-10-26 飢餓修正） ---
       const bugF = bugStock > 8 ? Math.max(0.5, 1 - (bugStock - 8) * 0.02) : 1;
@@ -297,6 +307,7 @@ function simulate(days, active, reqMode, prestigeAt){
          （上限 6/分）、パッシブはたまのチラ見（上限 1/分）。ブランド帯域の
          判定はこのドレイン後の在庫で実機に倣う */
       if(bugStock > 3) bugStock = Math.max(0, bugStock - Math.min(bugStock - 3, active ? 6 : 1));
+      if(bugStock > milestones.maxBugStock) milestones.maxBugStock = bugStock;
       rp += ss.rp;
       /* Sprint 4: ティア1全完了後の研究員は第二の仕事でアイデアも生む (game と同じ ×0.6) */
       if(ss.rp > 0 && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) ideas += ss.rp * 0.6;
@@ -373,7 +384,7 @@ function simulate(days, active, reqMode, prestigeAt){
           /* スタジオ拡張の貯金開始は「定員の6割を超えたら」— 実機の buyStudio に
              定員条件はなく、プレイヤーは席が埋まる前に拡張を狙う。旧ポリシー
              （定員フル時のみ）は Lv5 以降を不当に遠く見せていた */
-          if(staff.length >= Math.ceil(STAFF_CAPS[studioLv - 1] * 0.6) && studioLv < STAFF_CAPS.length) goals.push({ kind:"studio", c: studioCost(studioLv) });
+          if(staff.length >= Math.ceil(capOf() * 0.6) && studioLv < STAFF_CAPS.length) goals.push({ kind:"studio", c: studioCost(studioLv) });
           if(goals.length){
             goals.sort((a, b) => a.c - b.c);
             const g = goals[0];
@@ -385,6 +396,7 @@ function simulate(days, active, reqMode, prestigeAt){
             } else {
               studioLv++;
               if(milestones.rankDays[studioLv] === undefined) milestones.rankDays[studioLv] = day;
+              if(studioLv === 5 && milestones.coinsAtLv5 === null) milestones.coinsAtLv5 = coinsEarned;
             }
             return true;
           }
@@ -396,7 +408,7 @@ function simulate(days, active, reqMode, prestigeAt){
             const lv = up[def.id]||0;
             if(lv < def.max) consider("upgrade", def.id, cost(def, lv));
           }
-          if(staff.length < STAFF_CAPS[studioLv - 1]){
+          if(staff.length < capOf()){
             let rolePick = null, roleCost = Infinity, roleCount = Infinity;
             for(const role of Object.keys(STAFF_ROLES)){
               const n = ssNow.byRole[role]||0, c = hireCost(staff, role);
@@ -440,7 +452,7 @@ function simulate(days, active, reqMode, prestigeAt){
       const R = rates();
       const mlt = dpMult(up) * dustMult();
       const codingFrac = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
-      const boost = Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
+      const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       const passivePerMin = ((BAL.basePerMin + boost) * codingFrac + R.bot + R.ss.prog) * mlt;
       const clickPerMin = sessionClickDPperMin(cu, perks.focus, passivePerMin) * mlt;
       snapshot7 = { passivePerMin, clickPerMin, ratio: (passivePerMin + clickPerMin) / passivePerMin, staff: staff.length, studioLv };
@@ -453,6 +465,8 @@ function simulate(days, active, reqMode, prestigeAt){
       milestones.prestigeCount++;
       if(milestones.prestigeDay === null) milestones.prestigeDay = day;
       dust += gain; dustTotal += gain; runDP = 0; rp = 0; bugStock = 0; ideas = 0;
+      if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
+      runCoins = 0; simDebt = 0;
       /* 第2ウェーブ J: 5回目の EXIT 時点の時代の通算星屑（星団の材料の実測） */
       if(milestones.prestigeCount === 5 && milestones.hold5Day === null){ milestones.hold5Day = day; milestones.hold5Dust = dustTotal; }
       brand = 0;   /* Wave G: ブランドは EXIT で清算（承認済み仕様） */
@@ -471,6 +485,7 @@ function simulate(days, active, reqMode, prestigeAt){
       if(!perks[pk[0]] && dust >= pk[1]){ dust -= pk[1]; perks[pk[0]] = true; }
     }
   }
+  if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
   return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, reportLv, econ, reqDone };
 }
 
@@ -713,4 +728,31 @@ console.log("== Wave J: ホールディングス化（星団の初回量）==");
   console.log(line("active ", jA));
   const gP = Math.floor(jP.dustTotal / 20), gA = Math.floor(jA.dustTotal / 20);
   console.log("Wave J 判定（初回星団が passive 2 以上・active 3 以上＝最初の技術選択が成立する量）: " + (gP >= 2 && gA >= 3 ? "PASS" : "FAIL"));
+}
+
+
+/* ===== 第2ウェーブ K: チャレンジ周回のプロファイル検証（承認済み仕様書 K 節） =====
+   反証条件: 少数精鋭と完全放置が通常ランの 1.5 倍以内に Lv4 へ届くこと。
+   ブラック企業は QA 投資の下でバグ在庫が均衡すること（発散しないこと）。
+   あわせてブラックの目標（累計コイン）を通常ランの Lv5 到達時の累計で校正する */
+console.log("");
+console.log("== Wave K: チャレンジ周回 ==");
+{
+  const lv4 = r => r.milestones.rankDays[4];
+  const minA = simulate(30, true, undefined, 10, "minority"), minP = simulate(30, false, undefined, 10, "minority");
+  const idlA = simulate(30, true, undefined, 10, "idle"), idlP = simulate(30, false, undefined, 10, "idle");
+  const blkA = simulate(30, true, undefined, 10, "black");
+  const f = d => d === undefined ? "未達" : d + "日目";
+  console.log("Lv4 到達: 通常 active " + f(lv4(ra7)) + " / passive " + f(lv4(rp7)) +
+    " | 少数精鋭 active " + f(lv4(minA)) + " / passive " + f(lv4(minP)) +
+    " | 完全放置 active " + f(lv4(idlA)) + " / passive " + f(lv4(idlP)));
+  const within = (base, prof) => base !== undefined && prof !== undefined && prof <= Math.ceil(base * 1.5);
+  const profOk = within(lv4(ra7), lv4(minA)) && within(lv4(rp7), lv4(minP)) && within(lv4(ra7), lv4(idlA)) && within(lv4(rp7), lv4(idlP));
+  console.log("Wave K 判定1（少数/放置が通常の 1.5 倍以内に Lv4）: " + (profOk ? "PASS" : "FAIL"));
+  console.log("ブラック企業（active・バグ×3・価格×2）: 30日のリリース " + blkA.totalReleasesEver + " 件 / バグ在庫の最大 " +
+    Math.round(blkA.milestones.maxBugStock) + " 匹 / Lv5 到達時の累計 " + (blkA.milestones.coinsAtLv5 === null ? "未達" : Math.round(blkA.milestones.coinsAtLv5).toLocaleString() + "🪙"));
+  const eqOk = blkA.totalReleasesEver > 0 && blkA.milestones.maxBugStock < 500;
+  console.log("Wave K 判定2（ブラックのバグ在庫が QA の下で均衡する）: " + (eqOk ? "PASS" : "FAIL"));
+  console.log("目標の校正: sim の短期周回方針（益10で EXIT）では1ランの累計は 通常 " + Math.round(ra7.milestones.maxRunCoins).toLocaleString() + "🪙 / ブラック " + Math.round(blkA.milestones.maxRunCoins).toLocaleString() + "🪙 止まり。" +
+    "チャレンジは売却で消えるため完走は長期ランになり、sim の方針では測れない。目標 300,000🪙 は仕様書の暫定値を据え置く（価格 ×2 の L 案件が後半の主収入になる長期ラン前提。実機の完走可否は未検証の注記として残す）");
 }

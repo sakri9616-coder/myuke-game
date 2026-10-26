@@ -3658,6 +3658,80 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     try { loadGame(sbOldJ); } catch (e) { threwJ = true; }
     check("WJ: an old save backfills era dust from the lifetime total",
       !threwJ && run(sbOldJ, "S.eraDust") === 34 && run(sbOldJ, "S.legacy") === 0 && run(sbOldJ, "S.holdings") === 0);
+    /* --- Wave K (wave 2): challenge runs --- */
+    const sbK0 = buildSandbox({});
+    loadGame(sbK0);
+    run(sbK0, "startChallenge('minority')");
+    check("WK: challenges stay locked before the first EXIT",
+      run(sbK0, "S.challenge") === null);
+    const sbK = buildSandbox({});
+    loadGame(sbK);
+    run(sbK, "S.prestiges = 1; S.staff.push({ id: 991, name: 'k-test', coat: 'kuro', role: 'prog', lv: 1 })");
+    const multBase = run(sbK, "staffOutMult(S.staff[0])");
+    run(sbK, "startChallenge('minority')");
+    check("WK: minority overrides the staff cap to 6 and pays +25% staff output",
+      run(sbK, "S.challenge.id") === "minority" && run(sbK, "staffCap()") === 6 &&
+      Math.abs(run(sbK, "staffOutMult(S.staff[0])") / multBase - 1.25) < 1e-9);
+    run(sbK, "S.studioLv = 4; checkChallenge()");
+    check("WK: hitting the goal banks the permanent reward and ends the challenge",
+      run(sbK, "S.challenge") === null && run(sbK, "S.challengeRewards.minority") === true &&
+      Math.abs(run(sbK, "staffOutMult(S.staff[0])") / multBase - 1.1) < 1e-9);
+    const sbKb = buildSandbox({});
+    loadGame(sbKb);
+    run(sbKb, "S.prestiges = 1; startChallenge('black')");
+    run(sbKb, "S.project = { size: 'S', genre: 'app', planning: false }; produceDP(1000, 'l1')");
+    const bugsBlack = run(sbKb, "S.bugStock");
+    const sbKn = buildSandbox({});
+    loadGame(sbKn);
+    run(sbKn, "S.project = { size: 'S', genre: 'app', planning: false }; produceDP(1000, 'l1')");
+    check("WK: black company triples the bug rate",
+      Math.abs(bugsBlack / run(sbKn, "S.bugStock") - 3) < 1e-6,
+      "black=" + bugsBlack + " normal=" + run(sbKn, "S.bugStock"));
+    const shipDelta = (sbX, black) => {
+      run(sbX, "S.coins = 0; S.project = genProject(); S.project.size = 'S'; S.project.genre = 'app'; S.project.modules = null; S.bugStock = 0;" +
+        (black ? " S.challenge = { id: 'black', startCoins: 0 };" : ""));
+      run(sbX, "releaseProject()");
+      return run(sbX, "S.coins");
+    };
+    const sbP1 = buildSandbox({}); loadGame(sbP1);
+    const sbP2 = buildSandbox({}); loadGame(sbP2);
+    const dNorm = shipDelta(sbP1, false), dBlack = shipDelta(sbP2, true);
+    check("WK: black company doubles release prices",
+      dNorm > 0 && dBlack === dNorm * 2, "normal=" + dNorm + " black=" + dBlack);
+    const sbBg = mkG("S.prestiges = 1");
+    run(sbBg, "startChallenge('black'); S.totals.coinsEarned += 300000; checkChallenge()");
+    check("WK: the black goal completes on cumulative run earnings and banks its reward",
+      run(sbBg, "S.challenge") === null && run(sbBg, "S.challengeRewards.black") === true);
+    const sbBr = buildSandbox({});
+    loadGame(sbBr);
+    run(sbBr, "S.challengeRewards.black = true; S.brand = 0; S.bugStock = 0; applyShipQuality({ doneFeats: 0, feats: ['a', 'b'] })");
+    check("WK: the black reward raises positive brand gains by 50%",
+      run(sbBr, "S.brand") === 5, "brand=" + run(sbBr, "S.brand"));
+    const sbKi = buildSandbox({});
+    loadGame(sbKi);
+    run(sbKi, "S.prestiges = 1; startChallenge('idle')");
+    run(sbKi, "feedOsActivity({ keys: 300, distPx: 0, clicks: 0 })");
+    const keysIdle = run(sbKi, "S.totals.keys");
+    run(sbKi, "const dp0 = S.runDP; for(let i = 0; i < 5; i++) cheerClick(96, 100, null)");
+    check("WK: full idle — OS input is not counted and clicks grant no DP",
+      keysIdle === 0 && run(sbKi, "S.runDP") === 0,
+      "keys=" + keysIdle + " runDP=" + run(sbKi, "S.runDP"));
+    run(sbKi, "S.fever.gauge = 0; produceDP(10000, 'l1')");
+    check("WK: full idle still charges the fever gauge thinly from auto production",
+      run(sbKi, "S.fever.gauge") > 0, "gauge=" + run(sbKi, "S.fever.gauge"));
+    run(sbKi, "S.runDP = 24000; doPrestigeCore()");
+    check("WK: EXIT ends an unfinished challenge but keeps banked rewards",
+      run(sbKi, "S.challenge") === null && run(sbKi, "typeof S.challengeRewards") === "object");
+    const sbKw = mkG("S.prestiges = 1; S.runDP = 9000");
+    run(sbKw, "startChallenge('idle')");
+    check("WK: entry closes once the run has real progress",
+      run(sbKw, "S.challenge") === null);
+    const sbKa = mkG("S.prestiges = 1");
+    run(sbKa, "startChallenge('idle'); abandonChallenge()");
+    check("WK: abandoning is free and immediate",
+      run(sbKa, "S.challenge") === null && run(sbKa, "S.dust") === 0);
+    check("WK: bridge verbs route challenge actions",
+      run(sbKa, "VERBS.startChallenge === startChallenge && VERBS.abandonChallenge === abandonChallenge") === true);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
