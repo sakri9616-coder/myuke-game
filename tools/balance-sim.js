@@ -56,9 +56,11 @@ function extractLiteral(name){
   throw new Error("balance-sim: " + name + " のリテラル終端が見つからない");
 }
 const GAME_STUDIO = (() => {
-  const m = GAME_SRC.match(/function studioCost\(lv\)\{\s*return\s*([\d.]+)\s*\*\s*Math\.pow\(([\d.]+)/);
-  if(!m) throw new Error("balance-sim: game/index.html の studioCost を抽出できない");
-  return { base: Number(m[1]), growth: Number(m[2]) };
+  /* studioCost はテーブル形（STUDIO_COSTS[現Lv] = 次Lvへの費用）に移行。
+     抽出できない場合は即エラー（古い写しで回し続けない） */
+  const m = GAME_SRC.match(/const STUDIO_COSTS = \[([^\]]+)\]/);
+  if(!m) throw new Error("balance-sim: game/index.html の STUDIO_COSTS を抽出できない");
+  return m[1].split(",").map(s => Number(s.trim()));
 })();
 const BAL = extractLiteral("BAL");
 const UPGRADE_DEFS = extractLiteral("UPGRADE_DEFS").map(d => ({ id: d.id, base: d.base, max: d.max }));
@@ -77,7 +79,7 @@ const STAFF_CAPS = extractLiteral("STAFF_CAPS");
 const STAFF_POLICY_MAX_LV = 6;   // 方針: 育成は Lv6 まで（ゲーム上限は Lv10）
 const hireCost = (staff, role) => Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, staff.filter(s=>s.role===role).length));
 const trainCost = st => Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));   /* Sprint 4: 1.45→1.35 */
-const studioCost = lv => GAME_STUDIO.base * Math.pow(GAME_STUDIO.growth, lv - 1);
+const studioCost = lv => GAME_STUDIO[lv];
 function staffSums(staff){
   const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, byRole:{} };
   for(const st of staff){
@@ -140,6 +142,7 @@ function simulate(days, active, reqMode){
   const up = {}, res = {}, cu = {};
   let staff = [], studioLv = 1;
   let coins = 0, rp = 0, dust = 0, dustTotal = 0, runDP = 0, bugStock = 0;
+  let brand = 0;   /* Wave G: ブランド力（品質出荷で蓄積・価格に複利・EXIT で清算） */
   /* Sprint 3: 星屑ショップの最小モデル。特典は永続し、倍率は通算獲得
      (dustTotal) で決まる。貪欲方針: 初期資金(3) → 集中ブースト(5) の順に買う */
   const perks = {};
@@ -210,7 +213,7 @@ function simulate(days, active, reqMode){
     return settle({ size, total: BAL.sizes[size], ideaCost: IDEA_COST[size]||0, planning: false });
   }
   function release(sz, isLine2){
-    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * dustMult();
+    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * dustMult() * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
     let r = BAL.rpBase[sz];
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -222,6 +225,10 @@ function simulate(days, active, reqMode){
     else if(!isLine2 && rnd() < PLAYER.requestMatchRate){ c += Math.round(c * 0.6); r += 1; reqDone++; }
     coins += Math.round(c); coinsEarned += Math.round(c); dayCoins += Math.round(c); rp += r; ideas += 2;
     totalReleasesEver++;
+    /* Wave G: ブランド増減は実機どおり出荷時のバグ在庫で決まる
+       （0 → +3 / 〜3 → +1 / 10〜 → −3 / その他 0。feat 全達成の +4 は未モデル） */
+    { const fb2 = Math.floor(bugStock);
+      brand = Math.max(0, Math.min(450, brand + (fb2 <= 0 ? 3 : fb2 <= 3 ? 1 : fb2 >= 10 ? -3 : 0))); }
     return drawProject();
   }
   let dayCoins = 0;
@@ -251,13 +258,18 @@ function simulate(days, active, reqMode){
       }
       const fb = firstBoost();
       const resMultV = 1 + 0.02 * reportLv;   /* Sprint 4: 反復研究の生産倍率 */
-      const produced = (raw - clickRaw * 0.8) * mlt * fb * resMultV;   // クリックの80%は下の直接計上側へ
+      /* Wave F: フィーバー寄与の実効係数（解析節の中盤 +22.4% を全期間一律には
+         せず保守化 — アクティブは発動運用込み ×1.18、パッシブは蓄熱のみ ×1.04） */
+      const feverF = active ? 1.18 : 1.04;
+      /* F 再設計の流入（直接20%・工程80%）: 工程ぶんは自動生産と合算して
+         仕掛品へ（この sim 自身の工程キャップで堰き止められる） */
+      const produced = (raw + clickRaw * 0.8) * mlt * fb * resMultV * feverF;
       wip.code += produced; runDP += produced;
       bugStock += produced * BAL.bugPerDP;
-      // 応援クリックの80%は工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
+      // 応援クリックの20%だけが工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
       if(clickRaw > 0){
-        if(project.planning){ const ex = clickRaw * mlt * fb * resMultV; wip.code += ex; runDP += ex; bugStock += ex * BAL.bugPerDP; }
-        else { const direct = clickRaw * 0.8 * mlt * fb * resMultV; projDP += direct; runDP += direct; }
+        if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * BAL.bugPerDP; }
+        else { const direct = clickRaw * 0.2 * mlt * fb * resMultV * feverF; projDP += direct; runDP += direct; }
       }
       ideas += IDEA_PER_MIN + 0.3 * ss.careW;
       // 企画中: アイデアが貯まったら着工
@@ -281,7 +293,10 @@ function simulate(days, active, reqMode){
       }
       // --- バグ処理（QA＋みゅけのデバッグ叩き近似） ---
       bugStock = Math.max(0, bugStock - qaPerMin(up, res, ss));
-      if(bugStock > 3) bugStock = Math.max(0, bugStock - Math.min(bugStock - 3, 3));
+      /* 帯の山を見て潰す近似: アクティブなプレイヤーは滞留を積極的に潰す
+         （上限 6/分）、パッシブはたまのチラ見（上限 1/分）。ブランド帯域の
+         判定はこのドレイン後の在庫で実機に倣う */
+      if(bugStock > 3) bugStock = Math.max(0, bugStock - Math.min(bugStock - 3, active ? 6 : 1));
       rp += ss.rp;
       /* Sprint 4: ティア1全完了後の研究員は第二の仕事でアイデアも生む (game と同じ ×0.6) */
       if(ss.rp > 0 && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) ideas += ss.rp * 0.6;
@@ -316,6 +331,14 @@ function simulate(days, active, reqMode){
       if(milestones.resT1Day === null && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) milestones.resT1Day = day;
       if(milestones.resAllDay === null && RESEARCH.every(r => res[r.id])) milestones.resAllDay = day;
       // --- 購入（最大4件/分） ---
+      /* Wave G・バグ外注のプレイヤーモデル: アクティブなプレイヤーはバグが
+         滞留したら外注で一掃する（実機の relief valve。費用はバグ×30、
+         負債ぶんはこの sim では未モデルなので数えない。手元に余裕がある
+         ときだけ使う）。パッシブは気づかないので使わない */
+      if(active && bugStock >= 12){
+        const vcost = Math.floor(bugStock) * 30;
+        if(coins >= vcost * 1.5){ coins -= vcost; bugStock = 0; }
+      }
       for(let buy = 0; buy < 4; buy++){
         const acted = (() => {
           // 1) 初雇用: 最安の役職を即雇用
@@ -347,7 +370,10 @@ function simulate(days, active, reqMode){
           // 3) 貯金ゴール: 第2ライン建設 / スタジオ拡張（安い方から）
           const goals = [];
           if(res.res_line2 && !line2) goals.push({ kind:"line2", c: BAL.line2BuildCost });
-          if(staff.length >= STAFF_CAPS[studioLv - 1] && studioLv < STAFF_CAPS.length) goals.push({ kind:"studio", c: studioCost(studioLv) });
+          /* スタジオ拡張の貯金開始は「定員の6割を超えたら」— 実機の buyStudio に
+             定員条件はなく、プレイヤーは席が埋まる前に拡張を狙う。旧ポリシー
+             （定員フル時のみ）は Lv5 以降を不当に遠く見せていた */
+          if(staff.length >= Math.ceil(STAFF_CAPS[studioLv - 1] * 0.6) && studioLv < STAFF_CAPS.length) goals.push({ kind:"studio", c: studioCost(studioLv) });
           if(goals.length){
             goals.sort((a, b) => a.c - b.c);
             const g = goals[0];
@@ -425,6 +451,7 @@ function simulate(days, active, reqMode){
     if(gain >= 10){
       if(milestones.prestigeDay === null) milestones.prestigeDay = day;
       dust += gain; dustTotal += gain; runDP = 0; rp = 0; bugStock = 0; ideas = 0;
+      brand = 0;   /* Wave G: ブランドは EXIT で清算（承認済み仕様） */
       reportLv = 0;   /* Sprint 4: 反復研究もリセット対象 (game と同一) */
       coins = perks.seedmoney ? 300 : 0;   /* Sprint 3: 星屑特典「初期資金」 */
       project = settle({ size:"S", total: BAL.sizes.S, ideaCost: IDEA_COST.S, planning: false }); projDP = 0;

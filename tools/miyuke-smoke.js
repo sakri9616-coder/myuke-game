@@ -326,8 +326,8 @@ console.log("== Phase A: browser full mode (panels only) ==");
     run(sb, "JSON.stringify(STAFF_CAPS)") === "[3,6,10,16,24,36]");
   check("Phase B: rank names インディー/零細/中小/中堅/準大手/大企業",
     run(sb, "[1,2,3,4,5,6].map(rankName).join('/')") === "インディー/零細/中小/中堅/準大手/大企業");
-  check("Phase B: studioCost 400/1200/3600/10800/32400 (x3 curve, relaxed base)",
-    run(sb, "[1,2,3,4,5].map(studioCost).join('/')") === "400/1200/3600/10800/32400");
+  check("Phase B: studioCost 400/1200/3600/7200/18000 (top steps compressed by the stagnation Lane A item)",
+    run(sb, "[1,2,3,4,5].map(studioCost).join('/')") === "400/1200/3600/7200/18000");
   run(sb, "S.coins = 1000000; S.staff = [];");
   run(sb, "buyStudio();");
   check("Phase B: buyStudio Lv1->2 raises cap 3->6 and records maxStudioLv 2",

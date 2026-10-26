@@ -11629,7 +11629,8 @@ const COMPANY_RANKS = ["インディー", "零細", "中小", "中堅", "準大�
 function rankName(lv){ return COMPANY_RANKS[Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1]; }
 function companyRank(){ return rankName(S.studioLv); }
 function staffCap(){ return STAFF_CAPS[S.studioLv - 1]; }
-function studioCost(lv){ return 400 * Math.pow(3, lv - 1); }  // Lv1→2: 400, →3: 1200, →4: 3600, →5: 10800, →6: 32400（レーンA・序盤価格の緩和、×3 曲線は不変。Lv6 は緩和後の曲線の延長）
+const STUDIO_COSTS = [0, 400, 1200, 3600, 7200, 18000];
+function studioCost(lv){ return STUDIO_COSTS[lv]; }  // STUDIO_COSTS[現Lv] = 次Lvへの費用: 400/1200/3600/7200/18000（上段は停滞是正のレーンAで圧縮、2026-10-26）
 function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;
