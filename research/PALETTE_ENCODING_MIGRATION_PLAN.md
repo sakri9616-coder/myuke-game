@@ -4,7 +4,33 @@ HARNESS_AUDIT 推奨 #8「パレット符号化の移行計画」の設計書。
 **本書は計画のみで、コード・パレット・ゲーム本体には一切変更を加えない。**
 実装は下記「トリガー」を満たしたときに、計画書どおりに行う。
 
-## 1. 現状（2026-10-26 実測）
+## 0. 追記（2026-10-27 04:17回・裏方ループによる再測定）
+
+- **Tier 1 は実装済み**（commit 5a85f01：スタッフバッチ14統合に先立ち
+  CHAR_POOL へひらがな86＋カタカナ90を追加）。下記 §1 の
+  「残り8文字」は**古い数値**であり、現行の残量は 146文字。
+- 現行実測（2026-10-27）：パレット **137色**、CHAR_POOL **260文字**、
+  うち使用中 114文字、**未使用 146文字**。
+  パレットのうちプール外の文字は初期パレットの 23文字
+  （`O W w A a K k P p Y y B b G g T t D d R L l C`）で、既存割当は不変。
+- したがって §6 のトリガー (a)(b) はいずれも遠い（直近の増加ペース
+  +15色／回で約9〜10バッチ分）。**Tier 2 の検討は不要**。
+  次回以降は §1 を読み直さず、再測定コマンド（下記）だけ回すこと。
+
+```sh
+cd ~/workspace/miyuke-game && python3 - <<'EOF'
+import re
+src = open('game/index.html', encoding='utf-8').read()
+m = re.search(r"palette:\s*\{(.*?)\n\s*\},", src, re.S)
+entries = dict(re.findall(r'"(.?)"\s*:\s*"([^"]+)"', m.group(1)))
+pool = re.search(r'CHAR_POOL = "(.*)"', open('tools/import-sakuri-art.py', encoding='utf-8').read()).group(1)
+print('palette:', len(entries), 'pool:', len(pool),
+      'unused:', len([c for c in pool if c not in entries]))
+EOF
+# 2026-10-27 04:17回の出力: palette: 137 pool: 260 unused: 146
+```
+
+## 1. 現状（2026-10-26 実測 — Tier 1 実装前の数値。現行値は上記 §0 を見ること）
 
 - 共有パレットは `graphics/sprites.js` の `palette`（`game/index.html` 内に同内容の
   埋め込みコピーあり。同期は `graphics/validate-sprites.cjs` が検査する）。
