@@ -756,8 +756,8 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 99 &&
+  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 105 after batch 13)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#F1BF41')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#211711')"));
   check("game version is v2.4.8", run(sb, "GAME_VERSION") === "v2.4.8");
@@ -794,8 +794,8 @@ console.log("== Phase A8: sakuri art batch 4 (happy anim for the celebrate state
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 99 &&
+  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 105 after batch 13)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFC710')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFE07B')"));
   check("ANIMS.miyuke_happy has 10 frames x 300ms, plays exactly once",
@@ -833,7 +833,7 @@ console.log("== Phase A9: sakuri art batch 5 (walk anim, art gate ON) ==");
   loadGame(sb);
 
   check("batch 5 palette colors incl. walk's #B99E7E still present (99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 99 &&
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 105 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#B99E7E')"));
   check("ANIMS.miyuke_walk has 7 frames with the file's own durations and loops forever",
     run(sb, "ANIMS.miyuke_walk && ANIMS.miyuke_walk.frames.length") === 7 &&
@@ -1713,7 +1713,7 @@ console.log("== Phase B11: walk cycle / ground speed sync ==");
     approx(run(sb, "walkAdvanceMs('miyuke_walk', 26)"), 3900, 0.01),
     String(run(sb, "walkAdvanceMs('miyuke_walk', 26)")));
   check("B11: one staff cycle of ground distance advances exactly one cycle (19.5 units -> 3900ms, all ANIMS coats)",
-    ["shiro", "kuro", "chatora", "sabatora", "syamu", "hachiware"].every(c => approx(run(sb, `walkAdvanceMs('staff_${c}_walk', 19.5)`), 3900, 0.01)));
+    ["shiro", "kuro", "chatora", "sabatora", "syamu", "hachiware", "hachiware_gray", "chashiro"].every(c => approx(run(sb, `walkAdvanceMs('staff_${c}_walk', 19.5)`), 3900, 0.01)));
   check("B11: a name without ANIMS falls back to the staff cycle (19.5 units -> 5100ms)",
     approx(run(sb, "walkAdvanceMs('staff_mike2_walk', 19.5)"), 5100, 0.01));
   check("B11: advance is proportional to distance (half the distance, half the phase)",
@@ -2249,11 +2249,17 @@ console.log("== Phase B14: staff batch 9 + env art tier wiring + mike2 retiremen
     run(sb, "ANIMS.staff_chatora_sit.durations.join(',')") === "600,600,600,600,600,600");
 
   /* ---- COATS: syamu がいて mike2 がいない ---- */
-  check("B14: COATS includes syamu and excludes mike2",
-    run(sb, "COATS.includes('syamu') && !COATS.includes('mike2') && COATS.length === 6"),
+  check("B14: COATS includes syamu and excludes mike2 (batch 13: 8 coats)",
+    run(sb, "COATS.includes('syamu') && !COATS.includes('mike2') && COATS.length === 8"),
     run(sb, "COATS.join(',')"));
   check("B14: syamu has a display name and fallback colors",
     run(sb, "COAT_NAMES.syamu") === "シャム" && !!run(sb, "COAT_COLORS.syamu"));
+  check("B13: batch-13 coats have display names, fallback colors and tag-shaped ANIMS (hachiware/gray sit = 5f per file)",
+    run(sb, "COAT_NAMES.hachiware_gray") === "灰ハチワレ" && run(sb, "COAT_NAMES.chashiro") === "茶白" &&
+    !!run(sb, "COAT_COLORS.hachiware_gray") && !!run(sb, "COAT_COLORS.chashiro") &&
+    run(sb, "ANIMS.staff_hachiware_sit.frames.length") === 5 && run(sb, "ANIMS.staff_hachiware_gray_sit.frames.length") === 5 &&
+    run(sb, "ANIMS.staff_chashiro_sit.frames.length") === 6 &&
+    run(sb, "ANIMS.staff_hachiware_gray_walk.durations.join(',')") === "600,600,300,600,600,600,600");
   check("B14: recoatFor is deterministic and always lands in COATS",
     run(sb, "[1,2,3,7,42,100,999].every(id => COATS.includes(recoatFor({ id }))) && recoatFor({ id: 7 }) === recoatFor({ id: 7 })"));
 
@@ -2445,11 +2451,11 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
     run(sb, "ANIMS.staff_hachiware_walk.durations.join(',')") === "600,600,300,600,600,600,600" &&
     run(sb, "ANIMS.staff_hachiware_walk.loopFrom") === 0 && run(sb, "ANIMS.staff_hachiware_walk.loopTo") === 6 &&
     run(sb, "ANIMS.staff_hachiware_walk.loopCount") === Infinity);
-  check("B15: staff_hachiware_sit ANIMS is 6 frames x 600ms looping",
+  check("B15: staff_hachiware_sit ANIMS is 5 frames x 600ms looping (batch 13 redraw: file has sit 5f)",
     run(sb, "ANIMS.staff_hachiware_sit.frames.join(',')") ===
-      Array.from({ length: 6 }, (_, i) => "staff_hachiware_sit_" + i).join(",") &&
-    run(sb, "ANIMS.staff_hachiware_sit.durations.join(',')") === "600,600,600,600,600,600" &&
-    run(sb, "ANIMS.staff_hachiware_sit.loopFrom") === 0 && run(sb, "ANIMS.staff_hachiware_sit.loopTo") === 5 &&
+      Array.from({ length: 5 }, (_, i) => "staff_hachiware_sit_" + i).join(",") &&
+    run(sb, "ANIMS.staff_hachiware_sit.durations.join(',')") === "600,600,600,600,600" &&
+    run(sb, "ANIMS.staff_hachiware_sit.loopFrom") === 0 && run(sb, "ANIMS.staff_hachiware_sit.loopTo") === 4 &&
     run(sb, "ANIMS.staff_hachiware_sit.loopCount") === Infinity);
   check("B15: all hachiware frames exist at the unified 48x40 spec",
     run(sb, "ANIMS.staff_hachiware_walk.frames.concat(ANIMS.staff_hachiware_sit.frames)" +
@@ -2465,7 +2471,7 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
   /* ---- 全毛柄アニメ化の完了アサーション (旧静止画の毛柄は残っていない) ---- */
   check("B15: EVERY coat in COATS has walk+sit+back ANIMS with all frames present (no legacy coats remain)",
     run(sb, "COATS.every(c => { const w = ANIMS['staff_' + c + '_walk'], s = ANIMS['staff_' + c + '_sit'];" +
-      " return w && s && w.frames.length === 7 && s.frames.length === 6 && ANIMS['staff_' + c + '_back'] && ANIMS['staff_' + c + '_back'].frames.every(f => hasSprite(f)) &&" +
+      " return w && s && w.frames.length === 7 && s.frames.length === ((c === 'hachiware' || c === 'hachiware_gray') ? 5 : 6) && ANIMS['staff_' + c + '_back'] && ANIMS['staff_' + c + '_back'].frames.every(f => hasSprite(f)) &&" +
       " w.frames.concat(s.frames).every(f => hasSprite(f) && spriteSize(f)[0] === 48 && spriteSize(f)[1] === 40); })"),
     run(sb, "COATS.join(',')"));
 

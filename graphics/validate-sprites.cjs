@@ -10,7 +10,7 @@ const context = { window: {} };
 const source = fs.readFileSync(path.join(__dirname, 'sprites.js'), 'utf8');
 vm.runInNewContext(source, context, { timeout: 1000 });
 const { palette, sprites } = context.window.MIYUKE_SPRITES;
-const coats = ['kuro', 'chatora', 'sabatora', 'hachiware', 'shiro', 'syamu'];
+const coats = ['kuro', 'chatora', 'sabatora', 'hachiware', 'shiro', 'syamu', 'hachiware_gray', 'chashiro'];
 const required = [
   ...['idle', 'code_a', 'code_b', 'think', 'debug', 'sleep', 'yarn', 'snack', 'happy'].map(pose => `miyuke_${pose}`),
   // sakuri作画アニメーションのフレーム (Sprint 1: バリデーション対象に追加)
@@ -29,8 +29,14 @@ const required = [
     ...Array.from({length: 9}, (_, i) => `staff_${coat}_walk_${i}`),
     ...Array.from({length: 6}, (_, i) => `staff_${coat}_sit_${i}`)]),
   // sakuri作画バッチ10 (hachiware アニメ化: walk 9f + sit 6f — 全毛柄 ANIMS 化完了)
+  // バッチ13差し替え: hachiware は全面描き直しで sit が 5f になった (ファイルが正)
   ...Array.from({length: 9}, (_, i) => `staff_hachiware_walk_${i}`),
-  ...Array.from({length: 6}, (_, i) => `staff_hachiware_sit_${i}`),
+  ...Array.from({length: 5}, (_, i) => `staff_hachiware_sit_${i}`),
+  // sakuri作画バッチ13 (hachiware_gray 新規: walk 9f + sit 5f / chashiro 新規: walk 9f + sit 6f)
+  ...Array.from({length: 9}, (_, i) => `staff_hachiware_gray_walk_${i}`),
+  ...Array.from({length: 5}, (_, i) => `staff_hachiware_gray_sit_${i}`),
+  ...Array.from({length: 9}, (_, i) => `staff_chashiro_walk_${i}`),
+  ...Array.from({length: 6}, (_, i) => `staff_chashiro_sit_${i}`),
   // 環境ドット絵 (Codex 一次作・ENV_ART_MANIFEST)
   'prop_kanban', 'desk_laminate_main', 'desk_laminate_2', 'desk_laminate_2_sprite',
   'prop_chair', 'prop_server_rack', 'shelf_steel', 'prop_books', 'prop_archive_boxes', 'prop_mat',
@@ -54,8 +60,9 @@ function expected(name) {
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。
      基準名そのものの旧スタッフ絵は従来どおり 32×24 */
   if (/^staff_\w+_(?:sit|walk)_\d+$/.test(name)) return [48, 40];
-  /* バッチ9: syamu の基準絵は sakuri作画フレーム (48×40) そのもの */
-  if (/^staff_syamu_(?:sit|walk)$/.test(name)) return [48, 40];
+  /* バッチ9: syamu の基準絵は sakuri作画フレーム (48×40) そのもの。
+     バッチ13: hachiware_gray / chashiro も同様 (旧絵が無い新規毛柄) */
+  if (/^staff_(syamu|hachiware_gray|chashiro)_(?:sit|walk)$/.test(name)) return [48, 40];
   if (name === 'icon_box') return [28, 28];   /* バッチ12: sakuri 作画の荷物箱は 28×28 */
   return name.startsWith('miyuke_') ? [48, 40] : name.startsWith('staff_') ? [32, 24]
     : name.startsWith('duck_') ? [24, 20] : name.startsWith('bot_') ? [24, 20]
@@ -113,7 +120,7 @@ const extraLabels = {
 };
 
 for (const name of required) assert.ok(sprites[name], `required sprite missing: ${name}`);
-assert.equal(Object.keys(palette).length, 99, 'Shared palette count changed (23 base + 76 sakuri extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns)');
+assert.equal(Object.keys(palette).length, 105, 'Shared palette count changed (23 base + 82 sakuri extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro)');
 for (const [key, value] of Object.entries(palette)) {
   assert.equal(key.length, 1); assert.notEqual(key, '.'); assert.match(value, /^#[0-9a-f]{6}$/i);
 }
@@ -152,7 +159,7 @@ for (const [name, rows] of Object.entries(sprites)) {
   // sleep の Z は上端近くまで届き、debug の伸びポーズは row 1 まで届く) なので、
   // Codex時代のマージン規則は適用しない
   const sakuriAnim = /^(?:miyuke_(idle|snack|code_a|sleep|think|debug|happy|walk|yarn)|staff_\w+_(?:walk|sit))_\d+$/.test(name)
-    || /^staff_syamu_(?:walk|sit)$/.test(name);
+    || /^staff_(syamu|hachiware_gray|chashiro)_(?:walk|sit)$/.test(name);
   /* 環境ドット絵は帯の実フットプリントに合わせて端まで描くのが正本
      (カンバンの枠・机の天板など) なので、マージン規則の対象外。
      接地だけを個別に担保する */
@@ -195,7 +202,7 @@ console.log('\nFour-neighbor connected components (diagonal contact does not cou
 /* 解剖学チェック (脚スパン・目・鼻・頭寸法) は Codex 時代の基準絵 (32×24) 専用。
    sakuri作画のスタッフアニメフレーム (_N) は次ブロックで 1 連結だけを見る */
 for (const [name, rows] of Object.entries(sprites).filter(([name]) => name.startsWith('staff_') && !/_\d+$/.test(name)
-  && name !== 'staff_syamu_sit' && name !== 'staff_syamu_walk')) {
+  && !/^staff_(syamu|hachiware_gray|chashiro)_(?:sit|walk)$/.test(name))) {
   const count = components(rows).length;
   check(count === 1, `${name}: ${count} cat components`);
   console.log(`${name}: ${count} component — ${count === 1 ? 'PASS' : 'FAIL'}`);
@@ -223,7 +230,7 @@ for (const [name, rows] of Object.entries(sprites).filter(([name]) => name.start
    (歩行の脚も瞬きの瞼も本体から離れない)。バッチ9 の syamu 基準絵
    (フレーム1枚の複製) も同じ扱いにする */
 for (const [name, rows] of Object.entries(sprites).filter(([name]) => /^staff_\w+_(?:walk|sit)_\d+$/.test(name)
-  || /^staff_syamu_(?:walk|sit)$/.test(name))) {
+  || /^staff_(syamu|hachiware_gray|chashiro)_(?:walk|sit)$/.test(name))) {
   const count = components(rows).length;
   check(count === 1, `${name}: ${count} cat components (sakuri staff frame)`);
   console.log(`${name}: ${count} component — ${count === 1 ? 'PASS' : 'FAIL'}`);
@@ -380,6 +387,25 @@ console.log('Staff proportions: sit and walk heads 14×12px (rows 6–17, 50% of
       check(a.frames.length === 6 && a.durations.every(d => d === 600),
         `staff_${coat}_sit anim must be 6 frames x 600ms (got ${a.frames.length}f ${JSON.stringify(a.durations)})`);
       check(a.loopFrom === 0 && a.loopTo === 5 && a.loopCount === Infinity,
+        `staff_${coat}_sit anim must loop the whole range forever (got ${a.loopFrom}..${a.loopTo} x${a.loopCount})`);
+    }
+  }
+  /* sakuri作画バッチ13: スタッフ (hachiware 全面描き直し / hachiware_gray 新規 /
+     chashiro 新規)。hachiware と hachiware_gray はファイル自体が 14f で sit が
+     5f (Idle タグ 9–13 が正本)。walk は従来どおりタグ区間 7f・全区間ループ */
+  for (const [coat, sitN] of [['hachiware', 5], ['hachiware_gray', 5], ['chashiro', 6]]) {
+    if (anims[`staff_${coat}_walk`]) {
+      const a = anims[`staff_${coat}_walk`];
+      check(a.frames.length === 7 && JSON.stringify(a.durations) === JSON.stringify([600, 600, 300, 600, 600, 600, 600]),
+        `staff_${coat}_walk anim must be the 7-frame walk_loop tag range x [600,600,300,600x4] (got ${a.frames.length}f ${JSON.stringify(a.durations)})`);
+      check(a.loopFrom === 0 && a.loopTo === 6 && a.loopCount === Infinity,
+        `staff_${coat}_walk anim must loop the whole range forever (got ${a.loopFrom}..${a.loopTo} x${a.loopCount})`);
+    }
+    if (anims[`staff_${coat}_sit`]) {
+      const a = anims[`staff_${coat}_sit`];
+      check(a.frames.length === sitN && a.durations.every(d => d === 600),
+        `staff_${coat}_sit anim must be ${sitN} frames x 600ms (got ${a.frames.length}f ${JSON.stringify(a.durations)})`);
+      check(a.loopFrom === 0 && a.loopTo === sitN - 1 && a.loopCount === Infinity,
         `staff_${coat}_sit anim must loop the whole range forever (got ${a.loopFrom}..${a.loopTo} x${a.loopCount})`);
     }
   }
