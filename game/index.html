@@ -8230,24 +8230,6 @@ window.MIYUKE_SPRITES = {
       "..tttttttttttttttttttttttt..",
       "..tttttttttttttttttttttttt..",
     ],
-    icon_bug: [
-      "................",
-      "................",
-      "....z......z....",
-      "....z......z....",
-      ".....zz..zz.....",
-      ".....zGzzGz.....",
-      ".....zKRRKz.....",
-      "...zzzKRRKzz....",
-      ".....zKRRKz.....",
-      "..zzzzKRRKzzzz..",
-      ".....zKRRKz.....",
-      "...zzzKRRKzzz...",
-      "...z.zzzzzz.z...",
-      ".....z....z.....",
-      "................",
-      "................",
-    ],
     miyuke_walk_0: [
       "................................................",
       "................................................",
@@ -11331,6 +11313,37 @@ window.MIYUKE_SPRITES = {
       ".....................じさしさずぜ.....................",
       ".....................せさしさずぜ.....................",
     ],
+    icon_bug: [
+      "............................",
+      "............................",
+      "............................",
+      "........zzz.......zzz.......",
+      "........zzzz.....zzzz.......",
+      "..........zz.....zz.........",
+      "..........zz.....zz.........",
+      "...........zz...zz..........",
+      "...........zz...zz..........",
+      "...........zz...zz..........",
+      "..........zzzzzzzzz.........",
+      ".........zzzzzzzzzzz........",
+      ".........zzKKKzKKKzz........",
+      ".....zz..zzKKKzKKKzz..zz....",
+      ".....zzzzzzKKKzKKKzzzzzz....",
+      ".....zzzzzzRRRRRRRzzzzzz....",
+      ".........zzRRRRRRRzz........",
+      ".........zzRRRRRRRzz........",
+      "....zzzzzzzRRRRRRRzzzzzzz...",
+      "....zzzzzzzRRRRRRRzzzzzzz...",
+      ".........zzRRRRRRRzz........",
+      ".........zzRRRRRRRzz........",
+      ".....zzzzzzRRRRRRRzzzzzz....",
+      ".....zzzzzzzRRRRRzzzzzzz....",
+      ".....zz...zzzzzzzzz...zz....",
+      "............zzzzz...........",
+      "............................",
+      "............................",
+    ],
+
 
 
 
@@ -13829,7 +13842,7 @@ const SPRITE_SPEC = {
   miyuke_debug:[48,40], miyuke_sleep:[48,40], miyuke_yarn:[48,40],
   miyuke_snack:[48,40], miyuke_happy:[48,40],
   duck_idle:[24,20], duck_check:[24,20],
-  icon_coin:[16,16], icon_idea:[16,16], icon_bug:[16,16], icon_box:[28,28], icon_star:[16,16],
+  icon_coin:[16,16], icon_idea:[16,16], icon_bug:[28,28], icon_box:[28,28], icon_star:[16,16],
   icon_fish:[16,16], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
   prop_plant:[16,20], prop_coffee:[28,28], prop_coffee_0:[28,28], prop_coffee_1:[28,28], prop_server:[24,32], prop_packmachine:[48,24], prop_shelf:[40,28], prop_ship:[48,48], prop_annex_sign:[48,48], prop_snackbox:[24,24], prop_snackbox_shut:[24,24],
   prop_pc:[40,32],
@@ -15759,13 +15772,13 @@ function drawStripPiles(){
     for(let i = 0; i < m.bugs; i++){
       const jx = Math.sin((frame + i * 7) * 0.35) * 1.2;
       const gx = bx - 8 + (i % 4) * 5.4 + jx, gy = topY - 1.5 - Math.floor(i / 4) * 4.5;
-      if(!sDrawSprite("icon_bug", gx, gy + 4, 0.55)) sR(gx - 2, gy - 2, 4.5, 3.5, "#3a3230");
+      if(!sDrawSprite("icon_bug", gx, gy + 4, 0.32)) sR(gx - 2, gy - 2, 4.5, 3.5, "#3a3230");
     }
   }
   if(stripBugSquash && stripNow - stripBugSquash.at < 300){
     const sa = 1 - (stripNow - stripBugSquash.at) / 300;
     sctx.save(); sctx.globalAlpha = sa;
-    if(!sDrawSprite("icon_bug", stripBugSquash.x, stripBugSquash.y + 5, 0.55))
+    if(!sDrawSprite("icon_bug", stripBugSquash.x, stripBugSquash.y + 5, 0.32))
       sR(stripBugSquash.x - 2, stripBugSquash.y - 1, 4.5, 2, "#3a3230");
     sctx.restore();
   }
@@ -16063,7 +16076,7 @@ function renderStrip(){
     }
     if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
-    stripHitRects.fever = { x: gx - 8, y: G - gh - 9, w: 16, h: gh + 11 };
+    stripHitRects.fever = { x: gx - 3, y: G - gh - 9, w: 13, h: gh + 11 };
   }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
   drawStripPiles();
@@ -16220,7 +16233,7 @@ function renderStrip(){
   if(bugEvent){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
-      if(!sDrawSprite("icon_bug", bp.x, bp.y + 6, 1.2)){
+      if(!sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7)){
         sR(bp.x - 3, bp.y - 3, 7, 6, "#3a3230"); sR(bp.x - 5, bp.y - 1, 2, 2, "#3a3230");
         sR(bp.x + 4, bp.y - 1, 2, 2, "#3a3230"); sR(bp.x - 1, bp.y - 5, 2, 2, "#e2543e");
       }

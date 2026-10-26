@@ -64,6 +64,7 @@ function expected(name) {
      バッチ13: hachiware_gray / chashiro も同様 (旧絵が無い新規毛柄) */
   if (/^staff_(syamu|hachiware_gray|chashiro)_(?:sit|walk)$/.test(name)) return [48, 40];
   if (name === 'icon_box') return [28, 28];   /* バッチ12: sakuri 作画の荷物箱は 28×28 */
+  if (name === 'icon_bug') return [28, 28];   /* 2026-10-26: sakuri 作り直しのバグは 28×28 */
   if (name === 'icon_wrench') return [28, 28];   /* バッチ14: sakuri 作画のスパナは 28×28 */
   return name.startsWith('miyuke_') ? [48, 40] : name.startsWith('staff_') ? [32, 24]
     : name.startsWith('duck_') ? [24, 20] : name.startsWith('bot_') ? [24, 20]

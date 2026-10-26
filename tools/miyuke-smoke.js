@@ -803,8 +803,8 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
     run(sb, "ANIMS.miyuke_debug.loopCount") === Infinity);
   check("think/debug frames all resolve to 48x40 sprites",
     run(sb, "ANIMS.miyuke_think.frames.concat(ANIMS.miyuke_debug.frames).every(f => hasSprite(f) && spriteSize(f)[0] === 48 && spriteSize(f)[1] === 40)"));
-  check("new icon_bug resolves to a 16x16 sprite",
-    run(sb, "hasSprite('icon_bug') && spriteSize('icon_bug')[0] === 16 && spriteSize('icon_bug')[1] === 16"));
+  check("new icon_bug resolves to a 28x28 sprite",
+    run(sb, "hasSprite('icon_bug') && spriteSize('icon_bug')[0] === 28 && spriteSize('icon_bug')[1] === 28"));
 
   const fAt = (base, ms) => run(sb, `animFrameAt(${JSON.stringify(base)}, ${ms})`);
   check("think t=0 -> frame 0", fAt("miyuke_think", 0) === "miyuke_think_0");
