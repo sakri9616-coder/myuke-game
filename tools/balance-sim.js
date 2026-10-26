@@ -766,7 +766,7 @@ console.log("== Wave K: チャレンジ周回 ==");
 console.log("\n== Wave L: 自社IP の生涯価値・価格スタック ==");
 {
   const ipLife = 0.3 + 0.001 * 720 * (1 + 0.5 + 0.25 + 0.125);
-  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ 1.35）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
+  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ 1.35。元本は依頼ボーナスを含まない通常価格、即時は全額でなく30%に置き換わる）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
   const stackBase = 10 * Math.pow(0.8 + 0.4 * 1.5, 3) * 1.5;
   const stackAI = 10 * Math.pow(0.8 + 0.4 * 1.75, 3) * 1.5;
   console.log("価格スタックの理論天井: 通常 ×" + stackBase.toFixed(1) + "（ゲート 45 以内）/ AI 開発基盤あり ×" + stackAI.toFixed(1) +

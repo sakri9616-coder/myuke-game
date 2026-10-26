@@ -3768,9 +3768,15 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       return sb;
     };
     const sbIP = shipIP("");
-    check("WL: a clean designated release becomes an IP (instant 30% + shelf mark)",
-      run(sbIP, "S.ips.length") === 1 && run(sbIP, "S.shelf[0].ip") === true && run(sbIP, "S.coins") === 340 + Math.round(340 * 0.3),
+    check("WL: a clean designated release becomes an IP (immediate credit is 30% INSTEAD of full price)",
+      run(sbIP, "S.ips.length") === 1 && run(sbIP, "S.shelf[0].ip") === true && run(sbIP, "S.coins") === Math.round(340 * 0.3) &&
+      run(sbIP, "S.ips[0].price") === 340,
       "coins=" + run(sbIP, "S.coins") + " ips=" + run(sbIP, "S.ips.length"));
+    const sbIPReq = shipIP("S.activeRequest = { client: 'X', genre: 'app', genreName: 'アプリ', bonus: 1.8 };");
+    check("WL: the royalty base excludes one-time request bonuses",
+      run(sbIPReq, "S.ips.length") === 1 && run(sbIPReq, "S.ips[0].price") === 340 &&
+      run(sbIPReq, "S.coins") === Math.round((340 + Math.round(340 * 1.8)) * 0.3),
+      "price=" + run(sbIPReq, "S.ips[0] && S.ips[0].price") + " coins=" + run(sbIPReq, "S.coins"));
     const sbIPBug = shipIP("S.bugStock = 5;");
     check("WL: shipping with bugs left voids the IP designation",
       run(sbIPBug, "S.ips.length") === 0 && !run(sbIPBug, "S.shelf[0].ip"));
