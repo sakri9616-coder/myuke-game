@@ -503,3 +503,27 @@ console.log("== Phase C: 依頼経済の比較（アクティブ・30日）==");
 console.log("手動: 依頼達成 " + ra7.reqDone + " 件 / 通算コイン " + Math.round(ra7.econ.coinsEarned) + "🪙 / プレステージ到達 " + (ra7.milestones.prestigeDay ? ra7.milestones.prestigeDay + "日目" : "未達"));
 console.log("自動: 依頼達成 " + raAuto.reqDone + " 件 / 通算コイン " + Math.round(raAuto.econ.coinsEarned) + "🪙 / プレステージ到達 " + (raAuto.milestones.prestigeDay ? raAuto.milestones.prestigeDay + "日目" : "未達"));
 console.log("差分: 依頼達成 +" + (raAuto.reqDone - ra7.reqDone) + " 件 / 通算コイン +" + Math.round(raAuto.econ.coinsEarned - ra7.econ.coinsEarned) + "🪙（自動は序盤=手動超え・中盤以降は担当者の成長で差が開く設計）");
+
+/* ===== Phase D: 子会社の配分感度（仕様書5節の数値ゲート） =====
+   ゲーム側の式を複製して測る: レート = 人員 × (1+0.3×(Lv-1)) × 注力度
+   × ジャンル単価。注力度 = 0.5 + 1.5×(配分/100) — 配分0%でも止まらず
+   （×0.5)、100%で ×2.0。ジャンル単価 = 1 + 0.1×解放順インデックス
+   （app=1.0 … robot=1.7）。コイン = レート × 0.35、DP = レート × 0.2。
+   ゲート: 配分を振るとグループ合計が実際に動くこと（経営判断になる） */
+console.log("");
+console.log("== Phase D: 子会社の配分感度（人員30・規模Lv3 の2社）==");
+{
+  const subCoins = (staff, lv, genreIdx, alloc) =>
+    staff * (1 + 0.3 * (lv - 1)) * (0.5 + 1.5 * alloc / 100) * 0.35 * (1 + 0.1 * genreIdx);
+  const A = (a) => subCoins(30, 3, 7, a);        /* robot（単価1.7） */
+  const B = (a) => subCoins(30, 3, 0, a);        /* app（単価1.0） */
+  const even = A(50) + B(50), toA = A(90) + B(10), toB = A(10) + B(90);
+  console.log("均等 50/50: " + even.toFixed(1) + "🪙/分（A " + A(50).toFixed(1) + " + B " + B(50).toFixed(1) + "）");
+  console.log("高単価へ集中 90/10: " + toA.toFixed(1) + "🪙/分（" + (toA / even >= 1 ? "+" : "") + ((toA / even - 1) * 100).toFixed(1) + "%）");
+  console.log("低単価へ集中 10/90: " + toB.toFixed(1) + "🪙/分（" + ((toB / even - 1) * 100).toFixed(1) + "%）");
+  console.log("感度判定: 集中で " + ((toA / even - 1) * 100).toFixed(1) + "% 増 / 逆集中で " + Math.abs((toB / even - 1) * 100).toFixed(1) + "% 減 — 配分がグループ合計を動かす（±10%超が目安）: " +
+    (toA / even > 1.10 && toB / even < 0.90 ? "PASS" : "FAIL"));
+  const first = subCoins(5, 1, 7, 100);
+  console.log("参考: 設立直後（人員5・Lv1・robot・配分100%）= " + first.toFixed(1) + "🪙/分 / 育成後3社（人員50・Lv6・中位ジャンル・均等）≈ " +
+    Math.round(3 * subCoins(50, 6, 3, 33)) + "🪙/分（本社30日目の平均 ~30🪙/分 を大きく上回り、終盤の主収入になる設計）");
+}

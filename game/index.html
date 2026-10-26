@@ -1097,6 +1097,21 @@ window.MIYUKE_SPRITES = {
     "き": "#CC993D",
     "ぎ": "#773D28",
     "く": "#CEC5C5",
+    "ぐ": "#3D1C17",
+    "け": "#421E19",
+    "げ": "#ECA056",
+    "こ": "#F8BC72",
+    "ご": "#EFA75C",
+    "さ": "#975037",
+    "ざ": "#E89950",
+    "し": "#AF6240",
+    "じ": "#D68650",
+    "す": "#E7964F",
+    "ず": "#623124",
+    "せ": "#BE7851",
+    "ぜ": "#431F1A",
+    "そ": "#FAE1BA",
+    "ぞ": "#D69158",
 
 
 
@@ -11266,6 +11281,57 @@ window.MIYUKE_SPRITES = {
       "...かか...................",
       "........................",
     ],
+    prop_annex_sign: [
+      "................................................",
+      "................................................",
+      "................................................",
+      "......................ぐけけけ......................",
+      ".....................けげこごけけ.....................",
+      ".....................こさざしじけ.....................",
+      ".....................すさすさずけ.....................",
+      ".....................しさせさずぜけ....................",
+      ".........けけけけけけここここざざここここすざざげげこここここざけけけけ........",
+      "........ぜこここここここざすすじすすすすすざざざざざすすすすすこここここけ.......",
+      ".......ぐすすじじすすすざざすごごごごごごじじじすざじじじじすすすすすすじさ.......",
+      ".......けせせせすせじじじじけぜぜぜぜぜけごげげざざすざげごごごござざすしず.......",
+      ".......けせせせげすざごごぐぐけけぜけけぜぜごごすざしじざざすすすじせせしぜ.......",
+      "........ぐすすざすげざざぜそそそそそそそぜごござざざざすざじじざざざざざし.......",
+      "........ぜしさすすざざざぜそせそそせそそごごござざざざざざざすじじじじじし.......",
+      ".........ぜぐせじすすげぜそそそそそそそぜぜけごごごごごぜげげげじじじげぐ.......",
+      "........こここすすざざざぐそせそそせそそそそそぜごごごごけぜぐけげざすしぜ.......",
+      "........すすすすざげげげぜそせそそせそそそせそぜごしぐぐけごぜぜげじじせけ.......",
+      "........しじじせせせげごけそそぜぜぜそそそそそけごしけぜぜぜごげげげげげし.......",
+      ".........ぜげぞせげごごけそぜせせぜそそそせそけごごごぜぜぜけざござじしぐ.......",
+      "........ぐぐせじじじじごぜそぜせせぜそそそそそぜごじごぜそそこぜじじせし........",
+      "........さすすすすざざげぜぜけぜぜぜけけぐぜけけごごごけぜけぐぐざざげざけ.......",
+      "........しじじじじごごごごげごごごごごごすすざすすざごごごごげすざせじじぜ.......",
+      "........さしせさじすすすざすすすすすすすすすじせぞすすすすざげすすざぞじけ.......",
+      ".........ぐすすすせさささじせせすすすすすじせしさささささぞすすじしさけ........",
+      "..........けけけぜけけささししさしししししさしぜぜけけししししししけ.........",
+      ".....................さずずさぜけ.....................",
+      ".....................しさしさずぜ.....................",
+      ".....................げじじしさぜ.....................",
+      ".....................こじじしさぜ.....................",
+      ".....................こじじしさぜ.....................",
+      ".....................こしすしさぜ.....................",
+      ".....................こしせせさぜ.....................",
+      ".....................こしせずさぜ.....................",
+      ".....................すさじずしぜ.....................",
+      ".....................すごじししけ.....................",
+      ".....................すげじせさぜ.....................",
+      ".....................しごじせさぜ.....................",
+      ".....................さごじせさけ.....................",
+      ".....................さすこせさぜ.....................",
+      ".....................じすこせさけ.....................",
+      ".....................じすすささぜ.....................",
+      ".....................じすすささぜ.....................",
+      ".....................じさすさずぜ.....................",
+      ".....................すさしさずぜ.....................",
+      ".....................すさしさずけ.....................",
+      ".....................じさしさずぜ.....................",
+      ".....................せさしさずぜ.....................",
+    ],
+
 
 
 
@@ -11811,6 +11877,7 @@ function freshState(){
     project:null, projectDP:0, commitMark:0,
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
     depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
+    subs: [], subSeq: 0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
@@ -11901,6 +11968,15 @@ function load(){
     if(typeof S.reqGenrePref === "undefined") S.reqGenrePref = null;
     if(typeof S.salesRot !== "number") S.salesRot = 0;
     if(typeof S.reqHoldUntil !== "number") S.reqHoldUntil = 0;
+    /* Phase D: 子会社（旧セーブには無い）。配分は読み込み時に合計100%へ正規化 */
+    if(!Array.isArray(S.subs)) S.subs = [];
+    if(typeof S.subSeq !== "number") S.subSeq = S.subs.length;
+    for(const sub of S.subs){
+      if(typeof sub.staff !== "number") sub.staff = 5;
+      if(typeof sub.lv !== "number") sub.lv = 1;
+      if(typeof sub.alloc !== "number") sub.alloc = 0;
+    }
+    normalizeAlloc();
     for(const st of S.staff) if(st.role === "sales" && !st.genre){
       const pool = unlockedGenres();
       st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
@@ -13045,6 +13121,17 @@ function tick(){
   if(ss.prog > 0) produceDP(ss.prog/60, "l1");
   // 第2ラインの生産
   if(S.line2.unlocked && S.line2.project) produceDP(line2Rate()/60, "l2");
+  /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
+  if(S.subs && S.subs.length){
+    let subCoin = 0, subDP = 0;
+    for(const sub of S.subs){ const r = subRates(sub); subCoin += r.coins; subDP += r.dp; }
+    if(subDP > 0) produceDP(subDP/60, "l1");
+    if(subCoin > 0){
+      subCoinFrac += subCoin/60;
+      const whole = Math.floor(subCoinFrac);
+      if(whole > 0){ subCoinFrac -= whole; S.coins += whole; S.totals.coinsEarned += whole; }
+    }
+  }
   const _fd1 = S.wip.code - _fc1, _fd2 = S.line2.wip.code - _fc2;
   // 工程処理: 各ラインが独立の工程容量を持つ (sakuri 設計 2026-10-26:
   // ライン2もライン1と同じ仕組みのハコを持つ)。旧方式 (ライン1優先・ライン2は
@@ -13209,6 +13296,12 @@ function buyStudio(){
   /* Phase B・昇格のセレモニー（仕様書2節）: セリフ＋ログの二経路。色だけに頼らない */
   addLog("🏠 スタジオ拡張！ 社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-"+cost+"🪙）");
   say("社格が「"+companyRank()+"」になったにゃ！ スタジオが広くなって、もっと仲間を呼べるよ");
+  if(S.studioLv === 5){
+    /* Phase D: 準大手で子会社が解放される。帯のボード右端タブにも社格が
+       出ているので、気づきはログ＋セリフの二経路で届ける */
+    addLog("🏢 グループ子会社が解放されたにゃ！（スタッフタブ）終盤はグループ全体の采配が腕の見せどころ");
+    say("準大手だにゃ！ 子会社を持てるようになったよ。スタッフタブを見てみて");
+  }
   save(); renderPanel();
 }
 function buyClickUp(id){
@@ -13396,6 +13489,124 @@ function dropRequest(){
   }
   dropRequestCore();
 }
+/* ---------- Phase D: 子会社（終盤の経営レイヤー） ----------
+   準大手（スタジオLv5）から設立できる半自律ユニット。人員は抽象的な数で
+   数え（帯に描く本社の猫は最大36匹まで）、収益は受動コイン＋DP。
+   プレイヤーのレバー: 設立 / 人員投資 / 規模Lv / 資金配分（合計100%）。
+   配分は「注力度」として効く（0% で ×0.5、100% で ×2.0）ため、配分を
+   動かすとグループ合計が変わる — それが経営判断になる。
+   売却は2段構え: 子会社だけ売る部分EXIT（星屑は subDustValue と同額）と、
+   本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
+   部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
+   あるため、「部分 ≤ グループ寄与」の反証条件は構造的に保たれる */
+const SUB_MAX_LV = 10;
+const SUB_NAME_A = ["ねこねこ", "まるまる", "にゃんころ", "ふわラボ", "こねこ", "たまご", "ひげ", "すやすや"];
+function subGenreRate(genreId){
+  const i = GENRES.findIndex(g => g.id === genreId);
+  return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
+}
+function subLvMult(sub){ return 1 + 0.3 * (sub.lv - 1); }
+function subFocus(sub){ return 0.5 + 1.5 * ((sub.alloc || 0) / 100); }
+function subRates(sub){
+  const base = sub.staff * subLvMult(sub) * subFocus(sub);
+  return { coins: base * 0.35 * subGenreRate(sub.genre), dp: base * 0.2 };
+}
+function subDustValue(sub){ return Math.max(1, Math.floor((sub.staff * 25 + sub.lv * 500) / 500)); }
+function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
+function totalPeople(){ return S.staff.length + subsTotalStaff(); }
+function foundCost(){ return 15000 * Math.pow(2, (S.subs || []).length); }
+function subHeadCost(sub){ return Math.ceil(120 * Math.pow(1.06, sub.staff)); }
+function subHeadCostN(sub, n){
+  let t = 0;
+  for(let i = 0; i < n; i++) t += Math.ceil(120 * Math.pow(1.06, sub.staff + i));
+  return t;
+}
+function subScaleCost(sub){ return Math.ceil(4000 * Math.pow(2.2, sub.lv - 1)); }
+function normalizeAlloc(){
+  const subs = S.subs || [];
+  if(!subs.length) return;
+  let sum = subs.reduce((a, s) => a + (s.alloc || 0), 0);
+  if(sum === 100) return;
+  if(sum <= 0) subs.forEach(s => s.alloc = Math.floor(100 / subs.length));
+  else subs.forEach(s => s.alloc = Math.floor(s.alloc * 100 / sum));
+  let rest = 100 - subs.reduce((a, s) => a + s.alloc, 0);
+  for(let i = 0; rest > 0; i = (i + 1) % subs.length){ subs[i].alloc++; rest--; }
+}
+function foundSub(genreId){
+  if(S.studioLv < 5){ say("子会社は準大手（スタジオLv5）からにゃ"); return; }
+  const cost = foundCost();
+  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
+  const g = GENRES.find(x => x.id === genreId) || GENRES[0];
+  S.coins -= cost;
+  if(!Array.isArray(S.subs)) S.subs = [];
+  let name = SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";
+  if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
+  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, alloc: 0 };
+  S.subs.push(sub);
+  normalizeAlloc();
+  SoundKit.play("purchase");
+  addLog("🏢 子会社「"+name+"」を設立！（-"+cost+"🪙）得意は"+g.name+"、人員 5 人で発足");
+  say("子会社「"+name+"」ができたにゃ！ グループ経営のはじまりだね");
+  save(); renderPanel();
+}
+function addSubStaff(id, n){
+  const sub = (S.subs || []).find(s => s.id === id);
+  if(!sub) return;
+  const total = subHeadCostN(sub, n);
+  if(S.coins < total){ say("コインが足りないにゃ…"); return; }
+  S.coins -= total; sub.staff += n;
+  addLog("🏢 "+sub.name+" に "+n+" 人を採用（人員 "+sub.staff+" 人）（-"+total+"🪙）");
+  save(); renderPanel();
+}
+function scaleSub(id){
+  const sub = (S.subs || []).find(s => s.id === id);
+  if(!sub) return;
+  if(sub.lv >= SUB_MAX_LV){ say("その子会社はもう最大規模にゃ"); return; }
+  const cost = subScaleCost(sub);
+  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
+  S.coins -= cost; sub.lv++;
+  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-"+cost+"🪙）");
+  say(sub.name+"が大きくなったにゃ！");
+  save(); renderPanel();
+}
+function setAlloc(id, delta){
+  const subs = S.subs || [];
+  const sub = subs.find(s => s.id === id);
+  if(!sub || subs.length < 2) return;
+  const nv = Math.max(0, Math.min(100, (sub.alloc || 0) + delta));
+  if(nv === sub.alloc) return;
+  sub.alloc = nv;
+  /* 差分は他の子会社から付け替える（合計は常に100%に保つ） */
+  let excess = subs.reduce((a, s) => a + s.alloc, 0) - 100;
+  const others = subs.filter(s => s !== sub).sort((a, b) => b.alloc - a.alloc);
+  for(const o of others){
+    if(excess === 0) break;
+    if(excess > 0){ const d = Math.min(o.alloc, excess); o.alloc -= d; excess -= d; }
+    else { const d = Math.min(100 - o.alloc, -excess); o.alloc += d; excess += d; }
+  }
+  if(excess !== 0) sub.alloc -= excess;
+  save(); renderPanel();
+}
+function sellSubCore(id){
+  const subs = S.subs || [];
+  const i = subs.findIndex(s => s.id === id);
+  if(i < 0) return;
+  const sub = subs[i];
+  const gain = subDustValue(sub);
+  subs.splice(i, 1);
+  normalizeAlloc();
+  const totalBefore = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
+  S.dust += gain; S.dustTotal = totalBefore + gain;
+  addLog("🏢 子会社「"+sub.name+"」を売却（部分EXIT）: 星屑 +"+gain+"（本社はそのまま）");
+  say(sub.name+"を売却したにゃ。星屑 +"+gain+" ゲット");
+  save(); renderPanel();
+}
+function sellSub(id){
+  const sub = (S.subs || []).find(s => s.id === id);
+  if(!sub) return;
+  if(!confirm("子会社「"+sub.name+"」を売却しますか？（部分EXIT）\n星屑 "+subDustValue(sub)+" 個を得ます。本社と他の子会社はそのまま残ります")) return;
+  sellSubCore(id);
+}
 /* ---------- Sprint 3: 星屑ショップ（永続特典）と引っ越しプレビュー ----------
    星屑は「所持分（S.dust）」を消費して特典を買う。生産倍率は通算獲得
    （S.dustTotal）で決まるので、買い物をしても倍率が下がることはない。
@@ -13440,9 +13651,12 @@ function buyDustPerk(id){
 /* 引っ越しの事前計算: 得られる星屑・倍率の変化・リセット/引き継ぎ一覧。
    doPrestige 本体もこの gain を使うので、プレビューと実際の結果は必ず一致する */
 function prestigePreview(){
-  const gain = Math.floor(S.runDP / BAL.prestigeDPPerDust);
+  /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
+  const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
+  const gain = Math.floor(S.runDP / BAL.prestigeDPPerDust) + subGain;
   const total = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン", "応援強化"];
+  if(subGain > 0) resets.push("子会社");
   const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典"];
   if(hasPerk("veteran") && S.staff.length){
     const vet = S.staff.slice().sort((a,b) => b.lv - a.lv)[0];
@@ -13458,7 +13672,7 @@ function prestigePreview(){
   }
   if(hasPerk("seedmoney")) keeps.push("初期資金 300🪙");
   return {
-    gain,
+    gain, subGain,
     curMult: 1 + BAL.dustBonus * total,
     nextMult: 1 + BAL.dustBonus * (total + gain),
     resets, keeps
@@ -13504,6 +13718,7 @@ function doPrestigeCore(){
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
+  S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = keptStaff ? [keptStaff] : [];
   if(keptStaff) S.staffSeq = Math.max(S.staffSeq, keptStaff.id);
@@ -13557,7 +13772,7 @@ const SPRITE_SPEC = {
   duck_idle:[24,20], duck_check:[24,20],
   icon_coin:[16,16], icon_idea:[16,16], icon_bug:[16,16], icon_box:[28,28], icon_star:[16,16],
   icon_fish:[16,16], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
-  prop_plant:[16,20], prop_coffee:[28,28], prop_coffee_0:[28,28], prop_coffee_1:[28,28], prop_server:[24,32], prop_packmachine:[48,24], prop_shelf:[40,28], prop_ship:[48,48], prop_snackbox:[24,24], prop_snackbox_shut:[24,24],
+  prop_plant:[16,20], prop_coffee:[28,28], prop_coffee_0:[28,28], prop_coffee_1:[28,28], prop_server:[24,32], prop_packmachine:[48,24], prop_shelf:[40,28], prop_ship:[48,48], prop_annex_sign:[48,48], prop_snackbox:[24,24], prop_snackbox_shut:[24,24],
   prop_pc:[40,32],
   /* 環境ドット絵 (Codex 一次作・research/ENV_ART_MANIFEST.md): 既存パレットのみ */
   prop_kanban:[132,30], prop_kanban_wide:[204,64], prop_phone:[24,24], prop_megaphone:[24,24], prop_toolbox:[24,24], desk_laminate_main:[116,3], desk_laminate_2:[80,16],
@@ -14636,6 +14851,9 @@ function maybeStartChatter(now, force){
   return false;
 }
 let stripVisitor = null;   /* { x, dir, coat, speed } */
+let subCoinFrac = 0;       /* Phase D: 子会社コインの端数（セーブしない。<1枚の端数は再起動で消える） */
+let stripDelivery = null;  /* Phase D: 子会社の配達猫 { x, dir, coat, speed, walkClock, done } */
+let nextDeliveryAt = 0;
 let nextVisitorAt = 0;
 function spawnStripVisitor(){
   const hired = new Set(S.staff.map(s => s.coat));
@@ -14646,6 +14864,13 @@ function spawnStripVisitor(){
   stripVisitor = { x: fromLeft ? -20 : stripVW + 20, dir: fromLeft ? 1 : -1,
     coat, speed: 13 + Math.random() * 5, walkClock: 0 };
   return stripVisitor;
+}
+/* Phase D: 子会社の配達猫。売上は tick で計上済み — これは知覚のための
+   訪問で、余分なコインは出さない（出荷の ✦ と同じ正直さ） */
+function spawnStripDelivery(){
+  const coat = COATS[Math.floor(Math.random() * COATS.length)];
+  stripDelivery = { x: stripVW + 20, dir: -1, coat, speed: 17, walkClock: 0, done: false };
+  return stripDelivery;
 }
 function stripAmbientUpdate(dt){
   /* 雑談: たまに試みる（成立条件は maybeStartChatter 側で判定） */
@@ -14661,6 +14886,27 @@ function stripAmbientUpdate(dt){
     if(stripVisitor.x < -30 || stripVisitor.x > stripVW + 30){
       stripVisitor = null;
       nextVisitorAt = stripNow + (12 + Math.random() * 13) * 60000;
+    }
+  }
+  /* Phase D: 配達猫は右から来て机で納品し、右へ帰る（3〜6分間隔） */
+  if(!stripDelivery){
+    if(S.subs && S.subs.length){
+      if(nextDeliveryAt === 0) nextDeliveryAt = stripNow + 120000;
+      else if(stripNow >= nextDeliveryAt) spawnStripDelivery();
+    }
+  } else {
+    const d = stripDelivery;
+    d.x += d.dir * d.speed * dt;
+    d.walkClock = (d.walkClock || 0) + walkAdvanceMs("staff_" + d.coat + "_walk", d.speed * dt);
+    if(!d.done && Math.abs(d.x - stripDeskCX()) < 14){
+      d.done = true; d.dir = 1;
+      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
+      if(stripSparks.length > 10) stripSparks.shift();
+      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "📦 子会社から納品", "#4a90c2");
+    }
+    if(d.x > stripVW + 30){
+      stripDelivery = null;
+      nextDeliveryAt = stripNow + (3 + Math.random() * 3) * 60000;
     }
   }
 }
@@ -15127,7 +15373,8 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
      端に寄せた配置では反対側へ逃がし、両端とも入らなければ出さない（表示のみで
      クリック判定は持たない。社格の確認はメニューのチップでもできる） */
   {
-    const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人";
+    const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人" +
+      (S.subs && S.subs.length ? " ・ グループ" + S.subs.length + "社・総勢" + totalPeople() + "人" : "");
     sctx.save();
     sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";
@@ -15290,6 +15537,9 @@ function drawStripPiles(){
   /* 2026-10-26: prop_ship は Codex 描き直し (48×48・「出荷」の文字も絵の側)。
      コード描きのフォールバックと文字載せは廃止 (アートへのスクリプト混入禁止) */
   sDrawSprite("prop_ship", dx + 2, G, 1);
+  /* Phase D: 子会社がある間だけ、出荷スポットの隣に別館の看板が立つ */
+  if(S.subs && S.subs.length && hasSprite("prop_annex_sign"))
+    sDrawSprite("prop_annex_sign", dx - 42, G, 1);
   if(m.build.red) sR(dx - 20, G - 16.6, 44, 1.1, "#e2543e");
   for(let i = 0; i < m.build.n; i++){
     const p = pileSlotPos(dx, i, true);
@@ -15667,6 +15917,15 @@ function renderStrip(){
       if(!sDrawSprite(vbase, v.x, G + vbob, SPRITE_SCALES.strip.staff, v.dir < 0))
         sDrawStaffFallback(v.coat, v.x, G);
     }
+  }
+  /* --- Phase D: 子会社の配達猫（荷物を持って本社へ） --- */
+  if(stripDelivery){
+    const v = stripDelivery;
+    const vbase = "staff_" + v.coat + "_walk";
+    sShadow(v.x, G - 0.5, 50);
+    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
+      sDrawStaffFallback(v.coat, v.x, G);
+    if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
   /* --- Sprint 4: 帯のクリックイベント（金の魚・バグの群れ） ---
      帯の上でクリックイベントとして描き、クリックで捕まえられる。
@@ -16497,11 +16756,42 @@ function renderPanel(){
       }
       h += foldSec("depts", false, "🏢 部署", "投資で部署の出力アップ", deptHTML);
     }
+    /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・資金配分、
+       出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
+       解放前はスタッフタブに何も出さない（施錠表示は卒業済みプレイヤーへの
+       ノイズになる — smoke F の原則）。予告はスタジオ拡張の行と昇格ログで担う */
+    if(S.studioLv >= 5) {
+      let subHTML = "";
+      for(const sub of (S.subs || [])){
+        const r = subRates(sub);
+        const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
+        subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + sub.name + "</span>" +
+          " <span class='tagchip'>得意: " + gname + "</span> <span class='tagchip'>規模Lv" + sub.lv + "</span> <span class='tagchip'>人員 " + sub.staff + "人</span>" +
+          "<div class='ds'>売上 +" + r.coins.toFixed(1) + "🪙/分 ・ 生産 +" + r.dp.toFixed(1) + " DP/分 ・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
+          "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + subFocus(sub).toFixed(2) + "）" +
+          (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div></div></div>" +
+          "<div class='item buy slim'><div><span class='nm'>人員を増やす</span><div class='ds'>人は抽象的に数える（帯には出ない）</div></div><span>" +
+          buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ") +
+          buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") + "</span></div>" +
+          "<div class='item buy slim'><div><span class='nm'>規模を上げる</span><div class='ds'>出力 ×" + subLvMult(sub).toFixed(1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + (subLvMult(sub) + 0.3).toFixed(1)) + "</div></div>" +
+          (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")")) + "</div>" +
+          "<div class='item slim'><div><span class='nm'>この子会社を売却（部分EXIT）</span><div class='ds'>星屑 +" + subDustValue(sub) + " 個。本社はそのまま残ります</div></div>" +
+          "<button onclick='sellSub(" + sub.id + ")'>売却する</button></div>";
+      }
+      let foundHTML = "<div class='item slim'><div><span class='sock'>🌱</span><span class='nm'>新しい子会社を設立</span>" +
+        "<div class='ds'>設立費 " + fmt(foundCost()) + "🪙 ・ 得意ジャンルを選んで設立（人員 5 人で発足）</div><div style='margin-top:5px'>";
+      for(const g of unlockedGenres())
+        foundHTML += "<button onclick='foundSub(\"" + g.id + "\")'" + (S.coins < foundCost() ? " disabled" : "") + ">" + g.name + "</button> ";
+      foundHTML += "</div></div></div>";
+      h += foldSec("subs", false, "🏢 グループ子会社",
+        (S.subs || []).length ? (S.subs.length + "社・総勢 " + totalPeople() + "人") : "まだ子会社はありません",
+        subHTML + foundHTML);
+    }
     /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
     if(S.studioLv < STAFF_CAPS.length){
       const cost = studioCost(S.studioLv);
       h += "<div class='item buy slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
-        "<div class='ds'>雇用上限が "+STAFF_CAPS[S.studioLv]+" 人になります</div></div>"+
+        "<div class='ds'>雇用上限が "+STAFF_CAPS[S.studioLv]+" 人になります"+(S.studioLv + 1 === 5 ? " ・ 🏢 子会社が解放されます" : "")+"</div></div>"+
         buyBtn("studio", cost, "coins", "buyStudio()")+"</div>";
     } else {
       h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
@@ -16651,6 +16941,7 @@ function renderPanel(){
     } else {
       const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（5個から売却可能）") +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+pv.curMult.toFixed(2)+" → 売却後 ×"+pv.nextMult.toFixed(2)) +
+        (pv.subGain > 0 ? kv("うち子会社ぶん", "星屑 +"+pv.subGain+" 個（グループEXIT: 子会社も売却）") : "") +
         kv("EXIT回数", S.prestiges+" 回") +
         kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
         "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.join("・")+"</div>" +
@@ -17485,6 +17776,7 @@ const VERBS = {
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   dropRequest: dropRequestCore,
+  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
@@ -17653,6 +17945,13 @@ function makeVerbStub(verb){
       /* 大型案件の見送りだけ menu 側で確認する (帯側では confirm を出さない) */
       if(S.activeRequest && S.activeRequest.big){
         if(!confirm("大型案件（" + S.activeRequest.client + "）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+      }
+    }
+    if(verb === "sellSub"){
+      /* 部分EXIT の確認は menu 側で済ませる (帯側では confirm を出さない) */
+      const sub = (S.subs || []).find(s => s.id === (args && args[0]));
+      if(sub){
+        if(!confirm("子会社「" + sub.name + "」を売却しますか？（部分EXIT）\n星屑 " + subDustValue(sub) + " 個を得ます。本社と他の子会社はそのまま残ります")) return;
       }
     }
     let btn = null;

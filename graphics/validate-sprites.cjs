@@ -46,7 +46,7 @@ const required = [
   ...['coin', 'idea', 'bug', 'box', 'star', 'fish', 'book', 'wrench', 'heart'].map(item => `icon_${item}`),
   ...['plant', 'coffee', 'server', 'packmachine', 'shelf', 'pc'].map(item => `prop_${item}`),
 ];
-const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28, 28], prop_coffee_1: [28, 28], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_ship: [48, 48], prop_snackbox: [24, 24], prop_snackbox_shut: [24, 24],
+const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28, 28], prop_coffee_1: [28, 28], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_ship: [48, 48], prop_annex_sign: [48, 48], prop_snackbox: [24, 24], prop_snackbox_shut: [24, 24],
   /* Sprint 4: 第2ラインの机と壁飾りスロット（仮絵・さくら差し替え可） */
   prop_desk2: [64, 64], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16],
   /* 環境ドット絵 (Codex 一次作): 家具は帯の実フットプリント寸法が正本 */
@@ -121,7 +121,7 @@ const extraLabels = {
 };
 
 for (const name of required) assert.ok(sprites[name], `required sprite missing: ${name}`);
-assert.equal(Object.keys(palette).length, 122, 'Shared palette count changed (23 base + 99 sakuri extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone)');
+assert.equal(Object.keys(palette).length, 137, 'Shared palette count changed (23 base + 114 extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone + 15 annex sign (Codex, quantized on integration))');
 for (const [key, value] of Object.entries(palette)) {
   assert.equal(key.length, 1); assert.notEqual(key, '.'); assert.match(value, /^#[0-9a-f]{6}$/i);
 }

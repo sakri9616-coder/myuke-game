@@ -788,8 +788,8 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 122 after batch 14)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
+  check("batch 3 palette colors #F1BF41 and #211711 present (palette now 137 after annex sign)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#F1BF41')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#211711')"));
   check("game version is v2.4.8", run(sb, "GAME_VERSION") === "v2.4.8");
@@ -826,8 +826,8 @@ console.log("== Phase A8: sakuri art batch 4 (happy anim for the celebrate state
   const sb = buildSandbox({});
   loadGame(sb);
 
-  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 122 after batch 14)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
+  check("batch 4 palette colors #FFC710 and #FFE07B present (palette now 137 after annex sign)",
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFC710')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#FFE07B')"));
   check("ANIMS.miyuke_happy has 10 frames x 300ms, plays exactly once",
@@ -865,7 +865,7 @@ console.log("== Phase A9: sakuri art batch 5 (walk anim, art gate ON) ==");
   loadGame(sb);
 
   check("batch 5 palette colors incl. walk's #B99E7E still present (99 after batch 12)",
-    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 122 &&
+    run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 137 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#B99E7E')"));
   check("ANIMS.miyuke_walk has 7 frames with the file's own durations and loops forever",
     run(sb, "ANIMS.miyuke_walk && ANIMS.miyuke_walk.frames.length") === 7 &&
@@ -3172,6 +3172,71 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       clicks0 + " -> " + run(sbH, "S.totals.clicks"));
     check("H: click spam never forces react_annoy (her work is not paused)",
       run(sbH, "catState") !== "react_annoy", "catState=" + run(sbH, "catState") + " (was " + state0 + ")");
+  }
+
+  /* ================= Phase D: 子会社（終盤の経営レイヤー） ================= */
+  console.log("== Phase D: subsidiaries (founding / allocation / partial + group EXIT) ==");
+  {
+    const sb = buildSandbox({});
+    loadGame(sb);
+    check("D: subs boot as empty defaults (old saves unaffected)",
+      run(sb, "Array.isArray(S.subs) && S.subs.length === 0 && S.subSeq === 0 && totalPeople() === S.staff.length"));
+    run(sb, "S.studioLv = 4; S.coins = 100000; foundSub('app');");
+    check("D: founding is gated to 準大手 (studioLv>=5) — refused at Lv4 with no charge",
+      run(sb, "S.subs.length") === 0 && run(sb, "S.coins") === 100000);
+    run(sb, "S.studioLv = 5; foundSub('app');");
+    check("D: founding charges 15000, starts at staff 5 / Lv1 / alloc 100% with the chosen specialty",
+      run(sb, "S.subs.length") === 1 && run(sb, "S.coins") === 85000 &&
+      run(sb, "S.subs[0].staff === 5 && S.subs[0].lv === 1 && S.subs[0].alloc === 100 && S.subs[0].genre === 'app'"));
+    check("D: the second founding doubles in price (15000 x 2^n)",
+      run(sb, "foundCost()") === 30000);
+    check("D: genre rate follows unlock order (first genre x1.0, last genre highest)",
+      run(sb, "subGenreRate(GENRES[0].id)") === 1 &&
+      run(sb, "subGenreRate(GENRES[GENRES.length - 1].id)") > 1.5);
+    check("D: allocation sensitivity — concentrating funds on the higher-rate sub raises the group total, spreading to it lowers it, Σalloc stays 100",
+      (() => {
+        const last = run(sb, "GENRES[GENRES.length - 1].id");
+        const mk = (allocA) => run(sb,
+          "subRates({ staff: 30, lv: 3, genre: '" + last + "', alloc: " + allocA + " }).coins +" +
+          " subRates({ staff: 30, lv: 3, genre: 'app', alloc: " + (100 - allocA) + " }).coins");
+        const even = mk(50), skewed = mk(90), starved = mk(10);
+        run(sb, "foundSub('app'); setAlloc(S.subs[0].id, -40);");
+        const sumOk = run(sb, "S.subs.reduce((a, s) => a + s.alloc, 0)") === 100;
+        return skewed > even * 1.08 && starved < even * 0.92 && sumOk;
+      })());
+    check("D: dust value formula (staff 20/Lv3 -> 4, staff 5/Lv1 -> 1)",
+      run(sb, "subDustValue({ staff: 20, lv: 3 })") === 4 && run(sb, "subDustValue({ staff: 5, lv: 1 })") === 1);
+    run(sb, "S.dust = 0; S.dustTotal = 0; const v = subDustValue(S.subs[0]); sellSubCore(S.subs[0].id);");
+    check("D: partial EXIT pays exactly subDustValue, removes only that sub, HQ untouched",
+      run(sb, "S.dust") === 1 && run(sb, "S.subs.length") === 1 && run(sb, "S.studioLv") === 5);
+    check("D: after a partial EXIT the remaining sub's alloc renormalizes to 100",
+      run(sb, "S.subs[0].alloc") === 100);
+    run(sb, "S.runDP = 60000;");
+    check("D: group EXIT preview adds every sub's dust value on top of the DP-based gain",
+      run(sb, "prestigePreview().subGain") === 1 &&
+      run(sb, "prestigePreview().gain") === 5 + 1);
+    run(sb, "doPrestigeCore();");
+    check("D: group EXIT (doPrestigeCore) sells all subsidiaries with the HQ",
+      run(sb, "S.subs.length") === 0 && run(sb, "S.dust") >= 6);
+    run(sb, "S.subs = [{ id: 1, name: 't', genre: 'app', staff: 100, lv: 10, alloc: 100 }]; S.coins = 0;");
+    run(sb, "tick();");
+    check("D: tick pays subsidiary income (staff 100 / Lv10 / first genre = 259/min -> 4 whole coins in one tick)",
+      run(sb, "S.coins") >= 4, "coins=" + run(sb, "S.coins"));
+    check("D: VERBS routes subsidiary actions to the confirm-free cores",
+      run(sb, "VERBS.sellSub === sellSubCore && VERBS.foundSub === foundSub && VERBS.setAlloc === setAlloc"));
+
+    /* 旧セーブ fixture: 子会社フィールド無し + 配分が壊れた子会社あり */
+    const sbOld = buildSandbox({});
+    sbOld.localStorage.setItem("miyuke-save-v1", JSON.stringify({
+      coins: 5000, studioLv: 6,
+      subs: [{ id: 7, name: "x", genre: "app", staff: 10, lv: 2, alloc: 30 },
+             { id: 8, name: "y", genre: "app", staff: 10, lv: 2, alloc: 30 }],
+      subSeq: 8
+    }));
+    let loadThrew = false;
+    try { loadGame(sbOld); } catch (e) { loadThrew = true; }
+    check("D: a save whose allocs do not sum to 100 loads and is renormalized",
+      !loadThrew && run(sbOld, "S.subs.reduce((a, s) => a + s.alloc, 0)") === 100);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
