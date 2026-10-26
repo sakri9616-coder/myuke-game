@@ -1211,8 +1211,8 @@ console.log("== Phase B4: Strip Canon furniture (zones / shelf / gating) ==");
     Math.abs(run(sb, "stripDeskCX()") / vw - 0.30) < 0.01);
   check("layout edit hit-test finds the desk at its center",
     (run(sb, "layoutHitTest(stripDeskCX(), STRIP_GROUND - 10) || {}").id) === "desk");
-  check("fresh strip exposes only ungated furniture to layout edit",
-    JSON.stringify(run(sb, "layoutItems().map(i => i.id)")) === JSON.stringify(["shelf", "desk"]));
+  check("fresh strip exposes only ungated furniture + ungated props to layout edit (Phase E)",
+    JSON.stringify(run(sb, "layoutItems().map(i => i.id)")) === JSON.stringify(["shelf", "desk", "board", "memo", "toolbox", "snack", "coffee", "ship"]));
   check("edit mode hit zones cover the whole strip",
     run(sb, "toggleLayoutEdit(); JSON.stringify(computeHitZones())").includes(",210]") &&
     run(sb, "layoutEdit.on") === true);
@@ -3237,6 +3237,92 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     try { loadGame(sbOld); } catch (e) { loadThrew = true; }
     check("D: a save whose allocs do not sum to 100 loads and is renormalized",
       !loadThrew && run(sbOld, "S.subs.reduce((a, s) => a + s.alloc, 0)") === 100);
+  }
+
+  /* ================= Phase E: レイアウト自由化（layoutProps） ================= */
+  console.log("== Phase E: layout freedom (props / surfaces / stacking) ==");
+  {
+    const sb = buildSandbox({});
+    loadGame(sb);
+    check("E: layoutProps boots empty and every prop resolves to its legacy anchor (initial layout unchanged)",
+      run(sb, "Object.keys(S.layoutProps).length") === 0 &&
+      run(sb, "propPlace('board').cx") === run(sb, "stripDeskCX()") &&
+      run(sb, "propPlace('phone').cx") === run(sb, "propPlace('board').cx") - 102 + 10 &&
+      run(sb, "propPlace('toolbox').cx") === run(sb, "stripDeskCX() + 42") &&
+      run(sb, "propPlace('snack').cx") === run(sb, "stripDeskCX() + 72") &&
+      run(sb, "propPlace('coffee').cx") === run(sb, "stripDeskCX() + 47") &&
+      run(sb, "propPlace('coffee').baseY") === run(sb, "STRIP_GROUND - 0.5") &&
+      run(sb, "stripShipX()") === run(sb, "Math.round(stripVW * 0.80)"));
+    run(sb, "S.layoutProps.board = { on: 'ground', x: 0.5 };");
+    check("E: a ground entry moves the board independently of the desk, and the phone's default anchor follows the board",
+      run(sb, "propPlace('board').cx") === run(sb, "Math.round(stripVW * 0.5)") &&
+      run(sb, "propPlace('phone').cx") === run(sb, "Math.round(stripVW * 0.5) - 102 + 10"));
+    run(sb, "S.layoutProps.ship = { on: 'ground', x: 0.3 };");
+    check("E: the ship spot follows its ground entry (annex sign and piles derive from stripShipX)",
+      run(sb, "stripShipX()") === run(sb, "Math.round(stripVW * 0.3)"));
+    run(sb, "S.layoutProps.phone = { on: 'desk', dx: 40 };");
+    check("E: a surface entry stands the prop on the desk top (G-33) at the stored offset",
+      run(sb, "propPlace('phone').cx") === run(sb, "stripDeskCX() + 40") &&
+      run(sb, "propPlace('phone').baseY") === run(sb, "STRIP_GROUND - 33"));
+    run(sb, "S.layout.desk = 0.55;");
+    check("E: dragging the desk cluster carries the props stacked on it",
+      run(sb, "propPlace('phone').cx") === run(sb, "stripDeskCX() + 40"));
+    check("E: drop candidate on the desk's free span is a valid surface placement",
+      (() => {
+        const cx = run(sb, "stripDeskCX()");
+        const c = run(sb, "propDragCandidate('phone', " + (cx + 40) + ", STRIP_GROUND - 43, " + (cx + 40) + ")");
+        return c && c.on === "desk" && c.valid === true;
+      })());
+    check("E: drop candidate over the desk's reserved center (PC + sit area) is invalid",
+      (() => {
+        const cx = run(sb, "stripDeskCX()");
+        const c = run(sb, "propDragCandidate('phone', " + cx + ", STRIP_GROUND - 43, " + cx + ")");
+        return c && c.on === "desk" && c.valid === false;
+      })());
+    run(sb, "S.stamps.prestige1 = true;");
+    check("E: an item wider than the surface can never stack there (coffee 35 > trophy stand 30)",
+      (() => {
+        const cx = run(sb, "stripTrophyCX()");
+        const c = run(sb, "propDragCandidate('coffee', " + cx + ", STRIP_GROUND - 32, " + cx + ")");
+        return c && c.valid === false;
+      })());
+    check("E: ground-class props (board) never take a surface candidate",
+      (() => {
+        const cx = run(sb, "stripDeskCX()");
+        const c = run(sb, "propDragCandidate('board', " + cx + ", STRIP_GROUND - 43, " + cx + ")");
+        return c && c.on === "ground" && c.valid === true;
+      })());
+    run(sb, "layoutEdit.dragCand = { on: 'desk', dx: 0, cx: stripDeskCX(), baseY: STRIP_GROUND - 33, valid: false }; propDrop('phone');");
+    check("E: dropping on an invalid spot writes nothing and shakes back",
+      run(sb, "S.layoutProps.phone.on") === "desk" && run(sb, "S.layoutProps.phone.dx") === 40 &&
+      run(sb, "layoutEdit.shakeId") === "phone");
+    run(sb, "delete S.layoutProps.phone; S.flags.stackedOnce = 0;" +
+            "layoutEdit.dragCand = { on: 'desk', dx: -40, cx: stripDeskCX() - 40, baseY: STRIP_GROUND - 33, valid: true }; propDrop('phone');");
+    check("E: a valid surface drop persists {on, dx} and the first stack is flagged for Miyuke's one-time comment",
+      run(sb, "S.layoutProps.phone.on") === "desk" && run(sb, "S.layoutProps.phone.dx") === -40 &&
+      run(sb, "S.flags.stackedOnce") === 1);
+    check("E: weak snap pulls a ground drop onto a nearby item center (and the setting disables it)",
+      (() => {
+        const cx = run(sb, "stripDeskCX()");
+        const on = run(sb, "propDragCandidate('toolbox', 0, STRIP_GROUND, " + (cx + 3) + ")");
+        run(sb, "S.settings.snapLayout = false;");
+        const off = run(sb, "propDragCandidate('toolbox', 0, STRIP_GROUND, " + (cx + 3) + ")");
+        run(sb, "S.settings.snapLayout = true;");
+        return on.cx === cx && off.cx === cx + 3;
+      })());
+    run(sb, "resetLayout();");
+    check("E: resetLayout clears prop placements too (memo reattaches to the board)",
+      run(sb, "Object.keys(S.layoutProps).length") === 0);
+
+    /* 旧セーブ fixture: layoutProps も snapLayout も無い */
+    const sbOld = buildSandbox({});
+    sbOld.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 1000, staff: [] }));
+    let loadThrew = false;
+    try { loadGame(sbOld); } catch (e) { loadThrew = true; }
+    check("E: a save without layoutProps loads with defaults intact and snap on",
+      !loadThrew && run(sbOld, "Object.keys(S.layoutProps).length") === 0 &&
+      run(sbOld, "S.settings.snapLayout") === true &&
+      run(sbOld, "propPlace('board').cx") === run(sbOld, "stripDeskCX()"));
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");
