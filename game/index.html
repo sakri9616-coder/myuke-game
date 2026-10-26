@@ -12865,7 +12865,9 @@ function boostGate(amount){
   return use;
 }
 /* 生産倍率は「通算で獲得した星屑」で決める（星屑ショップで使っても下がらない） */
-function dustMult(){ return 1 + BAL.dustBonus * (typeof S.dustTotal === "number" ? S.dustTotal : S.dust); }
+/* 星屑の通算獲得（旧セーブは dustTotal を持たないので所持分で代用） */
+function dustTotal(){ return typeof S.dustTotal === "number" ? S.dustTotal : S.dust; }
+function dustMult(){ return 1 + BAL.dustBonus * dustTotal(); }
 function hasPerk(id){ return !!(S.dustPerks && S.dustPerks[id]); }
 /* Sprint 4: レベル制の星屑特典（S.dustPerks[id] が数値ならそのレベル、
    旧来の true は Lv1 として読む） */
@@ -13265,9 +13267,32 @@ function doCommit(){
   if(Math.random() < 0.35) say(msg);
   checkStamps();
 }
+/* 開発にかかった分数（実働秒があればそれ、旧セーブは経過時間）。最低1分 */
+function projectDevMin(p){
+  return Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
+}
+/* リリースの記帳（第1・第2ライン共通）: 入金・研究P・通算・出荷品質・作品棚。
+   出荷品質 → 負債とブランド（拡張ウェーブ G）は第2ラインも同じ会社の評判 */
+function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
+  S.coins += coins; S.totals.coinsEarned += coins;
+  S.rp += rp;
+  S.totals.releases++; S.today.releases++;
+  lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
+  applyShipQuality(p);
+  const entry = {
+    name: p.name, genreName: p.genreName, size: p.size,
+    date: new Date().toLocaleDateString("ja-JP"),
+    devMin, lines: Math.round(projectDP * 1.05),
+    bugs: Math.round(p.bugs), naps,
+    icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8))
+  };
+  if(line2) entry.line2 = true;
+  entry.highlight = makeHighlight(p, devMin, naps);
+  S.shelf.unshift(entry);
+}
 function releaseProject(){
   const p = S.project;
-  const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
+  const devMin = projectDevMin(p);
   let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
@@ -13305,19 +13330,7 @@ function releaseProject(){
      （残りはロイヤリティ。成立しない指定作は通常どおり全額） */
   const ipOk = ipConvertible(p);
   if(ipOk) coins = Math.round(coins * 0.3);
-  S.coins += coins; S.totals.coinsEarned += coins;
-  S.rp += rp;
-  S.totals.releases++; S.today.releases++;
-  lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
-  applyShipQuality(p);   /* 拡張ウェーブ G: 出荷品質 → 負債とブランド */
-  S.shelf.unshift({
-    name: p.name, genreName: p.genreName, size: p.size,
-    date: new Date().toLocaleDateString("ja-JP"),
-    devMin, lines: Math.round(S.projectDP * 1.05),
-    bugs: Math.round(p.bugs), naps: S.totals.naps - p.napsAtStart,
-    icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8)),
-    highlight: makeHighlight(p, devMin, S.totals.naps - p.napsAtStart)
-  });
+  recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
   addLog("🎉 リリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬 "+requestBonus);
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
@@ -13334,7 +13347,7 @@ function releaseProject(){
 }
 function releaseProject2(){
   const L = S.line2, p = L.project;
-  const devMin = Math.max(1, Math.round((typeof p.activeSec === "number" ? p.activeSec * 1000 : Date.now() - p.startedAt)/60000));
+  const devMin = projectDevMin(p);
   let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustMult() * brandMult() * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -13342,19 +13355,7 @@ function releaseProject2(){
   const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
   const ipOk2 = ipConvertible(p);
   if(ipOk2) coins = Math.round(coins * 0.3);   /* 第2ウェーブ L: 第2ラインも即時は30% */
-  S.coins += coins; S.totals.coinsEarned += coins;
-  S.rp += rp;
-  S.totals.releases++; S.today.releases++;
-  lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
-  applyShipQuality(p);   /* 拡張ウェーブ G: 出荷品質 → 負債とブランド（第2ラインも同じ会社の評判） */
-  S.shelf.unshift({
-    name: p.name, genreName: p.genreName, size: p.size,
-    date: new Date().toLocaleDateString("ja-JP"),
-    devMin, lines: Math.round(L.projectDP * 1.05),
-    bugs: Math.round(p.bugs), naps: 0,
-    icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8)), line2: true,
-    highlight: makeHighlight(p, devMin, 0)
-  });
+  recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
   S.flags.line2Released = true;
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
   addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬");
@@ -14162,7 +14163,7 @@ function sellSubCore(id){
   const gain = subDustValue(sub);
   subs.splice(i, 1);
   normalizeAlloc();
-  const totalBefore = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
+  const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算にも積む */
   addLog("🏢 子会社「"+sub.name+"」を売却（部分EXIT）: 星屑 +"+gain+"（本社はそのまま）");
@@ -14225,7 +14226,7 @@ function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
   const gain = Math.floor(S.runDP / BAL.prestigeDPPerDust) + subGain;
-  const total = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
+  const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン", "応援強化"];
   if(subGain > 0) resets.push("子会社");
   const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典"];
@@ -14234,12 +14235,10 @@ function prestigePreview(){
     resets.splice(resets.indexOf("スタッフ"), 1);
     keeps.push("最古参スタッフ『"+vet.name+"』（ベテラン制度）");
   }
-  if(hasPerk("notebook")){
-    const done = RESEARCH_DEFS.filter(r => S.research[r.id]).sort((a,b) => b.cost - a.cost);
-    if(done.length){
-      resets.splice(resets.indexOf("研究"), 1);
-      keeps.push("研究『"+done[0].name+"』"+(done[0].requires ? "とその前提" : "")+"（研究ノート）");
-    }
+  const nbTop = hasPerk("notebook") ? notebookTopResearch() : null;
+  if(nbTop){
+    resets.splice(resets.indexOf("研究"), 1);
+    keeps.push("研究『"+nbTop.name+"』"+(nbTop.requires ? "とその前提" : "")+"（研究ノート）");
   }
   if(hasPerk("seedmoney")) keeps.push("初期資金 300🪙");
   if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大500🪙を持ち越し）");
@@ -14305,6 +14304,11 @@ function execSelectHTML(){
 function execSelArg(){ const id = resolvedExecPickId(); return id === null ? "__none" : id; }
 function vetSelArg(){ return typeof pendingVetPick === "number" ? pendingVetPick : "__auto"; }
 function swapSelArg(){ return typeof pendingExecSwap === "number" ? pendingExecSwap : -1; }
+/* 研究ノート（星屑特典）で次の会社へ残す研究: 取得済みのうち最も高価なもの */
+function notebookTopResearch(){
+  const done = RESEARCH_DEFS.filter(r => S.research[r.id]).sort((a,b) => b.cost - a.cost);
+  return done[0] || null;
+}
 function doPrestige(){
   const pv = prestigePreview();
   const gain = pv.gain;
@@ -14316,6 +14320,25 @@ function doPrestige(){
    viewer 側スタブで済ませる (resetSave / doResetSave と同じ分担)。
    帯 (owner) で confirm を出すと帯のスレッドがモーダルで止まり、cmd-result も
    スナップショットも返らなくなって全体が固まる (v2.4.7 実機バグ・二窓リグで再現済み) */
+/* 会社ひとつ分の状態を新会社の初期値へ戻す（EXIT と持株化で共通）。
+   特典による持ち越しは呼び出し側がこの後に上書きする */
+function resetCompanyRun(){
+  S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
+  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
+  S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
+  S.research = {};
+  S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
+  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
+  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
+  S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却・持株化で消える */
+  S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
+  /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
+  S.staff = [];
+  S.clickUp = {}; S.studioLv = 1;
+  /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
+  S.wip = { code:0, tested:0, built:0 };
+  S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
+}
 function doPrestigeCore(execSel, vetSel, swapSel){
   const pv = prestigePreview();
   const gain = pv.gain;
@@ -14342,37 +14365,22 @@ function doPrestigeCore(execSel, vetSel, swapSel){
     if(keptStaff) keptStaff.act = 0;
   }
   let keptResearch = null;
-  if(hasPerk("notebook")){
-    const done = RESEARCH_DEFS.filter(r => S.research[r.id]).sort((a,b) => b.cost - a.cost);
-    if(done.length){
-      /* Sprint 4: ティア2を残すときは前提チェーンごと引き継ぐ（前提なしの
-         ティア2だけが残って効果だけ生きる、という状態を作らない） */
-      keptResearch = [];
-      let cur = done[0];
-      while(cur){ keptResearch.push(cur.id); cur = cur.requires ? RESEARCH_DEFS.find(r => r.id === cur.requires) : null; }
-    }
+  const nbTop = hasPerk("notebook") ? notebookTopResearch() : null;
+  if(nbTop){
+    /* Sprint 4: ティア2を残すときは前提チェーンごと引き継ぐ（前提なしの
+       ティア2だけが残って効果だけ生きる、という状態を作らない） */
+    keptResearch = [];
+    let cur = nbTop;
+    while(cur){ keptResearch.push(cur.id); cur = cur.requires ? RESEARCH_DEFS.find(r => r.id === cur.requires) : null; }
   }
-  const totalBefore = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
+  const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
+  resetCompanyRun();
+  /* 特典の引き継ぎ: 初期資金・星の貯金箱・研究ノート・ベテラン */
   S.coins = (hasPerk("seedmoney") ? 300 : 0) + (hasPerk("piggybank") ? Math.min(500, Math.floor(coinsBefore * 0.1)) : 0);
-  S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
-  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
-  S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
-  S.research = {};
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
-  S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
-  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
-  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
-  S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却で消える */   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
-  S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
-  /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
-  S.staff = keptStaff ? [keptStaff] : [];
-  if(keptStaff) S.staffSeq = Math.max(S.staffSeq, keptStaff.id);
-  S.clickUp = {}; S.studioLv = 1;
-  /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
-  S.wip = { code:0, tested:0, built:0 };
-  S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
+  if(keptStaff){ S.staff = [keptStaff]; S.staffSeq = Math.max(S.staffSeq, keptStaff.id); }
   addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round(BAL.dustBonus*S.dustTotal*100)+"%）");
   /* 第2ウェーブ M: 役員の就任・交代・卒業（役員枠は EXIT では消えない） */
   if(execCand){
@@ -14457,17 +14465,7 @@ function doHoldingsCore(){
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
   S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0;
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
-  S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
-  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;
-  S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
-  S.research = {}; S.researchLv = {};
-  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;
-  S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
-  S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 持株化でも消える */
-  S.subs = [];
-  S.staff = []; S.clickUp = {}; S.studioLv = 1;
-  S.wip = { code:0, tested:0, built:0 };
-  S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
+  resetCompanyRun();
   addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目）");
   say("持株化したにゃ〜！ 星団"+gain+"個ゲット。これからもよろしくにゃ");
   startProject("S");
@@ -15442,6 +15440,12 @@ function sDrawStaffFallback(coat, gx, gy){
   sR(gx - 17, gy - 9, 5, 3, cc.sub);
   sR(gx - 9, gy - 3, 5, 3, cc.body); sR(gx + 6, gy - 3, 5, 3, cc.body);
 }
+/* 帯を横切る猫（訪問猫・配達猫・ベンダー・箱運び）: 毛柄の walk ANIMS を接地同期で描く */
+function sDrawStripWalker(v, G){
+  sShadow(v.x, G - 0.5, 50);
+  if(!sDrawSprite(animFrameAt("staff_" + v.coat + "_walk", v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
+    sDrawStaffFallback(v.coat, v.x, G);
+}
 /* デスクのPC: prop_pc スプライトが来たら差し替わる。無ければ手続き描画 */
 function drawStripPC(cx, gy){
   if(sDrawSprite("prop_pc", cx, gy, 1)) return;
@@ -15475,46 +15479,34 @@ function drawStripGitLog(log, x, yTop, w){
   }
 }
 function drawStripPCScreen(cx, gy){
+  drawStripProgressScreen(cx - 11, gy - 25, cx - 9, gy - 15, 18);
+}
+/* モニタ面の共通描画: ジャンル色の小箱 (ix, iy) と進捗バー (bx, by, 幅 bw)、
+   バーの上に git ログ面（幅 bw-2）を重ねる */
+function drawStripProgressScreen(ix, iy, bx, by, bw){
   const p = S.project;
   if(!p) return;
   const col = SHELF_BOX_COLS[(typeof p.icon === "number" ? p.icon : 0) % SHELF_BOX_COLS.length];
-  sR(cx - 11, gy - 25, 4, 4, col);
-  sR(cx - 11, gy - 23, 4, 1, "#00000033");
-  const bx = cx - 9, bw = 18;
-  sR(bx, gy - 15, bw, 3, "#101d16");
+  sR(ix, iy, 4, 4, col);
+  sR(ix, iy + 2, 4, 1, "#00000033");
+  sR(bx, by, bw, 3, "#101d16");
   if(p.planning){
-    if(frame % 12 < 7) sR(bx + 1, gy - 14, 3, 1, "#ffd94d");   /* 企画中は点滅 */
+    if(frame % 12 < 7) sR(bx + 1, by + 1, 3, 1, "#ffd94d");   /* 企画中は点滅 */
   } else {
     const frac = Math.max(0, Math.min(1, S.projectDP / p.totalDP));
-    if(frac > 0) sR(bx, gy - 15, Math.max(1, bw * frac), 3, "#7be495");
+    if(frac > 0) sR(bx, by, Math.max(1, bw * frac), 3, "#7be495");
     const ft = 1 / (p.feats.length + 1);
     const nextM = ft * ((p.doneFeats || 0) + 1);
-    if(nextM < 1) sR(bx + Math.round(bw * nextM), gy - 15, 1, 3, "#fff3b0");
+    if(nextM < 1) sR(bx + Math.round(bw * nextM), by, 1, 3, "#fff3b0");
   }
-  drawStripGitLog(stripGitLog, bx, gy - 20.5, 16);
+  drawStripGitLog(stripGitLog, bx, by - 5.5, bw - 2);
 }
 /* sakuri作画バッチ2: code アニメ再生中は prop_pc を描かない代わりに、ポーズ内の
    モニタへ同じ進捗表示を重ねる。ポーズ内モニタの画面域 (スプライト原寸 x1..20,
    y24..34) は、みゅけを (cx+6, G-2) に ×2 で描くと帯座標で (cx-40..cx-2, G-34..G-14)
    になる。バーは彼女の体 (x cx-16〜) に被らない左寄せにする */
 function drawStripCodeScreen(cx, G){
-  const p = S.project;
-  if(!p) return;
-  const col = SHELF_BOX_COLS[(typeof p.icon === "number" ? p.icon : 0) % SHELF_BOX_COLS.length];
-  sR(cx - 37, G - 31, 4, 4, col);
-  sR(cx - 37, G - 29, 4, 1, "#00000033");
-  const bx = cx - 37, bw = 20;
-  sR(bx, G - 20, bw, 3, "#101d16");
-  if(p.planning){
-    if(frame % 12 < 7) sR(bx + 1, G - 19, 3, 1, "#ffd94d");   /* 企画中は点滅 */
-  } else {
-    const frac = Math.max(0, Math.min(1, S.projectDP / p.totalDP));
-    if(frac > 0) sR(bx, G - 20, Math.max(1, bw * frac), 3, "#7be495");
-    const ft = 1 / (p.feats.length + 1);
-    const nextM = ft * ((p.doneFeats || 0) + 1);
-    if(nextM < 1) sR(bx + Math.round(bw * nextM), G - 20, 1, 3, "#fff3b0");
-  }
-  drawStripGitLog(stripGitLog, bx, G - 25.5, 18);
+  drawStripProgressScreen(cx - 37, G - 31, cx - 37, G - 20, 20);
 }
 function drawStripZ(x, y){
   sctx.save();
@@ -15528,6 +15520,10 @@ function drawStripZ(x, y){
 function addStripFloater(x, y, text, color){
   stripFloaters.push({ x, y, text, color: color || "#e8873a", born: Date.now() });
   if(stripFloaters.length > 12) stripFloaters.shift();
+}
+function addStripSpark(x, y){
+  stripSparks.push({ x, y, born: Date.now() });
+  if(stripSparks.length > 10) stripSparks.shift();
 }
 /* ---------- 可視生産フロー: 供給と発火 ----------
    tick から毎秒、実フローの増分だけを受ける薄い層。量子を超えた分だけ
@@ -15718,8 +15714,7 @@ function stripUpdate(dt){
         const dx = tx - wk.x;
         if(Math.abs(dx) < 10){
           wk.carrying = false; wk.carryKind = null;
-          stripSparks.push({ x: tx, y: 48, born: Date.now() });
-          if(stripSparks.length > 10) stripSparks.shift();
+          addStripSpark(tx, 48);
         } else {
           wk.dir = dx > 0 ? 1 : -1;
           wk.x += wk.dir * 30 * dt;
@@ -15734,8 +15729,7 @@ function stripUpdate(dt){
         wk.carrying = false; wk.carryKind = null; wk.x = stripVW - 30; wk.dir = -1;
         if(kind === "ship"){
           /* 日常の出荷: コインは出さない (正直さ)。極小の ✦ だけ */
-          stripSparks.push({ x: stripVW - 14, y: STRIP_GROUND - 22, born: Date.now() });
-          if(stripSparks.length > 10) stripSparks.shift();
+          addStripSpark(stripVW - 14, STRIP_GROUND - 22);
         } else {
           addStripFloater(stripVW - 26, STRIP_GROUND - 36, "+🪙", "#d9a41a");
         }
@@ -15968,14 +15962,7 @@ function stripAmbientUpdate(dt){
     }
   } else {
     const d = stripDelivery;
-    d.x += d.dir * d.speed * dt;
-    d.walkClock = (d.walkClock || 0) + walkAdvanceMs("staff_" + d.coat + "_walk", d.speed * dt);
-    if(!d.done && Math.abs(d.x - stripDeskCX()) < 14){
-      d.done = true; d.dir = 1;
-      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
-      if(stripSparks.length > 10) stripSparks.shift();
-      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "📦 子会社から納品", "#4a90c2");
-    }
+    stepStripCourier(d, d.speed, dt, "📦 子会社から納品", "#4a90c2");
     if(d.x > stripVW + 30){
       stripDelivery = null;
       nextDeliveryAt = stripNow + (3 + Math.random() * 3) * 60000;
@@ -15983,29 +15970,23 @@ function stripAmbientUpdate(dt){
   }
   /* 拡張ウェーブ G: ベンダーの猫（机でバグを受け取って帰る） */
   if(stripVendor){
-    const v = stripVendor;
-    v.x += v.dir * v.speed * dt;
-    v.walkClock = (v.walkClock || 0) + walkAdvanceMs("staff_" + v.coat + "_walk", v.speed * dt);
-    if(!v.done && Math.abs(v.x - stripDeskCX()) < 14){
-      v.done = true; v.dir = 1;
-      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
-      if(stripSparks.length > 10) stripSparks.shift();
-      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "🧳 バグ回収！", "#8a6a44");
-    }
-    if(v.x > stripVW + 30) stripVendor = null;
+    stepStripCourier(stripVendor, stripVendor.speed, dt, "🧳 バグ回収！", "#8a6a44");
+    if(stripVendor.x > stripVW + 30) stripVendor = null;
   }
   /* Wave H: モジュールの箱運び（右から箱を持って机へ・帰りは手ぶら） */
   if(stripModCart){
-    const v = stripModCart;
-    v.x += v.dir * 17 * dt;
-    v.walkClock = (v.walkClock || 0) + walkAdvanceMs("staff_" + v.coat + "_walk", 17 * dt);
-    if(!v.done && Math.abs(v.x - stripDeskCX()) < 14){
-      v.done = true; v.dir = 1;
-      stripSparks.push({ x: stripDeskCX(), y: STRIP_GROUND - 40, born: Date.now() });
-      if(stripSparks.length > 10) stripSparks.shift();
-      addStripFloater(stripDeskCX(), STRIP_GROUND - 48, "🧩 モジュール到着！", "#58a64a");
-    }
-    if(v.x > stripVW + 30) stripModCart = null;
+    stepStripCourier(stripModCart, 17, dt, "🧩 モジュール到着！", "#58a64a");
+    if(stripModCart.x > stripVW + 30) stripModCart = null;
+  }
+}
+/* 右から来て机で荷を渡し、右へ帰る運び猫の1ステップ（到着の瞬間だけ ✦ と吹き出し） */
+function stepStripCourier(v, speed, dt, label, color){
+  v.x += v.dir * speed * dt;
+  v.walkClock = (v.walkClock || 0) + walkAdvanceMs("staff_" + v.coat + "_walk", speed * dt);
+  if(!v.done && Math.abs(v.x - stripDeskCX()) < 14){
+    v.done = true; v.dir = 1;
+    addStripSpark(stripDeskCX(), STRIP_GROUND - 40);
+    addStripFloater(stripDeskCX(), STRIP_GROUND - 48, label, color);
   }
 }
 function drawStripChatBubble(hx, topY, text){
@@ -16242,6 +16223,25 @@ function drawStripDesk2Screen(dcx, G){
    常にボードより手前に描かれる (R2)。中身の算数はメニューのヒーローカードと
    同一: frac = projectDP/totalDP、% は floor、目盛りは k/(feats+1) の節目位置 */
 const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108 };
+/* ボードの吊りメモ札（幅150）。はみ出す文は … で切る */
+function drawStripMemoTag(mx0, my0, memoTxt){
+  const mw = 150;
+  const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅（色＋動きの二経路） */
+  sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
+  sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && frame % 50 < 25 ? "#ffe9a8" : "#fff5e6");
+  sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
+  sctx.save();
+  sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
+  let mt = memoTxt;
+  if(sctx.measureText(mt).width > mw - 10){
+    while(mt.length > 1 && sctx.measureText(mt).width > mw - 13) mt = mt.slice(0, -1);
+    mt += "…";
+  }
+  sctx.fillText(mt, mx0 + 5, my0 + 8.4);
+  sctx.restore();
+  stripHitRects.memo = { x: mx0, y: my0, w: mw, h: 16 };
+}
 function projectBoardModel(p, dp){
   if(!p) return { has: false, frac: 0, pct: -1, ticks: [], planning: false };
   if(p.planning){
@@ -16536,41 +16536,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(memoTxt && (propEntry("memo") || layoutEdit.dragId === "memo")){
     /* Phase E: メモを掴んで切り離した姿 — ボードから独立し、地面に立つ札になる */
     const memoPl = propPlace("memo");
-    const mw = 150, mx0 = memoPl.cx - 75, my0 = memoPl.baseY - 16;
-    const memoGold = !!S.bigDeal;
-    sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
-    sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && frame % 50 < 25 ? "#ffe9a8" : "#fff5e6");
-    sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
-    sctx.save();
-    sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
-    let mt = memoTxt;
-    if(sctx.measureText(mt).width > mw - 10){
-      while(mt.length > 1 && sctx.measureText(mt).width > mw - 13) mt = mt.slice(0, -1);
-      mt += "…";
-    }
-    sctx.fillText(mt, mx0 + 5, my0 + 8.4);
-    sctx.restore();
-    stripHitRects.memo = { x: mx0, y: my0, w: mw, h: 16 };
+    drawStripMemoTag(memoPl.cx - 75, memoPl.baseY - 16, memoTxt);
   }
   if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo"){
-    const mw = 150, mx0 = bx + 4, my0 = top + bh + 2;
     sR(bx + 14, top + bh - 1, 2, 3, "#604B40"); sR(bx + 138, top + bh - 1, 2, 3, "#604B40");
-    const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅（色＋動きの二経路） */
-    sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
-    sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && frame % 50 < 25 ? "#ffe9a8" : "#fff5e6");
-    sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
-    sctx.save();
-    sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
-    let mt = memoTxt;
-    if(sctx.measureText(mt).width > mw - 10){
-      while(mt.length > 1 && sctx.measureText(mt).width > mw - 13) mt = mt.slice(0, -1);
-      mt += "…";
-    }
-    sctx.fillText(mt, mx0 + 5, my0 + 8.4);
-    sctx.restore();
-    stripHitRects.memo = { x: mx0, y: my0, w: mw, h: 16 };
+    drawStripMemoTag(bx + 4, top + bh + 2, memoTxt);
   }
   {
     const tw = 68, tx0 = bx + bw - 4 - tw, ty0 = top + bh + 2;
@@ -17121,9 +17091,7 @@ function renderStrip(){
     const vbase = "staff_" + v.coat + "_walk";
     const va = ANIMS[vbase];
     if(va && va.frames.some(f => hasSprite(f))){
-      sShadow(v.x, G - 0.5, 50);
-      if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
-        sDrawStaffFallback(v.coat, v.x, G);
+      sDrawStripWalker(v, G);
     } else {
       sShadow(v.x, G - 0.5, 30);
       const vbob = frame % 2 ? 0 : -0.8;
@@ -17134,27 +17102,18 @@ function renderStrip(){
   /* --- Phase D: 子会社の配達猫（荷物を持って本社へ） --- */
   if(stripDelivery){
     const v = stripDelivery;
-    const vbase = "staff_" + v.coat + "_walk";
-    sShadow(v.x, G - 0.5, 50);
-    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
-      sDrawStaffFallback(v.coat, v.x, G);
+    sDrawStripWalker(v, G);
     if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
   /* --- 拡張ウェーブ G: 外注ベンダーの猫（帰りはバグを持っている） --- */
   if(stripVendor){
     const v = stripVendor;
-    const vbase = "staff_" + v.coat + "_walk";
-    sShadow(v.x, G - 0.5, 50);
-    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
-      sDrawStaffFallback(v.coat, v.x, G);
+    sDrawStripWalker(v, G);
     if(v.done) sDrawSprite("icon_bug", v.x - 16 * v.dir, G - 46, 0.7);
   }
   if(stripModCart){
     const v = stripModCart;
-    const vbase = "staff_" + v.coat + "_walk";
-    sShadow(v.x, G - 0.5, 50);
-    if(!sDrawSprite(animFrameAt(vbase, v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
-      sDrawStaffFallback(v.coat, v.x, G);
+    sDrawStripWalker(v, G);
     if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
   /* --- Sprint 4: 帯のクリックイベント（金の魚・バグの群れ） ---
@@ -17462,8 +17421,7 @@ if(stripCv){
       clickTimes = [];
     }
     const crit = cheerClick(ux, uy, part);
-    stripSparks.push({ x: ux, y: uy, born: Date.now() });
-    if(stripSparks.length > 10) stripSparks.shift();
+    addStripSpark(ux, uy);
     if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
