@@ -12027,7 +12027,7 @@ let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリ�
 function bumpRev(){ snapRev++; }
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.5.1";   /* 表示ラベルの単一の出所 (v2.5.1: EXIT の小刻み化 — 星屑レート見直し・売却下限の引き下げ・小粒特典の追加 — と子会社配分の見直し。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.6.0";   /* 表示ラベルの単一の出所 (v2.6.0: 第2拡張ウェーブ — ホールディングス化と星団・レガシー技術、チャレンジ周回、市場トレンドと自社IP、役員猫。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(){
