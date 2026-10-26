@@ -508,11 +508,12 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
     Math.abs(run(sb, "clickPower()") - cpBefore * 1.1) < 1e-9,
     cpBefore + " -> " + run(sb, "clickPower()"));
   run(sb, "buyDustPerk('stardecor'); buyDustPerk('dreamplus'); buyDustPerk('notebook'); buyDustPerk('veteran'); buyDustPerk('seedmoney');");
+  run(sb, "buyDustPerk('starlight'); buyDustPerk('omamori'); buyDustPerk('piggybank');");   /* 第2ウェーブ I: 小粒3種 */
   /* Sprint 4: レベル制の特典2件も買う（初回 3 + 2 星屑） */
   run(sb, "buyDustPerk('starcharm'); buyDustPerk('luckyfin');");
   check("all perks purchasable (incl. levelable ones)", run(sb, "DUST_PERKS.every(d => hasPerk(d.id))"));
-  check("dust spent on perks (40 - 28 - 5 = 7) but dustTotal (multiplier base) unchanged",
-    run(sb, "S.dust") === 7 && run(sb, "S.dustTotal") === 30 &&
+  check("dust spent on perks (40 - 30 - 5 = 5) but dustTotal (multiplier base) unchanged",
+    run(sb, "S.dust") === 5 && run(sb, "S.dustTotal") === 30 &&
     Math.abs(run(sb, "dustMult()") - (1 + 0.04 * 30)) < 1e-9);
   /* レーンA・星屑シンク拡張: Lv制特典の上限 Lv5→Lv10（価格 ×1.8 曲線は不変）。
      Lv5→6 の単価は starcharm ceil(3×1.8^5)=57、luckyfin ceil(2×1.8^5)=38。
@@ -523,13 +524,13 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
     run(sb, "perkLv('starcharm')") === 6 && run(sb, "perkLv('luckyfin')") === 6 &&
     run(sb, "S.dust") === 905,
     "starcharm=" + run(sb, "perkLv('starcharm')") + " luckyfin=" + run(sb, "perkLv('luckyfin')") + " dust=" + run(sb, "S.dust"));
-  check("Lv6 multipliers: starcharm production x1.12, luckyfin fish interval x0.52",
+  check("Lv6 multipliers: starcharm production x1.12, luckyfin fish interval x0.52 x omamori 0.95",
     Math.abs(run(sb, "perkProdMult()") - 1.12) < 1e-9 &&
-    Math.abs(run(sb, "fishIntervalMul()") - 0.52) < 1e-9);
+    Math.abs(run(sb, "fishIntervalMul()") - 0.52 * 0.95) < 1e-9);
   run(sb, "S.dustPerks.starcharm = 10; S.dustPerks.luckyfin = 10;");
-  check("Lv10 multipliers: starcharm production x1.20, luckyfin fish interval x0.20",
+  check("Lv10 multipliers: starcharm production x1.20, luckyfin fish interval x0.20 x omamori 0.95",
     Math.abs(run(sb, "perkProdMult()") - 1.20) < 1e-9 &&
-    Math.abs(run(sb, "fishIntervalMul()") - 0.20) < 1e-9);
+    Math.abs(run(sb, "fishIntervalMul()") - 0.20 * 0.95) < 1e-9);
   run(sb, "buyDustPerk('starcharm');");
   check("Lv10 is the cap: buying at max spends no dust and stays Lv10",
     run(sb, "perkLv('starcharm')") === 10 && run(sb, "S.dust") === 905);
@@ -540,9 +541,9 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
   run(sb, "S.staff = [{ id: 1, name: '若手', coat: 'kuro', role: 'prog', lv: 1 }, { id: 2, name: '古参', coat: 'shiro', role: 'test', lv: 5 }]; S.staffSeq = 2;");
   run(sb, "S.research = { res_game: true, res_ai: true }; S.runDP = 65000;");
   const pv = run(sb, "prestigePreview()");
-  check("prestige preview: gain = floor(runDP / 12000) = 5", pv.gain === 5, "gain=" + pv.gain);
+  check("prestige preview: gain = floor(runDP / 8000) = 8", pv.gain === 8, "gain=" + pv.gain);
   check("prestige preview: multipliers now -> after",
-    Math.abs(pv.curMult - (1 + 0.04 * 30)) < 1e-9 && Math.abs(pv.nextMult - (1 + 0.04 * 35)) < 1e-9,
+    Math.abs(pv.curMult - (1 + 0.04 * 30)) < 1e-9 && Math.abs(pv.nextMult - (1 + 0.04 * 38)) < 1e-9,
     pv.curMult + " -> " + pv.nextMult);
   check("prestige preview lists kept staff/research via perks",
     pv.keeps.some(k => k.includes("古参")) && pv.keeps.some(k => k.includes("研究ノート")));
@@ -554,15 +555,15 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
     run(sb, "S.staff.length") === 1 && run(sb, "S.staff[0].name") === "古参" && run(sb, "S.staff[0].lv") === 5);
   check("notebook perk: the priciest completed research is kept (res_ai, not res_game)",
     run(sb, "S.research.res_ai") === true && !run(sb, "S.research.res_game"));
-  check("seedmoney perk: the new run starts with 300 coins", run(sb, "S.coins") === 300);
-  check("dustTotal accumulates across the move (30 + 5 = 35)",
-    run(sb, "S.dustTotal") === 35 && Math.abs(run(sb, "dustMult()") - (1 + 0.04 * 35)) < 1e-9);
+  check("seedmoney + piggybank: the new run starts with 300 + 50 carryover (10% of 500) = 350 coins", run(sb, "S.coins") === 350, "coins=" + run(sb, "S.coins"));
+  check("dustTotal accumulates across the move (30 + 8 = 38)",
+    run(sb, "S.dustTotal") === 38 && Math.abs(run(sb, "dustMult()") - (1 + 0.04 * 38)) < 1e-9);
 
   /* --- 特典はセーブ/ロードで永続する --- */
   run(sb, "save();");
   run(sb, "S.dustPerks = {}; S.dustTotal = 0; load();");
   check("perks persist through save/load",
-    run(sb, "DUST_PERKS.every(d => hasPerk(d.id))") && run(sb, "S.dustTotal") === 35);
+    run(sb, "DUST_PERKS.every(d => hasPerk(d.id))") && run(sb, "S.dustTotal") === 38);
 
   /* --- 二窓: 引っ越しの確認は viewer 側・帯側の本体は confirm を出さない
      (v2.4.7 実機フリーズの回帰防止。帯で confirm が出ると帯のスレッドが止まる) --- */
@@ -3214,10 +3215,10 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     run(sb, "S.runDP = 60000;");
     check("D: group EXIT preview adds every sub's dust value on top of the DP-based gain",
       run(sb, "prestigePreview().subGain") === 1 &&
-      run(sb, "prestigePreview().gain") === 5 + 1);
+      run(sb, "prestigePreview().gain") === 7 + 1);
     run(sb, "doPrestigeCore();");
     check("D: group EXIT (doPrestigeCore) sells all subsidiaries with the HQ",
-      run(sb, "S.subs.length") === 0 && run(sb, "S.dust") >= 6);
+      run(sb, "S.subs.length") === 0 && run(sb, "S.dust") >= 8);
     run(sb, "S.subs = [{ id: 1, name: 't', genre: 'app', staff: 100, lv: 10, alloc: 100 }]; S.coins = 0;");
     run(sb, "tick();");
     check("D: tick pays subsidiary income (staff 100 / Lv10 / first genre = 259/min -> 4 whole coins in one tick)",
@@ -3528,6 +3529,54 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     run(sbDMH, "doDeathMarchCore()");
     check("WH: death march force-completes module integration and still ships",
       run(sbDMH, "S.totals.releases") >= 1);
+    /* --- Wave I (wave 2): EXIT small-step cycling + subdivided perks + act --- */
+    check("WI: the dust rate is 8000 DP per dust (was 12000)",
+      run(sbH, "BAL.prestigeDPPerDust") === 8000);
+    const sbI3 = mkG("S.runDP = 24000");
+    run(sbI3, "doPrestigeCore()");
+    check("WI: EXIT opens at gain 3 (small-step floor)",
+      run(sbI3, "S.prestiges") === 1 && run(sbI3, "S.dustTotal") === 3);
+    const sbI2 = mkG("S.runDP = 16000");
+    run(sbI2, "doPrestigeCore()");
+    check("WI: EXIT still refuses below gain 3",
+      run(sbI2, "S.prestiges") === 0);
+    check("WI: subdivided perk prices (small 1/1/2, retiered 3/4)",
+      run(sbH, "DUST_PERKS.find(p => p.id === 'starlight').cost") === 1 &&
+      run(sbH, "DUST_PERKS.find(p => p.id === 'omamori').cost") === 1 &&
+      run(sbH, "DUST_PERKS.find(p => p.id === 'piggybank').cost") === 2 &&
+      run(sbH, "DUST_PERKS.find(p => p.id === 'dreamplus').cost") === 3 &&
+      run(sbH, "DUST_PERKS.find(p => p.id === 'focus').cost") === 4);
+    const sbFv = buildSandbox({});
+    loadGame(sbFv);
+    run(sbFv, "S.fever.gauge = 0; chargeFever(10)");
+    const fvPlain = run(sbFv, "S.fever.gauge");
+    run(sbFv, "S.dustPerks.starlight = true; S.fever.gauge = 0; chargeFever(10)");
+    check("WI: starlight charges the fever gauge 15% faster",
+      fvPlain === 10 && Math.abs(run(sbFv, "S.fever.gauge") - 11.5) < 0.001,
+      "plain=" + fvPlain + " with=" + run(sbFv, "S.fever.gauge"));
+    const sbFish = buildSandbox({});
+    loadGame(sbFish);
+    const fishPlain = run(sbFish, "fishIntervalMul()");
+    run(sbFish, "S.dustPerks.omamori = true");
+    check("WI: omamori shortens the fish interval by 5% in its own slot",
+      fishPlain === 1 && Math.abs(run(sbFish, "fishIntervalMul()") - 0.95) < 0.001);
+    const sbPg = mkG("S.dustPerks.piggybank = true; S.coins = 2000; S.runDP = 24000");
+    run(sbPg, "doPrestigeCore()");
+    check("WI: piggybank carries 10% of coins into the new company",
+      run(sbPg, "S.coins") === 200, "coins=" + run(sbPg, "S.coins"));
+    const sbPg2 = mkG("S.dustPerks.piggybank = true; S.coins = 9000; S.runDP = 24000");
+    run(sbPg2, "doPrestigeCore()");
+    check("WI: piggybank carryover is capped at 500",
+      run(sbPg2, "S.coins") === 500, "coins=" + run(sbPg2, "S.coins"));
+    const sbAct = buildSandbox({});
+    loadGame(sbAct);
+    run(sbAct, "S.staff.push({ id: 990, name: 'act-test', coat: 'kuro', role: 'prog', lv: 3 })");
+    run(sbAct, "tick(); tick(); tick()");
+    const act1 = run(sbAct, "S.staff[0].act || 0");
+    run(sbAct, "tick(); tick()");
+    check("WI: staff activity (act) accrues per tick and keeps growing",
+      act1 > 0 && run(sbAct, "S.staff[0].act") > act1,
+      "act after 3 ticks=" + act1);
   }
 
   console.log("\n==== SMOKE RESULT: " + PASS + " passed, " + FAIL + " failed ====");

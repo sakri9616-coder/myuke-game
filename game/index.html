@@ -11563,7 +11563,7 @@ const BAL = {
   bugPerDP: 0.012,          // DPあたりのバグ混入
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
-  prestigeDPPerDust: 12000,  // 星屑1個ぶんのDP
+  prestigeDPPerDust: 8000,  // 星屑1個ぶんのDP（第2ウェーブ I: 12,000→8,000 で EXIT を小刻み化）
   dustBonus: 0.04,          // 星屑1個の永続ボーナス(+4% DP/コイン)
   stageBaseRate: 30,        // テスト/ビルド/出荷の基本スループット DP/分
   line2BaseRate: 4,         // 第2ラインの基本生産 DP/分
@@ -12186,7 +12186,7 @@ const TUT_NEXT = [
   () => S.totals.coinsEarned >= 220,                           /* 3→4 仲間 */
   () => S.totals.hired >= 1 || S.totals.releases >= 5,         /* 4→5 依頼 */
   () => !!S.research.res_line2,                                /* 5→6 第2ライン */
-  () => prestigePreview().gain >= 5                            /* 6→7 引っ越し (卒業) */
+  () => prestigePreview().gain >= 3                            /* 6→7 引っ越し (卒業)。第2ウェーブ I で売却下限 3 に一致 */
 ];
 /* 解放ビート (吹き出し1回だけ)。設計 §7 の文案 */
 const TUT_BEATS = {
@@ -12957,7 +12957,7 @@ function clickBucketTake(){
 function chargeFever(amount){
   if(feverActive() || !S.fever) return;
   const before = S.fever.gauge || 0;
-  S.fever.gauge = Math.min(100, before + amount);
+  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1));   /* 第2ウェーブ I: 星あかりで充填 +15% */
   if(before < 100 && S.fever.gauge >= 100 && !IS_VIEWER){
     say("⚡ オーバークロック準備完了にゃ！ 机脇のゲージをクリックで発動できるよ");
     addLog("⚡ オーバークロックのゲージが満タンになった");
@@ -13441,6 +13441,9 @@ function tick(){
   if(comboN > 0 && now - lastClickAt > 2500){ comboN = 0; updateComboUI(); }
   const coding = ["code","code_slow","think","debug"].includes(catState);
   const ss = staffSums();
+  /* 第2ウェーブ I: 活躍度カウンタ（M の役員選出の材料。tick = 1秒ごとに、その猫の
+     出力倍率ぶんを積む。表示はまだしない。みゅけ本人は S.staff にいないため対象外） */
+  for(const st of S.staff) st.act = (st.act || 0) + staffOutMult(st) * deptMult(st.role);
   /* 可視生産フロー: 工程に入る前の実装バッファを測り、生産分だけを
      アキュムレータへ供給する (演出専用。応援クリックの produceDP は
      tick の外で起きるため、この差分には混ざらない = 設計 #11) */
@@ -13959,17 +13962,20 @@ function sellSub(id){
    （S.dustTotal）で決まるので、買い物をしても倍率が下がることはない。
    特典は引っ越ししても消えない（S.dustPerks はリセット対象外）。 */
 const DUST_PERKS = [
+  { id:"starlight", name:"星あかり",     cost:1,  desc:"フィーバーのゲージが +15% たまりやすくなります" },
+  { id:"omamori",   name:"星屑のお守り", cost:1,  desc:"金の魚の間隔が -5% になります（幸運のヒレと重なります）" },
+  { id:"piggybank", name:"星の貯金箱",   cost:2,  desc:"売却時、所持コインの 10%（最大 500🪙）を新会社に持ち越します" },
   { id:"stardecor", name:"棚の星飾り",   cost:2,  desc:"帯の作品棚の天板に星の飾りが出ます（見た目の自慢）" },
   { id:"seedmoney", name:"初期資金",     cost:3,  desc:"売却して創業した直後の所持コインが 300🪙 から始まります" },
-  { id:"dreamplus", name:"夢の続き",     cost:4,  desc:"夢のお土産（30分以上あけて戻った時のアイデア）が +1 個増えます" },
-  { id:"focus",     name:"集中ブースト", cost:5,  desc:"応援クリックの威力 +10%" },
+  { id:"dreamplus", name:"夢の続き",     cost:3,  desc:"夢のお土産（30分以上あけて戻った時のアイデア）が +1 個増えます" },
+  { id:"focus",     name:"集中ブースト", cost:4,  desc:"応援クリックの威力 +10%" },
   { id:"notebook",  name:"研究ノート",   cost:6,  desc:"売却時に、完了した研究を1件（最も研究Pが高かったもの）引き継ぎます" },
   { id:"veteran",   name:"ベテラン制度", cost:8,  desc:"売却時に、最も育ったスタッフ1人が新会社に来てくれます" },
   /* Sprint 4: レベル制（反復購入できる星屑シンク）。S.dustPerks[id] に数値で持つ */
   { id:"starcharm", name:"星のチャーム", lv:true, baseCost:3, costMul:1.8, maxLv:10, desc:"生産 +2%/Lv（最大Lv10）" },
   { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:10, desc:"フィッシュの間隔 -8%/Lv（最大Lv10）" }
 ];
-function fishIntervalMul(){ return 1 - 0.08 * perkLv("luckyfin"); }
+function fishIntervalMul(){ return (1 - 0.08 * perkLv("luckyfin")) * (hasPerk("omamori") ? 0.95 : 1); }   /* 第2ウェーブ I: 星屑のお守りで別枠 -5% */
 function buyDustPerk(id){
   const def = DUST_PERKS.find(p => p.id === id);
   if(!def) return;
@@ -14018,6 +14024,7 @@ function prestigePreview(){
     }
   }
   if(hasPerk("seedmoney")) keeps.push("初期資金 300🪙");
+  if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大500🪙を持ち越し）");
   return {
     gain, subGain,
     curMult: 1 + BAL.dustBonus * total,
@@ -14028,7 +14035,7 @@ function prestigePreview(){
 function doPrestige(){
   const pv = prestigePreview();
   const gain = pv.gain;
-  if(gain < 5){ say("売却には星屑5個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
+  if(gain < 3){ say("売却には星屑3個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
   if(!confirm("会社を売却しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+pv.curMult.toFixed(2)+" → ×"+pv.nextMult.toFixed(2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
   doPrestigeCore();
 }
@@ -14039,7 +14046,8 @@ function doPrestige(){
 function doPrestigeCore(){
   const pv = prestigePreview();
   const gain = pv.gain;
-  if(gain < 5) return;
+  if(gain < 3) return;   /* 第2ウェーブ I: 小口 EXIT の下限は 3 個 */
+  const coinsBefore = S.coins;   /* 星の貯金箱の持ち越し計算用（リセット前に確保） */
   /* 特典の引き継ぎ対象はリセット前に確保する */
   let keptStaff = null;
   if(hasPerk("veteran") && S.staff.length){
@@ -14058,7 +14066,7 @@ function doPrestigeCore(){
   }
   const totalBefore = typeof S.dustTotal === "number" ? S.dustTotal : S.dust;
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
-  S.coins = hasPerk("seedmoney") ? 300 : 0;
+  S.coins = (hasPerk("seedmoney") ? 300 : 0) + (hasPerk("piggybank") ? Math.min(500, Math.floor(coinsBefore * 0.1)) : 0);
   S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
@@ -14078,6 +14086,7 @@ function doPrestigeCore(){
   if(keptStaff) addLog("⭐ ベテラン制度: "+keptStaff.name+"（Lv"+keptStaff.lv+"）が一緒についてきた");
   if(keptResearch && keptResearch.length) addLog("⭐ 研究ノート: 『"+(RESEARCH_DEFS.find(r=>r.id===keptResearch[0])||{}).name+"』を引き継いだ");
   if(hasPerk("seedmoney")) addLog("⭐ 初期資金: 300🪙 からスタート");
+  if(hasPerk("piggybank") && S.coins > (hasPerk("seedmoney") ? 300 : 0)) addLog("⭐ 星の貯金箱: 前の会社のコインを持ち越した");
   say("売却成立だにゃ〜！ 星屑"+gain+"個ゲット");
   startProject("S");
   checkStamps(); save(); renderPanel();
@@ -17643,15 +17652,15 @@ function renderPanel(){
       "<div class='note' style='margin-top:6px'>永続特典（売却しても消えません）。生産倍率は通算の星屑（現在 "+fmt(S.dustTotal||0)+" 個）で決まるので、使っても下がりません</div>";
     /* プレステージは低頻度: 実行できる時だけ表のカードに出し、それ以外は
        星屑ショップと一緒に折りたたみにまとめる */
-    const prestigeBtn = "<button class='primary' onclick='doPrestige()' "+(pv.gain<5?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
+    const prestigeBtn = "<button class='primary' onclick='doPrestige()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
     if(tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
       /* チュートリアル導線: 引っ越しと星屑ショップは卒業 (Stage 7) の深層。
          それまでは正体を伏せた深部シルエットだけを見せる */
       h += "<div class='seclock'><div class='seclock-head'><span class='silh'>⭐</span><span>？？？</span>" +
         "<span class='fold-sum'>🔒 深いところにある何か</span></div>" +
-        condBarsHTML([["⭐", pv.gain, 5, "星屑（今回の実績ぶん）"]]) +
+        condBarsHTML([["⭐", pv.gain, 3, "星屑（今回の実績ぶん）"]]) +
         "<div class='lockline'>🐱 まだ内緒にゃ。たくさん作ると分かるよ</div></div>";
-    } else if(pv.gain >= 5){
+    } else if(pv.gain >= 3){
       h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>"+
         "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
@@ -17659,7 +17668,7 @@ function renderPanel(){
         "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
-      const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（5個から売却可能）") +
+      const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能）") +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+pv.curMult.toFixed(2)+" → 売却後 ×"+pv.nextMult.toFixed(2)) +
         (pv.subGain > 0 ? kv("うち子会社ぶん", "星屑 +"+pv.subGain+" 個（グループEXIT: 子会社も売却）") : "") +
         kv("EXIT回数", S.prestiges+" 回") +
@@ -18675,7 +18684,7 @@ function makeVerbStub(verb){
       /* 確認は menu 側で済ませてから送る (resetSave と同じ。帯側で confirm が
          出ると帯のスレッドが止まって全体が固まる)。文面は帯側 doPrestige と同一 */
       const pv = prestigePreview();
-      if(pv.gain < 5){ showViewerNote("売却には星屑5個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
+      if(pv.gain < 3){ showViewerNote("売却には星屑3個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
       if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
     }
     if(verb === "outsourceBugs"){

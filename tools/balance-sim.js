@@ -137,7 +137,7 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin){
   return PLAYER.clicksPerMin * base * avgMult * critF;
 }
 
-function simulate(days, active, reqMode){
+function simulate(days, active, reqMode, prestigeAt){
   seed = 20261024; // プレイヤー間で乱数を揃える
   const up = {}, res = {}, cu = {};
   let staff = [], studioLv = 1;
@@ -155,7 +155,7 @@ function simulate(days, active, reqMode){
   let project2 = null, proj2DP = 0;
   let totalReleasesEver = 0;
   const releasesByDay = [];
-  const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null,
+  const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null, prestigeCount: 0,
                        firstUpgradeDay: null, firstHireDay: null, line2Day: null,
                        resT1Day: null, resAllDay: null,
                        /* Phase B・社格到達日: Lv1 は開始時（0日目）。売却で Lv1 に戻っても
@@ -169,7 +169,7 @@ function simulate(days, active, reqMode){
        Stage 4 (仲間, 累計>=220)  = firstHireDay の雇用 (最安 220) と同時か前
        Stage 5 (依頼, 雇用>=1)    = firstHireDay
        Stage 6 (第2ライン研究)    = line2Day の建設より前 (研究完了の瞬間)
-       Stage 7 (引っ越し gain>=5)= prestigeFeasibleDay (到達可能になった日) */
+       Stage 7 (引っ越し gain>=3)= prestigeFeasibleDay (到達可能になった日。第2ウェーブ I で下限 3 に一致) */
   const sizePool = ["S","S","M","M","L"];
   let snapshot7 = null;
 
@@ -445,10 +445,12 @@ function simulate(days, active, reqMode){
       const clickPerMin = sessionClickDPperMin(cu, perks.focus, passivePerMin) * mlt;
       snapshot7 = { passivePerMin, clickPerMin, ratio: (passivePerMin + clickPerMin) / passivePerMin, staff: staff.length, studioLv };
     }
-    // --- プレステージ（星屑10個ぶんで実施。5個ぶん到達日も記録） ---
+    // --- プレステージ（既定は星屑10個ぶんで実施。3個ぶん到達日も記録。
+    //     prestigeAt を渡すとその個数で回す計測ランになる — 第2ウェーブ I） ---
     const gain = Math.floor(runDP / BAL.prestigeDPPerDust);
-    if(milestones.prestigeFeasibleDay === null && gain >= 5) milestones.prestigeFeasibleDay = day;
-    if(gain >= 10){
+    if(milestones.prestigeFeasibleDay === null && gain >= 3) milestones.prestigeFeasibleDay = day;
+    if(gain >= (prestigeAt || 10)){
+      milestones.prestigeCount++;
       if(milestones.prestigeDay === null) milestones.prestigeDay = day;
       dust += gain; dustTotal += gain; runDP = 0; rp = 0; bugStock = 0; ideas = 0;
       brand = 0;   /* Wave G: ブランドは EXIT で清算（承認済み仕様） */
@@ -463,7 +465,7 @@ function simulate(days, active, reqMode){
     }
     /* Sprint 3: 星屑ショップ（貪欲: 初期資金 → 集中ブースト。ベテラン制度と
        研究ノートは回復の質の話なので、この最小モデルでは買わない） */
-    for(const pk of [["seedmoney", 3], ["focus", 5]]){
+    for(const pk of [["seedmoney", 3], ["focus", 4]]){   /* 第2ウェーブ I: focus の価格改定 5→4 に追随 */
       if(!perks[pk[0]] && dust >= pk[1]){ dust -= pk[1]; perks[pk[0]] = true; }
     }
   }
@@ -480,7 +482,7 @@ function report(label, r){
   console.log("第2ライン建設: " + (r.milestones.line2Day ?? "未達") + " 日目");
   console.log("社格到達日（Phase B）: " + [1,2,3,4,5,6].map(lv => "Lv"+lv+"="+(r.milestones.rankDays[lv] === undefined ? "未達" : r.milestones.rankDays[lv]+"日目")).join(" / "));
   console.log("リリース数: 7日目まで " + sum(r.releasesByDay, 7) + " 作品 / 30日目まで " + r.totalReleasesEver + " 作品");
-  console.log("プレステージ実行可能（星屑5個ぶん）: " + (r.milestones.prestigeFeasibleDay ? r.milestones.prestigeFeasibleDay + " 日目" : "30日以内に未達"));
+  console.log("プレステージ実行可能（星屑3個ぶん）: " + (r.milestones.prestigeFeasibleDay ? r.milestones.prestigeFeasibleDay + " 日目" : "30日以内に未達"));
   console.log("プレステージ実施（星屑10個ぶん・方針）: " + (r.milestones.prestigeDay ? r.milestones.prestigeDay + " 日目" : "30日以内に未実施"));
   console.log("30日後の星屑: 通算 " + r.dustTotal + "（所持 " + r.dust + "、ショップ購入後の残り）");
   console.log("研究の枯渇: ティア1全完了 " + (r.milestones.resT1Day ? r.milestones.resT1Day + " 日目" : "30日以内に未完") +
@@ -663,4 +665,25 @@ console.log("== Wave H: モジュール内製/外注の損得（L・工程キャ
     (rate(basePrice * multQ10, inHouseMin) > rate(basePrice, plainMin) && rate(basePrice * multOut, plainMin) > rate(basePrice, plainMin) ? "PASS" : "FAIL"));
   const thinMin = Math.max(totalDP / (flow * 0.7), modDP / (flow * 0.3));
   console.log("最悪側（流入律速の薄いチーム）: 内製 " + thinMin.toFixed(0) + "分・時間あたり " + rate(basePrice * multQ10, thinMin) + "（素比 " + Math.round(rate(basePrice * multQ10, thinMin) / rate(basePrice, totalDP / flow) * 100) + "%）— その局面では外注が出口になる");
+}
+
+
+/* ===== 第2ウェーブ I: EXIT 小刻み化の到達時間（承認済み仕様書 I 節の数値ゲート） =====
+   星屑レート 12,000→8,000＋売却下限 5→3 の効果を、本線ラン（10個方針）の
+   「益≥3 到達日」と、小刻み方針（5個で売却）の計測ランで測る。
+   1日 = 常駐180分のため、到達日 × 3 = 常駐時間の目安。
+   目標: 初回 EXIT 可能 = 常駐10〜15時間（4〜5日目）。2日目以前は速すぎ
+   （1周目の体験を踏み潰す）、6日目以降は前倒し不足としてレートを再点検する。
+   小刻み方針の EXIT 回数は「持株化までに10〜15回」設計の下限側の証跡で、
+   ランク追いのプレイヤー像ではないため era 到達日そのものは J で測る */
+console.log("");
+console.log("== Wave I: EXIT 小刻み化（初回到達と小刻み周回）==");
+{
+  const fP = rp7.milestones.prestigeFeasibleDay, fA = ra7.milestones.prestigeFeasibleDay;
+  const cycP = simulate(30, false, undefined, 5), cycA = simulate(30, true, undefined, 5);
+  console.log("初回 EXIT 可能（益≥3）: passive " + fP + "日目（常駐約" + (fP * 3) + "時間）/ active " + fA + "日目（常駐約" + (fA * 3) + "時間）");
+  console.log("小刻み方針（益5で売却）30日: EXIT passive " + cycP.milestones.prestigeCount + "回 / active " + cycA.milestones.prestigeCount + "回、通算星屑 passive " + cycP.dustTotal + " / active " + cycA.dustTotal);
+  const firstOk = fP >= 3 && fP <= 5 && fA >= 2 && fA <= fP;
+  const cycleOk = cycP.milestones.prestigeCount >= 8 && cycA.milestones.prestigeCount >= cycP.milestones.prestigeCount;
+  console.log("Wave I 判定（初回が passive 4〜5日目・小刻みで周回が回る）: " + (firstOk && cycleOk ? "PASS" : "FAIL"));
 }
