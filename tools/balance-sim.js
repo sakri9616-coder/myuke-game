@@ -129,7 +129,7 @@ function sessionClickDPperMin(cu, focus){
   return PLAYER.clicksPerMin * clickPower(cu, focus) * avgMult * critF;
 }
 
-function simulate(days, active){
+function simulate(days, active, reqMode){
   seed = 20261024; // プレイヤー間で乱数を揃える
   const up = {}, res = {}, cu = {};
   let staff = [], studioLv = 1;
@@ -141,7 +141,7 @@ function simulate(days, active){
   let coinsEarned = 0, econ = null;   /* Sprint 4: 30日目の支出可能性の材料 */
   let wip = { code:0, tested:0, built:0 }, wip2 = { code:0, tested:0, built:0 };
   let line2 = false;
-  let ideas = 0, bigStreak = 0;
+  let ideas = 0, bigStreak = 0, reqDone = 0, curDay = 1;   /* reqDone/curDay: Phase C の依頼比較用 */
   let project = { size:"TUT", total: BAL.sizes.TUT, ideaCost:0, planning:false }, projDP = 0;   // 初回はチュートリアル 120DP
   let project2 = null, proj2DP = 0;
   let totalReleasesEver = 0;
@@ -206,7 +206,14 @@ function simulate(days, active){
   function release(sz, isLine2){
     let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * dustMult();
     let r = BAL.rpBase[sz];
-    if(!isLine2 && rnd() < PLAYER.requestMatchRate){ c += Math.round(c * 0.6); r += 1; }
+    if(!isLine2 && reqMode === "auto"){
+      /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
+         担当者の成長に伴うティア期待値（〜7日 +60% / 〜20日 +85% / 以後 +130%）、
+         要求サイズ未満の半額を見込み ×0.9 の保守係数 */
+      const rate = curDay <= 7 ? 0.6 : curDay <= 20 ? 0.85 : 1.3;
+      c += Math.round(c * rate * 0.9); r += 1; reqDone++;
+    }
+    else if(!isLine2 && rnd() < PLAYER.requestMatchRate){ c += Math.round(c * 0.6); r += 1; reqDone++; }
     coins += Math.round(c); coinsEarned += Math.round(c); dayCoins += Math.round(c); rp += r; ideas += 2;
     totalReleasesEver++;
     return drawProject();
@@ -214,6 +221,7 @@ function simulate(days, active){
   let dayCoins = 0;
 
   for(let day = 1; day <= days; day++){
+    curDay = day;
     let dayReleases = 0;
     dayCoins = 0;
     for(let min = 0; min < PLAYER.minutesPerDay; min++){
@@ -426,7 +434,7 @@ function simulate(days, active){
       if(!perks[pk[0]] && dust >= pk[1]){ dust -= pk[1]; perks[pk[0]] = true; }
     }
   }
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, reportLv, econ };
+  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, reportLv, econ, reqDone };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -483,3 +491,15 @@ console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstRe
   coinRatio.toFixed(2) + " / 星屑比 " + dustRatio.toFixed(2) + " / 件数比 " + countRatio.toFixed(2) + " / 7日目以降の0リリース日 passive=" +
   rp7.releasesByDay.slice(6).filter(x=>x===0).length + " active=" + ra7.releasesByDay.slice(6).filter(x=>x===0).length);
 console.log("Sprint 3: 星屑ショップ最小モデル（初期資金→集中を貪欲購入）を有効化。プレステージ到達日と引っ越し後の回復は各レポートの「回復の速さ」行を参照");
+
+/* ===== Phase C: 依頼の自動獲得（営業）vs 手動 — 到達時間の比較 =====
+   手動 = 従来モデル（依頼が噛み合う確率 0.4 × 一律 +60%）。
+   自動 = 営業が枠を常時埋め、メインラインの全リリースが依頼達成になる
+   （ボーナス率は担当者の成長に伴うティア期待値、サイズ未満の半額を
+   見込んだ ×0.9 の保守係数つき）。同じアクティブ軌道で比較する */
+const raAuto = simulate(30, true, "auto");
+console.log("");
+console.log("== Phase C: 依頼経済の比較（アクティブ・30日）==");
+console.log("手動: 依頼達成 " + ra7.reqDone + " 件 / 通算コイン " + Math.round(ra7.econ.coinsEarned) + "🪙 / プレステージ到達 " + (ra7.milestones.prestigeDay ? ra7.milestones.prestigeDay + "日目" : "未達"));
+console.log("自動: 依頼達成 " + raAuto.reqDone + " 件 / 通算コイン " + Math.round(raAuto.econ.coinsEarned) + "🪙 / プレステージ到達 " + (raAuto.milestones.prestigeDay ? raAuto.milestones.prestigeDay + "日目" : "未達"));
+console.log("差分: 依頼達成 +" + (raAuto.reqDone - ra7.reqDone) + " 件 / 通算コイン +" + Math.round(raAuto.econ.coinsEarned - ra7.econ.coinsEarned) + "🪙（自動は序盤=手動超え・中盤以降は担当者の成長で差が開く設計）");

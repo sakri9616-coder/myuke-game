@@ -2300,6 +2300,62 @@ console.log("== Phase B14: staff batch 9 + env art tier wiring + mike2 retiremen
     run(sb, "JSON.stringify(spriteSize('prop_megaphone'))") === "[24,24]" &&
     run(sb, "COATS.every(c => ANIMS['staff_' + c + '_walk'].durations.join(',') === '600,600,300,600,600,600,600')"));
 
+  /* ================= Phase C: 部署＋営業＋担当者制 ================= */
+  {
+    const sb = buildSandbox({});
+    loadGame(sb);
+    check("C: depts boot with backward-compatible defaults (all Lv1, neutral multipliers)",
+      run(sb, "!!S.depts && S.depts.sales === 1 && deptLv('prog') === 1 && deptMult('prog') === 1"));
+    check("C: big-deal / genre-pref / rotation fields boot as empty defaults",
+      run(sb, "S.bigDeal === null && S.reqGenrePref === null && S.salesRot === 0"));
+    check("C: DEPTS covers the five existing roles plus sales",
+      run(sb, "JSON.stringify(Object.keys(DEPTS))") === "[\"prog\",\"test\",\"carry\",\"research\",\"care\",\"sales\"]");
+    check("C: sales role exists at the delegated base cost 230 (same 1.35 hire curve as other roles)",
+      run(sb, "STAFF_ROLES.sales.base") === 230 && run(sb, "hireCost('sales')") === 230);
+    run(sb, "S.coins = 100000; hireStaff('sales');");
+    check("C: hiring the first sales rep is the turning point — a request is auto-acquired with a rep attached",
+      run(sb, "salesReps().length") === 1 &&
+      run(sb, "!!S.activeRequest && S.activeRequest.auto === true && !!S.activeRequest.repName && typeof S.activeRequest.bonus === 'number'"));
+    check("C: a sales hire gets a specialty genre from the unlocked pool",
+      run(sb, "unlockedGenres().some(g => g.id === salesReps()[0].genre)"));
+    run(sb, "S.staff.push({ id: 900, name: 'progg', coat: 'kuro', role: 'prog', lv: 1 });");
+    const progBefore = run(sb, "staffSums().prog");
+    run(sb, "buyDept('prog');");
+    check("C: buyDept raises the dept level and staffSums output by x1.15 per level",
+      run(sb, "deptLv('prog')") === 2 && Math.abs(run(sb, "staffSums().prog") - progBefore * 1.15) < 1e-9);
+    check("C: dept chief is the highest-Lv member (ties keep the earlier hire)",
+      run(sb, "S.staff.push({ id: 901, name: 'chiefcat', coat: 'siro', role: 'prog', lv: 5 }); deptChief('prog').name") === "chiefcat");
+    run(sb, "Math.random = () => 0.99;");
+    check("C: request tier cap grows with rep power (lv + sales-dept lv - 1): 0/3/6/12 -> tier 0/0/1/3",
+      run(sb, "[0, 3, 6, 12].map(p => salesTierFor(p)).join(',')") === "0,0,1,3");
+    run(sb, "Math.random = () => 0.5;");
+    check("C: big deal gate needs studioLv>=4 (rank 中堅) — nothing spawns at Lv3",
+      run(sb, "S.studioLv = 3; S.bigDeal = null; maybeSpawnBigDeal(); S.bigDeal") === null);
+    run(sb, "S.studioLv = 4; Math.random = () => 0; maybeSpawnBigDeal();");
+    check("C: big deal spawns with L-size requirement, +250% bonus and a ~30min deadline",
+      run(sb, "!!S.bigDeal && S.bigDeal.reqSize === 'L' && S.bigDeal.bonus === 2.5 && Math.abs(S.bigDeal.expiresAt - Date.now() - 1800000) < 120000"));
+    run(sb, "S.activeRequest = null; acceptBigDeal();");
+    check("C: accepting the big deal moves it into the active slot and clears the offer",
+      run(sb, "!!S.activeRequest && S.activeRequest.big === true && S.bigDeal === null"));
+    run(sb, "S.bigDeal = { client: 'x', genre: 'app', genreName: 'アプリ', bonus: 2.5, reqSize: 'L', repId: 1, repName: 'r', expiresAt: Date.now() - 1 }; tick();");
+    check("C: an expired big deal is cleared by tick with no penalty",
+      run(sb, "S.bigDeal") === null);
+    run(sb, "setReqGenrePref('app');");
+    check("C: genre preference is stored as standing player policy",
+      run(sb, "S.reqGenrePref") === "app");
+    check("C: request completion pays the tier rate, halved when the size requirement is missed",
+      (() => {
+        const setup = (size) => {
+          run(sb, "S.project = { name: 't', genre: 'app', genreName: 'アプリ', size: '" + size + "', totalDP: 100, feats: [], bugs: 0, startedAt: Date.now(), activeSec: 60, napsAtStart: 0, icon: 0, planning: false }; S.projectDP = 100;" +
+                  "S.activeRequest = { client: 'c', genre: 'app', genreName: 'アプリ', bonus: 1.3, reqSize: 'L', tier: 2 }; S.coins = 0; S.rp = 0;");
+          run(sb, "releaseProject();");
+          return run(sb, "S.coins");
+        };
+        const small = setup("S"), large = setup("L");
+        return large > small * 1.5;
+      })());
+  }
+
   /* ---- ポートレートと帯の描画経路 (syamu) ---- */
   run(sb, "spriteCache['staff_syamu_sit_0'].toDataURL = () => 'data:SYAMU_SIT0';" +
           "for (const k of Object.keys(sprUrlCache)) delete sprUrlCache[k];");

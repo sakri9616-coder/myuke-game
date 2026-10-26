@@ -11539,7 +11539,8 @@ const STAFF_ROLES = {
   test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +4 DP/分" },
   carry:   { name:"運搬係",       stage:"出荷",   base:150, out:5,    unit:"DP/分",   desc:"出荷速度 +5 DP/分" },
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
-  care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" }
+  care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" },
+  sales:   { name:"営業",         stage:"営業",   base:230, out:0,    unit:"",        desc:"依頼を自動で取ってくる（Lvが高いほど良い依頼）" }
 };
 const STAFF_CAPS = [3, 6, 10, 16, 24, 36];  // スタジオLv1..6 の雇用上限（レーンB Phase B・社格ラダー）
 const STAFF_MAX_LV = 10;
@@ -11561,6 +11562,39 @@ function trainCost(st){
 }
 /* Sprint 4: 熟練ボーナス（Lv5 で +15%、Lv10 で +30%）。育成の終着点を作る */
 function staffOutMult(st){ return staffMult(st) * (st.lv >= 10 ? 1.3 : st.lv >= 5 ? 1.15 : 1); }
+/* ---------- Phase C: 部署（既存ロールの束ね＋部署Lv） ----------
+   部署は新しい人員システムではなく、ロールの読み替え＋部署Lv の倍率だけ。
+   倍率は staffSums の集計にのみ掛かり、他の計算は従来どおり */
+const DEPTS = {
+  prog:    { name:"開発部", icon:"💻" },
+  test:    { name:"テスト部", icon:"🧪" },
+  carry:   { name:"運用部", icon:"📦" },
+  research:{ name:"研究部", icon:"🔬" },
+  care:    { name:"総務部", icon:"💛" },
+  sales:   { name:"営業部", icon:"💼" }
+};
+const DEPT_MAX_LV = 10;
+function freshDepts(){ return { prog:1, test:1, carry:1, research:1, care:1, sales:1 }; }
+function deptLv(role){ return (S.depts && S.depts[role]) || 1; }
+function deptMult(role){ return 1 + 0.15 * (deptLv(role) - 1); }
+function deptCost(role){ return Math.ceil(300 * Math.pow(2, deptLv(role) - 1)); }
+function deptChief(role){
+  let best = null;
+  for(const st of S.staff) if(st.role === role && (!best || st.lv > best.lv)) best = st;
+  return best;
+}
+function buyDept(role){
+  if(!S.depts) S.depts = freshDepts();
+  if(deptLv(role) >= DEPT_MAX_LV){ say("その部署はもう最大レベルにゃ"); return; }
+  const cost = deptCost(role);
+  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
+  S.coins -= cost;
+  S.depts[role] = deptLv(role) + 1;
+  SoundKit.play("purchase");
+  addLog(DEPTS[role].icon + " " + DEPTS[role].name + " が Lv" + S.depts[role] + " に（出力 ×" + deptMult(role).toFixed(2) + "）（-" + cost + "🪙）");
+  say(DEPTS[role].name + "を強化したにゃ！ みんなの出力が上がるよ");
+  save(); renderPanel();
+}
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------
    価格 = base × (1 + 総収入/25000) × 1.5^(その日の購入回数)。
    稼ぐほど高くなるので、終盤でも「余り続ける」ことがない設計 */
@@ -11609,7 +11643,7 @@ function buyBulkTrain(){
 function staffSums(){
   const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, count:0, byRole:{} };
   for(const st of S.staff){
-    const m = staffOutMult(st), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み */
+    const m = staffOutMult(st) * deptMult(st.role), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み / Phase C: 部署Lv 倍率 */
     s.byRole[st.role] = (s.byRole[st.role]||0) + 1;
     if(st.role === "prog"){ s.prog += def.out * m; s.progW += m; }
     if(st.role === "test"){ s.qa += def.out * m; s.testDP += 4 * m; }
@@ -11776,6 +11810,7 @@ function freshState(){
     upgrades:{}, research:{}, stamps:{},
     project:null, projectDP:0, commitMark:0,
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
+    depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
@@ -11859,6 +11894,16 @@ function load(){
     /* Phase B・最高到達社格: 旧セーブには無いので初期値は現在のスタジオLv。
        記録が現在を下回る不整合があれば現在に揃える（最高到達は現在以上のはず） */
     if(typeof data.maxStudioLv !== "number" || S.maxStudioLv < S.studioLv) S.maxStudioLv = S.studioLv;
+    /* Phase C: 部署Lv・大型案件・希望ジャンル・営業ローテーション（旧セーブには無い） */
+    if(!S.depts || typeof S.depts !== "object") S.depts = freshDepts();
+    for(const r of Object.keys(DEPTS)) if(typeof S.depts[r] !== "number" || S.depts[r] < 1) S.depts[r] = 1;
+    if(typeof S.bigDeal === "undefined") S.bigDeal = null;
+    if(typeof S.reqGenrePref === "undefined") S.reqGenrePref = null;
+    if(typeof S.salesRot !== "number") S.salesRot = 0;
+    for(const st of S.staff) if(st.role === "sales" && !st.genre){
+      const pool = unlockedGenres();
+      st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
+    }
     if(!S.clickUp || typeof S.clickUp !== "object") S.clickUp = {};
     /* Sprint 1 追加フィールド（旧セーブには無いので既定値で補完） */
     if(typeof S.nextRequestGenre === "undefined") S.nextRequestGenre = null;
@@ -12238,7 +12283,11 @@ function stripMemoText(){
   const q = stripQuestText();
   if(q) return q;
   if(tutTabLocked("requests")) return "";
-  if(S.activeRequest) return "📮 " + S.activeRequest.client + "の依頼：次の作品は「" + S.activeRequest.genreName + "」で作る";
+  if(S.bigDeal) return "🌟 大型案件: " + S.bigDeal.client + "（" + S.bigDeal.genreName + "・L以上）担当 " + S.bigDeal.repName + " が待ってるにゃ";
+  if(S.activeRequest){
+    const r = S.activeRequest;
+    return "📮 " + r.client + "の依頼：次の作品は「" + r.genreName + "」で作る" + (r.repName ? "（担当：" + r.repName + "）" : "");
+  }
   if(S.requests && S.requests.length) return "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
   return "";
 }
@@ -12652,11 +12701,22 @@ function releaseProject(){
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   let requestBonus = "";
   if(S.activeRequest && S.activeRequest.genre === p.genre){
-    const bonus = Math.round(coins * 0.6);
+    /* Phase C: ボーナス率は依頼のティアで決まる（手動受注は従来どおり +60%）。
+       要求サイズ未満の作品で達成した場合は半額（満額条件の明示） */
+    const rq = S.activeRequest;
+    let rate = typeof rq.bonus === "number" ? rq.bonus : 0.6;
+    let shortNote = "";
+    if(rq.reqSize && SIZE_ORDER.indexOf(p.size) < SIZE_ORDER.indexOf(rq.reqSize)){
+      rate = rate / 2;
+      shortNote = "（要求サイズ未満のためボーナス半額）";
+    }
+    const bonus = Math.round(coins * rate);
     coins += bonus; rp += 1;
     requestBonus = "（依頼達成ボーナス +"+bonus+"🪙）";
-    addLog("依頼達成！『"+p.name+"』"+requestBonus);
+    addLog("依頼達成！『"+p.name+"』"+requestBonus+shortNote);
     S.activeRequest = null; genRequests();
+    maybeSpawnBigDeal();
+    maybeAutoAcquire();   /* Phase C: 枠が空いたら営業が次を取ってくる */
   }
   S.coins += coins; S.totals.coinsEarned += coins;
   S.rp += rp;
@@ -12942,6 +13002,13 @@ function tick(){
     }
     if(stripConfetti.length > 80) stripConfetti.splice(0, stripConfetti.length - 80);
   } else if(otNow < officeTierSeen) officeTierSeen = otNow;
+  /* Phase C: 受注枠が空いていれば営業が自動で埋める（読み込み直後の回復もここ）。
+     大型案件の期限切れもここで静かに処理する */
+  if(!S.activeRequest && salesReps().length) autoAcquireRequest();
+  if(S.bigDeal && now > S.bigDeal.expiresAt){
+    addLog("🌟 大型案件は期限切れになった: "+S.bigDeal.client+"（ペナルティなし）");
+    S.bigDeal = null; save();
+  }
   sampleIncome(now);   /* Sprint 3: 「あと○○」ヒント用の収入サンプル */
   /* Sprint 2: おかえりの起床（寝ていたみゅけが起きて挨拶する） */
   if(returnWakeAt && now >= returnWakeAt){
@@ -13103,12 +13170,20 @@ function hireStaff(role){
   const st = { id: ++S.staffSeq, name: genCatName(),
     coat: COATS[Math.floor(Math.random()*COATS.length)], role, lv: 1 };
   S.staff.push(st);
+  if(role === "sales"){
+    /* Phase C: 営業は雇用時に得意ジャンルが1つ決まる（担当依頼の質に効く） */
+    const pool = unlockedGenres();
+    st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
+    const sg = GENRES.find(x => x.id === st.genre);
+    addLog("💼 " + st.name + " の得意ジャンルは「" + (sg ? sg.name : st.genre) + "」");
+  }
   S.totals.hired++;
   SoundKit.play("purchase");
   addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-"+cost+"🪙）");
   say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
   checkStamps(); save(); renderPanel();
   tutCheck();
+  if(role === "sales") maybeAutoAcquire();   /* Phase C: 転換点 — 最初の営業が入った瞬間から自動獲得 */
 }
 function trainStaff(id){
   const st = S.staff.find(s => s.id === id);
@@ -13191,6 +13266,115 @@ function acceptRequest(idx){
   say(S.activeRequest.client+"の依頼、受けたにゃ。次の作品は"+S.activeRequest.genreName+"で作るよ（今の作品はそのまま続くにゃ）");
   save(); renderPanel();
   tutCheck();
+}
+/* ---------- Phase C: 営業と依頼の担当者制 ----------
+   転換点は「最初の営業が入社した瞬間」: 受注枠が空くたび営業が自動で
+   取ってくる。質（クライアント規模＝ティア／報酬／要求サイズ／ジャンルの
+   寄り）は、担当した営業個人の Lv ＋ 営業部Lv と得意ジャンルで決まる。
+   営業の雇用コストは他ロール同水準の base 230（研究 245 と開発 210 の間。
+   育成曲線は既存と同一なので新しい価格体系は増えない） */
+const SIZE_ORDER = ["TUT", "XS", "S", "M", "L"];
+const REQUEST_TIERS = [
+  { name:"個人", bonus:0.6 },
+  { name:"中小企業", bonus:0.9 },
+  { name:"大企業", bonus:1.3 },
+  { name:"自治体・グローバル級", bonus:1.8 }
+];
+const REQUEST_CLIENTS_TIER = [
+  REQUEST_CLIENTS,
+  ["商店街の文具店", "町工場の社長猫", "地元の学習塾", "小さな出版社", "駅前カフェの店長"],
+  ["大手ゲーム会社", "全国チェーンの本部", "大手IT企業", "有名百貨店", "テレビ局の制作部"],
+  ["市役所の広報課", "県の観光協会", "グローバルIT企業", "国際ねこ会議", "宇宙開発の広報室"]
+];
+function salesReps(){ return S.staff.filter(s => s.role === "sales"); }
+function pickRequestGenre(rep, power){
+  const pool = unlockedGenres();
+  if(!pool.length) return null;
+  const prefW = 2 + Math.floor(power / 3);   /* 力量が高いほど希望どおりに寄る */
+  let total = 0;
+  const ws = pool.map(g => {
+    let w = 1;
+    if(S.reqGenrePref && g.id === S.reqGenrePref) w += prefW;
+    if(rep.genre && g.id === rep.genre) w += 2;
+    total += w; return w;
+  });
+  let r = Math.random() * total;
+  for(let i = 0; i < pool.length; i++){ r -= ws[i]; if(r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+function salesTierFor(power){
+  const cap = power >= 11 ? 3 : power >= 7 ? 2 : power >= 4 ? 1 : 0;
+  return (cap > 0 && Math.random() < 0.35) ? cap - 1 : cap;
+}
+function autoAcquireRequest(){
+  const reps = salesReps();
+  if(!reps.length || S.activeRequest) return false;
+  const rep = reps[(S.salesRot || 0) % reps.length];   /* 担当はローテーション（全員が質に効く） */
+  S.salesRot = (S.salesRot || 0) + 1;
+  const power = rep.lv + deptLv("sales") - 1;
+  const tier = salesTierFor(power);
+  const g = pickRequestGenre(rep, power);
+  if(!g) return false;
+  const clients = REQUEST_CLIENTS_TIER[tier];
+  const client = clients[Math.floor(Math.random() * clients.length)];
+  S.activeRequest = { client, genre: g.id, genreName: g.name, text: requestText(client, g.name),
+    tier, bonus: REQUEST_TIERS[tier].bonus, reqSize: tier >= 1 ? SIZE_ORDER[tier] : null,
+    repId: rep.id, repName: rep.name, auto: true };
+  S.nextRequestGenre = g.id;
+  addLog("💼 営業の"+rep.name+"が依頼を取ってきた: "+client+"（"+g.name+"・"+REQUEST_TIERS[tier].name+"）");
+  say("営業の"+rep.name+"が"+client+"の依頼を取ってきたにゃ");
+  /* 帯の知覚: 担当がメモを運んで歩く（動き）＋頭上に吹き出し */
+  const wk = stripWalkers[rep.id];
+  if(wk){ wk.carrying = true; wk.carryKind = "memo"; wk.sitting = false; wk.backing = false; }
+  stripChat = { whoId: rep.id, text: "依頼、取ってきたにゃ！", until: Date.now() + 4200 };
+  save();
+  return true;
+}
+function maybeAutoAcquire(){ if(autoAcquireRequest()) renderPanel(); }
+/* 大型案件（終盤）: 依頼の完了ごとに抽選で「受注待ち」が届く。受けるか
+   見送るかはプレイヤーの判断（ペナルティなし・期限30分） */
+function maybeSpawnBigDeal(){
+  if(S.bigDeal || S.studioLv < 4) return;
+  const reps = salesReps();
+  if(!reps.length || Math.random() > 0.10) return;
+  let rep = reps[0];
+  for(const r of reps) if(r.lv > rep.lv) rep = r;
+  const pool = unlockedGenres();
+  if(!pool.length) return;
+  const g = pool[Math.floor(Math.random() * pool.length)];
+  const clients = REQUEST_CLIENTS_TIER[3];
+  const client = clients[Math.floor(Math.random() * clients.length)];
+  S.bigDeal = { client, genre: g.id, genreName: g.name, bonus: 2.5, reqSize: "L",
+    repId: rep.id, repName: rep.name, expiresAt: Date.now() + 30 * 60000 };
+  addLog("🌟 大型案件が届いた: "+client+"（"+g.name+"・Lサイズ以上・コイン+250%）担当: "+rep.name+" — 30分以内に判断してね");
+  say("大型案件が届いたにゃ！ 担当は"+rep.name+"。依頼ボードで確認してね");
+  save();
+}
+function acceptBigDeal(){
+  const bd = S.bigDeal;
+  if(!bd) return;
+  if(S.activeRequest){ say("いま受けてる依頼があるにゃ。それが終わってからね"); return; }
+  S.activeRequest = { client: bd.client, genre: bd.genre, genreName: bd.genreName,
+    text: requestText(bd.client, bd.genreName), tier: 3, bonus: bd.bonus, reqSize: bd.reqSize,
+    repId: bd.repId, repName: bd.repName, auto: true, big: true };
+  S.nextRequestGenre = bd.genre;
+  S.bigDeal = null;
+  addLog("🌟 大型案件を受注: "+bd.client+"（"+bd.genreName+"）");
+  say(bd.client+"の大型案件、受けたにゃ！ 次の作品は"+bd.genreName+"の大作でいくよ");
+  save(); renderPanel(); tutCheck();
+}
+function declineBigDeal(){
+  if(!S.bigDeal) return;
+  addLog("大型案件を見送った: "+S.bigDeal.client+"（ペナルティなし）");
+  S.bigDeal = null;
+  save(); renderPanel();
+}
+function setReqGenrePref(gid){
+  S.reqGenrePref = gid || null;
+  const g = GENRES.find(x => x.id === gid);
+  addLog("📮 依頼の希望ジャンルを「"+(g ? g.name : "おまかせ")+"」に設定（営業が寄せて取ってくる）");
+  say(g ? "これからは"+g.name+"の依頼を多めに取ってくるにゃ" : "希望ジャンルはおまかせに戻したにゃ");
+  save(); renderPanel();
 }
 /* ---------- Sprint 3: 星屑ショップ（永続特典）と引っ越しプレビュー ----------
    星屑は「所持分（S.dust）」を消費して特典を買う。生産倍率は通算獲得
@@ -13299,6 +13483,7 @@ function doPrestigeCore(){
   S.research = {};
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
+  S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = keptStaff ? [keptStaff] : [];
   if(keptStaff) S.staffSeq = Math.max(S.staffSeq, keptStaff.id);
@@ -14229,6 +14414,20 @@ function stripUpdate(dt){
       /* Sprint 3: 雑談中は立ち止まる（アンビエント） */
     } else if(wk.carrying){
       wk.backing = false;
+      if(wk.carryKind === "memo"){
+        /* Phase C: 営業が取ってきた依頼のメモを机まで運ぶ（届けたら ✦） */
+        const tx = stripDeskCX();
+        const dx = tx - wk.x;
+        if(Math.abs(dx) < 10){
+          wk.carrying = false; wk.carryKind = null;
+          stripSparks.push({ x: tx, y: 48, born: Date.now() });
+          if(stripSparks.length > 10) stripSparks.shift();
+        } else {
+          wk.dir = dx > 0 ? 1 : -1;
+          wk.x += wk.dir * 30 * dt;
+          wk.walkClock = (wk.walkClock || 0) + walkAdvanceMs("staff_" + st.coat + "_walk", 30 * dt);
+        }
+      } else {
       wk.dir = 1;
       wk.x += 30 * dt;
       wk.walkClock = (wk.walkClock || 0) + walkAdvanceMs("staff_" + st.coat + "_walk", 30 * dt);   /* 接地同期 */
@@ -14242,6 +14441,7 @@ function stripUpdate(dt){
         } else {
           addStripFloater(stripVW - 26, STRIP_GROUND - 36, "+🪙", "#d9a41a");
         }
+      }
       }
     } else if(wk.backing){
       /* BacktoIdle タグ (sakuri 作画): 歩行をやめる時は戻りモーション (F8–F10) を
@@ -14262,6 +14462,12 @@ function stripUpdate(dt){
         const rcx = stripResearchCX();
         if(wk.x < rcx - 46){ wk.x = rcx - 46; wk.dir = 1; }
         if(wk.x > rcx + 46){ wk.x = rcx + 46; wk.dir = -1; }
+      }
+      /* Phase C: 大型案件の担当はメモ（机クラスタ）のそばで待つ */
+      if(S.bigDeal && S.bigDeal.repId === st.id){
+        const mcx = stripDeskCX();
+        if(wk.x < mcx - 100){ wk.x = mcx - 100; wk.dir = 1; }
+        if(wk.x > mcx + 60){ wk.x = mcx + 60; wk.dir = -1; }
       }
       wk.walkClock = (wk.walkClock || 0) + walkAdvanceMs("staff_" + st.coat + "_walk", Math.abs(wk.x - wkX0));   /* 接地同期 (クランプ後の実距離) */
       if(Math.random() < dt * 0.05){ wk.backing = true; wk.backStart = stripNow; wk.pendingSitMs = 2500 + Math.random() * 3500; }
@@ -14932,8 +15138,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(memoTxt){
     const mw = 150, mx0 = bx + 4, my0 = top + bh + 2;
     sR(bx + 14, top + bh - 1, 2, 3, "#604B40"); sR(bx + 138, top + bh - 1, 2, 3, "#604B40");
-    sR(mx0, my0, mw, 16, "#8a6a44");
-    sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, "#fff5e6");
+    const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅（色＋動きの二経路） */
+    sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
+    sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && frame % 50 < 25 ? "#ffe9a8" : "#fff5e6");
     sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
     sctx.save();
     sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
@@ -15399,10 +15606,26 @@ function renderStrip(){
     if(wk.carrying){ const t2 = Math.min(srect.y, G - (ssz ? ssz[1] * ssc + 11 : 43)); srect.h += srect.y - t2; srect.y = t2; }
     stripHitRects.staff.push(srect);
     stripStaffArt.push(drawn ? { name: nm, gx: wk.x, gy: G + bob, s: ssc, flip } : null);
+    if(deptChief(st.role) === st){
+      /* Phase C: 部長バッジ（その部署で一番 Lv の高いスタッフに自動で付く） */
+      sctx.save();
+      sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      sctx.fillText("⭐", wk.x, srect.y - 4);
+      sctx.restore();
+    }
     if(wk.carrying){
       const bw = ssz ? ssz[0] * ssc : 32 * SPRITE_SCALES.strip.staff;
       const bh = ssz ? ssz[1] * ssc : 24 * SPRITE_SCALES.strip.staff;
-      sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8, 1);
+      if(wk.carryKind === "memo"){
+        /* Phase C: 依頼メモは白いカード＋赤帯で（荷物箱と見分ける） */
+        const mxp = wk.x + bw * 0.26 * wk.dir;
+        sR(mxp - 3.5, G - bh * 0.8 - 8, 7, 9, "#fff5e6");
+        sR(mxp - 3.5, G - bh * 0.8 - 8, 7, 1.4, "#e2543e");
+        sR(mxp - 2, G - bh * 0.8 - 4.5, 4, 1, "#9a8f85");
+        sR(mxp - 2, G - bh * 0.8 - 2.5, 4, 1, "#9a8f85");
+      } else {
+        sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8, 1);
+      }
     }
     /* Sprint 3: 雑談の吹き出し（話している1匹の頭上だけ） */
     if(stripChat && stripChat.whoId === st.id && now < stripChat.until)
@@ -16196,7 +16419,7 @@ function renderPanel(){
   }
   if(currentTab === "staff"){
     const ss = staffSums();
-    const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪" };  /* メニュー刷新 P1: 行アイコンソケット用 */
+    const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪", sales:"💼" };  /* メニュー刷新 P1: 行アイコンソケット用 */
     h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・"+companyRank()+" Lv"+S.studioLv+"）</h3>";
     /* IA: 在籍スタッフを最初に — スプライトカードで顔ぶれが一目で分かる。
        雇用・ご褒美はカード群の下 (折りたたみ) へ、スタジオ拡張は細い行で常設 */
@@ -16209,7 +16432,7 @@ function renderPanel(){
     if(!S.staff.length) h += "<div class='note' style='font-size:12px'>まだスタッフはいません。下の「雇用する」から最初の仲間を雇おう。</div>";
     else h += "<div class='staffgrid'>";
     for(const st of S.staff){
-      const def = STAFF_ROLES[st.role], m = staffOutMult(st);   /* Sprint 4: 熟練ボーナス込み表示 */
+      const def = STAFF_ROLES[st.role], m = staffOutMult(st) * deptMult(st.role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
       let eff = def.desc;
       if(st.role === "prog") eff = "実装 +" + (def.out*m).toFixed(1) + " DP/分";
       if(st.role === "test") eff = "QA +" + (def.out*m).toFixed(1) + " バグ/分 ・ テスト +" + (4*m).toFixed(0) + " DP/分";
@@ -16217,10 +16440,15 @@ function renderPanel(){
       if(st.role === "research") eff = "研究 +" + (def.out*m).toFixed(2) + " P/分" +
         (tier1Done() ? " ・ 💡 +" + (def.out*m*0.6).toFixed(2) + "/分" : "");
       if(st.role === "care") eff = "集中力キープ ・ たまに差し入れ";
+      if(st.role === "sales"){
+        const sg = GENRES.find(x => x.id === st.genre);
+        eff = "依頼を自動獲得 ・ 得意：" + (sg ? sg.name : "―") + " ・ 担当力 " + (st.lv + deptLv("sales") - 1);
+      }
       const tc = trainCost(st), maxed = st.lv >= STAFF_MAX_LV;
       h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
         "<div class='sc-main'><div class='sc-top'><span class='sock sm'>" + (ROLE_ICONS[st.role]||"🐱") + "</span>" +
         "<span class='nm'>" + st.name + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
+        (deptChief(st.role) === st ? "<span class='tagchip'>⭐部長</span>" : "") +
         "<small>" + COAT_NAMES[st.coat] + "・" + def.name + "</small></div>" +
         "<div class='sc-eff'>" + eff + "</div></div>" +
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")")) + "</div>";
@@ -16232,6 +16460,22 @@ function renderPanel(){
       const bulkCost = bulkTargets.reduce((a, s) => a + trainCost(s), 0);
       h += "<div class='item buy slim'><div><span class='sock sm'>🎓</span><span class='nm'>全員+1Lv 育成</span> <small>対象 "+bulkTargets.length+"人</small></div>"+
         buyBtn("bulk", bulkCost, "coins", "buyBulkTrain()")+"</div>";
+    }
+    /* Phase C: 部署（ロールの束ね＋部署Lv）。投資すると部署全員の出力に倍率。
+       部長は部署で一番 Lv が高いスタッフに自動で付く（操作不要） */
+    {
+      let deptHTML = "";
+      for(const role of Object.keys(DEPTS)){
+        const d = DEPTS[role], lv = deptLv(role), n = ss.byRole[role] || 0;
+        const chief = deptChief(role);
+        const maxed = lv >= DEPT_MAX_LV;
+        deptHTML += "<div class='item buy slim'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
+          " <span class='tagchip'>Lv" + lv + "</span> <span class='tagchip'>在籍 " + n + "人</span>" +
+          (chief ? " <span class='tagchip'>⭐部長 " + chief.name + " Lv" + chief.lv + "</span>" : "") +
+          "<div class='ds'>所属全員の出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → 強化で ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
+          (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")")) + "</div>";
+      }
+      h += foldSec("depts", false, "🏢 部署", "投資で部署の出力アップ", deptHTML);
     }
     /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
     if(S.studioLv < STAFF_CAPS.length){
@@ -16434,16 +16678,37 @@ function renderPanel(){
     h += "</div>";
   }
   if(currentTab === "requests"){
-    h += "<h3>📮 依頼ボード</h3><div class='note'>期限・ペナルティなし。受けると<b>次の作品</b>がそのジャンルに（進行中は消えません）。リリースでボーナス</div>";
+    h += "<h3>📮 依頼ボード</h3><div class='note'>期限・ペナルティなし。受けると<b>次の作品</b>がそのジャンルに（進行中は消えません）。リリースでボーナス" +
+      (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "</div>";
+    if(S.bigDeal){
+      const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
+      h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + bd.client + "</span>" +
+        "<div class='ds'>「" + bd.genreName + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
+        "<span><button class='primary' onclick='acceptBigDeal()' " + (S.activeRequest ? "disabled" : "") + ">受ける</button> " +
+        "<button onclick='declineBigDeal()'>見送る</button></span></div></div>";
+    }
     if(S.activeRequest){
-      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中："+S.activeRequest.client+"</span>"+
-        "<div class='ds'>次の作品（"+S.activeRequest.genreName+"）をリリースで達成（コイン+60%・研究P+1）</div></div>";
+      const r = S.activeRequest;
+      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + r.client + "</span>" +
+        "<div class='ds'>次の作品（" + r.genreName + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
+        (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
+        (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
+        (r.repName ? " ・ 担当: " + r.repName : "") + "</div></div>";
     }
     S.requests.forEach((r,i)=>{
-      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>"+r.client+"</span><div class='ds'>"+r.text+"</div></div>"+
-        "<button onclick='acceptRequest("+i+")' "+(S.activeRequest?"disabled":"")+">受ける</button></div>";
+      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + r.client + "</span><div class='ds'>" + r.text + "</div></div>" +
+        "<button onclick='acceptRequest(" + i + ")' " + (S.activeRequest ? "disabled" : "") + ">受ける</button></div>";
     });
     if(!S.requests.length && !S.activeRequest) h += "<button onclick='genRequests();save();renderPanel()'>依頼を探す</button>";
+    /* Phase C: 希望ジャンル（プレイヤーの方針）。営業は力量が高いほど寄せて取る */
+    {
+      let chips = "<button onclick='setReqGenrePref(null)'" + (!S.reqGenrePref ? " class='primary'" : "") + ">おまかせ</button> ";
+      for(const g of unlockedGenres())
+        chips += "<button onclick='setReqGenrePref(\"" + g.id + "\")'" + (S.reqGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button> ";
+      h += "<div class='item slim'><div><span class='sock'>🧭</span><span class='nm'>希望ジャンル</span>" +
+        "<div class='ds'>営業が取ってくる依頼の寄せ先です（営業がいると効きます）</div>" +
+        "<div style='margin-top:5px'>" + chips + "</div></div></div>";
+    }
   }
   if(currentTab === "research"){
     h += "<h3>🔬 研究（研究P "+fmt(S.rp)+"）</h3>";
@@ -17197,6 +17462,7 @@ const VERBS = {
   hireStaff: hireStaff, trainStaff: trainStaff, buyBulkTrain: buyBulkTrain,
   buyTreat: buyTreat, buyStudio: buyStudio, buyLine2: buyLine2,
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
+  buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
