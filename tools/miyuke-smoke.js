@@ -1836,22 +1836,27 @@ console.log("== Phase C: OS input counting (fake Tauri events) ==");
     invokes.some(([c, a]) => c === "set_input_counting" && a.enabled === true));
   check("osCountingActive() true after enable", run(sb, "osCountingActive()") === true);
 
-  /* 集計イベント → ブースト材料へ（式: 40キー=+10DP, 2000px=+2DP 相当が keysAcc/cursorAcc に入る） */
+  /* 集計イベント → ブースト材料へ（レーンA: 3打鍵=+1DP, 400px=+1DP, 2クリック=+1DP） */
   const keysBefore = run(sb, "S.totals.keys");
-  run(sb, "keysAcc = 0; cursorAcc = 0;");
+  run(sb, "keysAcc = 0; cursorAcc = 0; clicksAcc = 0;");
   handlers["input-activity"]({ payload: { keys: 40, distPx: 2000, clicks: 5 } });
   check("OS keys feed keysAcc", run(sb, "keysAcc") === 40, "keysAcc=" + run(sb, "keysAcc"));
   check("OS dist feeds cursorAcc", run(sb, "cursorAcc") === 2000, "cursorAcc=" + run(sb, "cursorAcc"));
+  check("OS clicks feed clicksAcc", run(sb, "clicksAcc") === 5, "clicksAcc=" + run(sb, "clicksAcc"));
   check("OS keys counted in totals", run(sb, "S.totals.keys") === keysBefore + 40);
   check("OS last aggregate recorded", run(sb, "osInputLast.keys === 40 && osInputLast.clicks === 5"));
+  /* クリックだけの集計（キー・距離 0）でもブースト材料に入ること */
+  run(sb, "keysAcc = 0; cursorAcc = 0; clicksAcc = 0;");
+  handlers["input-activity"]({ payload: { keys: 0, distPx: 0, clicks: 10 } });
+  check("OS clicks-only feed clicksAcc", run(sb, "clicksAcc") === 10, "clicksAcc=" + run(sb, "clicksAcc"));
 
-  /* tick のブースト確定: 400キー = 100DP 生値 → 1分上限 45DP で頭打ち */
-  run(sb, "keysAcc = 400; cursorAcc = 0; pendingBoost = 0; tickBoostCounter = 0;");
+  /* tick のブースト確定: 400キー = 133.3DP 生値 → 1分上限 120DP で頭打ち */
+  run(sb, "keysAcc = 400; cursorAcc = 0; clicksAcc = 0; pendingBoost = 0; tickBoostCounter = 0;");
   run(sb, "setState('watch', 600000);");
   for (let i = 0; i < 10; i++) run(sb, "tick();");
   const pb = run(sb, "pendingBoost");
-  check("boost capped at 45 DP/min (400 keys -> 100 raw)", Math.abs(pb - 45) < 0.001, "pendingBoost=" + pb);
-  check("accumulators flushed by tick", run(sb, "keysAcc") === 0);
+  check("boost capped at 120 DP/min (400 keys -> 133.3 raw)", Math.abs(pb - 120) < 0.001, "pendingBoost=" + pb);
+  check("accumulators flushed by tick", run(sb, "keysAcc") === 0 && run(sb, "clicksAcc") === 0);
 
   /* 二重数え防止: ON の間はページ内の打鍵・カーソルを数えない */
   run(sb, "keysAcc = 0;");

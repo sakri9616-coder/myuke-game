@@ -10015,9 +10015,10 @@ window.MIYUKE_ANIMS = {
    ============================================================ */
 const BAL = {
   basePerMin: 8,            // 基本進捗 DP/分
-  keysPerDP: 4,             // 何打鍵で +1DP
-  cursorPxPerDP: 1000,      // 何px移動で +1DP
-  boostCapPerMin: 45,       // 入力ブーストの1分上限(DP)
+  keysPerDP: 3,             // 何打鍵で +1DP（レーンA・入力ブースト強化）
+  cursorPxPerDP: 400,       // 何px移動で +1DP（レーンA・入力ブースト強化）
+  clicksPerDP: 2,           // 何クリック（OS集計のストローク）で +1DP（レーンA新設）
+  boostCapPerMin: 120,      // 入力ブーストの1分上限(DP)（レーンA・入力ブースト強化）
   sizes:     { TUT:120, XS:400, S:900, M:2600, L:7000 },
   coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
   rpBase:    { TUT:1,   XS:1,   S:1,   M:2,    L:4 },
@@ -11438,7 +11439,7 @@ function cheerClick(bx, by, part){
 }
 
 /* ---------- 1秒ティック ---------- */
-let keysAcc = 0, cursorAcc = 0, careTimer = 200;
+let keysAcc = 0, cursorAcc = 0, clicksAcc = 0, careTimer = 200;
 function tick(){
   if(IS_VIEWER) return;   /* viewer はシミュレーションを持たない (第2層ガード) */
   const now = Date.now();
@@ -11552,8 +11553,8 @@ function tick(){
   tickBoostCounter++;
   if(tickBoostCounter >= 10){
     tickBoostCounter = 0;
-    let boost = keysAcc / BAL.keysPerDP + cursorAcc / BAL.cursorPxPerDP;
-    keysAcc = 0; cursorAcc = 0;
+    let boost = keysAcc / BAL.keysPerDP + cursorAcc / BAL.cursorPxPerDP + clicksAcc / BAL.clicksPerDP;
+    keysAcc = 0; cursorAcc = 0; clicksAcc = 0;
     boost = boostGate(boost);
     if(boost > 0.01 && coding) produceDP(boost, "l1");
     else if(boost > 0.01) pendingBoost += boost;
@@ -15375,7 +15376,7 @@ function applyInputCounting(){
   if(!inTauri()) return;
   tauriCmd("set_input_counting", { enabled: osInputWanted });
 }
-/* Rust からの集計を、ページ内集計と同じブースト材料（keysAcc / cursorAcc）に流す。
+/* Rust からの集計を、ページ内集計と同じブースト材料（keysAcc / cursorAcc / clicksAcc）に流す。
    換算式と1分上限は tick 側の既存処理（boostGate）がそのまま担う */
 function feedOsActivity(p){
   if(!p) return;
@@ -15384,10 +15385,12 @@ function feedOsActivity(p){
   const clicks = Math.max(0, Math.floor(Number(p.clicks) || 0));
   osInputLast = { keys: keys, distPx: dist, clicks: clicks, at: Date.now() };
   if(S.settings.pauseInput) return;   /* 一時停止中はページ内と同じく集計しない */
-  if(keys > 0 || dist > 0){
-    keysAcc += keys; cursorAcc += dist;
+  if(keys > 0 || dist > 0 || clicks > 0){
+    keysAcc += keys; cursorAcc += dist; clicksAcc += clicks;
     S.totals.keys += keys; S.today.keys += keys;
     S.totals.cursorPx += dist; S.today.cursorPx += dist;
+    /* OSクリックはブースト材料（clicksAcc）にだけ流す。S.totals.clicks は
+       応援クリックの実績系なので混ぜない（レーンA・clicksPerDP 配線） */
     lastInputAt = Date.now();
     noteInput();
   }

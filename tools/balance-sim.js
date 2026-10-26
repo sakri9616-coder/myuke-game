@@ -28,9 +28,10 @@
    ============================================================ */
 const BAL = {
   basePerMin: 8,
-  keysPerDP: 4,
-  cursorPxPerDP: 1000,
-  boostCapPerMin: 45,
+  keysPerDP: 3,
+  cursorPxPerDP: 400,
+  clicksPerDP: 2,
+  boostCapPerMin: 120,
   sizes:     { TUT:120, XS:400, S:900, M:2600, L:7000 },
   coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
   rpBase:    { TUT:1,   XS:1,   S:1,   M:2,    L:4 },
