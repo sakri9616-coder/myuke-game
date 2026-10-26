@@ -1,7 +1,7 @@
 "use strict";
 /* ============================================================
    みゅけ バランスシミュレーション v2.1 (Node, 依存なし)
-   game/index.html の定数・仕様をそのまま写したもの。数値を変えたら両方直すこと。
+   共有定数（BAL 等）は game/index.html から抽出する（単一ソース。下記ローダ参照）。
 
    モデル概要（ゲーム実装との対応）:
    - 生産: 基本進捗(8/分)＋入力ブーストは「コーディング系の状態」のときだけ進む。
@@ -11,7 +11,7 @@
      第2ラインは line2Rate() 自体に倍率が含まれ、さらに produceDP でも掛かる
      （出荷版の実装どおり二重適用を再現している）。
    - 工程: 生産 → 仕掛品 → テスト(bugFで減速) → ビルド → 出荷。各工程レート/分で処理し、
-     第2ラインは第1ラインの残り容量を使う（テスト容量は bugF で割って消費計算）。
+     各ラインは独立の工程容量を持つ（c62ef23 で game と同期済み）。
    - バグ: 生産量×0.012 が滞留。QA（qaRate/分）で処理。滞留>8 でテストが最大50%減速。
      みゅけ本人のデバッグ叩きは「滞留>3 のとき超過分を最大3/分追加処理」と近似。
    - クリック: セッション中はコンボが 0.08/クリックで上限まで育つ前提で、
@@ -26,56 +26,58 @@
      研究は res_line2 を優先し、他はゲーム内表示順に、RP に +2 の余裕を見て買う。
      プレステージは星屑10個ぶん貯まった日の終わりに実施（実行可能は5個ぶん〜）。
    ============================================================ */
-const BAL = {
-  basePerMin: 8,
-  keysPerDP: 3,
-  cursorPxPerDP: 400,
-  clicksPerDP: 2,
-  boostCapPerMin: 120,
-  sizes:     { TUT:120, XS:400, S:900, M:2600, L:7000 },
-  coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
-  rpBase:    { TUT:1,   XS:1,   S:1,   M:2,    L:4 },
-  bugPerDP: 0.012,
-  qaBasePerMin: 0.6,
-  prestigeDPPerDust: 12000,
-  dustBonus: 0.04,
-  stageBaseRate: 30,
-  line2BaseRate: 4,
-  line2BuildCost: 1500,
-  line2CoinRate: 0.7
-};
-const UPGRADE_DEFS = [
-  { id:"keyboard", base:40, max:10 }, { id:"ide", base:120, max:10 }, { id:"monitor", base:260, max:5 },
-  { id:"chair", base:180, max:5 }, { id:"duck", base:60, max:10 }, { id:"tester", base:240, max:8 },
-  { id:"ci", base:200, max:10 }, { id:"pack", base:160, max:10 }, { id:"bot", base:350, max:3 }
-];
+/* ---- リファクタ (2026-10-26・振る舞い不変): 共有定数の単一ソース化 ----
+   BAL / UPGRADE_DEFS / RESEARCH_DEFS / STAFF_ROLES / STAFF_CAPS / studioCost は
+   game/index.html から読み込み時に抽出する。sim 側に写しを持たないので、
+   数値変更は game 側だけで済む。抽出に失敗したら sim は即座にエラーで止まる
+   (古い写しで静かに回り続ける事故を防ぐ)。 */
+const fs = require("fs");
+const path = require("path");
+const GAME_SRC = fs.readFileSync(path.join(__dirname, "..", "game", "index.html"), "utf8");
+function extractLiteral(name){
+  const marker = "const " + name + " =";
+  const start = GAME_SRC.indexOf(marker);
+  if(start < 0) throw new Error("balance-sim: game/index.html に " + marker + " が見つからない (抽出失敗)");
+  let i = start + marker.length;
+  while(/\s/.test(GAME_SRC[i])) i++;
+  if(GAME_SRC[i] !== "{" && GAME_SRC[i] !== "[") throw new Error("balance-sim: " + name + " はリテラルではない");
+  let depth = 0, inStr = null, esc = false, inLine = false, inBlock = false;
+  for(let j = i; j < GAME_SRC.length; j++){
+    const c = GAME_SRC[j], n = GAME_SRC[j + 1];
+    if(inLine){ if(c === "\n") inLine = false; continue; }
+    if(inBlock){ if(c === "*" && n === "/"){ inBlock = false; j++; } continue; }
+    if(inStr){ if(esc) esc = false; else if(c === "\\") esc = true; else if(c === inStr) inStr = null; continue; }
+    if(c === "/" && n === "/"){ inLine = true; j++; continue; }
+    if(c === "/" && n === "*"){ inBlock = true; j++; continue; }
+    if(c === '"' || c === "'" || c === "`"){ inStr = c; continue; }
+    if(c === "{" || c === "[") depth++;
+    else if(c === "}" || c === "]"){ depth--; if(depth === 0) return Function("return (" + GAME_SRC.slice(i, j + 1) + ")")(); }
+  }
+  throw new Error("balance-sim: " + name + " のリテラル終端が見つからない");
+}
+const GAME_STUDIO = (() => {
+  const m = GAME_SRC.match(/function studioCost\(lv\)\{\s*return\s*([\d.]+)\s*\*\s*Math\.pow\(([\d.]+)/);
+  if(!m) throw new Error("balance-sim: game/index.html の studioCost を抽出できない");
+  return { base: Number(m[1]), growth: Number(m[2]) };
+})();
+const BAL = extractLiteral("BAL");
+const UPGRADE_DEFS = extractLiteral("UPGRADE_DEFS").map(d => ({ id: d.id, base: d.base, max: d.max }));
 const cost = (def, lv) => Math.ceil(def.base * Math.pow(1.15, lv));
 const dpMult = up => 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);
 const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*(up.duck||0) + 1.2*(up.tester||0) + (res.res_duckplay?0.2:0) + ss.qa;
 /* 研究（ゲームの RESEARCH_DEFS と同じ並び・価格）
    Sprint 4: ティア2（前提つき）を追加。ジャンル依存の効果（res_game2/ai2/robot2）は
    sim がジャンルを引いていないため未モデル化（影響は軽微な範囲に留まる） */
-const RESEARCH = [
-  { id:"res_game", cost:2 }, { id:"res_ai", cost:4 }, { id:"res_robot", cost:6 },
-  { id:"res_duckplay", cost:3 }, { id:"res_plant", cost:2 },
-  { id:"res_bottrain", cost:5 }, { id:"res_line2", cost:5 },
-  { id:"res_game2", cost:8, requires:"res_game" }, { id:"res_ai2", cost:8, requires:"res_ai" },
-  { id:"res_robot2", cost:8, requires:"res_robot" }, { id:"res_eff2", cost:10, requires:"res_line2" },
-  { id:"res_zen", cost:6, requires:"res_plant" }, { id:"res_play2", cost:6 },
-  { id:"res_bot2", cost:8, requires:"res_bottrain" }
-];
+const RESEARCH = extractLiteral("RESEARCH_DEFS").map(r => { const o = { id: r.id, cost: r.cost }; if(r.requires) o.requires = r.requires; return o; });
 /* Sprint 4: 反復研究「効率化レポート」（価格 10×1.6^Lv、生産 +2%/Lv） */
 const repeatCost = lv => Math.ceil(10 * Math.pow(1.6, lv));
 /* スタッフ（game と同一） */
-const STAFF_ROLES = {
-  prog:    { base:210, out:2.2 }, test: { base:180, out:0.5 }, carry: { base:150, out:5 },
-  research:{ base:245, out:0.25 }, care: { base:170, out:1 }
-};
-const STAFF_CAPS = [3, 5, 7, 9, 12];
+const STAFF_ROLES = (() => { const g = extractLiteral("STAFF_ROLES"); const o = {}; for(const k of Object.keys(g)) o[k] = { base: g[k].base, out: g[k].out }; return o; })();
+const STAFF_CAPS = extractLiteral("STAFF_CAPS");
 const STAFF_POLICY_MAX_LV = 6;   // 方針: 育成は Lv6 まで（ゲーム上限は Lv10）
 const hireCost = (staff, role) => Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, staff.filter(s=>s.role===role).length));
 const trainCost = st => Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));   /* Sprint 4: 1.45→1.35 */
-const studioCost = lv => 400 * Math.pow(3, lv - 1);
+const studioCost = lv => GAME_STUDIO.base * Math.pow(GAME_STUDIO.growth, lv - 1);
 function staffSums(staff){
   const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, byRole:{} };
   for(const st of staff){
