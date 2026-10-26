@@ -498,6 +498,24 @@ console.log("== Phase A3: Sprint 3 (lamps / affordability / dust shop / shelf) =
   check("perks persist through save/load",
     run(sb, "DUST_PERKS.every(d => hasPerk(d.id))") && run(sb, "S.dustTotal") === 35);
 
+  /* --- 二窓: 引っ越しの確認は viewer 側・帯側の本体は confirm を出さない
+     (v2.4.7 実機フリーズの回帰防止。帯で confirm が出ると帯のスレッドが止まる) --- */
+  run(sb, "S.runDP = 65000; window.__confirmHit = false; window.confirm = () => { window.__confirmHit = true; throw new Error('confirm on owner'); };");
+  let coreThrew = "";
+  try { run(sb, "VERBS.doPrestige();"); } catch(e){ coreThrew = String(e && e.message || e); }
+  check("bridge verb doPrestige is the no-confirm core (runs without touching confirm)",
+    coreThrew === "" && !run(sb, "window.__confirmHit") && run(sb, "S.prestiges") === 2, coreThrew);
+  run(sb, "window.__sentCmds = []; window.__TAURI__ = { event: { emitTo: (t, ev, p) => { if(ev === 'menu-cmd') window.__sentCmds.push(p); return Promise.resolve(); }, listen: () => Promise.resolve(() => {}) }, core: { invoke: async () => null } };");
+  run(sb, "S.runDP = 65000; window.confirm = () => false;");
+  run(sb, "makeVerbStub('doPrestige')();");
+  check("viewer stub: cancelling the local confirm sends no command",
+    run(sb, "window.__sentCmds.length") === 0);
+  run(sb, "window.confirm = () => true;");
+  run(sb, "makeVerbStub('doPrestige')();");
+  check("viewer stub: confirming locally sends the doPrestige command once",
+    run(sb, "window.__sentCmds.length") === 1 && run(sb, "window.__sentCmds[0].verb") === "doPrestige");
+  run(sb, "delete window.__TAURI__; window.confirm = () => true;");
+
   /* スタッフの雑談は帯のアンビエントに一本化（部屋側の雑談は廃止）。
      帯の雑談開始・吹き出し描画は Phase B で検証する */
 

@@ -11784,6 +11784,16 @@ function doPrestige(){
   const gain = pv.gain;
   if(gain < 5){ say("引っ越しには星屑5個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
   if(!confirm("新スタジオへ引っ越しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+pv.curMult.toFixed(2)+" → ×"+pv.nextMult.toFixed(2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
+  doPrestigeCore();
+}
+/* 確認なしの本体。menu (viewer) からは VERBS 経由でこちらが呼ばれ、確認は
+   viewer 側スタブで済ませる (resetSave / doResetSave と同じ分担)。
+   帯 (owner) で confirm を出すと帯のスレッドがモーダルで止まり、cmd-result も
+   スナップショットも返らなくなって全体が固まる (v2.4.7 実機バグ・二窓リグで再現済み) */
+function doPrestigeCore(){
+  const pv = prestigePreview();
+  const gain = pv.gain;
+  if(gain < 5) return;
   /* 特典の引き継ぎ対象はリセット前に確保する */
   let keptStaff = null;
   if(hasPerk("veteran") && S.staff.length){
@@ -15670,7 +15680,7 @@ const VERBS = {
   hireStaff: hireStaff, trainStaff: trainStaff, buyBulkTrain: buyBulkTrain,
   buyTreat: buyTreat, buyStudio: buyStudio, buyLine2: buyLine2,
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
-  buyDustPerk: buyDustPerk, doPrestige: doPrestige,
+  buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
@@ -15826,6 +15836,13 @@ function makeVerbStub(verb){
       /* 二重確認は menu 側で済ませてから送る (帯の帯画面で confirm を出さない) */
       if(!confirm("セーブデータを初期化しますか？")) return;
       if(!confirm("本当に消しますか？作品棚・実績・星屑も消えます。")) return;
+    }
+    if(verb === "doPrestige"){
+      /* 確認は menu 側で済ませてから送る (resetSave と同じ。帯側で confirm が
+         出ると帯のスレッドが止まって全体が固まる)。文面は帯側 doPrestige と同一 */
+      const pv = prestigePreview();
+      if(pv.gain < 5){ showViewerNote("引っ越しには星屑5個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
+      if(!confirm("新スタジオへ引っ越しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
     }
     let btn = null;
     try{
