@@ -13844,7 +13844,10 @@ function dropRequest(){
    数え（帯に描く本社の猫は最大36匹まで）、収益は受動コイン＋DP。
    プレイヤーのレバー: 設立 / 人員投資 / 規模Lv / 資金配分（合計100%）。
    配分は「注力度」として効く（0% で ×0.5、100% で ×2.0）ため、配分を
-   動かすとグループ合計が変わる — それが経営判断になる。
+   動かすとグループ合計が変わる — それが経営判断になる。注力度は
+   凹関数 0.5+1.5×sqrt(配分/100)（2026-10-26 23:17回・Phase D 注記 (ii)）:
+   線形だと高単価社への100%集中が常に最善で配分判断が消えるため、
+   逓減する注力度で最適配分を内点（約74/26）に移し、誤配分は損になる形にした。端点は不変。
    売却は2段構え: 子会社だけ売る部分EXIT（星屑は subDustValue と同額）と、
    本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
    部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
@@ -13856,7 +13859,7 @@ function subGenreRate(genreId){
   return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
 }
 function subLvMult(sub){ return 1 + 0.3 * (sub.lv - 1); }
-function subFocus(sub){ return 0.5 + 1.5 * ((sub.alloc || 0) / 100); }
+function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
   const base = sub.staff * subLvMult(sub) * subFocus(sub);
   return { coins: base * 0.35 * subGenreRate(sub.genre), dp: base * 0.2 };

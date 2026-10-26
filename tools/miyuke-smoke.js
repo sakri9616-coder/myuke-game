@@ -3194,17 +3194,20 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("D: genre rate follows unlock order (first genre x1.0, last genre highest)",
       run(sb, "subGenreRate(GENRES[0].id)") === 1 &&
       run(sb, "subGenreRate(GENRES[GENRES.length - 1].id)") > 1.5);
-    check("D: allocation sensitivity — concentrating funds on the higher-rate sub raises the group total, spreading to it lowers it, Σalloc stays 100",
+    check("D: allocation sensitivity — concave focus puts the optimum inside (74/26 beats even and the 90/10 corner, starving the high-rate sub loses), Σalloc stays 100",
       (() => {
         const last = run(sb, "GENRES[GENRES.length - 1].id");
         const mk = (allocA) => run(sb,
           "subRates({ staff: 30, lv: 3, genre: '" + last + "', alloc: " + allocA + " }).coins +" +
           " subRates({ staff: 30, lv: 3, genre: 'app', alloc: " + (100 - allocA) + " }).coins");
-        const even = mk(50), skewed = mk(90), starved = mk(10);
+        const even = mk(50), optimum = mk(74), corner = mk(90), starved = mk(10);
         run(sb, "foundSub('app'); setAlloc(S.subs[0].id, -40);");
         const sumOk = run(sb, "S.subs.reduce((a, s) => a + s.alloc, 0)") === 100;
-        return skewed > even * 1.08 && starved < even * 0.92 && sumOk;
+        return optimum > even && optimum > corner && starved < even * 0.92 && sumOk;
       })());
+    check("D: subFocus endpoints unchanged by the concave change (0% -> 0.5, 100% -> 2.0, 50% -> 0.5+1.5*sqrt(0.5))",
+      run(sb, "subFocus({ alloc: 0 })") === 0.5 && run(sb, "subFocus({ alloc: 100 })") === 2 &&
+      Math.abs(run(sb, "subFocus({ alloc: 50 })") - (0.5 + 1.5 * Math.sqrt(0.5))) < 1e-9);
     check("D: dust value formula (staff 20/Lv3 -> 4, staff 5/Lv1 -> 1)",
       run(sb, "subDustValue({ staff: 20, lv: 3 })") === 4 && run(sb, "subDustValue({ staff: 5, lv: 1 })") === 1);
     run(sb, "S.dust = 0; S.dustTotal = 0; const v = subDustValue(S.subs[0]); sellSubCore(S.subs[0].id);");
