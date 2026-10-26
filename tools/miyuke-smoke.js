@@ -3863,6 +3863,8 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("WM: the veteran pick comes from the remaining staff, never the executive",
       run(sbVetW, "S.executives[0].name") === "えー" && run(sbVetW, "S.staff.length") === 1 &&
       run(sbVetW, "S.staff[0].name") === "びー");
+    check("WM: the carried veteran starts the new company with act reset to 0",
+      run(sbVetW, "S.staff[0].act") === 0, "act=" + run(sbVetW, "S.staff[0].act"));
     const sbHoldW = buildSandbox({});
     loadGame(sbHoldW);
     run(sbHoldW, "S.executives = [{ name: 'E1', coat: 'kuro', role: 'prog' }]; S.maxStudioLv = 6; S.prestiges = 5; S.eraDust = 40; S.subs = [{ id: 1, name: 's1', genre: 'app', staff: 5, lv: 1, alloc: 50 }, { id: 2, name: 's2', genre: 'web', staff: 5, lv: 1, alloc: 50 }]");

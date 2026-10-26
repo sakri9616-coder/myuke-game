@@ -14336,6 +14336,10 @@ function doPrestigeCore(execSel, vetSel, swapSel){
     const pick = (typeof vetSel === "number") ? rest.find(s => s.id === vetSel) : null;
     const vet = pick || rest.slice().sort((a,b) => b.lv - a.lv)[0];
     if(vet) keptStaff = JSON.parse(JSON.stringify(vet));
+    /* 第2ウェーブ M 事後チェック対応: act は「その周回」の活躍度なので、
+       引き継ぎ時に 0 へ戻す。戻さないと前会社の通算 act を抱えたベテランが
+       次周回の役員候補トップを最初から固定してしまう */
+    if(keptStaff) keptStaff.act = 0;
   }
   let keptResearch = null;
   if(hasPerk("notebook")){
