@@ -148,7 +148,10 @@ function simulate(days, active){
   const releasesByDay = [];
   const milestones = { firstReleaseMin: null, botDay: null, prestigeDay: null, prestigeFeasibleDay: null,
                        firstUpgradeDay: null, firstHireDay: null, line2Day: null,
-                       resT1Day: null, resAllDay: null };
+                       resT1Day: null, resAllDay: null,
+                       /* Phase B・社格到達日: Lv1 は開始時（0日目）。売却で Lv1 に戻っても
+                          初回到達日は上書きしない（最高到達の記録として読む） */
+                       rankDays: { 1: 0 } };
   /* チュートリアル導線 (research/TUTORIAL_DESIGN.md §5) との対応 — 導線の解放
      トリガーは、その段階で買う物の価格以下に置いてあり、sim の購入マイル
      ストーンより先に (または同時に) 発火する。経済定数は導線と無関係:
@@ -341,6 +344,7 @@ function simulate(days, active){
               if(milestones.line2Day === null) milestones.line2Day = day;
             } else {
               studioLv++;
+              if(milestones.rankDays[studioLv] === undefined) milestones.rankDays[studioLv] = day;
             }
             return true;
           }
@@ -433,6 +437,7 @@ function report(label, r){
   console.log("初雇用: " + (r.milestones.firstHireDay ?? "未達") + " 日目");
   console.log("初オートメーション（子ねこボット）: " + (r.milestones.botDay ?? "未達") + " 日目");
   console.log("第2ライン建設: " + (r.milestones.line2Day ?? "未達") + " 日目");
+  console.log("社格到達日（Phase B）: " + [1,2,3,4,5,6].map(lv => "Lv"+lv+"="+(r.milestones.rankDays[lv] === undefined ? "未達" : r.milestones.rankDays[lv]+"日目")).join(" / "));
   console.log("リリース数: 7日目まで " + sum(r.releasesByDay, 7) + " 作品 / 30日目まで " + r.totalReleasesEver + " 作品");
   console.log("プレステージ実行可能（星屑5個ぶん）: " + (r.milestones.prestigeFeasibleDay ? r.milestones.prestigeFeasibleDay + " 日目" : "30日以内に未達"));
   console.log("プレステージ実施（星屑10個ぶん・方針）: " + (r.milestones.prestigeDay ? r.milestones.prestigeDay + " 日目" : "30日以内に未実施"));

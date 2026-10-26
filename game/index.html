@@ -11468,10 +11468,15 @@ const STAFF_ROLES = {
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
   care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" }
 };
-const STAFF_CAPS = [3, 5, 7, 9, 12];        // スタジオLv1..5 の雇用上限
+const STAFF_CAPS = [3, 6, 10, 16, 24, 36];  // スタジオLv1..6 の雇用上限（レーンB Phase B・社格ラダー）
 const STAFF_MAX_LV = 10;
+/* 社格ラダー（Phase B）: スタジオLvをそのまま社格として扱う。新システムは増やさない。
+   インディー/零細＝クリッカー期、中小/中堅＝自動化期、準大手/大企業＝経営期 */
+const COMPANY_RANKS = ["インディー", "零細", "中小", "中堅", "準大手", "大企業"];
+function rankName(lv){ return COMPANY_RANKS[Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1]; }
+function companyRank(){ return rankName(S.studioLv); }
 function staffCap(){ return STAFF_CAPS[S.studioLv - 1]; }
-function studioCost(lv){ return 400 * Math.pow(3, lv - 1); }  // Lv1→2: 400, →3: 1200, →4: 3600, →5: 10800（レーンA・序盤価格の緩和、×3 曲線は不変）
+function studioCost(lv){ return 400 * Math.pow(3, lv - 1); }  // Lv1→2: 400, →3: 1200, →4: 3600, →5: 10800, →6: 32400（レーンA・序盤価格の緩和、×3 曲線は不変。Lv6 は緩和後の曲線の延長）
 function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;
@@ -11700,7 +11705,7 @@ function freshState(){
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
-    staff:[], staffSeq:0, studioLv:1, clickUp:{},
+    staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{},
     wip:{ code:0, tested:0, built:0 },
     line2:{ unlocked:false, genre:null, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } },
     today:{ date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 },
@@ -11778,6 +11783,9 @@ function load(){
        読み込んだ時点のティアは既読として記録する (ベテランセーブで祝わない) */
     officeTierSeen = officeTier(S);
     if(typeof S.studioLv !== "number" || S.studioLv < 1) S.studioLv = 1;
+    /* Phase B・最高到達社格: 旧セーブには無いので初期値は現在のスタジオLv。
+       記録が現在を下回る不整合があれば現在に揃える（最高到達は現在以上のはず） */
+    if(typeof data.maxStudioLv !== "number" || S.maxStudioLv < S.studioLv) S.maxStudioLv = S.studioLv;
     if(!S.clickUp || typeof S.clickUp !== "object") S.clickUp = {};
     /* Sprint 1 追加フィールド（旧セーブには無いので既定値で補完） */
     if(typeof S.nextRequestGenre === "undefined") S.nextRequestGenre = null;
@@ -11909,7 +11917,7 @@ function deriveStage(st){
      tier 2 開発スタジオ: 第2ライン開設 or スタジオ Lv3 — カンバン白板・
             デュアルモニタ・ラミネート机に更新される規模
      tier 3 引っ越し後の本社: prestiges >= 1 — フルモダン (サーバラック等) */
-const OFFICE_TIER_NAMES = ["創業ガレージ", "小さなオフィス", "開発スタジオ", "本社"];
+const OFFICE_TIER_NAMES = ["創業ガレージ", "小さなオフィス", "開発スタジオ", "本社", "大きな本社", "グループ本社"];
 /* ティア上昇の祝い用トラッカー。null = 未初期化。load() が読み込み時点の
    ティアで初期化し、tick() がセッション中の上昇だけを検知する */
 let officeTierSeen = null;
@@ -11920,6 +11928,15 @@ function officeTier(st){
   if(releases >= 1 && hired >= 1) t = Math.max(t, 1);
   if((st.line2 && st.line2.unlocked) || (st.studioLv || 1) >= 3) t = Math.max(t, 2);
   if((st.prestiges || 0) >= 1) t = Math.max(t, 3);
+  /* Phase B・家具ティアの床ルール（仕様書2節・レビュー室指摘の明文化）:
+     ティアは max(現行の導出, 社格ティア) で、最高到達社格の段を下回らない。
+     社格ティア = 最高到達Lv − 1（Lv1→0 … Lv6→5）。現在と記録の大きい方を
+     使うので、未移行の旧セーブ（記録なし＝現在Lv）でも現在Lvが床になる。
+     売却で studioLv が 1 に戻っても記録が残るため、見た目は格下げしない。
+     注: 現行の絵のゲートは >=1 / >=2 の2段だけなので、ティア 3〜5 の家具は
+     ティア 3 と同じ絵になる。段差は社格チップ・人数・ティア名と祝いで読む */
+  const best = Math.max(st.studioLv || 1, st.maxStudioLv || 0);
+  t = Math.max(t, best - 1);
   return t;
 }
 /* ロック判定に使う実効ステージ: 記録 (S.tut.stage) と事実 (derive) の大きい方。
@@ -13037,9 +13054,12 @@ function buyStudio(){
   const cost = studioCost(S.studioLv);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; S.studioLv++;
+  /* Phase B: 最高到達社格を更新（売却で studioLv が戻っても残る永続記録） */
+  S.maxStudioLv = Math.max(S.maxStudioLv || 0, S.studioLv);
   SoundKit.play("purchase");
-  addLog("🏠 スタジオ拡張！ Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-"+cost+"🪙）");
-  say("スタジオが広くなったにゃ！ もっと仲間を呼べるよ");
+  /* Phase B・昇格のセレモニー（仕様書2節）: セリフ＋ログの二経路。色だけに頼らない */
+  addLog("🏠 スタジオ拡張！ 社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-"+cost+"🪙）");
+  say("社格が「"+companyRank()+"」になったにゃ！ スタジオが広くなって、もっと仲間を呼べるよ");
   save(); renderPanel();
 }
 function buyClickUp(id){
@@ -13210,6 +13230,7 @@ function doPrestigeCore(){
   S.staff = keptStaff ? [keptStaff] : [];
   if(keptStaff) S.staffSeq = Math.max(S.staffSeq, keptStaff.id);
   S.clickUp = {}; S.studioLv = 1;
+  /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };
   S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
   addLog("🏠 新スタジオへ引っ越し！ 星屑 +"+gain+"（永続ボーナス +"+Math.round(BAL.dustBonus*S.dustTotal*100)+"%）");
@@ -14805,6 +14826,28 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.textAlign = "left";
   }
   sctx.restore();
+  /* Phase B・社格チップ（リーダーボード右上）: r1 は作品名＋ピル、r2 は DP 実数＋
+     生産 +N% で既に満杯で、ボード上端は帯の上端から 3px しかないため、面の中に
+     押し込まず右端にタブとして張り出す。帯の上段はボード以外に高い家具がなく、
+     右隣の家具（研究机・第2ライン机）は地面側の低い物なので重ならない。
+     端に寄せた配置では反対側へ逃がし、両端とも入らなければ出さない（表示のみで
+     クリック判定は持たない。社格の確認はメニューのチップでもできる） */
+  {
+    const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人";
+    sctx.save();
+    sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+    sctx.textAlign = "left"; sctx.textBaseline = "middle";
+    const tw = sctx.measureText(rankTxt).width + 10;
+    let tx = bx + bw + 1;
+    if(tx + tw > stripVW - 2) tx = bx - tw - 1;
+    if(tx >= 1){
+      sR(tx, top + 1, tw, 12, "#8a6a44");
+      sR(tx + 1, top + 2, tw - 2, 10, "#fff5e6");
+      sctx.fillStyle = "#4a3b2c";
+      sctx.fillText(rankTxt, tx + 5, top + 7);
+    }
+    sctx.restore();
+  }
   /* Stage 3: ボードに付く小物 — 左ポストの電話 (スタッフ)、面の下の吊りメモ
      (依頼タブ) と真鍮タグ (コイン残高・表示のみ) */
   if(!tutTabLocked("staff") && sDrawSprite("prop_phone", bx + 10, G, 1)){
@@ -15980,7 +16023,7 @@ function renderEditorBreadcrumb(){
   const label = selected ? selected[1] : "";
   const context = (IS_VIEWER && !viewerSynced) ? "同期中…"
     : tutTabLocked(currentTab) ? "🔒 解放条件"
-    : currentTab === "staff" ? S.staff.length + "人 / スタジオ Lv" + S.studioLv
+    : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
     : currentTab === "research" ? fmt(S.rp) + " RP"
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
@@ -16084,7 +16127,7 @@ function renderPanel(){
   if(currentTab === "staff"){
     const ss = staffSums();
     const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪" };  /* メニュー刷新 P1: 行アイコンソケット用 */
-    h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・スタジオ Lv"+S.studioLv+"）</h3>";
+    h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・"+companyRank()+" Lv"+S.studioLv+"）</h3>";
     /* IA: 在籍スタッフを最初に — スプライトカードで顔ぶれが一目で分かる。
        雇用・ご褒美はカード群の下 (折りたたみ) へ、スタジオ拡張は細い行で常設 */
     if(S.buffs.prodUntil > Date.now() || S.buffs.clickUntil > Date.now()){
@@ -16123,11 +16166,11 @@ function renderPanel(){
     /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
     if(S.studioLv < STAFF_CAPS.length){
       const cost = studioCost(S.studioLv);
-      h += "<div class='item buy slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"</span>"+
+      h += "<div class='item buy slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
         "<div class='ds'>雇用上限が "+STAFF_CAPS[S.studioLv]+" 人になります</div></div>"+
         buyBtn("studio", cost, "coins", "buyStudio()")+"</div>";
     } else {
-      h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（上限 "+staffCap()+"人）</div>";
+      h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
     }
     /* 雇用は折りたたみ (在籍ゼロの序盤だけ既定で開く — 最初の1人が最優先の間) */
     let hireHTML = "";
@@ -16269,12 +16312,13 @@ function renderPanel(){
         "<span class='sock'>🏠</span><span class='nm'>引っ越しできます！</span>"+
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
         prestigeBtn + "</div>"+
-        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+"</div></div>";
+        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
       const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（5個から引っ越し可能）") +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+pv.curMult.toFixed(2)+" → 引っ越し後 ×"+pv.nextMult.toFixed(2)) +
         kv("引っ越し回数", S.prestiges+" 回") +
+        kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
         "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.join("・")+"</div>" +
         "<div style='margin:7px 0'>"+prestigeBtn+"</div>" +
         "<div class='stagehead'>⭐ 星屑ショップ（所持 "+fmt(S.dust)+")</div>" + dustBody;

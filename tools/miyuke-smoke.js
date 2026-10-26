@@ -321,6 +321,38 @@ console.log("== Phase A: browser full mode (panels only) ==");
   check("v1-ish save migrates: studioLv defaulted", run(sb, "S.studioLv") === 1);
   check("v1-ish save migrates: line2 defaulted", run(sb, "!!S.line2 && typeof S.line2.unlocked === 'boolean'"));
 
+  /* --- レーンB Phase B: 社格ラダー（上限・Lv6・社格名・最高到達・家具床） --- */
+  check("Phase B: STAFF_CAPS is [3,6,10,16,24,36]",
+    run(sb, "JSON.stringify(STAFF_CAPS)") === "[3,6,10,16,24,36]");
+  check("Phase B: rank names インディー/零細/中小/中堅/準大手/大企業",
+    run(sb, "[1,2,3,4,5,6].map(rankName).join('/')") === "インディー/零細/中小/中堅/準大手/大企業");
+  check("Phase B: studioCost 400/1200/3600/10800/32400 (x3 curve, relaxed base)",
+    run(sb, "[1,2,3,4,5].map(studioCost).join('/')") === "400/1200/3600/10800/32400");
+  run(sb, "S.coins = 1000000; S.staff = [];");
+  run(sb, "buyStudio();");
+  check("Phase B: buyStudio Lv1->2 raises cap 3->6 and records maxStudioLv 2",
+    run(sb, "S.studioLv") === 2 && run(sb, "staffCap()") === 6 && run(sb, "S.maxStudioLv") === 2 &&
+    run(sb, "companyRank()") === "零細",
+    "lv=" + run(sb, "S.studioLv") + " cap=" + run(sb, "staffCap()"));
+  run(sb, "buyStudio(); buyStudio(); buyStudio(); buyStudio();");
+  check("Phase B: buyStudio reaches Lv6 (大企業, cap 36)",
+    run(sb, "S.studioLv") === 6 && run(sb, "staffCap()") === 36 && run(sb, "companyRank()") === "大企業");
+  run(sb, "buyStudio();");
+  check("Phase B: buyStudio at max keeps Lv6",
+    run(sb, "S.studioLv") === 6);
+  run(sb, "S.runDP = BAL.prestigeDPPerDust * 5; doPrestige();");
+  check("Phase B: prestige resets studioLv to 1 but maxStudioLv stays 6 (no furniture downgrade)",
+    run(sb, "S.studioLv") === 1 && run(sb, "S.maxStudioLv") === 6 && run(sb, "officeTier(S)") === 5,
+    "lv=" + run(sb, "S.studioLv") + " max=" + run(sb, "S.maxStudioLv") + " tier=" + run(sb, "officeTier(S)"));
+  run(sb, `localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: 100, studioLv: 4, totals: {}, today: {} })); load();`);
+  check("Phase B: old save without maxStudioLv migrates to current studioLv",
+    run(sb, "S.maxStudioLv") === 4);
+  run(sb, `localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: 100, studioLv: 4, maxStudioLv: 2, totals: {}, today: {} })); load();`);
+  check("Phase B: maxStudioLv below current studioLv is clamped up on load",
+    run(sb, "S.maxStudioLv") === 4);
+  /* 後続の Phase A テストが見る状態を、ブロック直前（v1風セーブ読込後）に戻す */
+  run(sb, `localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: 555, totals: {}, today: {} })); load();`);
+
   /* --- Sprint 2: サウンドキット（AudioContext 無しでも全キュー安全 no-op） --- */
   check("SoundKit exists", run(sb, "typeof SoundKit === 'object' && typeof SoundKit.play === 'function'"));
   check("sound default: ON in full mode when unset",
@@ -3000,9 +3032,11 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("G: line 2 unlocked -> tier 2", tierOf("{ line2: { unlocked: true, wip: { code: 0, tested: 0, built: 0 } } }") === 2);
     check("G: studio Lv3 -> tier 2", tierOf("{ studioLv: 3 }") === 2);
     check("G: first move (prestige) -> tier 3", tierOf("{ prestiges: 1 }") === 3);
-    check("G: tier is monotonic in facts (full facts -> 3, never above)",
-      tierOf("{ totals: Object.assign(freshState().totals, { releases: 99, hired: 9 }), staff: [{}], line2: { unlocked: true }, studioLv: 5, prestiges: 2 }") === 3);
-    check("G: tier names cover 0..3", run(sb, "OFFICE_TIER_NAMES.length") === 4);
+    check("G: tier follows rank floor (full facts, studioLv 5 -> tier 4)",
+      tierOf("{ totals: Object.assign(freshState().totals, { releases: 99, hired: 9 }), staff: [{}], line2: { unlocked: true }, studioLv: 5, prestiges: 2 }") === 4);
+    check("G: rank floor survives prestige (studioLv 1 + maxStudioLv 6 -> tier 5)",
+      tierOf("{ studioLv: 1, maxStudioLv: 6, prestiges: 1 }") === 5);
+    check("G: tier names cover 0..5", run(sb, "OFFICE_TIER_NAMES.length") === 6);
 
     /* 退役した段ボール遊び (Part 4): 定義・状態・絵が全て無いこと */
     check("G: box play fully retired (defs / states / sprite)",
