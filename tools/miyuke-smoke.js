@@ -2929,7 +2929,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("F: prestige gain >= 5 advances to stage 7 (graduation)",
       run(sb, "S.tut.stage") === 7, "stage=" + run(sb, "S.tut.stage"));
     check("F: graduated: no 🎯 objective remains on the chip and the prestige card is real",
-      !run(sb, "stripQuestText()").startsWith("🎯") && panelF().includes("引っ越しできます"),
+      !run(sb, "stripQuestText()").startsWith("🎯") && panelF().includes("会社を売却できます"),
       "chip=" + run(sb, "stripQuestText()"));
     run(sb, "doPrestige();");
     check("F: prestige does not reset the tutorial (stage stays 7)",
