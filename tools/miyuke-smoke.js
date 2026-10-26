@@ -1593,7 +1593,7 @@ console.log("== Phase B8: staff ANIMS (shiro walk/sit routing, per-coat fallback
     drawn.some(d => d[0].startsWith("staff_shiro_walk") && d[4] === false),
     JSON.stringify(drawn.filter(d => d[0].startsWith("staff_shiro"))));
   const sitClock = run(sb, "stripWalkers[951].walkClock");
-  run(sb, "stripWalkers[951].sitting = true; stripWalkers[951].sitStart = stripNow; stripWalkers[951].until = stripNow + 100000; render();");
+  run(sb, "stripWalkers[951].sitting = true; stripWalkers[951].sitStart = Date.now(); stripWalkers[951].until = stripNow + 100000; render();");
   drawn = run(sb, "window.__drawnB8.splice(0)");
   check("B8: sitting shiro draws sit frame 0 at staff48 scale, unflipped",
     drawn.some(d => d[0] === "staff_shiro_sit_0" && d[3] === 1.5 && d[4] === false),
@@ -1605,7 +1605,7 @@ console.log("== Phase B8: staff ANIMS (shiro walk/sit routing, per-coat fallback
     JSON.stringify(drawn.filter(d => d[0].startsWith("staff_shiro"))));
   check("B8: walkClock stays frozen while sitting",
     run(sb, "stripWalkers[951].walkClock") === sitClock);
-  run(sb, "stripWalkers[952].sitting = true; stripWalkers[952].sitStart = stripNow; stripWalkers[952].until = Date.now() + 100000; render();");
+  run(sb, "stripWalkers[952].sitting = true; stripWalkers[952].sitStart = Date.now(); stripWalkers[952].until = Date.now() + 100000; render();");
   drawn = run(sb, "window.__drawnB8.splice(0)");
   check("B8: sitting hachiware draws sit ANIMS frame 0 at staff48 scale (batch 10)",
     drawn.some(d => d[0] === "staff_hachiware_sit_0" && d[3] === 1.5),
@@ -1694,7 +1694,7 @@ console.log("== Phase B10: staff ANIMS batch 7 (kuro/chatora routing + panel por
     JSON.stringify(drawn.filter(d => d[0].startsWith("staff_kuro"))));
 
   /* ---- chatora の座り: sitStart からの実時間ループ ---- */
-  run(sb, "stripWalkers[962].sitting = true; stripWalkers[962].sitStart = stripNow; stripWalkers[962].until = stripNow + 100000; render();");
+  run(sb, "stripWalkers[962].sitting = true; stripWalkers[962].sitStart = Date.now(); stripWalkers[962].until = stripNow + 100000; render();");
   drawn = run(sb, "window.__drawnB10.splice(0)");
   check("B10: sitting chatora draws sit frame 0 at staff48 scale, unflipped",
     drawn.some(d => d[0] === "staff_chatora_sit_0" && d[3] === 1.5 && d[4] === false),
@@ -2597,7 +2597,7 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
   check("B15: hachiware walker draws ANIMS frames at staff48 scale, mirrored heading right",
     drawnB15.some(d => d[0].startsWith("staff_hachiware_walk") && d[3] === 1.5 && d[4] === true),
     JSON.stringify(drawnB15.filter(d => d[0].startsWith("staff_hachiware"))));
-  run(sb, "stripWalkers[981].sitting = true; stripWalkers[981].sitStart = stripNow; stripWalkers[981].until = stripNow + 100000; render();");
+  run(sb, "stripWalkers[981].sitting = true; stripWalkers[981].sitStart = Date.now(); stripWalkers[981].until = stripNow + 100000; render();");
   drawnB15 = run(sb, "window.__drawnB15.splice(0)");
   check("B15: sitting hachiware draws sit frame 0 at staff48 scale, unflipped",
     drawnB15.some(d => d[0] === "staff_hachiware_sit_0" && d[3] === 1.5 && d[4] === false),
