@@ -89,6 +89,11 @@ function publishHitZones(force){
   }catch(e){}
 }
 window.__miyukeHitZones = function(){ return hitZonesCurrent; };
+/* 帯のクリック後の HUD 更新。帯ではヘッダが表示されない (メニューはスナップショットで描く) ので、
+   帯の形態では何もしない。連打ツールで秒数百回押されても DOM を書き換えない */
+function headerAfterStripClick(){ if(!document.body.classList.contains("strip")) renderHeader(); }
+const CLICK_SAY_GAP_MS = 1200;
+let lastClickSayAt = 0;
 /* ストリップのクリック: みゅけ本人は反応、それ以外は応援クリック */
 if(stripCv){
   stripCv.addEventListener("pointerdown", (e) => {
@@ -116,7 +121,7 @@ if(stripCv){
       const fx = stripFish.x;
       catchFish(fx, STRIP_GROUND - 16);
       addStripFloater(fx, STRIP_GROUND - 30, "🐟 ゲット！", "#d9a41a");
-      renderHeader();
+      headerAfterStripClick();
       return;
     }
     if(bugEvent){
@@ -124,13 +129,13 @@ if(stripCv){
         const bp = stripBugXY(bugEvent.bugs[i]);
         if(Math.hypot(ux - bp.x, uy - bp.y) <= 13){
           splatBug(i, bp.x, bp.y);   /* 報酬の浮き文字は splatBug が出す */
-          renderHeader();
+          headerAfterStripClick();
           return;
         }
       }
     }
     /* 在庫バグ (常に帯を這う) も手で潰せる */
-    if(stripStockBugClick(ux, uy)){ renderHeader(); return; }
+    if(stripStockBugClick(ux, uy)){ headerAfterStripClick(); return; }
     /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）、山そのものは手作業で押し切る
        （v2.12.1・sakuri「ゴリ押し（クリック）でも解消できるように」）。詰まっていない山は素通り。
        おやつ箱などの家具と重なっても、詰まっている間は山を先に判定する */
@@ -216,15 +221,19 @@ if(stripCv){
     addStripSpark(ux, uy, crit);
     if(!crit){ if(document.body.classList.contains("strip")) addStripFloaterSum(ux, uy - 9, "click", clickShownDP() * comboMult() * heatMult() * fishClickMult(), v => "+" + fmtClickDP(v) + "DP"); }
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+    /* 連打ツール対策: クリックごとの台詞は CLICK_SAY_GAP_MS に1回まで (台詞はメニューへの同期も伴う)。
+       効果 (集中力・アイデア・ひっくり返り) はクリックごとに従来どおり */
+    const sayOK = Date.now() - lastClickSayAt >= CLICK_SAY_GAP_MS;
+    const clickSay = (t) => { if(sayOK){ lastClickSayAt = Date.now(); say(t); } };
     if(part && !crit){
-      if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); say("ん。…悪くないにゃ"); }
-      if(part === "body"){ say("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
-      if(part === "belly"){ say("そこはダメにゃ！ひっくり返る…"); setState("react_annoy", 900); }
+      if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); clickSay("ん。…悪くないにゃ"); }
+      if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
+      if(part === "belly"){ clickSay("そこはダメにゃ！ひっくり返る…"); setState("react_annoy", 900); }
       if(Math.random() < 0.15){ S.ideas += 1; addLog("なでられてひらめいた（アイデア+1）"); }
     } else if(!part && !crit && Math.random() < 0.3){
-      say(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+      clickSay(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
     }
-    renderHeader();
+    headerAfterStripClick();
   });
   /* v2.4.6: ホバー位置 (論理座標) を記録する。アクションのある家具の黄色枠に使う */
   stripCv.addEventListener("pointermove", (e) => {
@@ -300,8 +309,18 @@ function renderFrame(){
    60Hz の画面で 0.4 秒ごとに1回、同じリフレッシュに2回描いて歩きがカクついていた。
    rAF が止まる環境 (隠れた窓・WebView の事情) に備え、50ms 描かれなかったら
    従来どおりタイマーからも描く (どちらで描いても時間ベースなので速度は同じ) */
-function renderLoop(){
-  render();
+/* 帯は STRIP_MIN_FRAME_MS より短い間隔では描かない。高リフレッシュの画面 (143Hz など) で
+   全幅の透明窓を毎リフレッシュ描き直すと、OS の合成 (画面全体) まで重くなるため。
+   60Hz では 2 リフレッシュに1回 (30fps)・143Hz では 4 回に1回 (約36fps)・120Hz では 3 回に1回 (40fps)。
+   動き・アニメは時間ベースなので速さは変わらない。帯の絵はデバイス画素に揃えて描くので、
+   歩く速さ (毎秒十数 px) ならこの間隔でも 1px ずつ進んで見える */
+const STRIP_MIN_FRAME_MS = 23;
+let lastRafDrawTs = 0;
+function renderLoop(ts){
+  if(!document.body.classList.contains("strip") || !lastRafDrawTs || ts - lastRafDrawTs >= STRIP_MIN_FRAME_MS){
+    lastRafDrawTs = ts;
+    render();
+  }
   requestAnimationFrame(renderLoop);
 }
 requestAnimationFrame(renderLoop);
