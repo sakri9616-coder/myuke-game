@@ -23,7 +23,7 @@ const VERBS = {
   acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   dropRequest: dropRequestCore,
-  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
+  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, setSubDiv: setSubDiv, sellSub: sellSubCore,
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,
@@ -58,7 +58,7 @@ function buyMany(verb, args, n){
   if(typeof verb !== "string" || !Object.prototype.hasOwnProperty.call(HOLD_VERBS, verb)) return 0;
   const fn = VERBS[verb];
   const a = Array.isArray(args) ? args : [];
-  const max = Math.max(1, Math.min(200, Math.floor(Number(n) || 1)));
+  const max = Math.max(1, Math.min(BUY_MAX_N, Math.floor(Number(n) || 1)));   /* 長押しは1歩200まで、「最大」ボタンは BUY_MAX_N */
   const wallet = () => S.coins + "|" + S.rp + "|" + S.dust + "|" + (S.cheerP || 0);
   let bought = 0;
   quietBuy = { log: [] };

@@ -59,7 +59,7 @@ const ENGINE_DEFS = [
   { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない" },
   { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, desc:"作品棚とシリーズの売上 +10%/Lv" },
   { id:"shelfx", engine:"catalog", name:"棚を広げる",       base:15000,  max:20,  desc:"棚に並ぶ作品 +2本/Lv・売れ続ける時間 +10%/Lv" },
-  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, desc:"依頼達成ボーナス +10%/Lv" },
+  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, desc:"依頼達成ボーナス +10%/Lv・大型案件の届く確率 +10%/Lv（上限 50%）" },
   { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, desc:"子会社の売上 +40%/Lv" }
 ];
 function engineLv(id){ return upEff(S.upgrades, id); }

@@ -69,7 +69,11 @@ function tick(){
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
   if(S.subs && S.subs.length){
     let subCoin = 0, subDP = 0;
-    for(const sub of S.subs){ const r = subRates(sub); subCoin += r.coins; subDP += r.dp; }
+    for(const sub of S.subs){
+      const r = subRates(sub), dv = subDiv(sub) / 100;
+      subCoin += r.coins * dv; subDP += r.dp;
+      if(dv < 1) subReinvest(sub, r.coins * (1 - dv) / 60);   /* 段階6: 配当しない分は子会社が自分に再投資 */
+    }
     if(subDP > 0) produceDP(subDP/60, "l1");
     if(subCoin > 0){
       subCoinFrac += subCoin/60;
