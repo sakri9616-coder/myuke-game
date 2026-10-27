@@ -14,7 +14,7 @@ const BAL = {
   cursorPxPerDP: 400,       // 何px移動で +1DP（レーンA・入力ブースト強化）
   clicksPerDP: 2,           // 何クリック（OS集計のストローク）で +1DP（レーンA新設）
   boostCapPerMin: 120,      // 入力ブーストの1分上限(DP)（レーンA・入力ブースト強化）
-  boostLinkRef: 40,         // 再設計 段階2: 自動生産がこの DP/分を超えたら、入力ブーストの重みと上限を比例して伸ばす
+  boostLinkRef: 50,         // 再設計 段階2（段階4で 40→50: 強化の列が増えて張り付きが速くなりすぎた分）: 自動生産がこの DP/分を超えたら、入力ブーストの重みと上限を比例して伸ばす
   sizes:     { TUT:120, XS:400, S:900, M:2600, L:7000 },
   coinBase:  { TUT:600, XS:900, S:1500, M:3400, L:7500 },   // 再設計 段階3: ×10（設備・猫が数分〜十数分で元を取る速さに。旧: 猫1匹の元が取れるまで約3時間）
   rpBase:    { TUT:1,   XS:2,   S:2,   M:3,    L:5 },   // 再設計 段階1: 放置で研究が 40〜70分止まっていたので 1/1/2/4 から上げた
@@ -26,7 +26,7 @@ const BAL = {
   stockBugCoin: 4,          // 在庫バグを手で潰した報酬（×仕事の桁×√潰した匹数）        // 応援クリック・入力ブースト由来の DP のバグ混入倍率
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
-  valuePerDust: 1e6,        // 再設計 段階3: 星屑1個ぶんの企業価値（1時間の自動収入 🪙）。旧: 開発量 DP で数えていた（prestigeDPPerDust）
+  valuePerDust: 7e6,        // 再設計 段階3: 星屑1個ぶんの企業価値（1時間の自動収入 🪙）。旧: 開発量 DP で数えていた（prestigeDPPerDust）
   dustSoftcap: 20,          // 1回の売却でこの個数を超えた分は dustGainExp 乗で伸びる
   dustGainExp: 0.5,         // （平方根。0.6 以上だと sim の active で 30 日に星屑 8,000 個超まで暴走した）
   dustPriceExp: 0.5,        // 作品単価には星屑倍率の dustPriceExp 乗で効く
@@ -51,6 +51,21 @@ const UPGRADE_DEFS = [
   { id:"bot",      name:"子ねこボット",         stage:"運搬", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:3 }
 ];
 function upgradeCost(def, lv){ return Math.ceil(def.base * Math.pow(1.15, lv)); }
+/* 再設計 段階4（sakuri 2026-10-27「プレイヤーが各成長要素を選択して自由にビルドできる」）:
+   経営方針のプリセットをやめ、収入源ごとに専用の強化の列を置く。どこに積むかで主役が決まる。
+   労働＝応援強化（肉球・グローブ）、本社ライン＝設備と開発部、作品棚・営業・子会社＝下の3列。
+   レベルは S.upgrades に入り、設備と同じく会社ごと（売却で 0）。価格は設備と同じ 1.15 倍ずつ。
+   初期価格は設備の数十倍（安いと張り付きの最初の10分で全部の列が伸び、20分の目安が 6 分に縮んだ・sim） */
+const ENGINE_DEFS = [
+  { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない" },
+  { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, desc:"作品棚とシリーズの売上 +10%/Lv" },
+  { id:"shelfx", engine:"catalog", name:"棚を広げる",       base:15000,  max:20,  desc:"棚に並ぶ作品 +2本/Lv・売れ続ける時間 +10%/Lv" },
+  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, desc:"依頼達成ボーナス +10%/Lv" },
+  { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, desc:"子会社の売上 +40%/Lv" }
+];
+function engineLv(id){ return upEff(S.upgrades, id); }
+/* 収入源の名前（内訳の表示と sim の G5 で使う） */
+const INCOME_SRCS = { labor:"労働（応援・イベント）", line:"本社ライン", catalog:"作品棚", sales:"営業（依頼ボーナス）", subs:"子会社" };
 /* 節目ジャンプ（理念書4「解放ジャンプ」・スケール対価）: 主要な設備と応援強化は Lv 上限を
    100 まで開け、Lv10・25・50・100 に届くたびに、その節目の Lv の半分ぶんの効果が上乗せされる
    （Lv10 で実効 Lv15＝効果 ×1.5、Lv25 で 29.5→42.5 …）。上乗せは足し算なので、節目を越えた後は

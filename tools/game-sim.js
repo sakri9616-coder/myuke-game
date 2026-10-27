@@ -18,7 +18,8 @@ const PROFILES = {
   idle:   { clicksPerSec: 0, sessionMin: 0 },
   passive:{ clicksPerSec: 0, sessionMin: 0, typing: true },                     /* balance-sim の passive: 打鍵 2400/時・カーソル 9万px/時 */
   light:  { clicksPerSec: 40 / 60, sessionMin: 3, sessionsAt: [30, 90, 150], typing: true },   /* balance-sim の active と同じ */
-  click5: { clicksPerSec: 5, sessionMin: 20, typing: true }                                /* 張り付き 20分（目標像のテンポ目標） */
+  click5: { clicksPerSec: 5, sessionMin: 20, typing: true },
+  click5long: { clicksPerSec: 5, sessionMin: 100000, typing: true }   /* G5 の労働ビルド: ずっと張り付く */                                /* 張り付き 20分（目標像のテンポ目標） */
 };
 
 function makeGame(seed){
@@ -54,7 +55,16 @@ function makeGame(seed){
 /* プレイヤーボット（ゲームの文脈で動く）。研究は買えるものから、応援P は肉球とグローブの安いほう、
    コインは下の botBuy の方針で買う */
 const BOT_SRC = `
-var BOT = { clickDP: 0, autoDP: 0 };
+var BOT = { clickDP: 0, autoDP: 0, focus: null };
+/* 段階4・G5: 収入源に寄せた買い方。focus の品を先に買い、ほかの買い物は focus の次の品の半値以下だけにする */
+function botFocusKeys(){
+  const f = BOT.focus;
+  if(f === "line") return ["eng:direct"];
+  if(f === "catalog") return ["eng:promo", "eng:shelfx"];
+  if(f === "sales") return ["eng:scout"].concat(S.studioLv >= 2 && S.staff.length < staffCap() && S.staff.filter(x => x.role === "sales").length < 3 ? ["hire:sales"] : []);
+  if(f === "subs") return S.studioLv < 5 ? [] : ["eng:gmgmt", "found"].concat((S.subs || []).length ? ["substaff", "subscale"] : []);
+  return [];
+}
 function botBuy(){
   for(const r of RESEARCH_DEFS){ if(!S.research[r.id] && (!r.requires || S.research[r.requires]) && S.rp >= r.cost) buyResearch(r.id); }
   for(let i = 0; i < 20; i++){
@@ -71,17 +81,35 @@ function botBuy(){
     if(kind === "up"){ const d = UPGRADE_DEFS.find(u => u.id === id); const lv = S.upgrades[id] || 0; return d && lv < d.max ? upgradeCost(d, lv) : Infinity; }
     if(kind === "hire") return S.staff.length < staffCap() ? hireCost(id) : Infinity;
     if(kind === "studio") return S.studioLv < STAFF_CAPS.length ? studioCost(S.studioLv) : Infinity;
+    if(kind === "eng"){ const d = ENGINE_DEFS.find(u => u.id === id); const lv = S.upgrades[id] || 0; return d && lv < d.max ? upgradeCost(d, lv) : Infinity; }
+    if(kind === "found") return S.studioLv >= 5 ? foundCost() : Infinity;
+    if(kind === "substaff") return (S.subs || []).length ? subHeadCost(S.subs[0]) : Infinity;
+    if(kind === "subscale") return (S.subs || []).length && S.subs[0].lv < SUB_MAX_LV ? subScaleCost(S.subs[0]) : Infinity;
     return Infinity;
   };
   const doBuy = key => {
     const [kind, id] = key.split(":"), before = S.coins;
     if(kind === "up") buyUpgrade(id); else if(kind === "hire") hireStaff(id); else if(kind === "studio") buyStudio();
+    else if(kind === "eng") buyEngine(id); else if(kind === "found") foundSub(unlockedGenres()[0].id);
+    else if(kind === "substaff") addSubStaff(S.subs[0].id, 1); else if(kind === "subscale") scaleSub(S.subs[0].id);
     return S.coins < before;
   };
+  let focusNext = Infinity;
+  if(BOT.focus){
+    if(BOT.focus === "sales" && !S.activeRequest && S.requests.length) acceptRequest(0);
+    for(let guard = 0; guard < 40; guard++){
+      let best = null, bc = Infinity;
+      for(const k of botFocusKeys()){ const c = costOf(k); if(c < bc){ bc = c; best = k; } }
+      focusNext = bc;
+      if(!best || bc > S.coins || !doBuy(best)) break;
+    }
+  }
   for(let guard = 0; guard < 40; guard++){
     const cands = UPGRADE_DEFS.map(d => "up:" + d.id).concat(["hire:prog", "hire:test", "hire:carry"])
       .concat(S.studioLv >= 2 && !S.staff.some(x => x.role === "sales") ? ["hire:sales"] : [])
       .concat(STAFF_ROLES.cheer && !roleLocked("cheer") ? ["hire:cheer"] : [])
+      .concat(ENGINE_DEFS.filter(d => !BOT.focus || d.engine === BOT.focus).map(d => "eng:" + d.id))   /* 段階4: 収入源の強化の列も安ければ買う（寄せたビルドでは寄せ先の列だけ） */
+      .concat(!BOT.focus || BOT.focus === "subs" ? ["found", "substaff", "subscale"] : [])
       ;   /* 段階3: 社格は企業価値で自動昇格するので、スタジオは買わない */
     const fx = bottleneckFix();
     let fixKey = fx && fx.fix ? fx.fix : null;
@@ -93,10 +121,11 @@ function botBuy(){
     const fixCost = fixKey ? costOf(fixKey) : Infinity;
     let pick = null;
     if(fixKey && fixCost <= S.coins) pick = fixKey;
+    if(pick && costOf(pick) > focusNext / 2) pick = null;   /* 寄せたビルド: 寄せ先の資金を残す */
     else {
       let best = null, bc = Infinity;
       for(const k of cands){ const c = costOf(k); if(c < bc){ bc = c; best = k; } }
-      if(best && bc <= S.coins && (fixCost === Infinity || bc <= fixCost / 4)) pick = best;
+      if(best && bc <= S.coins && (fixCost === Infinity || bc <= fixCost / 4) && bc <= focusNext / 2) pick = best;
     }
     if(!pick || !doBuy(pick)) break;
   }
@@ -136,7 +165,7 @@ function simulate(opts){
   const g = makeGame(opts.seed || 1);
   const { fake, run } = g;
   if(opts.tweak || process.env.SIM_TWEAK) run(opts.tweak || process.env.SIM_TWEAK);   /* 数値を仮に変えて測る（実験用。ゲームには残らない） */
-  if(opts.policy) run("choosePolicy(" + JSON.stringify(opts.policy) + ")");
+  if(opts.focus) run("BOT.focus = " + JSON.stringify(opts.focus));
   const R = { jumps: [], profile: opts.profile, seed: opts.seed || 1, firstRelease: null, firstExit3: null, firstExit20: null,
     exits: [], zeroReleaseDays: 0, dayReleases: [], maxGapMin: 0, maxDryMin: 0, maxCoins: 0, log: [] };
   let clickAcc = 0, t = 0, lastJump = 0, lastCE = 0, dry = 0;
@@ -174,7 +203,6 @@ function simulate(opts){
       if(exitAt && gain >= need){
         run("doPrestigeCore('__none', '__auto', -1)");
         R.exits.push({ t, gain });
-        if(opts.policy) run("choosePolicy(" + JSON.stringify(opts.policy) + ")");
       }
       if(opts.onMinute) opts.onMinute(t, run);
       if(t % 10 === 0) R.log.push({ t, day: day + 1, runDP: Math.round(run("S.runDP")), gain, coins: Math.round(run("S.coins")), rel: run("S.totals.releases"), rank: run("S.studioLv"), staff: run("S.staff.length"), dust: run("dustTotal()") });
@@ -187,6 +215,8 @@ function simulate(opts){
   R.maxGapMin = Math.max(R.maxGapMin, t - lastJump);
   R.clickShare = run("BOT.clickDP / Math.max(1, S.totals.lines / 1.05)");
   R.dustTotal = run("dustTotal()");
+  R.incomeBy = JSON.parse(run("JSON.stringify(S.incomeBy || {})"));
+  R.rank = run("S.studioLv");
   return R;
 }
 
@@ -208,7 +238,8 @@ function gates(seeds){
   rows.push(["G3", "放置だけで星屑20個に3時間以内", p20 >= INF ? "3時間で未到達" : p20 + "分", p20 <= 180]);
   const ratio = med(cl.map((r, i) => simGainAt(r, 40) / Math.max(1, simGainAt(pa[i], 40))));
   rows.push(["G4", "同じ買い方なら張り付きが速い（40分時点の星屑比 >1.0）", ratio.toFixed(2), ratio > 1]);
-  rows.push(["G5", "5つの収入源のどれも、寄せたビルドで最大の収入源になれる", "段階4で実装", null]);
+  const g5 = g5Builds();
+  rows.push(["G5", "5つの収入源のどれも、寄せたビルドで最大の収入源になれる", g5.map(b => b.src + "→" + b.main).join(" "), g5.every(b => b.src === b.main)]);
   /* 張り付きの停滞は、実際にクリックしている最初の20分の中だけで測る（手を離した後は放置の扱い） */
   const gapIn = (r, end) => { let last = 0, g = 0; for(const j of r.jumps){ if(j > end) break; g = Math.max(g, j - last); last = j; } return Math.max(g, end - last); };
   const gap = med(cl.map(r => gapIn(r, 20)));
@@ -217,20 +248,39 @@ function gates(seeds){
   const long = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20 });
   rows.push(["G7", "7日目以降の0リリース日 = 0（放置10日）", long.zeroReleaseDays + "日", long.zeroReleaseDays === 0]);
   rows.push(["G8", "最大値 < 1e250（放置10日の通算コイン）", long.maxCoins.toExponential(2), long.maxCoins < 1e250]);
-  return { rows, cl, pa, long };
+  return { rows, cl, pa, long, g5 };
+}
+/* G5: 1社目を売らずに W 分。最後の 60 分の稼ぎで一番大きい収入源が、寄せた先と一致するか。
+   労働は張り付き（W 分ずっと秒5クリック）、本社ラインはいつもの買い方、残り3つは寄せ買いボット */
+function g5Builds(){
+  const W = Number(process.env.G5_MIN || 240), out = [];
+  for(const src of ["labor", "line", "catalog", "sales", "subs"]){
+    let snap = null;
+    const r = simulate({ profile: src === "labor" ? "click5long" : src === "line" ? "idle" : "passive", days: 1, minPerDay: W, seed: 1, focus: src === "labor" ? null : src,
+      onMinute: (t, run) => { if(t === W - 60) snap = run("JSON.stringify(S.incomeBy || {})"); } });
+    const end = r.incomeBy, st = JSON.parse(snap || "{}");
+    let main = null, bv = 0;
+    for(const k in end){ const d = (end[k] || 0) - (st[k] || 0); if(d > bv){ bv = d; main = k; } }
+    out.push({ src, main, rank: r.rank, last60: Object.fromEntries(Object.keys(end).map(k => [k, Math.round((end[k] || 0) - (st[k] || 0))])) });
+  }
+  return out;
 }
 function simGainAt(r, t){ let g = 0; for(const l of r.log) if(l.t <= t) g = l.gain; return g; }
 
 if(require.main === module){
   const a = process.argv.slice(2);
   const t0 = Date.now();
-  if(a[0] === "gates"){
+  if(a[0] === "g5"){
+    for(const b of g5Builds()) console.log(b.src + " → 主役 " + b.main + "（社格" + b.rank + "） " + JSON.stringify(b.last60));
+    console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
+  } else if(a[0] === "gates"){
     const n = Number(a[1] || 3);
     const G = gates(n);
     console.log("== ゲート改訂3（game-sim・" + n + "シードの中央値） ==");
     for(const [id, name, val, ok] of G.rows) console.log((ok === null ? "  --  " : ok ? "  PASS " : "  FAIL ") + id + " " + name + ": " + val);
     const cs = G.cl.map(r => (r.clickShare * 100).toFixed(0) + "%").join(" / ");
     console.log("参考: 秒5クリック40分のクリック由来 DP " + cs + "、放置10日の売却 " + G.long.exits.length + " 回（初回 " + (G.long.exits[0] ? G.long.exits[0].t + "分" : "なし") + "）、通算星屑 " + G.long.dustTotal + "、入金の最長途切れ " + G.long.maxDryMin + "分");
+    for(const b of G.g5) console.log("  G5 " + b.src + "（社格" + b.rank + "）: 最後の60分 " + JSON.stringify(b.last60));
     console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
   } else {
     const profile = a[0] || "click5", minutes = Number(a[1] || 30), seed = Number(a[2] || 1);

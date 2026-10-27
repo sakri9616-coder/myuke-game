@@ -76,6 +76,7 @@ function tick(){
       subCoinFrac += subCoin/60;
       const whole = Math.floor(subCoinFrac);
       if(whole > 0){ subCoinFrac -= whole; S.coins += whole; S.totals.coinsEarned += whole; }
+      creditIncome("subs", subCoin/60);   /* 段階4: 収入の内訳 */
     }
   }
   const _fd1 = S.wip.code - _fc1, _fd2 = S.line2.wip.code - _fc2;

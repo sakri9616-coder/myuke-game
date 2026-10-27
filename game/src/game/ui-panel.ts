@@ -171,6 +171,31 @@ function renderEditorBreadcrumb(){
   if(tabEl.textContent !== label) tabEl.textContent = label;
   if(contextEl.textContent !== context) contextEl.textContent = context;
 }
+/* 段階4: 収入源ごとの強化の列（作品棚・営業・子会社）。行の形は設備と同じ */
+function engineRowsHTML(engine){
+  let h = "";
+  for(const def of ENGINE_DEFS.filter(d => d.engine === engine)){
+    const lv = S.upgrades[def.id] || 0, maxed = lv >= def.max;
+    h += "<div class='item buy slim' data-fix='eng:" + def.id + "'><div><span class='nm'>" + def.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" +
+      "<div class='ds'>" + def.desc + milestoneNote(def, lv) + "</div></div>" +
+      (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("eng:" + def.id, upgradeCost(def, lv), "coins", "buyEngine(\"" + def.id + "\")")) + "</div>";
+  }
+  return h;
+}
+/* 段階4: この会社の収入の内訳（どの収入源が主役か）。何も稼いでいないうちは出さない */
+function incomeBreakdownHTML(){
+  const by = S.incomeBy || {}, tot = Object.keys(INCOME_SRCS).reduce((a, k) => a + (by[k] || 0), 0);
+  if(!(tot > 0)) return "";
+  const main = mainIncomeSrc();
+  let rows = "";
+  for(const k of Object.keys(INCOME_SRCS)){
+    const pct = Math.round((by[k] || 0) / tot * 100);
+    rows += "<div style='display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px'><span style='min-width:150px'>" + (k === main ? "👑 " : "") + INCOME_SRCS[k] + "</span>" +
+      "<div class='meter' style='flex:1;height:8px'><i style='width:" + pct + "%'></i></div><b style='min-width:38px;text-align:right'>" + pct + "%</b></div>";
+  }
+  return foldSec("income", false, "💰 収入の内訳（この会社）", "主役: " + (main ? INCOME_SRCS[main] : "―"), rows +
+    "<div class='note' style='font-size:11.5px;margin-top:4px'>どの収入源に強化を積むかで主役が変わります（労働＝応援タブ、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）</div>");
+}
 function renderPanel(){
   if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
   renderEditorBreadcrumb();
@@ -200,16 +225,12 @@ function renderPanel(){
       (lastSayText || "おはよ、続きやるね。").replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span></div>";
     h += "<div id='combo-info'></div>";
     h += "<button id='bn-chip' type='button' onclick='gotoBottleneckFix()'></button>";
-    /* 経営方針: 一度売却した人か社格Lv3以上で選べる（初回の会社はチュートリアルに集中させる） */
+    /* 段階4: 経営方針のプリセットは廃止（sakuri 2026-10-27）。旧セーブで選んでいた方針は売却まで効くので、その旨だけ出す */
     if(S.policy){
       const pol = POLICIES.find(x => x.id === S.policy);
-      h += "<div class='note'>" + pol.icon + " 経営方針：<b>" + pol.name + "</b>（" + pol.desc + "）。売却すると選び直せます</div>";
-    } else if((S.prestiges || 0) >= 1 || S.studioLv >= 3){
-      h += "<h3 style='margin-top:8px'>🧭 経営方針を選ぶ（この会社の間は変えられません）</h3><div class='buygrid'>";
-      for(const pol of POLICIES)
-        h += "<div class='item buy slim'><div><span class='nm'>" + pol.icon + " " + pol.name + "</span><div class='ds'>" + pol.desc + "</div></div><button onclick='choosePolicy(\"" + pol.id + "\")'>これにする</button></div>";
-      h += "</div>";
+      h += "<div class='note'>" + pol.icon + " 経営方針（旧）：<b>" + pol.name + "</b>（" + pol.desc + "）。この会社を売却するまで効きます。次の会社からは各タブの強化で自由に組めます</div>";
     }
+    h += incomeBreakdownHTML();
     /* 2026-10-25 (sakuri 指示): ボタン列は廃止。「名前を呼ぶ」「プロジェクトを眺める」は
        フレーバー専用なので削除し、「おやつ」は帯のおやつ箱 (prop_snackbox) へ移設した */
     /* IA コンパクト化: プロジェクトは「ヒーローカード」1枚に集約する。
@@ -430,6 +451,7 @@ function renderPanel(){
       for(const g of unlockedGenres())
         foundHTML += "<button onclick='foundSub(\"" + g.id + "\")'" + (S.coins < foundCost() ? " disabled" : "") + ">" + g.name + "</button> ";
       foundHTML += "</div></div></div>";
+      foundHTML += engineRowsHTML("subs");   /* 段階4: 子会社の強化の列 */
       h += foldSec("subs", false, "🏢 グループ子会社",
         (S.subs || []).length ? (S.subs.length + "社・総勢 " + totalPeople() + "人") : "まだ子会社はありません",
         subHTML + foundHTML);
@@ -519,6 +541,7 @@ function renderPanel(){
       h += "</div></div>";
     }
     h += "<h3 style='margin-top:12px'>⬆️ 工程アップグレード</h3>";
+    h += engineRowsHTML("line");   /* 段階4: 本社ラインの強化の列（作品の売上） */
     /* 工程の区切り見出しは廃し、工程名は各カードのチップで示す (1グリッド化) */
     h += "<div class='buygrid'>";
     for(const def of UPGRADE_DEFS){
@@ -577,15 +600,15 @@ function renderPanel(){
     } else if(pv.gain >= 3){
       h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>"+
         "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
-        "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
+        "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（企業価値の最高 "+fmt(S.runPeakValue || 0)+"）</div></div>"+
         prestigeBtn + "</div>"+
         "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.map(esc).join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
       h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
-      const preBody = kv("今回の実績", fmt(S.runDP)+" DP ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能）") +
+      const preBody = kv("企業価値の最高", fmt(S.runPeakValue || 0)+" ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能・"+fmt(BAL.valuePerDust * BAL.dustSoftcap)+" で20個の売りどき）") +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+pv.curMult.toFixed(2)+" → 売却後 ×"+pv.nextMult.toFixed(2)) +
-        (pv.subGain > 0 ? kv("うち子会社ぶん", "星屑 +"+pv.subGain+" 個（グループEXIT: 子会社も売却）") : "") +
+        (pv.subGain > 0 ? kv("うち子会社ぶん（目安）", "星屑 約 "+pv.subGain+" 個（子会社の売上も企業価値に入っています）") : "") +
         kv("EXIT回数", S.prestiges+" 回") +
         kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
         "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.map(esc).join("・")+"</div>" +
@@ -706,6 +729,8 @@ function renderPanel(){
   }
   if(currentTab === "shelf"){
     h += "<h3>📚 作品棚（"+S.shelf.length+"作品）</h3>";
+    /* 段階4: 作品棚の強化の列（ここに積むと作品棚が主役になる） */
+    h += "<div class='note' style='font-size:12px'>棚の売上 <b>"+fmtRate(catalogRate())+"🪙/秒</b> ・ 並んでいる作品 "+(S.catalog || []).length+" / "+catalogMax()+" 本</div>" + engineRowsHTML("catalog");
     if(!S.shelf.length) h += "<div>まだ作品がありません。最初のリリースをお楽しみに。</div>";
     /* IA: 作品は背表紙カードのグリッドで (1行リストの縦伸びを解消) */
     h += "<div class='shelfgrid'>";
@@ -720,6 +745,7 @@ function renderPanel(){
   if(currentTab === "requests"){
     h += "<h3>📮 依頼ボード</h3><div class='note'>ペナルティなし。受けると<b>次の作品</b>がそのジャンルに（進行中は消えません）。リリースでボーナス" +
       (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "。大型案件とティア3には<b>納期</b>があります（過ぎるとボーナス消滅）</div>";
+    h += engineRowsHTML("sales");   /* 段階4: 営業の強化の列 */
     if(S.bigDeal){
       const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
       h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + esc(bd.client) + "</span>" +
@@ -730,7 +756,7 @@ function renderPanel(){
     if(S.activeRequest){
       const r = S.activeRequest;
       h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + esc(r.client) + "</span>" +
-        "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
+        "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * (1 + 0.1 * engineLv("scout")) * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
         (r.repName ? " ・ 担当: " + r.repName : "") +

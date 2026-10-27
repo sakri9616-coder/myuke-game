@@ -17,7 +17,7 @@ function exportSaveText(){
   return t;
 }
 const VERBS = {
-  buyUpgrade: buyUpgrade, buyResearch: buyResearch, buyClickUp: buyClickUp,
+  buyUpgrade: buyUpgrade, buyResearch: buyResearch, buyClickUp: buyClickUp, buyEngine: buyEngine,
   hireStaff: hireStaff, trainStaff: trainStaff, buyBulkTrain: buyBulkTrain,
   buyTreat: buyTreat, buyStudio: buyStudio, buyLine2: buyLine2,
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
@@ -49,7 +49,7 @@ const VERBS = {
    ログは同じ形の行 (数字と（）内の違いだけ) を1行にまとめ、×回数を添える。
    買えなくなった (どの通貨も減らなかった) 時点で止める。メニューからは1コマンドで届く */
 const HOLD_VERBS = {
-  buyUpgrade: 1, buyResearch: 1, buyClickUp: 1, hireStaff: 1, trainStaff: 1, buyBulkTrain: 1,
+  buyUpgrade: 1, buyEngine: 1, buyResearch: 1, buyClickUp: 1, hireStaff: 1, trainStaff: 1, buyBulkTrain: 1,
   buyTreat: 1, buyStudio: 1, buyDept: 1, addSubStaff: 1, scaleSub: 1, buyDustPerk: 1
 };
 let bulkLogLast: { entry: { tm: string; text: string }; shape: string; n: number } | null = null;

@@ -11,7 +11,8 @@
    本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
    部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
    あるため、「部分 ≤ グループ寄与」の反証条件は構造的に保たれる */
-/* ---------- 経営方針（主役を選べる収入源・2026-10-27） ----------
+/* ---------- 経営方針（v2.12.0〜v2.15.0。段階4で廃止: プリセットではなく強化の列で自由に組む・sakuri 2026-10-27）----------
+   旧セーブで選んでいた方針だけ、その会社を売却するまで効く（choosePolicy はもう UI から呼ばれない）。
    会社ごとに1つ選ぶ（売却・持株化で選び直し）。選んだ収入源が大きく伸び、選ばない収入源も
    標準の伸びで動く（労働は常に効く・理念書3）。どれを選んでも成立し、どれが強いかは
    遊び方（張り付くか・放置か・子会社に注ぎ込むか）で入れ替わる（sim の方針比較ゲート）。
@@ -37,7 +38,7 @@ function choosePolicy(id){
    伸びるので、元が取れるまでの時間は周回が進んでも変わらない（理念書4 スケール対価）。
    1日 3 時間・ほぼ毎日売却するペースでも、設立は約1時間で元が取れ、人員と規模の掛け算で
    本社を追い抜ける大きさまで育つ。規模は上限100・節目つき（設備と同じ MILESTONE_LVS） */
-const SUB_ECON = { found: 200, foundMul: 2, head: 30, headMul: 1.03, scale: 150, scaleMul: 1.5, coinPerStaff: 0.35, lvStep: 0.3 };
+const SUB_ECON = { found: 200, foundMul: 2, head: 30, headMul: 1.03, scale: 150, scaleMul: 1.5, coinPerStaff: 0.7, lvStep: 0.3 };   /* 段階4: 0.35→0.7（子会社に寄せたビルドで子会社が稼ぎ頭になれるように・sim の G5） */
 const SUB_MAX_LV = 100;
 function subUnit(){ return workScale() * Math.pow(dustMult(), BAL.dustPriceExp); }
 const SUB_NAME_A = ["ねこねこ", "まるまる", "にゃんころ", "ふわラボ", "こねこ", "たまご", "ひげ", "すやすや"];
@@ -49,9 +50,11 @@ function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv
 function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
   const base = sub.staff * subLvMult(sub) * subFocus(sub) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
-  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (policyIs("group") ? 4 : 1), dp: base * 0.2 };
+  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (policyIs("group") ? 4 : 1) * (1 + 0.4 * engineLv("gmgmt")), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」 */
 }
-function subDustValue(sub){ return Math.max(1, Math.floor((sub.staff * 25 + sub.lv * 500) / 500)); }
+/* 段階4: 子会社の売却益も企業価値から（その子会社の1時間の売上 ÷ 星屑1個ぶんの企業価値）。
+   旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
+function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / BAL.valuePerDust); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
 function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit() * (policyIs("group") ? 0.5 : 1)); }
@@ -196,11 +199,12 @@ function buyDustPerk(id){
    doPrestige 本体もこの gain を使うので、プレビューと実際の結果は必ず一致する */
 function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
+  /* 段階3: 企業価値の最高値から。段階4: 子会社の売上は企業価値に入っているので、子会社ぶんを別に足さない（内訳の表示用に数える） */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
-  const gain = dustGainFromValue(S.runPeakValue || 0) + subGain;   /* 段階3: 企業価値の最高値から */
+  const gain = dustGainFromValue(S.runPeakValue || 0);
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン"];
-  if(subGain > 0) resets.push("子会社");
+  if((S.subs || []).length) resets.push("子会社");
   const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典", "応援強化と応援P（みゅけの腕前）"];
   if(hasPerk("veteran") && S.staff.length){
     const vet = S.staff.slice().sort((a,b) => b.lv - a.lv)[0];
@@ -297,7 +301,7 @@ function doPrestige(){
 function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0; S.vendorReadyAt = 0; S.vendorUses = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
-  S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.activeRequest = null; S.nextRequestGenre = null;
+  S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
   S.research = {};
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
@@ -307,7 +311,7 @@ function resetCompanyRun(){
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
-  S.policy = null;   /* 経営方針は会社ごと（新会社で選び直す） */
+  S.policy = null;   /* 段階4: 経営方針は廃止。旧セーブで選んでいた方針はその会社の売却まで効き、以後は選ばない */
   S.studioLv = 1;   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む） */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };

@@ -31,7 +31,7 @@ function stateTick(now){
     /* Sprint 4: 宝探しはたまに小銭も見つける */
     if(catState==="treasure" && Math.random() < 0.35){
       const c = rewardCoins(BAL.rewardSec.treasure, 10 + Math.floor(Math.random()*15));
-      S.coins += c; S.totals.coinsEarned += c;
+      S.coins += c; S.totals.coinsEarned += c; creditIncome("labor", c);
       say("宝探しで "+fmt(c)+"🪙 見つけたにゃ！");
       addLog("🗺️ 宝探しで "+fmt(c)+"🪙 を見つけた");
     }
@@ -149,7 +149,7 @@ function catchFish(bx, by){
     return;
   }
   const coins = rewardCoins(BAL.rewardSec.fish, Math.round(80 * dustMult() * workScale()));   /* 収入の90秒ぶん（下限は従来の式） */   // Sprint 1: セッション中のイベント収入を厚く
-  S.rp += 2; S.coins += coins; S.totals.coinsEarned += coins;
+  S.rp += 2; S.coins += coins; S.totals.coinsEarned += coins; creditIncome("labor", coins);
   S.totals.goldFish++;
   SoundKit.play("fishCatch");
   addFloater(bx, by - 10, "🐟 +2🔬 +" + fmt(coins) + "🪙", "#d9a41a");
@@ -162,7 +162,7 @@ function splatBug(i, bx, by){
   bugEvent.bugs.splice(i, 1);
   SoundKit.play("bugSquash");
   const squash = rewardCoins(BAL.rewardSec.bug, 6 * workScale());   /* 収入の3秒ぶん（下限は従来の式） */
-  S.coins += squash; S.totals.coinsEarned += squash;
+  S.coins += squash; S.totals.coinsEarned += squash; creditIncome("labor", squash);
   S.totals.bugsSquashed++; S.today.bugs++; S.totals.eventBugs++;
   if(feverActive()){
     /* F: フィーバー中のバグ潰しはボーナス DP（応援クリック2回ぶん・入力由来として扱う） */
@@ -175,7 +175,7 @@ function splatBug(i, bx, by){
   addFloater(bx, by - 8, "+" + fmt(squash) + "🪙", "#5aa469");
   if(bugEvent.bugs.length === 0){
     const sweep = rewardCoins(BAL.rewardSec.sweep, 20 * workScale());
-    S.coins += sweep; S.totals.coinsEarned += sweep;
+    S.coins += sweep; S.totals.coinsEarned += sweep; creditIncome("labor", sweep);
     bugEvent = null;
     nextBugAt = Date.now() + 180000 + Math.random()*150000;
     say("バグ全滅！ボーナス+" + fmt(sweep) + "コインにゃ");
@@ -323,7 +323,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
     prodMuted = false;
     if(S.project && !S.project.planning){
       const direct = gain * CLINK.directShare * clickProdMult();
-      S.runDP += direct;
+      S.runDP += direct; S.runHandDP = (S.runHandDP || 0) + direct;
       S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
       creditProject(direct);
       /* 工程中心: 溜まった仕掛品を手で運んで出荷する（クリック威力 × carryMult ぶん） */

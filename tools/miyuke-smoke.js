@@ -219,7 +219,7 @@ console.log("== 5. prestige ==");
   const sold = run(sb, "S.coins");
   run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
   check("released works keep selling every second until the company is sold",
-    sold >= 70 && sold <= 100 && run(sb, "S.catalog.length") === 0);
+    sold >= 150 && sold <= 170 && run(sb, "S.catalog.length") === 0);
 }
 {
   /* 再設計 段階3: 社格は企業価値が届くと自動で上がる（コインでは買えない） */
@@ -230,6 +230,17 @@ console.log("== 5. prestige ==");
   run(sb, "S.runPeakValue = RANK_VALUE[2]; tickCompanyValue();");
   check("rank rises automatically once company value reaches it",
     bought === 1 && run(sb, "S.studioLv") === 3 && run(sb, "S.coins") === 1e9);
+}
+{
+  /* 再設計 段階4: 収入源の強化の列（メニューから呼べる動詞）と、収入の内訳 */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.coins = 1e9; S.catalog = [{ n: 'x', r: 10 }];");
+  const r0 = run(sb, "catalogRate()");
+  run(sb, "buyEngine('promo'); tickCatalog();");
+  check("engine upgrades are menu verbs and boost their income source",
+    run(sb, "typeof VERBS.buyEngine === 'function' && HOLD_VERBS.buyEngine === 1") && run(sb, "S.upgrades.promo") === 1 &&
+    run(sb, "catalogRate()") > r0 * 1.05 && run(sb, "mainIncomeSrc()") === "catalog");
 }
 
 {
