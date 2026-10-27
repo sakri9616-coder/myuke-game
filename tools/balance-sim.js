@@ -152,7 +152,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   /* Sprint 3: 星屑ショップの最小モデル。特典は永続し、倍率は通算獲得
      (dustTotal) で決まる。貪欲方針: 初期資金(3) → 集中ブースト(5) の順に買う */
   const perks = {};
-  let reportLv = 0;             /* Sprint 4: 反復研究レベル（引っ越しでリセット） */
+  let rep = { impl:0, test:0, build:0, ship:0 };   /* 反復研究（工程別の4本）のレベル（引っ越しでリセット） */
+  let repMax = 0;   /* 1ランで到達した反復研究の合計レベルの最大（レポート用） */
   let coinsEarned = 0, econ = null;   /* Sprint 4: 30日目の支出可能性の材料 */
   let runCoins = 0;   /* Wave K: 1ラン（設立〜EXIT）単位の累計コイン。ブラック目標の校正用 */
   let wip = { code:0, tested:0, built:0 }, wip2 = { code:0, tested:0, built:0 };
@@ -182,15 +183,15 @@ function simulate(days, active, reqMode, prestigeAt, profile){
 
   /* Sprint 3: 倍率は通算獲得で決まる。game の dustMult と同じく dustMultSoftcap 超は平方根 */
   const dustMult = () => { const c = BAL.dustMultSoftcap, d = dustTotal; return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c)); };
-  const stageMultSim = () => dpMult(up) * dustMult() * (1 + 0.02 * reportLv);
+  const stageMultSim = st => dpMult(up) * dustMult() * (1 + 0.05 * rep[st]);   /* game の stageMult と同じ（反復研究は工程ごと） */
   const rates = () => {
     const ss = staffSums(staff);
     return {
       ss,
       /* game の stageMult と同じ: 後工程にも実装と同じ会社全体の倍率が掛かる */
-      test: (BAL.stageBaseRate + 6*(up.tester||0) + ss.testDP) * stageMultSim(),
-      build: (BAL.stageBaseRate + 5*(up.ci||0) + 4*(up.pack||0)) * stageMultSim(),
-      ship: (BAL.stageBaseRate + 6*(up.bot||0) + ss.ship) * stageMultSim(),
+      test: (BAL.stageBaseRate + 6*(up.tester||0) + ss.testDP) * stageMultSim("test"),
+      build: (BAL.stageBaseRate + 5*(up.ci||0) + 4*(up.pack||0)) * stageMultSim("build"),
+      ship: (BAL.stageBaseRate + 6*(up.bot||0) + ss.ship) * stageMultSim("ship"),
       bot: 2*(up.bot||0)*(res.res_bottrain ? 1.5 : 1)*(res.res_bot2 ? 1.5 : 1)   /* Sprint 4: ボットAI学習 */
     };
   };
@@ -270,7 +271,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
         }
       }
       const fb = firstBoost();
-      const resMultV = 1 + 0.02 * reportLv;   /* Sprint 4: 反復研究の生産倍率 */
+      const resMultV = 1 + 0.05 * rep.impl;   /* 反復研究（実装）の倍率 */
       /* Wave F: フィーバー寄与の実効係数（解析節の中盤 +22.4% を全期間一律には
          せず保守化 — アクティブは発動運用込み ×1.18、パッシブは蓄熱のみ ×1.04） */
       const feverF = active ? 1.18 : 1.04;
@@ -308,7 +309,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
         proj2DP += used2.credited;
       }
       // --- バグ処理（QA＋みゅけのデバッグ叩き近似） ---
-      bugStock = Math.max(0, bugStock - qaPerMin(up, res, ss) * stageMultSim());
+      bugStock = Math.max(0, bugStock - qaPerMin(up, res, ss) * stageMultSim("test"));
       /* 帯の山を見て潰す近似: アクティブなプレイヤーは滞留を積極的に潰す
          （上限 6/分）、パッシブはたまのチラ見（上限 1/分）。ブランド帯域の
          判定はこのドレイン後の在庫で実機に倣う */
@@ -342,7 +343,14 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       for(const r of RESEARCH) buyResearch(r.id);
       /* 2026-10-26 決定（レビュー室「可」）: 反復研究は非反復研究の全取得後に買う。
          旧方針（価格+20 の余裕・全取得ゲートなし）とは別物。証跡ツール側の前提のみで本体数値は不変 */
-      if(RESEARCH.every(r => res[r.id]) && rp >= repeatCost(reportLv)){ rp -= repeatCost(reportLv); reportLv++; }
+      /* 反復研究は工程別: いまの律速工程（実装の流入か、最も遅い後工程）の1本を買う */
+      if(RESEARCH.every(r => res[r.id])){
+        const inflow = raw * mlt * resMultV;
+        let st = "impl", low = inflow;
+        for(const k of ["test", "build", "ship"]) if(R[k] < low){ low = R[k]; st = k; }
+        if(rp >= repeatCost(rep[st])){ rp -= repeatCost(rep[st]); rep[st]++; }
+        repMax = Math.max(repMax, rep.impl + rep.test + rep.build + rep.ship);
+      }
       /* Sprint 4: 研究の枯渇タイミングを記録（ティア1 = 前提なし研究の全完了日、
          全研究 = 反復を除く全研究の完了日） */
       if(milestones.resT1Day === null && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) milestones.resT1Day = day;
@@ -478,7 +486,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       /* 第2ウェーブ J: 5回目の EXIT 時点の時代の通算星屑（星団の材料の実測） */
       if(milestones.prestigeCount === 5 && milestones.hold5Day === null){ milestones.hold5Day = day; milestones.hold5Dust = dustTotal; }
       brand = 0;   /* Wave G: ブランドは EXIT で清算（承認済み仕様） */
-      reportLv = 0;   /* Sprint 4: 反復研究もリセット対象 (game と同一) */
+      rep = { impl:0, test:0, build:0, ship:0 };   /* 反復研究もリセット対象 (game と同一) */
       coins = perks.seedmoney ? 300 : 0;   /* Sprint 3: 星屑特典「初期資金」 */
       project = settle({ size:"S", total: BAL.sizes.S, ideaCost: IDEA_COST.S, planning: false }); projDP = 0;
       for(const k of Object.keys(up)) delete up[k];
@@ -494,7 +502,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
   }
   if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, reportLv, econ, reqDone };
+  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -512,7 +520,7 @@ function report(label, r){
   console.log("30日後の星屑: 通算 " + r.dustTotal + "（所持 " + r.dust + "、ショップ購入後の残り）");
   console.log("研究の枯渇: ティア1全完了 " + (r.milestones.resT1Day ? r.milestones.resT1Day + " 日目" : "30日以内に未完") +
     " / ティア2込み全研究完了 " + (r.milestones.resAllDay ? r.milestones.resAllDay + " 日目" : "30日以内に未完") +
-    " / 反復研究は 30日目で Lv" + r.reportLv + "（生産 +" + (r.reportLv * 2) + "%・枯渇しない）");
+    " / 反復研究（工程別）は 30日目で 実装" + r.rep.impl + "・テスト" + r.rep.test + "・ビルド" + r.rep.build + "・出荷" + r.rep.ship + "（1ランの合計最大 Lv" + r.repMax + "・枯渇しない）");
   if(r.econ) console.log("30日目の支出可能性: その日のコイン収入 " + r.econ.dayCoins + "🪙 / 通算収入 " + r.econ.coinsEarned +
     "🪙 / 高級おやつ価格 " + r.econ.treatCost + "🪙 → 1日収入で約 " + Math.floor(r.econ.dayCoins / Math.max(1, r.econ.treatCost)) + " 個買える");
   const pd = r.milestones.prestigeDay;

@@ -43,8 +43,7 @@ function tutTabOwns(tabId){
 function cumRP(){
   let v = Math.floor(S.rp);
   for(const d of RESEARCH_DEFS) if(S.research[d.id]) v += d.cost;
-  const lv = (S.researchLv && S.researchLv.res_report) || 0;
-  for(let i = 0; i < lv; i++) v += repeatResearchCost(i);
+  for(const d of REPEAT_RESEARCHES) for(let i = 0; i < repLv(d.id); i++) v += repeatResearchCost(i);
   return v;
 }
 /* 達成済みの事実だけからステージを導出する (移行・リセット・ロック判定の共通土台) */

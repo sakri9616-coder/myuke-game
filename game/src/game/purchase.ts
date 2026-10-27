@@ -14,7 +14,7 @@ function buyUpgrade(id){
   tutCheck();
 }
 function buyResearch(id){
-  const def = RESEARCH_DEFS.find(r=>r.id===id) || (id === REPEAT_RESEARCH.id ? REPEAT_RESEARCH : null);
+  const def = RESEARCH_DEFS.find(r=>r.id===id) || REPEAT_RESEARCHES.find(r=>r.id===id);
   if(!def) return;
   /* Sprint 4: 反復研究はレベル制（価格は 1.6 倍ずつ） */
   if(def.repeatable){
@@ -25,7 +25,7 @@ function buyResearch(id){
     if(!S.researchLv) S.researchLv = {};
     S.researchLv[id] = lv + 1;
     SoundKit.play("purchase");
-    addLog("反復研究: "+def.name+" Lv"+(lv+1)+"（生産 +2%）（-"+cost+"🔬）");
+    addLog("反復研究: "+def.name+" Lv"+(lv+1)+"（"+def.desc.replace("/Lv","")+"）（-"+cost+"🔬）");
     say("『"+def.name+"』Lv"+(lv+1)+" にゃ。地味に効くよ");
     save(); renderPanel();
     tutCheck();

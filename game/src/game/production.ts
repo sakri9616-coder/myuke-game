@@ -44,17 +44,18 @@ function buffProdMult(){ return (S.buffs && S.buffs.prodUntil > Date.now()) ? 1.
 function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 1.10 : 1; }
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
-function extraMult(){ return resMult() * perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
+function extraMult(){ return resMult() * extraMultBase(); }
+function extraMultBase(){ return perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
 /* 工程（テスト/ビルド/出荷）と QA にも、実装と同じ会社全体の倍率を掛ける。
    以前は実装だけが アップグレード×星屑×研究 で伸び、後工程は足し算のままだったので、
    周回や強化を重ねるほど実装だけが突出して詰まり、バグも QA を置き去りにしていた */
-function stageMult(){ return dpMult(S.upgrades) * dustMult() * extraMult(); }
+function stageMult(stage){ return dpMult(S.upgrades) * dustMult() * extraMultBase() * repMult(stage); }   /* 反復研究だけは工程ごと */
 function qaRate(){
-  return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult();
+  return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult("test");
 }
-function testRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.tester||0) + staffSums().testDP) * stageMult(); }
-function buildRate(){ return (BAL.stageBaseRate + 5*(S.upgrades.ci||0) + 4*(S.upgrades.pack||0)) * stageMult(); }
-function shipRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.bot||0) + staffSums().ship) * stageMult(); }
+function testRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.tester||0) + staffSums().testDP) * stageMult("test"); }
+function buildRate(){ return (BAL.stageBaseRate + 5*(S.upgrades.ci||0) + 4*(S.upgrades.pack||0)) * stageMult("build"); }
+function shipRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
 function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
    「引っ越したてのみゅけのやる気MAX」で生産 ×3.4。帯で無操作でも初リリースが
