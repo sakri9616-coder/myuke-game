@@ -241,33 +241,63 @@ function updateComboUI(){
       "DP（連続でコンボ、たまにクリティカル×10）";
   }
 }
-/* 詰まった工程の手作業（v2.12.1）。詰まっている山をクリックすると、その山を次の工程へ手で進める。
-   量 = 応援の威力 × コンボ × HANDWORK_MULT（運ぶ ×3 より強いが、その山の工程にしか効かない）。
-   クリックの堰（秒5回のバケツ）・コンボ・応援P・オーバークロックの溜まりは応援クリックと共通 */
+/* 工程の持ち場の手助け（v2.12.1 → 2026-10-27 作り直し）。sakuri「企画実装テストビルド出荷に個別のグラフィック
+   （会議室等）があり、そのグラフィックをクリックしてボトルネックを手助けする」「手助けは応援の効果も受けるべき」。
+   持ち場をクリックすると、みゅけが手でその工程を進める:
+     plan  = 会議室: アイデアを出す（企画中の着工待ち・企画を練る・ゲージの溜まりに効く）
+     test  = テスト室: 実装済み → テスト済み
+     build = ビルド室: テスト済み → ビルド済み
+     ship  = 出荷場: ビルド済み → 出荷（作品の進捗）
+   実装の持ち場はみゅけの机で、そこを押すのは従来の応援クリック。
+   量には応援の効果がすべて乗る: 威力（てぶくろ）・自動生産連動（肉球）・コンボ（うちわ）・クリティカル（声援）・
+   応援の熱・応援フィッシュ・オーバークロック。堰（秒5回のバケツ）・応援P・ゲージの溜まり・連動シナジーも応援クリックと共通 */
 const HANDWORK_MULT = 5;
+const PLAN_IDEAS_PER_HELP = 0.1;   /* 会議室1回のアイデア（威力 1 倍・倍率なしのとき）。10回で1個 */
+const HANDWORK_STAGES = ["plan", "test", "build", "ship"];
 let handworkFx: { stage: string; at: number } | null = null;   /* 帯の手作業の絵（揮発） */
+/* 応援クリックと同じ倍率（コンボ・熱・フィッシュ・クリティカル・オーバークロック） */
+function cheerHelpMult(crit){
+  return comboMult() * heatMult() * fishClickMult() * (crit ? 10 : 1) * (feverActive() ? FEVER.clickMult : 1);
+}
 function handworkClick(stage){
   const now = Date.now();
   comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;
   lastClickAt = now;
   S.totals.clicks++;
   handworkFx = { stage, at: now };
-  let moved = 0;
-  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P は押した回数ぶん（段階2: 秒5回の上限を外した。sakuri 2026-10-27） */
-  if(!challengeActive("idle") && S.project && !S.project.planning && clickBucketTake()){
+  heatClicksThisSec++;
+  const crit = Math.random() < critRate();
+  if(crit) S.totals.crits++;
+  let moved = 0, ideas = 0;
+  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P は押した回数ぶん（段階2） */
+  if(!challengeActive("idle") && S.project && clickBucketTake()){
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
-    const amt = clickBaseDP() * comboMult() * heatMult() * fishClickMult() * HANDWORK_MULT * clickProdMult() * (feverActive() ? FEVER.clickMult : 1);
-    heatClicksThisSec++;
-    const w = S.wip;
-    if(stage === "code"){ moved = Math.min(amt, w.code); w.code -= moved; w.tested += moved; }
-    else if(stage === "test"){ moved = Math.min(amt, w.tested); w.tested -= moved; w.built += moved; }
-    else if(stage === "build"){ moved = Math.min(amt, w.built); w.built -= moved; creditProject(moved); }
-    if(moved > 0){ S.totals.handwork = (S.totals.handwork || 0) + moved; progressPulseUntil = now + 500; }
+    const m = cheerHelpMult(crit);
+    if(stage === "plan"){
+      ideas = PLAN_IDEAS_PER_HELP * (clickPower() / CLICK_POWER_BASE) * m;
+      S.ideas = (S.ideas || 0) + ideas;
+      S.totals.handworkIdeas = (S.totals.handworkIdeas || 0) + ideas;
+    } else if(!S.project.planning){
+      const amt = clickBaseDP() * m * HANDWORK_MULT * clickProdMult();
+      const w = S.wip;
+      if(stage === "test"){ moved = Math.min(amt, w.code); w.code -= moved; w.tested += moved; }
+      else if(stage === "build"){ moved = Math.min(amt, w.tested); w.tested -= moved; w.built += moved; }
+      else if(stage === "ship"){ moved = Math.min(amt, w.built); w.built -= moved; creditProject(moved); }
+      if(moved > 0){ S.totals.handwork = (S.totals.handwork || 0) + moved; progressPulseUntil = now + 500; }
+    }
   }
-  SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 });
+  clickSynergyTick();
+  SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 + (crit ? 0.25 : 0) });
   updateComboUI();
   checkStamps();
-  return moved;
+  return { moved, ideas, crit };
+}
+/* 連動シナジー（端数は貯めて整数化）。応援クリックと持ち場の手助けで共通 */
+function clickSynergyTick(){
+  ideaFrac += 0.02 * (S.clickUp.synidea||0);
+  if(ideaFrac >= 1){ const n = Math.floor(ideaFrac); ideaFrac -= n; S.ideas += n; }
+  rpFrac += 0.004 * (S.clickUp.synrp||0);
+  if(rpFrac >= 1){ const n = Math.floor(rpFrac); rpFrac -= n; S.rp += n; addLog("研究メモ連動で研究P+"+n); }
 }
 function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し側 (hitzones) が担う */
   const now = Date.now();
@@ -307,11 +337,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
       say("クリティカル応援！！ すごいパワーだにゃ！");
     }
   }
-  // 連動シナジー（端数は貯めて整数化）
-  ideaFrac += 0.02 * (S.clickUp.synidea||0);
-  if(ideaFrac >= 1){ const n = Math.floor(ideaFrac); ideaFrac -= n; S.ideas += n; }
-  rpFrac += 0.004 * (S.clickUp.synrp||0);
-  if(rpFrac >= 1){ const n = Math.floor(rpFrac); rpFrac -= n; S.rp += n; addLog("研究メモ連動で研究P+"+n); }
+  clickSynergyTick();
   /* Sprint 2: 応援の音（コンボで微上昇）と、みゅけのバウンス */
   SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 + (crit ? 0.25 : 0) });
   startBounce();

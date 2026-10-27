@@ -45,7 +45,7 @@ function propDefaultPlace(id){
     case "snack": return { cx: stripDeskCX() + 72, baseY: G };
     case "coffee": return { cx: stripDeskCX() + 47, baseY: G - 0.5 };
     case "plant": return { cx: stripResearchCX() + 22, baseY: G - 12 };
-    case "ship": return { cx: Math.round(stripVW * 0.80), baseY: G };
+    case "ship": return { cx: Math.round(stripVW * 0.87), baseY: G };
     /* 既定ではボード左下に吊る2行の札 (並べ替えで掴む矩形がそこに重なるように) */
     case "memo": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 4 + 75, baseY: STRIP_BOARD.top + STRIP_BOARD.hMain + 18 };
   }

@@ -40,8 +40,65 @@ const VERBS = {
   tutSkipGuide: tutSkipGuide, tutResetGuide: tutResetGuide, tutVisitTab: tutVisitTab,
   updCheckManual: updCheckManual, updDownload: updDownload,
   updRelaunch: updRelaunch, updDismiss: updDismiss,
+  buyMany: buyMany,
   exportSave: exportSaveText, importSaveText: importSaveText, resetSave: doResetSave
 };
+
+/* 長押し連続購入: 同じ購入を最大 n 回つづけて行い、実際に買えた回数を返す。
+   1回ごとの保存・再描画・スナップショットは quietBuy で止めて、最後に1回だけ行う。
+   ログは同じ形の行 (数字と（）内の違いだけ) を1行にまとめ、×回数を添える。
+   買えなくなった (どの通貨も減らなかった) 時点で止める。メニューからは1コマンドで届く */
+const HOLD_VERBS = {
+  buyUpgrade: 1, buyResearch: 1, buyClickUp: 1, hireStaff: 1, trainStaff: 1, buyBulkTrain: 1,
+  buyTreat: 1, buyStudio: 1, buyDept: 1, addSubStaff: 1, scaleSub: 1, buyDustPerk: 1
+};
+let bulkLogLast: { entry: { tm: string; text: string }; shape: string; n: number } | null = null;
+function buyMany(verb, args, n){
+  if(IS_VIEWER || quietBuy) return 0;
+  if(typeof verb !== "string" || !Object.prototype.hasOwnProperty.call(HOLD_VERBS, verb)) return 0;
+  const fn = VERBS[verb];
+  const a = Array.isArray(args) ? args : [];
+  const max = Math.max(1, Math.min(200, Math.floor(Number(n) || 1)));
+  const wallet = () => S.coins + "|" + S.rp + "|" + S.dust + "|" + (S.cheerP || 0);
+  let bought = 0;
+  quietBuy = { log: [] };
+  try{
+    for(let i = 0; i < max; i++){
+      const before = wallet();
+      fn.apply(null, a);
+      if(wallet() === before) break;
+      bought++;
+    }
+  }catch(e){ console.error("[miyuke] buyMany で例外", e); }
+  const logs = quietBuy.log;
+  quietBuy = null;
+  /* 同じ形の購入ログ (数字違い) は最後の1行に「×回数」を添えてまとめる。節目などはそのまま残る */
+  const shapes = {}, order = [];
+  for(const L of logs){
+    /* 節目ジャンプ (✨) は1つずつ知らせたいのでまとめない */
+    const k = L.text.charAt(0) === "✨" ? "✨" + order.length : L.text.replace(/（[^）]*）/g, "").replace(/[0-9.,]+/g, "#");
+    if(!shapes[k]){ shapes[k] = { text: L.text, n: 0 }; order.push(k); }
+    shapes[k].text = L.text; shapes[k].n++;
+  }
+  for(const k of order){
+    /* 直前の歩のまとめ行がログの先頭に残っていれば、そこへ回数を足す (長押し1回でログを埋めない) */
+    const top = S.log[0];
+    if(bulkLogLast && top === bulkLogLast.entry && bulkLogLast.shape === k){
+      bulkLogLast.n += shapes[k].n;
+    } else {
+      addLog(shapes[k].text);
+      bulkLogLast = { entry: S.log[0], shape: k, n: shapes[k].n };
+    }
+    bulkLogLast.entry.text = shapes[k].text + (bulkLogLast.n > 1 ? " ×" + bulkLogLast.n : "");
+  }
+  if(bought > 0){
+    if(lastSayText) say(lastSayText);
+    save(); renderPanel();
+  }
+  bumpRev();   /* menu からのコマンドなら、返事と一緒にスナップショットが1回だけ送られる */
+  return bought;
+}
+window.__miyukeBuyMany = buyMany;   /* テスト/デバッグ用フック */
 
 /* ----- owner 側: スナップショット送信とコマンド実行 ----- */
 function buildSnapshot(){

@@ -172,6 +172,7 @@ function renderEditorBreadcrumb(){
   if(contextEl.textContent !== context) contextEl.textContent = context;
 }
 function renderPanel(){
+  if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
   renderEditorBreadcrumb();
   const el = document.getElementById("panel");
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
@@ -923,7 +924,10 @@ function renderPanel(){
    - 中身が前回と同じなら DOM を触らない (フォーカスもアニメも保たれる)
    - スライダーをドラッグしている最中は作り直さない (つまみが手から外れないように)
    - キーボードでフォーカスしていたボタンは、作り直した後も同じボタンへ戻す
-     (5秒ごとの再描画でフォーカスが body へ飛び、キーボードだけでは買えなかった) */
+     (5秒ごとの再描画でフォーカスが body へ飛び、キーボードだけでは買えなかった)
+   - スクロール位置は作り直しの前後で保つ。フォーカスを戻すときに画面外の
+     ボタンへスクロールで引き戻さない (押したボタンから離れて読んでいると、
+     再描画のたびに押したボタンの位置へロールバックしていた) */
 let panelLastHTML = null, panelPointerDown = false;
 try{
   document.addEventListener("pointerdown", () => { panelPointerDown = true; }, true);
@@ -940,13 +944,16 @@ function setPanelHTML(el, h){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === sig);
     focusKey = { sig, idx: Math.max(0, same.indexOf(a)) };
   }
+  const top = el.scrollTop, left = el.scrollLeft;
   el.innerHTML = h;
   panelLastHTML = h;
   if(focusKey){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
     const target = same[Math.min(focusKey.idx, same.length - 1)];
-    if(target && typeof target.focus === "function") target.focus();
+    if(target && typeof target.focus === "function") target.focus({ preventScroll:true });
   }
+  if(el.scrollTop !== top) el.scrollTop = top;
+  if(el.scrollLeft !== left) el.scrollLeft = left;
 }
 /* メニュー刷新 P1: タブバッジ（買えるものがある/新しい依頼があるタブに赤ドット。
    判定は既存の afford 系ヘルパの流用のみ。失敗しても描画を止めないよう握りつぶす） */

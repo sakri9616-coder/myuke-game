@@ -184,6 +184,7 @@ interface Window {
   __miyukeHitZones?: any;
   __miyukeDrawStats?: () => { presented: number; skipped: number };
   __miyukeSendSnapshot?: () => void;
+  __miyukeBuyMany?: (verb: string, args: unknown[], n: number) => number;
   __viewerSaveTrap?: { hits: number };
   webkitAudioContext?: typeof AudioContext;
 }
@@ -195,6 +196,7 @@ interface StripHitRects {
   staff: any[];
   bugs: any[];
   piles: any[];
+  stations: any[];
   [name: string]: any;
 }
 

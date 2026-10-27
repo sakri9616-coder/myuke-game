@@ -29,7 +29,8 @@ function computeHitZones(){
   push(R.shelf, 4);   /* Strip Canon: 棚も「見えている物」としてクリック可能に (R12) */
   push(R.board, 4);   /* プロジェクトボードも同様 (R12: 物から管理への導線) */
   push(R.board2, 4);
-  for(const pr of (R.piles || [])) push(pr, 4);   /* 可視生産: 詰まった山も押せる */
+  for(const pr of (R.piles || [])) push(pr, 4);   /* 可視生産: 詰まった山の三角コーン（対策パネル） */
+  for(const pr of (R.stations || [])) push(pr, 2);   /* 工程の持ち場（手助け） */
   push(R.snack, 4);   /* 2026-10-25: おやつ箱も押せる */
   push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4);
   push(R.memo, 4); push(R.phone, 4); push(R.megaphone, 4); push(R.toolbox, 4);
@@ -136,17 +137,9 @@ if(stripCv){
     }
     /* 在庫バグ (常に帯を這う) も手で潰せる */
     if(stripStockBugClick(ux, uy)){ headerAfterStripClick(); return; }
-    /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）、山そのものは手作業で押し切る
-       （v2.12.1・sakuri「ゴリ押し（クリック）でも解消できるように」）。詰まっていない山は素通り。
-       おやつ箱などの家具と重なっても、詰まっている間は山を先に判定する */
-    const pileHits = (stripHitRects.piles || []).filter(pr => ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h);
-    const coneHit = pileHits.find(pr => pr.cone), pileHit = pileHits.find(pr => !pr.cone);
-    if(coneHit){ openBottleneckFixPanel(); return; }
-    if(pileHit){
-      const moved = handworkClick(pileHit.stage);
-      addStripSpark(ux, uy, false);
-      if(moved > 0) addStripFloater(ux, uy - 9, "+" + fmtClickDP(moved) + "DP 手作業");
-      return;
+    /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）。持ち場の手助けは家具の後で判定する */
+    if((stripHitRects.piles || []).some(pr => pr.cone && ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h)){
+      openBottleneckFixPanel(); return;
     }
     /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
     if(stripHitRects.shelf){
@@ -186,6 +179,19 @@ if(stripCv){
         return;
       }
     }
+    /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める。
+       みゅけ本人に重なるときは応援クリックを優先する。サーバーラック・研究机（タブへの導線）より先に判定する
+       （ラックはビルド室の中に立つ自動化の設備。ブースより上の部分は従来どおり工場タブを開く） */
+    const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
+    if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
+      const r = handworkClick(stHit.stage);
+      addStripSpark(ux, uy, r.crit);
+      if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+      else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
+      else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
+      headerAfterStripClick();
+      return;
+    }
     /* Stage 3: 家具オブジェクト → 対応タブ (物から管理への導線を全タブに) */
     for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "stats"], ["calendar", "stats"]]){
       const rr = stripHitRects[rkey];
@@ -194,6 +200,10 @@ if(stripCv){
         return;
       }
     }
+    /* 連打ツール対策: クリックごとの台詞は CLICK_SAY_GAP_MS に1回まで (台詞はメニューへの同期も伴う)。
+       効果 (集中力・アイデア・ひっくり返り) はクリックごとに従来どおり */
+    const sayOK = Date.now() - lastClickSayAt >= CLICK_SAY_GAP_MS;
+    const clickSay = (t) => { if(sayOK){ lastClickSayAt = Date.now(); say(t); } };
     const mx = stripMiyukeX();
     let part = null;
     if(Math.abs(ux - mx) <= 44 && uy >= STRIP_GROUND - 82 && uy <= STRIP_GROUND + 2){
@@ -212,7 +222,7 @@ if(stripCv){
            いたため、「5回ごとにクールタイムがある」ように感じた。本来の
            応援クリック (ゲームの核の操作) は絶対に落とさない・止めない */
         clickTimes = [];
-        say("もう！しっぽブンブンだにゃ。ちょっと落ち着いて…");
+        clickSay("もう！しっぽブンブンだにゃ。ちょっと落ち着いて…");
       }
     } else {
       clickTimes = [];
@@ -221,10 +231,6 @@ if(stripCv){
     addStripSpark(ux, uy, crit);
     if(!crit){ if(document.body.classList.contains("strip")) addStripFloaterSum(ux, uy - 9, "click", clickShownDP() * comboMult() * heatMult() * fishClickMult(), v => "+" + fmtClickDP(v) + "DP"); }
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
-    /* 連打ツール対策: クリックごとの台詞は CLICK_SAY_GAP_MS に1回まで (台詞はメニューへの同期も伴う)。
-       効果 (集中力・アイデア・ひっくり返り) はクリックごとに従来どおり */
-    const sayOK = Date.now() - lastClickSayAt >= CLICK_SAY_GAP_MS;
-    const clickSay = (t) => { if(sayOK){ lastClickSayAt = Date.now(); say(t); } };
     if(part && !crit){
       if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); clickSay("ん。…悪くないにゃ"); }
       if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
