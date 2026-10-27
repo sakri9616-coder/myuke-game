@@ -96,6 +96,11 @@ console.log("== 1. boot and core loop ==");
   run(sb, "buyUpgrade('keyboard'); hireStaff(Object.keys(STAFF_ROLES)[0]); buyResearch(RESEARCH_DEFS[0].id);");
   check("upgrades, hiring and research can be bought",
     run(sb, "S.upgrades.keyboard") === 1 && run(sb, "S.staff.length") === 1 && run(sb, `S.research[RESEARCH_DEFS[0].id]`) === true && run(sb, "S.coins") < 100000);
+  run(sb, "S.coins = 3000; S.log.length = 0;");
+  const held = run(sb, "buyMany('buyUpgrade', ['keyboard'], 50)");
+  check("press-and-hold buys until coins run out, with one log line",
+    held > 1 && held < 50 && run(sb, "S.upgrades.keyboard") === 1 + held && run(sb, "S.log.filter(l => l.text.startsWith('アップグレード')).length") === 1 && run(sb, "quietBuy") === null,
+    held + " bought, log " + run(sb, "JSON.stringify(S.log.map(l => l.text))"));
   run(sb, "S.tut.skipped = true;");
   const tabs = run(sb, "TABS.map(t => t[0])");
   const bad = tabs.filter(t => !noThrow(() => run(sb, `switchTab(${JSON.stringify(t)}); renderPanel();`)) || run(sb, "document.getElementById('panel').innerHTML.length") < 50);

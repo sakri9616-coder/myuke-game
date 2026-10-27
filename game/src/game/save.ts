@@ -15,9 +15,12 @@ let menuLastBeat = 0;    /* owner が最後に menu の heartbeat を受けた�
 let snapSeq = 0;         /* スナップショットの単調増加カウンタ */
 let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリフで進む) */
 function bumpRev(){ snapRev++; }
+/* 長押し連続購入 (buyMany) の最中は、1回ごとの保存・再描画・スナップショット・
+   購入ログをまとめて最後に1回にする (連打のたびに全体を書き直すと重くなるため) */
+let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.14.2";   /* 表示ラベルの単一の出所 (v2.14.2: 工程の持ち場をクリックして手助け。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.14.3";   /* 表示ラベルの単一の出所 (v2.14.3: 購入ボタンの長押しで連続購入。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -138,6 +141,7 @@ function intOr(v: any, fallback: number): number {
 function save(){
   if(IS_VIEWER) return;   /* 単一書き手: viewer はセーブに一切触らない (第2層ガード) */
   if(saveBlocked) return;
+  if(quietBuy) return;   /* 連続購入の最後に buyMany が1回だけ保存する */
   try{
     S.lastTick = Date.now();
     if(sessBase){
@@ -322,6 +326,7 @@ function load(rawText?: string){
 function addLog(text){
   const d = new Date();
   const tm = ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+  if(quietBuy){ quietBuy.log.push({ tm, text }); return; }
   S.log.unshift({ tm, text });
   if(S.log.length > 40) S.log.length = 40;
 }
@@ -333,6 +338,7 @@ function say(text){
   const bt = document.getElementById("bubble-text");
   if(bt) bt.textContent = text;   /* プロジェクトタブを開いている時だけ DOM 側にも出す */
   stripSay = { text: text, until: Date.now() + 4200 };
+  if(quietBuy) return;   /* 連続購入中のセリフは最後のものだけを buyMany の後で届ける */
   /* 2ウィンドウ化: セリフは live の変化として即時スナップショットで menu に届ける。
      sendSnapshotNow は末尾のプロトコル節 (関数宣言なので巻き上げ済み)。
      viewer では内部ガードで無操作になる */

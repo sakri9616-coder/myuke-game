@@ -172,6 +172,7 @@ function renderEditorBreadcrumb(){
   if(contextEl.textContent !== context) contextEl.textContent = context;
 }
 function renderPanel(){
+  if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
   renderEditorBreadcrumb();
   const el = document.getElementById("panel");
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
