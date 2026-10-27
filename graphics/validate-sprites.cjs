@@ -70,7 +70,10 @@ for (const c of ['green', 'yellow', 'red']) VIS_SIZES['prop_signal_' + c] = [8, 
    余白・伸び縮みの規則まで検査済み。ここでは寸法とパレットだけを見る (枠の絵は端まで描くのが正本) */
 const VIS2 = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-visible2.js'); return g.MIYUKE_ENV_SPRITES_VIS2.sprites; })();
 for (const [n, rows] of Object.entries(VIS2)) VIS_SIZES[n] = [rows[0].length, rows.length];
-const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name);
+/* 在庫バグ (research/BUG_SWARM_ART_ORDER.md): 余白 1px・接地は納品物の描画スクリプトが検査済み。ここでは寸法とパレット */
+const BUGS = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-bugs.js'); return g.MIYUKE_ENV_SPRITES_BUGS.sprites; })();
+for (const [n, rows] of Object.entries(BUGS)) VIS_SIZES[n] = [rows[0].length, rows.length];
+const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name) || Object.hasOwn(BUGS, name);
 function expected(name) {
   if (VIS_SIZES[name]) return VIS_SIZES[name];
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。

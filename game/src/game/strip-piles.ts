@@ -16,7 +16,6 @@ function pileModel(){
              red: byId.test.lamp === "red" },
     build: { frac: byId.build.frac, n: Math.round(byId.build.frac * 5),
              red: byId.build.lamp === "red" },
-    bugs: Math.min(8, Math.floor(S.bugStock)),
     l2: S.line2.unlocked ? {
       codeN: Math.round(Math.min(1, S.line2.wip.code / capC) * 4),
       testN: Math.round(Math.min(1, S.line2.wip.tested / capT) * 4)
@@ -56,21 +55,7 @@ function drawStripPiles(){
     const p = pileSlotPos(bx, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, false, i * 0.37);
   }
-  /* バグ滞留: 山の上にバグが這う (min(8, bugStock))。QA/debug で減ると潰れる */
-  if(m.bugs > 0){
-    const topY = G - 3.5 - Math.max(1, Math.ceil(m.code.n / 2)) * 7.6;
-    for(let i = 0; i < m.bugs; i++){
-      const jx = Math.sin((frame + i * 7) * 0.35) * 1.2;
-      const gx = bx - 8 + (i % 4) * 5.4 + jx, gy = topY - 1.5 - Math.floor(i / 4) * 4.5;
-      sDrawSprite("icon_bug", gx, gy + 4, 0.32);
-    }
-  }
-  if(stripBugSquash && stripNow - stripBugSquash.at < 300){
-    const sa = 1 - (stripNow - stripBugSquash.at) / 300;
-    sctx.save(); sctx.globalAlpha = sa;
-    sDrawSprite("icon_bug", stripBugSquash.x, stripBugSquash.y + 5, 0.32);
-    sctx.restore();
-  }
+  /* バグ滞留は山の上ではなく、帯の地面を這う在庫バグとして描く (strip-bugs.ts) */
   if(m.code.red) stripHitRects.piles.push({ x: bx - 15, y: Math.min(G - 12, pileTopY("code") - 6), w: 30, h: G - Math.min(G - 12, pileTopY("code") - 6), stage: "code" });
   /* --- C: ビルド置き場 (サーバ予定地の足元。木箱台) --- */
   const cxp = stripBuildX();
@@ -239,7 +224,7 @@ function renderStrip(){
   /* ヒットゾーン記録をこのフレーム分にリセット（吹き出しは描画時に再設定される） */
   stripHitRects.miyuke = null; stripHitRects.staff = [];
   stripHitRects.duck = null; stripHitRects.bubble = null;
-  stripHitRects.fish = null; stripHitRects.bugs = []; stripHitRects.shelf = null;
+  stripHitRects.fish = null; stripHitRects.bugs = []; stripHitRects.stockBugs = []; stripHitRects.shelf = null;
   stripHitRects.board = null; stripHitRects.board2 = null; stripHitRects.piles = [];
   stripHitRects.snack = null;
   stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
@@ -546,6 +531,7 @@ function renderStrip(){
     if(frame % 8 < 4){ sDrawSprite("fx_spark_2", fx - 13, G - 10 - hop, 1); sDrawSprite("fx_spark_2", fx + 12, G - 12 - hop, 1); }
     stripHitRects.fish = { x: fx - 15, y: G - 20, w: 30, h: 22 };
   }
+  drawStripStockBugs();   /* 在庫バグ (常に地面を這う。イベントのバグより奥) */
   if(bugEvent){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);

@@ -156,6 +156,11 @@ console.log("== 3. strip ==");
   check("clicking furniture asks Rust to open the menu tab", calls.some(c => c[0] === "open_menu" && c[1].tab === "shelf"));
   run(sb, "S.tut.skipped = false; S.tut.stage = 1; S.tut.seen = {}; S.coins = 10; tutCelebrate = null;");
   check("the stage-1 objective memo opens the factory tab", run(sb, "stripMemoTab()") === "factory");
+  run(sb, "S.bugStock = 10000; stripNow = Date.now() + 1000; render(); stripNow += 1000; render();");
+  const bugs0 = run(sb, "S.bugStock"), coins0 = run(sb, "S.coins");
+  run(sb, "const __r = stripHitRects.stockBugs[0]; stripStockBugClick(__r.x + __r.w / 2, __r.y + __r.h / 2);");
+  check("10,000 stock bugs draw as at most 20 sprites and a click squashes some for coins",
+    run(sb, "stripBugVis.length") <= 20 && run(sb, "S.bugStock") < bugs0 && run(sb, "S.coins") > coins0);
 
   const vet = fs.readFileSync(path.join(__dirname, "strip-seeds", "veteran.json"), "utf8");
   const sbV = buildSandbox({ hash: "#strip" });
