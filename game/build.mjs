@@ -21,7 +21,7 @@ export const GAME_SOURCES = [
   "production", "state", "tick", "purchase", "company",
   "strip-frame", "strip-meter", "strip-core", "strip-walk", "strip-layout", "strip-flow", "strip-ambient",
   "strip-furniture", "strip-board", "strip-piles", "strip-visible", "strip-bugs", "hitzones",
-  "ui-core", "ui-panel", "ui-misc", "os-input", "updater", "input", "sync", "main"
+  "ui-core", "ui-panel", "ui-misc", "ui-layout", "os-input", "updater", "input", "sync", "main"
 ];
 
 /* 改行は LF に揃えて読む (Windows の CI は core.autocrlf で CRLF をチェックアウトするため、

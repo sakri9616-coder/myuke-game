@@ -35,9 +35,20 @@
   <div class="side">
     <div id="return-card" style="display:none"></div>
     <div id="update-card" style="display:none"></div>
-    <div class="tabs" id="tabs"></div>
-    <div id="editor-breadcrumbs" aria-hidden="true"><span>miyuke</span><span>›</span><span id="editor-breadcrumb-tab"></span><span>›</span><span id="editor-breadcrumb-context"></span></div>
-    <div class="panel" id="panel"></div>
+    <!-- 分割ビュー (ui-layout): 左のアイコン列 + エディタグループ。組み立てに失敗したら
+         下の egroup-legacy (従来の1枚表示) がそのまま使われる -->
+    <div id="editor-wrap">
+      <nav id="activity-bar" aria-label="タブの一覧"></nav>
+      <div id="editor-area">
+        <div class="egroup focused" id="egroup-legacy">
+          <div class="tabs" id="tabs"></div>
+          <div class="egroup-body">
+            <div id="editor-breadcrumbs" class="editor-crumbs" aria-hidden="true"><span>miyuke</span><span>›</span><span id="editor-breadcrumb-tab" class="crumb-tab"></span><span>›</span><span id="editor-breadcrumb-context" class="crumb-ctx"></span></div>
+            <div class="panel" id="panel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
 

@@ -75,14 +75,14 @@ async function checkForUpdates(manual){
     upd.status = manual ? "error" : "idle";   /* オフライン等は自動チェックでは無言 */
   }
   paintUpd();
-  if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
+  if(tabVisible("settings")) renderPanel();
   return upd.status === "available";
 }
 function updCheckManual(){ checkForUpdates(true); }
 async function updDownload(){
   if(!upd.obj || upd.status !== "available") return;
   upd.status = "downloading"; upd.got = 0; upd.total = 0;
-  paintUpd(); if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
+  paintUpd(); if(tabVisible("settings")) renderPanel();
   let lastPct = -1;
   save();   /* Windows ではインストーラ起動でアプリが閉じるので、先に進行を書き残す */
   try{
@@ -103,7 +103,7 @@ async function updDownload(){
     say("ダウンロードに失敗したにゃ… もう一度試してみて");
   }
   paintUpd();
-  if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
+  if(tabVisible("settings")) renderPanel();
 }
 function updRelaunch(){
   flushSave();   /* 再起動の前に最後の進行を書き残す (間引かずに書く) */
