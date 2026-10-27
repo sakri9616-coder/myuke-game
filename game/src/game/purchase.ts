@@ -21,23 +21,8 @@ function announceMilestone(def, lv){
   say(def.name+"が節目のLv"+lv+"にゃ！ 効果がぐんと上がったよ");
 }
 function buyResearch(id){
-  const def = RESEARCH_DEFS.find(r=>r.id===id) || REPEAT_RESEARCHES.find(r=>r.id===id);
+  const def = RESEARCH_DEFS.find(r=>r.id===id);
   if(!def) return;
-  /* Sprint 4: 反復研究はレベル制（価格は 1.6 倍ずつ） */
-  if(def.repeatable){
-    const lv = (S.researchLv && S.researchLv[id]) || 0;
-    const cost = repeatResearchCost(lv);
-    if(S.rp < cost){ say("研究ポイントが足りないにゃ"); return; }
-    S.rp -= cost;
-    if(!S.researchLv) S.researchLv = {};
-    S.researchLv[id] = lv + 1;
-    SoundKit.play("purchase");
-    addLog("反復研究: "+def.name+" Lv"+(lv+1)+"（"+def.desc.replace("/Lv","")+"）（-"+cost+"🔬）");
-    say("『"+def.name+"』Lv"+(lv+1)+" にゃ。地味に効くよ");
-    save(); renderPanel();
-    tutCheck();
-    return;
-  }
   if(S.research[id]) return;
   /* Sprint 4: ティア2は前提研究が完了していないと買えない */
   if(def.requires && !S.research[def.requires]){
@@ -52,7 +37,7 @@ function buyResearch(id){
   save(); renderPanel();
   tutCheck();
 }
-function hireStaff(role){
+function hireStaff(role, auto?){
   const def = STAFF_ROLES[role];
   if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。企業価値が上がって次の社格になると広がるよ"); return; }
   if(roleLocked(role)){ say(def.name + "は社格「" + rankName(CHEER_STAFF_RANK) + "」から雇えるにゃ"); return; }
@@ -71,8 +56,8 @@ function hireStaff(role){
   }
   S.totals.hired++;
   SoundKit.play("purchase");
-  addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
-  say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
+  addLog((auto ? "🧑‍💼 " + DEPTS[role].name + "の部長が補充: " : "新しいスタッフ: ")+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
+  if(!auto) say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
   checkStamps(); save(); renderPanel();
   tutCheck();
   if(role === "sales") maybeAutoAcquire();   /* Phase C: 転換点 — 最初の営業が入った瞬間から自動獲得 */
@@ -137,27 +122,6 @@ function buyClickUp(id){
   updateComboUI();
   save(); renderPanel();
   tutCheck();
-}
-function buyLine2(){
-  if(!S.research.res_line2){ say("先に研究『第2ラインの設計』が必要にゃ"); return; }
-  if(S.line2.unlocked) return;
-  if(S.coins < BAL.line2BuildCost){ say("コインが足りないにゃ…"); return; }
-  S.coins -= BAL.line2BuildCost;
-  SoundKit.play("purchase");
-  S.line2.unlocked = true;
-  S.line2.project = settleProject(genProject(null, S.line2.genre, line2Rate()));
-  S.line2.projectDP = 0; S.line2.commitMark = 0;
-  addLog("🏭 第2ラインが完成！『"+S.line2.project.name+"』の並行開発が始まった（-"+BAL.line2BuildCost+"🪙）");
-  say("第2ライン完成にゃ！ 2つの作品を同時に作れるよ");
-  save(); renderPanel();
-  tutCheck();
-}
-function setLine2Genre(gid){
-  S.line2.genre = gid;
-  const g = GENRES.find(x => x.id === gid);
-  addLog("第2ラインの特化ジャンルを「"+(g ? g.name : gid)+"」に設定（次の作品から適用）");
-  say("第2ラインは次から"+(g ? g.name : "")+"専門にゃ");
-  save(); renderPanel();
 }
 function genRequests(){
   S.requests = [];
@@ -224,7 +188,7 @@ function pickRequestGenre(rep, power){
 }
 function salesTierFor(power){
   const cap = power >= 11 ? 3 : power >= 7 ? 2 : power >= 4 ? 1 : 0;
-  return (cap > 0 && Math.random() < 0.35) ? cap - 1 : cap;
+  return (cap > 0 && !delegated("sales", 3) && Math.random() < 0.35) ? cap - 1 : cap;   /* 段階5: 営業部 Lv3 は下ぶれしない */
 }
 function autoAcquireRequest(){
   const reps = salesReps();

@@ -107,6 +107,42 @@ function buyDept(role){
   say(DEPTS[role].name + "を強化したにゃ！ みんなの出力が上がるよ");
   save(); renderPanel();
 }
+/* ---------- 再設計 段階5: 部署の節目で部長に任せる（Lv3・6・10）----------
+   Lv3 は部署ごとの仕事、Lv6 は所属の猫の自動育成、Lv10 は空きがあれば同じ役職を自動で補充。
+   任せるには部長（所属の猫が1匹以上）が要る。自動の買い物は「所持コインの半分で払える」ときだけ
+   （あなたの買い物の分を残す）。第2ラインは廃止し、開発部 Lv3 の「並行開発」に置き換えた
+   （作る手が増えるだけで、テスト以降の工程は本社と共有 — 詰まりの往復が生まれる） */
+const DEPT_LV3 = {
+  prog:    "並行開発（開発部の実装 +50%）",
+  test:    "在庫バグの見回り（テスター1匹につき毎分1匹つぶす）",
+  carry:   "ビルドの手伝い（運用部の出荷力の半分をビルドにも）",
+  research:"研究の自動選択（安い研究から自動で進める）",
+  care:    "集中力の下支え（60% を下回らない）",
+  sales:   "取りこぼしなし（依頼のクライアント規模が下ぶれしない）",
+  cheer:   "応援団の熱（応援係の応援でも応援P がたまる）"
+};
+function delegateList(role){ return [[3, DEPT_LV3[role]], [6, "自動育成（部長が所属の猫を育てる）"], [10, "自動補充（空きがあれば同じ役職を雇う）"]]; }
+function delegated(role, lv){ return deptLv(role) >= lv && !!deptChief(role); }
+function parallelDevMult(){ return delegated("prog", 3) ? 1.5 : 1; }
+let delegateClock = 0;
+/* 1秒ティックから（5秒に1回だけ動く） */
+function deptDelegateTick(){
+  if(++delegateClock % 5) return;
+  if(delegated("research", 3)){
+    const next = RESEARCH_DEFS.filter(r => !S.research[r.id] && (!r.requires || S.research[r.requires])).sort((a, b) => a.cost - b.cost)[0];
+    if(next && S.rp >= next.cost){ S.rp -= next.cost; S.research[next.id] = true; addLog("🔬 研究部が『" + next.name + "』を進めた（-" + next.cost + "🔬）"); }
+  }
+  for(const role of Object.keys(DEPTS)){
+    if(delegated(role, 6)){
+      const cand = S.staff.filter(s => s.role === role && s.lv < STAFF_MAX_LV).sort((a, b) => a.lv - b.lv)[0];
+      if(cand){
+        const c = trainCost(cand);
+        if(c <= S.coins * 0.5){ S.coins -= c; cand.lv++; addLog("🎓 " + DEPTS[role].name + "の部長が " + cand.name + " を Lv" + cand.lv + " に育てた（-" + fmt(c) + "🪙）"); }
+      }
+    }
+    if(delegated(role, 10) && !roleLocked(role) && S.staff.length < staffCap() && hireCost(role) <= S.coins * 0.5) hireStaff(role, true);
+  }
+}
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------
    価格 = base × (1 + 総収入/25000) × 1.5^(効果中に重ねている数)。
    稼ぐほど高くなるので、終盤でも「余り続ける」ことがない設計。
@@ -171,7 +207,7 @@ function computeStaffSums(){
   for(const st of S.staff){
     const m = staffOutMult(st) * deptMult(st.role), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み / Phase C: 部署Lv 倍率 */
     s.byRole[st.role] = (s.byRole[st.role]||0) + 1;
-    if(st.role === "prog"){ s.prog += def.out * m; s.progW += m; }
+    if(st.role === "prog"){ s.prog += def.out * m * parallelDevMult(); s.progW += m; }   /* 段階5: 開発部 Lv3 の並行開発 */
     if(st.role === "test"){ s.qa += def.out * m; s.testDP += BAL.testStaffDP * m; }
     if(st.role === "carry"){ s.ship += def.out * m; }
     if(st.role === "research"){ s.rp += def.out * m; }
@@ -204,20 +240,19 @@ function genCatName(){
 const CLICK_DEFS = [
   { id:"paw",    name:"肉球トレーニング", base:40,  max:100, grow:1.12, ms:true, desc:"自動生産との連動 +25%/Lv" },
   { id:"glove",  name:"高級グローブ",     base:60,  max:100, grow:1.12, ms:true, desc:"クリック威力 +0.18/Lv" },
-  { id:"uchiwa", name:"応援うちわ",       base:200, max:8,  desc:"コンボ上限 +0.25倍/Lv" },
-  { id:"cheer",  name:"応援団の旗",       base:500, max:5,  desc:"クリティカル率 +1%/Lv" },
-  { id:"synidea",name:"ひらめき連動",     base:350, max:5,  desc:"クリックでアイデア +0.02/Lv（端数は貯まる）" },
-  { id:"synrp",  name:"研究メモ連動",     base:800, max:5,  desc:"クリックで研究P +0.004/Lv（端数は貯まる）" }
+  /* 段階5: うちわ＋旗 → 応援の質。ひらめき連動はオーバークロックのゲージの溜まりへ。研究メモ連動は廃止 */
+  { id:"quality",name:"応援の質",         base:250, max:12, desc:"コンボ上限 +0.25倍/Lv・会心率 +1%/Lv" },
+  { id:"synidea",name:"ひらめき連動",     base:350, max:5,  desc:"応援でたまるオーバークロックのゲージ +20%/Lv" }
 ];
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
-function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")) * (policyIs("craft") ? 3 : 1); }   /* 経営方針「職人気質」 */
+function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }
 const CLICK_POWER_BASE = 0.25;   /* てぶくろ Lv0 の威力（持ち場の手助けで「威力の倍率」を測る基準） */
 function clickPower(){
   const base = CLICK_POWER_BASE + 0.18*upEff(S.clickUp, "glove");
   return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ */
 }
-function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.uchiwa||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0
-function critRate(){ return 0.08 + 0.01*(S.clickUp.cheer||0); }
+function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.quality||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0
+function critRate(){ return 0.08 + 0.01*(S.clickUp.quality||0); }
 
 /* ---------- プロジェクト生成 ---------- */
 const GENRES = [
@@ -272,38 +307,44 @@ const RESEARCH_DEFS: ResearchDef[] = [
   { id:"res_game",    name:"新ジャンル：ゲーム",   cost:2, desc:"プロジェクトに「ゲーム」が混ざるようになる" },
   { id:"res_ai",      name:"新ジャンル：AIツール", cost:4, desc:"プロジェクトに「AIツール」が混ざるようになる" },
   { id:"res_robot",   name:"新ジャンル：ロボット", cost:6, desc:"プロジェクトに「ロボット」が混ざるようになる" },
-  { id:"res_duckplay",name:"一人遊び：アヒル会議", cost:3, desc:"一人遊びにラバーダック相談が増え、QA +0.2/分" },
-  { id:"res_plant",   name:"小物：観葉植物",       cost:2, desc:"集中力の回復が +20%" },
   { id:"res_bottrain",name:"ヘルパー研修",         cost:5, desc:"子ねこボットの効率 +50%" },
-  { id:"res_line2",   name:"第2ラインの設計",     cost:5, desc:"工場タブで第2ライン（並行開発ライン）を建設できるようになる" },
   /* Sprint 4: ティア2（前提つき）。序盤で研究が「卒業」して RP が死に資源に
      なる問題 (C2-P1-1) への対策。効果は全て実データに効くものだけを置く */
   { id:"res_game2",   name:"ゲーム・デラックス",   cost:8, tier:2, requires:"res_game",    desc:"ゲーム作品の報酬コイン +30%" },
   { id:"res_ai2",     name:"推論チューニング",     cost:8, tier:2, requires:"res_ai",      desc:"AIツール作品の研究P +1" },
   { id:"res_robot2",  name:"ロボット量産ライン",  cost:8, tier:2, requires:"res_robot",   desc:"ロボット作品のバグ混入が半分になる" },
-  { id:"res_eff2",    name:"第2ライン高速化",     cost:10, tier:2, requires:"res_line2",  desc:"第2ラインの生産 +50%" },
-  { id:"res_zen",     name:"集中の極意",           cost:6, tier:2, requires:"res_plant",   desc:"集中力の減りが 25% 軽くなる" },
   { id:"res_play2",   name:"一人遊び：宝探し",     cost:6, tier:2, desc:"一人遊びに「宝探し」が増える（アイデア多め、たまにコイン）" },
   { id:"res_bot2",    name:"ボットAI学習",         cost:8, tier:2, requires:"res_bottrain", desc:"子ねこボットの効率がさらに +50%" }
 ];
-/* Sprint 4: 反復研究（RP の恒常シンク）。レベルは S.researchLv に持つ。
-   工程別の4本（sakuri 決定 2026-10-27）: 詰まっている工程を研究で伸ばす選択にする。
-   実装の id は旧「効率化レポート」の res_report を引き継ぐ（旧セーブのレベルは実装に入る） */
-const REPEAT_RESEARCHES: ResearchDef[] = [
-  { id:"res_report",  stage:"impl",  name:"実装の効率化レポート", cost:10, repeatable:true, desc:"実装 +5%/Lv" },
-  { id:"res_rep_test",  stage:"test",  name:"テスト手順書",       cost:10, repeatable:true, desc:"テスト速度と QA +5%/Lv" },
-  { id:"res_rep_build", stage:"build", name:"ビルド高速化メモ",   cost:10, repeatable:true, desc:"ビルド速度 +5%/Lv" },
-  { id:"res_rep_ship",  stage:"ship",  name:"出荷動線の見直し",   cost:10, repeatable:true, desc:"出荷速度 +5%/Lv" }
-];
-const REPEAT_RESEARCH = REPEAT_RESEARCHES[0];
-function repeatResearchCost(lv){ return Math.ceil(REPEAT_RESEARCH.cost * Math.pow(1.6, lv)); }
-function repLv(id){ return (S.researchLv && S.researchLv[id]) || 0; }
-function repMult(stage){
-  const def = REPEAT_RESEARCHES.find(r => r.stage === stage);
-  return 1 + 0.05 * (def ? repLv(def.id) : 0);
-}
+/* 再設計 段階5: 反復研究・アヒル会議・観葉植物・集中の極意・第2ラインの研究は廃止。研究の木は1社の中で
+   数分ごとに開いていく大きさに絞り、余った研究P は売却のときにジャンル知見になって残る（理念書7「残るもの」） */
 function tier1Done(){ return RESEARCH_DEFS.filter(r => !r.tier).every(r => S.research[r.id]); }
-function resMult(){ return repMult("impl"); }   /* 実装ぶん（extraMult 経由で実装・第2ライン・クリックに掛かる） */
+/* ---------- 再設計 段階5: ジャンル知見（会社を売っても残る）----------
+   売却の瞬間に残っていた研究P を、その会社で出した作品のジャンルへ本数の割合で配る。
+   知見 Lv = √(ポイント) の整数部、そのジャンルの作品の値段 +10%/Lv。持株化でも消えない */
+function knowLvFor(pts){ return Math.floor(Math.sqrt(Math.max(0, pts || 0))); }
+function knowLv(g){ return knowLvFor(S.genreKnow && S.genreKnow[g]); }
+function knowMult(g){ return 1 + 0.1 * knowLv(g); }
+function knowPreview(){
+  const rp = Math.floor(S.rp || 0), by = S.runGenre || {};
+  let tot = 0;
+  for(const g in by) tot += by[g] || 0;
+  if(!(rp > 0) || !(tot > 0)) return [];
+  return Object.keys(by).filter(g => by[g] > 0).map(g => ({ g, add: rp * by[g] / tot }));
+}
+function convertKnow(){
+  const pv = knowPreview();
+  if(!pv.length) return;
+  if(!S.genreKnow || typeof S.genreKnow !== "object") S.genreKnow = {};
+  const parts = [];
+  for(const x of pv){
+    const before = knowLv(x.g);
+    S.genreKnow[x.g] = (S.genreKnow[x.g] || 0) + x.add;
+    const gd = GENRES.find(g => g.id === x.g);
+    parts.push((gd ? gd.name : x.g) + " +" + x.add.toFixed(1) + (knowLv(x.g) > before ? "（Lv" + knowLv(x.g) + "）" : ""));
+  }
+  addLog("📚 余った研究P がジャンル知見になった: " + parts.join("・"));
+}
 
 /* ---------- 実績 ---------- */
 const STAMP_DEFS = [
@@ -319,7 +360,7 @@ const STAMP_DEFS = [
   { id:"play_all",     name:"一人遊びマスター", test:s=>["yarn","groom","watch","chase","zoomies"].every(p=>s.flags["play_"+p]) },
   { id:"first_hire",   name:"初めての雇用",     test:s=>s.totals.hired>=1 },
   { id:"staff5",       name:"チーム5人",        test:s=>s.staff.length>=5, prog:s=>[s.staff.length,5] },
-  { id:"line2_first",  name:"第2ライン初出荷", test:s=>s.flags.line2Released===true },
+  { id:"parallel_dev", name:"並行開発",         test:s=>!!(s.depts && s.depts.prog >= 3) },
   { id:"goldfish",     name:"金のフィッシュ",  test:s=>s.totals.goldFish>=1 },
   { id:"click1000",    name:"応援1000回",       test:s=>s.totals.clicks>=1000, prog:s=>[s.totals.clicks,1000] },
   /* 工程・設備の実績（詰まり解消／全工程グリーンは trackLineStamps が1秒ティックでフラグを立てる） */
@@ -327,7 +368,7 @@ const STAMP_DEFS = [
   { id:"all_green",    name:"全工程グリーン",   test:s=>s.flags.allGreen===true },
   { id:"equip_all",    name:"設備ひと通り",     test:s=>UPGRADE_DEFS.every(u=>(s.upgrades[u.id]||0)>=1), prog:s=>[UPGRADE_DEFS.filter(u=>(s.upgrades[u.id]||0)>=1).length,UPGRADE_DEFS.length] },
   { id:"equip_max",    name:"設備を極めた",     test:s=>UPGRADE_DEFS.some(u=>(s.upgrades[u.id]||0)>=u.max) },
-  { id:"rep_all3",     name:"工程研究そろい",   test:s=>REPEAT_RESEARCHES.every(r=>((s.researchLv||{})[r.id]||0)>=3), prog:s=>[Math.min(...REPEAT_RESEARCHES.map(r=>((s.researchLv||{})[r.id]||0))),3] },
+  { id:"know_lv3",     name:"得意ジャンル",     test:s=>Object.keys(s.genreKnow||{}).some(g=>knowLvFor(s.genreKnow[g])>=3), prog:s=>[Math.max(0,...Object.keys(s.genreKnow||{}).map(g=>knowLvFor(s.genreKnow[g]))),3] },
   { id:"dept5",        name:"部署 Lv5",         test:s=>Object.values(s.depts||{}).some(v=>Number(v)>=5), prog:s=>[Math.max(1,...Object.values(s.depts||{}).map(Number)),5] }
 ];
 

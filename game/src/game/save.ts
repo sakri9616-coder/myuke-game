@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.16.2";   /* 表示ラベルの単一の出所 (v2.16.2: 部署の見出しを工程カードの作りに、所属の猫は1行ずつ。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.17.0";   /* 表示ラベルの単一の出所 (v2.17.0: 再設計 段階5 整理。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -36,9 +36,8 @@ function freshState(): GameState {
     debt: 0, brand: 0, vendorReadyAt: 0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
-    staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{}, cheerP:0, policy:null,
+    staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{}, cheerP:0,
     wip:{ code:0, tested:0, built:0 },
-    line2:{ unlocked:false, genre:null, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } },
     today:{ date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 },
     totals:{ keys:0, cursorPx:0, lines:0, bugsSquashed:0, releases:0, commits:0, coinsEarned:0, naps:0, playSec:0,
              clicks:0, crits:0, goldFish:0, eventBugs:0, hired:0 },
@@ -74,7 +73,7 @@ function freshState(): GameState {
     /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
     executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
-    researchLv:{}, buffs:{},
+    genreKnow:{}, runGenre:{}, buffs:{},
     /* チュートリアル導線 (TUTORIAL_DESIGN.md): 進行ステージ・見たビート・
        スキップ有無だけを持つ。経済には一切干渉しない。引っ越しでも消えない */
     tut:{ stage:0, seen:{}, skipped:false },
@@ -180,7 +179,7 @@ function load(rawText?: string){
     const f = freshState();
     /* 注意: Object.assign(f, data) で f.today 等は data 側に差し替わるため、
        既定値オブジェクトを先に退避してからマージする（新フィールドの補完用） */
-    const defToday = f.today, defTotals = f.totals, defSettings = f.settings, defLine2 = f.line2;
+    const defToday = f.today, defTotals = f.totals, defSettings = f.settings;
     S = Object.assign(f, data);
     /* v1 からある基本フィールドも型を確かめる (null の混入で起動不能にならないように) */
     for(const k of ["upgrades", "research", "stamps", "flags", "clickUp", "depts"])
@@ -263,13 +262,14 @@ function load(rawText?: string){
     }
     if(!S.clickUp || typeof S.clickUp !== "object") S.clickUp = {};
     if(typeof S.cheerP !== "number" || !isFinite(S.cheerP)) S.cheerP = 0;
-    if(!["craft", "mass", "group"].includes(S.policy)) S.policy = null;   /* v2.11: 経営方針（旧セーブは未選択から） */   /* v2.11: 応援P（旧セーブは 0 から） */
+    delete (S as any).policy;   /* 段階5: 経営方針の名残も消した（旧セーブの互換は持たない） */   /* v2.11: 応援P（旧セーブは 0 から） */
     /* Sprint 1 追加フィールド（旧セーブには無いので既定値で補完） */
     if(typeof S.nextRequestGenre === "undefined") S.nextRequestGenre = null;
     if(typeof S.bigDrawStreak !== "number") S.bigDrawStreak = 0;
     /* Sprint 4 追加フィールド（名前履歴・反復研究Lv・ご褒美バフ） */
     if(!Array.isArray(S.recentNames)) S.recentNames = [];
-    if(!S.researchLv || typeof S.researchLv !== "object") S.researchLv = {};
+    if(!S.genreKnow || typeof S.genreKnow !== "object") S.genreKnow = {};
+    if(!S.runGenre || typeof S.runGenre !== "object") S.runGenre = {};
     if(!S.buffs || typeof S.buffs !== "object") S.buffs = {};
     /* Sprint 3 追加フィールド（旧セーブには無いので既定値で補完。
        dustTotal が無い旧セーブでは、倍率が従来と一致するよう所持星屑と同値にする） */
@@ -297,12 +297,11 @@ function load(rawText?: string){
     /* 第2ウェーブ M: 役員と卒業記録の補完 */
     if(!Array.isArray(S.executives)) S.executives = [];
     if(!Array.isArray(S.execAlumni)) S.execAlumni = [];
-    for(const p of [S.project, S.line2 && S.line2.project]){
+    for(const p of [S.project]){
       if(p && typeof p.planning !== "boolean"){ p.planning = false; if(typeof p.ideaCost !== "number") p.ideaCost = 0; }
     }
     S.wip = Object.assign({ code:0, tested:0, built:0 }, data.wip||{});
-    S.line2 = Object.assign(defLine2, data.line2||{});
-    S.line2.wip = Object.assign({ code:0, tested:0, built:0 }, (data.line2||{}).wip||{});
+    delete (S as any).line2;   /* 段階5: 第2ラインは廃止（旧セーブの互換は持たない — sakuri 2026-10-27） */
     if(S.today.date !== todayKey()){
       S.today = { date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 };
     }
@@ -319,7 +318,6 @@ function load(rawText?: string){
                 seen: (data.tut.seen && typeof data.tut.seen === "object") ? data.tut.seen : {},
                 skipped: !!data.tut.skipped };
     }
-    if(S.line2 && S.line2.project && (typeof S.line2.project !== "object" || !Array.isArray(S.line2.project.feats))) S.line2.project = null;
     saveBlocked = false;
     return true;
   }catch(e){

@@ -55,20 +55,20 @@ function buffProdMult(){ return (S.buffs && S.buffs.prodUntil > Date.now()) ? 1.
 function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 1.10 : 1; }
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
-function extraMult(){ return resMult() * extraMultBase(); }
-function extraMultBase(){ return perkProdMult() * buffProdMult() * fishProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1) * (policyIs("mass") ? 1.1 : 1); }   /* 経営方針「量産体制」 */   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
+function extraMult(){ return extraMultBase(); }
+function extraMultBase(){ return perkProdMult() * buffProdMult() * fishProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
 /* 倍率: 全DP（強化）× 会社全体（星屑・特典・技術遺産・チャレンジ報酬）× やる気MAX × 反復研究（工程ごと）。
    全DP と会社全体は実装と全工程に同じだけ効くので、強化はどれを買っても目に見えて速くなり、
    どこが詰まるかは設備の速度と担当スタッフ（足し算）で決まる */
 function companyMult(){ return dustMult() * extraMultBase(); }
-function stageMult(stage){ return dpMult(S.upgrades) * companyMult() * firstBoost() * repMult(stage); }
+function stageMult(_stage){ return dpMult(S.upgrades) * companyMult() * firstBoost(); }
 function qaRate(){
-  return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult("test");
+  return (qaPerMin(S.upgrades) + staffSums().qa) * stageMult("test");
 }
 function testRate(){ return (BAL.stageBaseRate + BAL.equipDP.tester*upEff(S.upgrades, "tester") + staffSums().testDP) * stageMult("test"); }
-function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*upEff(S.upgrades, "ci") + BAL.equipDP.pack*upEff(S.upgrades, "pack")) * stageMult("build"); }
-function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.bot*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
-function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
+function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*upEff(S.upgrades, "ci") + (delegated("carry", 3) ? 0.5 * staffSums().ship : 0)) * stageMult("build"); }   /* 段階5: 運用部 Lv3 のビルドの手伝い */
+function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.pack*upEff(S.upgrades, "pack") + BAL.equipDP.bot*upEff(S.upgrades, "bot") + staffSums().ship) * stageMult("ship"); }
+function botRate(){ return 2 * upEff(S.upgrades, "bot") * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
    「引っ越したてのみゅけのやる気MAX」で生産 ×3.4。帯で無操作でも初リリースが
    約5〜6分で届くように実測で調整した値（tools/strip-fresh-measure.js）。
@@ -77,12 +77,6 @@ function firstBoost(){ return S.totals.releases === 0 ? 3.4 : 1; }
 function productionRate(){
   return (BAL.basePerMin + botRate() + staffSums().prog) * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
 }
-/* 第2ラインの素の生産量。倍率は produceDP 側で掛かる（以前は line2Rate を
-   そのまま produceDP に渡していたため、アップグレード×星屑の倍率が二重に掛かっていた） */
-function line2BaseRate(){
-  return (BAL.line2BaseRate + 0.8 * staffSums().progW) * (S.research.res_eff2 ? 1.5 : 1);
-}
-function line2Rate(){ return line2BaseRate() * dpMult(S.upgrades) * dustMult() * extraMult(); }
 function bugFactor(){
   return S.bugStock > 8 ? Math.max(0.5, 1 - (S.bugStock - 8) * 0.02) : 1;
 }
@@ -92,6 +86,11 @@ function bugFactor(){
    （1 + brand×0.02、上限 brand 450 で ×10）。どちらも EXIT で清算される */
 function debtEff(){ return 1 / (1 + (S.debt || 0) / 50); }
 function brandMult(){ return 1 + Math.min(450, S.brand || 0) * 0.02; }
+/* 再設計 段階5: 品質★ — 値段に効く品質の要素（企画 Lv・L 作品のモジュール・会社のブランド）を1本の目盛りにまとめる。
+   値段には掛け算のまま効き、見せ方は ×1.5 ごとに星1つ（★1〜★5）。帯のボードと作品棚に星で出す */
+function qualityMult(p){ return p ? modulePriceMult(p) * planPriceMult(p) * brandMult() : 1; }
+function qualityStars(p){ return Math.max(1, Math.min(5, 1 + Math.floor(Math.log(qualityMult(p)) / Math.log(1.5) + 1e-9))); }
+function starText(n){ return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n)); }
 let dmRelease = false;   /* デスマーチ出荷の最中だけ立つ揮発フラグ（ブランド評価の対象外にする） */
 function applyShipQuality(p){
   if(dmRelease) return;   /* デスマーチの負債・ブランドは doDeathMarchCore 側で一括計上する */
@@ -343,7 +342,7 @@ function clickBucketTake(){
 function chargeFever(amount){
   if(feverActive() || !S.fever) return;
   const before = S.fever.gauge || 0;
-  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1) * ideaChargeMult());   /* 第2ウェーブ I: 星あかりで充填 +15% ／ アイデアの蓄えで速まる（企画を練ると減る） */
+  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1) * ideaChargeMult() * (1 + 0.2 * (S.clickUp.synidea || 0)));   /* 段階5: ひらめき連動 */   /* 第2ウェーブ I: 星あかりで充填 +15% ／ アイデアの蓄えで速まる（企画を練ると減る） */
   if(before < 100 && S.fever.gauge >= 100 && !IS_VIEWER){
     say("⚡ オーバークロック準備完了にゃ！ 机脇のゲージをクリックで発動できるよ");
     addLog("⚡ オーバークロックのゲージが満タンになった");
@@ -365,17 +364,16 @@ function activateFever(){
     addStripFloater(stripDeskCX(), STRIP_GROUND - 62, "⚡ FEVER!", "#e2543e");
   save(); renderPanel();
 }
-function produceDP(amount, target){
+function produceDP(amount, _target?){
   const fromInput = prodMuted;
   const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
-  const proj = target === "l2" ? S.line2.project : S.project;
+  const proj = S.project;
   const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * planBugMult(proj) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
     (fromInput ? BAL.inputBugRate : 1);   /* 応援・入力で増えた分はバグが出にくい（頑張るほど詰まる逆転を防ぐ） */
-  if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += aBase * BAL.bugPerDP * bugMul; }
-  else {
+  {
     /* Wave H: 自動生産の一部はモジュールのミニラインへ（入力由来は対象外） */
     let inflow = a;
     if(!fromInput && S.project && S.project.modules && !S.project.planning) inflow -= divertToModules(a);
@@ -426,7 +424,7 @@ function creditProject(a){
   const p = S.project;
   if(!p || p.planning) return;
   S.projectDP += a;
-  payFlow(p, Math.min(a, Math.max(0, p.totalDP - (S.projectDP - a))), false);
+  payFlow(p, Math.min(a, Math.max(0, p.totalDP - (S.projectDP - a))));
   const featThreshold = p.totalDP / (p.feats.length + 1);
   while(p.doneFeats < p.feats.length && S.projectDP >= featThreshold * (p.doneFeats + 1)){
     p.doneFeats++;
@@ -445,28 +443,6 @@ function creditProject(a){
   }
   S.packages = Math.floor(S.projectDP / (p.totalDP/6));
   if(S.projectDP >= p.totalDP) releaseProject();
-}
-function creditProject2(a){
-  const L = S.line2, p = L.project;
-  if(!p || p.planning) return;
-  L.projectDP += a;
-  payFlow(p, Math.min(a, Math.max(0, p.totalDP - (L.projectDP - a))), true);
-  const featThreshold = p.totalDP / (p.feats.length + 1);
-  while(p.doneFeats < p.feats.length && L.projectDP >= featThreshold * (p.doneFeats + 1)){
-    p.doneFeats++;
-    addLog("第2ライン: 機能『"+p.feats[p.doneFeats-1]+"』が完成");
-    spawnFeatNote(2);   /* 可視生産: 第2ラインの付箋も自分のボードへ */
-  }
-  const cstep2 = BAL.commitEvery * (p.scale || 1);
-  for(let n = 0; L.projectDP - L.commitMark >= cstep2; n++){
-    if(n >= 3){ const k = Math.floor((L.projectDP - L.commitMark) / cstep2); L.commitMark += k * cstep2; S.totals.commits += k; S.today.commits += k; break; }
-    L.commitMark += cstep2;
-    S.totals.commits++; S.today.commits++;
-    stripGitLog2.push({ at: Date.now(), seed: Math.random() });
-    if(stripGitLog2.length > 3) stripGitLog2.shift();
-    if(Math.random() < 0.2) addLog("第2ライン: コミットしたにゃ");
-  }
-  if(L.projectDP >= p.totalDP) releaseProject2();
 }
 function doCommit(){
   S.totals.commits++; S.today.commits++;
@@ -491,10 +467,12 @@ function projectDevMin(p){
 }
 /* リリースの記帳（第1・第2ライン共通）: 入金・研究P・通算・出荷品質・作品棚。
    出荷品質 → 負債とブランド（拡張ウェーブ G）は第2ラインも同じ会社の評判 */
-function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
+function recordRelease(p, coins, rp, devMin, projectDP, naps){
   S.coins += coins; S.totals.coinsEarned += coins;
   S.rp += rp;
   S.totals.releases++; S.today.releases++;
+  if(!S.runGenre || typeof S.runGenre !== "object") S.runGenre = {};
+  if(p.genre) S.runGenre[p.genre] = (S.runGenre[p.genre] || 0) + 1;   /* 段階5: ジャンル知見の配分 */
   S.vendorUses = 0;    /* v2.12.1: バグ外注の続け頼みの割増はリリースで戻る */
   trendOnShip();   /* v2.12.1: トレンドは出荷の本数で回る（自社IP は段階1から毎秒のシリーズ売上） */
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
@@ -506,7 +484,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
     bugs: Math.round(p.bugs), naps,
     icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8))
   } as ShelfEntry;
-  if(line2) entry.line2 = true;
+  entry.q = qualityStars(p);   /* 段階5: 出荷したときの品質★ */
   entry.highlight = makeHighlight(p, devMin, naps);
   S.shelf.unshift(entry);
 }
@@ -518,8 +496,8 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
 const FLOW_SHARE = 0.6;
 /* 段階4: 本社ラインの強化の列「直販ルート」。作品そのものの売上だけを伸ばし、作品棚の元本（ipBase）には入れない */
 function directMult(){ return 1 + 0.1 * engineLv("direct"); }
-function basePriceCoins(p, line2){
-  let c = BAL.coinBase[p.size] * (p.scale || 1) * (line2 ? BAL.line2CoinRate : 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * (line2 ? 1 : modulePriceMult(p)) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre);   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+function basePriceCoins(p){
+  let c = BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * qualityMult(p) * knowMult(p.genre) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre);   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   if(p.genre === "game" && S.research.res_game2) c *= 1.3;   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30%） */
   return c;
 }
@@ -529,9 +507,9 @@ function creditFlowCoins(c){
   coinFlowFrac += c;
   if(coinFlowFrac >= 1){ const n = Math.floor(coinFlowFrac); coinFlowFrac -= n; S.coins += n; S.totals.coinsEarned += n; }
 }
-function payFlow(p, a, line2){
+function payFlow(p, a){
   if(!p || p.ip || a <= 0 || !(p.totalDP > 0)) return;
-  const c = basePriceCoins(p, line2) * directMult() * FLOW_SHARE * a / p.totalDP;
+  const c = basePriceCoins(p) * directMult() * FLOW_SHARE * a / p.totalDP;
   p.flowPaid = (p.flowPaid || 0) + c;
   creditFlowCoins(c); creditLine(c);
 }
@@ -583,7 +561,7 @@ function autoIncomePerSec(){
   let r = catalogRate();
   if(p && p.totalDP > 0){
     const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60;
-    r += dps * basePriceCoins(p, false) * directMult() / p.totalDP;
+    r += dps * basePriceCoins(p) * directMult() / p.totalDP;
   }
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
   return r;
@@ -618,7 +596,7 @@ function tickCoinFlow(){ coinFlowEMA = coinFlowEMA * 0.8 + coinFlowSecAcc * 0.2;
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(basePriceCoins(p, false));
+  let coins = Math.round(basePriceCoins(p));
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   /* Sprint 4: ティア2研究のジャンル深化（AI=研究P+1。ゲームのコイン+30% は basePriceCoins） */
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
@@ -658,7 +636,7 @@ function releaseProject(){
   else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);   /* IP 狙いの空振り: 作り込みが中途半端 */
   const flowed = Math.round(p.flowPaid || 0);   /* 作りながら入金済みの分（帳簿の合計は coins のまま） */
   const bonusNow = Math.max(0, coins - flowed);
-  recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
+  recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
   if(!ipOk) catalogAdd(p, ipBase);   /* 再設計 段階1: 棚に並んで売れ続ける（IP はシリーズとして別に稼ぐ） */
   S.coins += bonusNow - coins;   /* recordRelease が全額を足すので、入金済みの分を戻す */
@@ -675,38 +653,6 @@ function releaseProject(){
   catState = "celebrate"; stateUntil = Date.now() + 4500; stateEnteredAt = Date.now();
   S.packages = 0; S.ideas += 2;
   startProjectSoft();
-  checkStamps();
-  save();
-  tutCheck();
-}
-function releaseProject2(){
-  const L = S.line2, p = L.project;
-  const devMin = projectDevMin(p);
-  let coins = Math.round(basePriceCoins(p, true));
-  let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
-  if(p.genre === "ai" && S.research.res_ai2) rp += 1;
-  const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
-  coins = Math.round(coins * directMult());   /* 段階4: 直販ルート */
-  const ipOk2 = ipConvertible(p);
-  if(ipOk2) coins = Math.round(coins * 0.3);   /* 第2ウェーブ L: 第2ラインも即時は30% */
-  else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);
-  const flowed2 = Math.round(p.flowPaid || 0);
-  const bonus2 = Math.max(0, coins - flowed2);
-  recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
-  S.flags.line2Released = true;
-  settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
-  if(!ipOk2) catalogAdd(p, ipBase2);
-  S.coins += bonus2 - coins; S.totals.coinsEarned += bonus2 - coins;
-  creditLine(bonus2);   /* 段階4: 収入の内訳 */
-  coins = bonus2;
-  addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed2 > 0 ? "（作りながら +"+fmt(flowed2)+"🪙 入金済み）" : "")+" / +"+rp+"🔬");
-  shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
-  spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
-  SoundKit.play("releaseFanfare");
-  pulseMilestone();
-  const np = settleProject(genProject(null, L.genre, line2Rate()));
-  L.project = np; L.projectDP = 0; L.commitMark = 0;
-  addLog("第2ラインの次のプロジェクト『"+np.name+"』を用意した（"+np.size+"）");
   checkStamps();
   save();
   tutCheck();

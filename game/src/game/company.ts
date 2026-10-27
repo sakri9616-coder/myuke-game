@@ -11,28 +11,6 @@
    本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
    部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
    あるため、「部分 ≤ グループ寄与」の反証条件は構造的に保たれる */
-/* ---------- 経営方針（v2.12.0〜v2.15.0。段階4で廃止: プリセットではなく強化の列で自由に組む・sakuri 2026-10-27）----------
-   旧セーブで選んでいた方針だけ、その会社を売却するまで効く（choosePolicy はもう UI から呼ばれない）。
-   会社ごとに1つ選ぶ（売却・持株化で選び直し）。選んだ収入源が大きく伸び、選ばない収入源も
-   標準の伸びで動く（労働は常に効く・理念書3）。どれを選んでも成立し、どれが強いかは
-   遊び方（張り付くか・放置か・子会社に注ぎ込むか）で入れ替わる（sim の方針比較ゲート）。
-   倍率の大きさが不揃いなのは、30日の複利への効き方が違うため: 本社の生産倍率は星屑に跳ね返って
-   複利で効くので ×1.5 だと放置でも張り付きでも量産体制が最良になった（sim 実測）。×1.1 で、
-   張り付き=職人気質・放置=量産体制・子会社に注ぎ込む=多角経営 と最良が入れ替わる */
-const POLICIES = [
-  { id:"craft", name:"職人気質", icon:"🐾", desc:"応援クリックが主役。自動生産との連動 ×3・応援P ×2" },
-  { id:"mass",  name:"量産体制", icon:"🏭", desc:"本社の生産が主役。実装と全工程の速さ ×1.1" },
-  { id:"group", name:"多角経営", icon:"🏢", desc:"子会社が主役。子会社の売上 ×4・設立費 ×0.5" }
-];
-function policyIs(id){ return S.policy === id; }
-function choosePolicy(id){
-  if(S.policy || !POLICIES.some(p => p.id === id)) return;
-  S.policy = id;
-  const p = POLICIES.find(x => x.id === id);
-  addLog(p.icon + " 経営方針を「" + p.name + "」に決めた（" + p.desc + "）。売却するまで変えられない");
-  say("方針は「" + p.name + "」でいくにゃ！");
-  save(); renderPanel();
-}
 /* 主役を選べる収入源（2026-10-27）: 子会社の売上と価格は、本社の作品単価と同じ桁
    （仕事の桁 × 星屑倍率の dustPriceExp 乗 = subUnit）に載せる。売上も価格も同じ単位で
    伸びるので、元が取れるまでの時間は周回が進んでも変わらない（理念書4 スケール対価）。
@@ -50,14 +28,14 @@ function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv
 function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
   const base = sub.staff * subLvMult(sub) * subFocus(sub) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
-  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (policyIs("group") ? 4 : 1) * (1 + 0.4 * engineLv("gmgmt")), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」 */
+  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」 */
 }
 /* 段階4: 子会社の売却益も企業価値から（その子会社の1時間の売上 ÷ 星屑1個ぶんの企業価値）。
    旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
 function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / BAL.valuePerDust); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
-function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit() * (policyIs("group") ? 0.5 : 1)); }
+function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit()); }
 function subHeadCost(sub){ return Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff) * subUnit()); }
 function subHeadCostN(sub, n){
   let t = 0;
@@ -205,7 +183,7 @@ function prestigePreview(){
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン"];
   if((S.subs || []).length) resets.push("子会社");
-  const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典", "応援強化と応援P（みゅけの腕前）"];
+  const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典", "応援強化と応援P（みゅけの腕前）", "ジャンル知見（余った研究P " + fmt(Math.floor(S.rp || 0)) + " も知見になる）"];
   if(hasPerk("veteran") && S.staff.length){
     const vet = S.staff.slice().sort((a,b) => b.lv - a.lv)[0];
     resets.splice(resets.indexOf("スタッフ"), 1);
@@ -302,8 +280,7 @@ function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0; S.vendorReadyAt = 0; S.vendorUses = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
-  S.research = {};
-  S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
+  S.research = {}; S.runGenre = {};   /* 段階5: ジャンル知見の配分はこの会社の出荷から */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
   S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却・持株化で消える */
@@ -311,11 +288,9 @@ function resetCompanyRun(){
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
-  S.policy = null;   /* 段階4: 経営方針は廃止。旧セーブで選んでいた方針はその会社の売却まで効き、以後は選ばない */
   S.studioLv = 1;   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む） */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };
-  S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
 }
 function doPrestigeCore(execSel, vetSel, swapSel){
   const pv = prestigePreview();
@@ -351,6 +326,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
     let cur = nbTop;
     while(cur){ keptResearch.push(cur.id); cur = cur.requires ? RESEARCH_DEFS.find(r => r.id === cur.requires) : null; }
   }
+  convertKnow();   /* 段階5: 余った研究P をジャンル知見に（リセット前） */
   const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
@@ -443,6 +419,7 @@ function doHoldingsCore(){
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
   S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = 1; S.dustLegacyBase = 0;
   S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
+  convertKnow();   /* 段階5: ジャンル知見は持株化でも残る（余った研究P も知見に） */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
   addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目）");
@@ -570,10 +547,8 @@ function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel()
    読んで狙うかを決める。損益分岐の成立率は sim の Wave L に出す */
 const IP_SIZE_MULT = 1.5, IP_FAIL_MULT = 0.8;
 function canDesignateIP(p, dp){ return !!p && !p.ip && !p.planning && (p.size === "M" || p.size === "L") && dp < p.totalDP * 0.5 && (S.ips || []).length < 3; }
-function designateIP(which){
-  const l2 = which === "l2";
-  const p = l2 ? (S.line2 && S.line2.project) : S.project;
-  const dp = l2 ? S.line2.projectDP : S.projectDP;
+function designateIP(_which?){
+  const p = S.project, dp = S.projectDP;
   if(!p || p.ip) return;
   if(p.size !== "M" && p.size !== "L"){ say("自社IPにできるのは M / L の作品だけにゃ"); return; }
   if((S.ips || []).length >= 3){ say("自社IPは同時に3つまでにゃ"); return; }

@@ -78,7 +78,7 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
       }
       /* 応援強化は応援P（クリックで貯まる別の財布）で買う: 肉球とグローブを安い方から */
       for(let guard = 0; guard < 20; guard++){
-        const ids = ["paw", "glove", "uchiwa"].filter(id => { const d = CLICK_DEFS.find(u => u.id === id); return d && (S.clickUp[id] || 0) < d.max; });
+        const ids = ["paw", "glove", "quality"].filter(id => { const d = CLICK_DEFS.find(u => u.id === id); return d && (S.clickUp[id] || 0) < d.max; });
         if(!ids.length) break;
         const cost = id => clickCost(CLICK_DEFS.find(u => u.id === id), S.clickUp[id] || 0);
         const id = ids.sort((a, b) => cost(a) - cost(b))[0];

@@ -93,13 +93,13 @@ console.log("== 1. boot and core loop ==");
     run(sb, "S.totals.releases") === rel0 + 1 && run(sb, "S.coins") > coins0 && run(sb, "S.shelf.length") === 1 && run(sb, "S.project.size") !== "TUT");
   check("the first release advances the tutorial", run(sb, "S.tut.stage") >= 1);
   run(sb, "S.coins = 100000; S.rp = 100;");
-  run(sb, "buyUpgrade('keyboard'); hireStaff(Object.keys(STAFF_ROLES)[0]); buyResearch(RESEARCH_DEFS[0].id);");
+  run(sb, "buyUpgrade('devenv'); hireStaff(Object.keys(STAFF_ROLES)[0]); buyResearch(RESEARCH_DEFS[0].id);");
   check("upgrades, hiring and research can be bought",
-    run(sb, "S.upgrades.keyboard") === 1 && run(sb, "S.staff.length") === 1 && run(sb, `S.research[RESEARCH_DEFS[0].id]`) === true && run(sb, "S.coins") < 100000);
+    run(sb, "S.upgrades.devenv") === 1 && run(sb, "S.staff.length") === 1 && run(sb, `S.research[RESEARCH_DEFS[0].id]`) === true && run(sb, "S.coins") < 100000);
   run(sb, "S.coins = 3000; S.log.length = 0;");
-  const held = run(sb, "buyMany('buyUpgrade', ['keyboard'], 50)");
+  const held = run(sb, "buyMany('buyUpgrade', ['devenv'], 50)");
   check("press-and-hold buys until coins run out, with one log line",
-    held > 1 && held < 50 && run(sb, "S.upgrades.keyboard") === 1 + held && run(sb, "S.log.filter(l => l.text.startsWith('アップグレード')).length") === 1 && run(sb, "quietBuy") === null,
+    held > 1 && held < 50 && run(sb, "S.upgrades.devenv") === 1 + held && run(sb, "S.log.filter(l => l.text.startsWith('アップグレード')).length") === 1 && run(sb, "quietBuy") === null,
     held + " bought, log " + run(sb, "JSON.stringify(S.log.map(l => l.text))"));
   run(sb, "S.tut.skipped = true;");
   const tabs = run(sb, "TABS.map(t => t[0])");
@@ -194,9 +194,9 @@ console.log("== 4. two windows ==");
   loadGame(sbM);
   run(sbO, "sendSnapshotNow();");
   check("the menu mirrors the strip's state from snapshots", run(sbM, "IS_VIEWER") === true && run(sbM, "S.coins") === 5000);
-  const lv0 = run(sbO, "S.upgrades.keyboard || 0");
-  run(sbM, "buyUpgrade('keyboard');");
-  check("a purchase in the menu runs exactly once in the strip", run(sbO, "S.upgrades.keyboard || 0") === lv0 + 1);
+  const lv0 = run(sbO, "S.upgrades.devenv || 0");
+  run(sbM, "buyUpgrade('devenv');");
+  check("a purchase in the menu runs exactly once in the strip", run(sbO, "S.upgrades.devenv || 0") === lv0 + 1);
   check("the menu never writes the save", invokes.every(x => !(x[0] === "menu" && x[1] === "save_game")));
 }
 
@@ -205,11 +205,32 @@ console.log("== 5. prestige ==");
 {
   const sb = buildSandbox();
   loadGame(sb);
-  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; S.coins = 99999; S.upgrades = { keyboard: 3 };");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; S.coins = 99999; S.upgrades = { devenv: 3 };");
   const gain = run(sb, "prestigePreview().gain");
   run(sb, "doPrestigeCore('__none', '__auto', -1);");
   check("selling the company grants stardust and starts a new company",
-    gain >= 3 && run(sb, "S.dust") === gain && run(sb, "S.prestiges") === 1 && run(sb, "S.coins") < 99999 && !run(sb, "S.upgrades.keyboard"));
+    gain >= 3 && run(sb, "S.dust") === gain && run(sb, "S.prestiges") === 1 && run(sb, "S.coins") < 99999 && !run(sb, "S.upgrades.devenv"));
+}
+{
+  /* 再設計 段階5: 余った研究P は売却でジャンル知見になって残り、そのジャンルの値段を上げる */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.genreKnow = {}; S.runGenre = { game: 3, app: 1 }; S.rp = 40; S.runPeakValue = BAL.valuePerDust * 5;");
+  const p0 = run(sb, "basePriceCoins({ size: 'S', genre: 'game', scale: 1 })");
+  run(sb, "doPrestigeCore('__none', '__auto', -1);");
+  check("leftover research points become lasting genre know-how on sale",
+    run(sb, "Math.round(S.genreKnow.game)") === 30 && run(sb, "Math.round(S.genreKnow.app)") === 10 && run(sb, "S.rp") === 0 &&
+    run(sb, "knowLv('game')") === 5 && run(sb, "basePriceCoins({ size: 'S', genre: 'game', scale: 1 })") > p0);
+}
+{
+  /* 再設計 段階5: 部署の節目で任せる（開発部 Lv3 = 並行開発、Lv6 = 部長の自動育成） */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.staff = [{ id: 1, name: 'a', coat: 'kuro', role: 'prog', lv: 1 }]; S.depts = freshDepts(); S.coins = 1e9;");
+  const before = run(sb, "computeStaffSums().prog");
+  run(sb, "S.depts.prog = 6; for(let i = 0; i < 5; i++) deptDelegateTick();");
+  check("department milestones delegate work (parallel dev, auto-training)",
+    run(sb, "computeStaffSums().prog") > before * 1.4 && run(sb, "S.staff[0].lv") === 2 && !run(sb, "'line2' in S"));
 }
 {
   /* 再設計 段階1: 出した作品は棚で毎秒売れ続け、棚は会社と一緒に売却で消える */

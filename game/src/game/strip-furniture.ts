@@ -94,33 +94,3 @@ function drawStripResearchStation(){
   /* Stage 3: 研究机クリック → 研究タブ */
   stripHitRects.research = { x: rcx - 34, y: G - 30, w: 68, h: 30 };
 }
-/* 第2ライン机（ゾーン D, §c.4）: 主机の小型版。部屋時代のコンベアは帯では
-   再現しない（信号機図は工場パネルに一本化 §c.7） */
-function drawStripDesk2(){
-  const G = STRIP_GROUND, dcx = stripDesk2CX();
-  sRug(dcx, 100);
-  sShadow(dcx, G - 0.5, 74);
-  /* バッチ14 (sakuri 作画): prop_desk2 は 64×64 (木の机＋ノートPC＋引き出し) に
-     差し替え。旧 40×24 前提の desk_laminate_2_sprite (ティア連動の差し替え) は
-     絵の形が合わないため使わず、全ティアで sakuri の机を使う。下端の透過
-     3行分だけアンカーを押し下げて接地させる (prop_coffee と同じ流儀) */
-  sDrawSprite("prop_desk2", dcx, G + 6, 2);
-  drawStripDesk2Screen(dcx, G);
-}
-/* ライン2の進捗をモニタ内にダイジェティック表示（主モニタと同じ流儀 R10）。
-   バッチ14: prop_desk2 (64×64) のノートPC画面域（原寸 x23..39, y29..39）は
-   ×2 接地 (アンカー G+6) で (dcx-18..+14, G-62..G-42) */
-function drawStripDesk2Screen(dcx, G){
-  const q = S.line2.project;
-  if(!q) return;
-  sDrawTL("icon_project_mini_" + projectColorIdx(q), dcx - 16.5, G - 60.5);
-  const bx = dcx - 16, bw = 28;
-  sDrawNine("ui_minibar_track_3", bx, G - 48, bw, 3, 2, 0);
-  if(q.planning){
-    if(blinkOn(12, 7)) sDrawNine("ui_minibar_fill_yellow_3", bx + 1, G - 48, 4, 2, 1, 0);
-  } else {
-    const frac = Math.max(0, Math.min(1, S.line2.projectDP / q.totalDP));
-    if(frac > 0) sDrawNine("ui_minibar_fill_3", bx, G - 48, Math.max(2, bw * frac), 2, 1, 0);
-  }
-  drawStripGitLog(stripGitLog2, dcx - 14, G - 54, 24);
-}

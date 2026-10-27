@@ -84,7 +84,6 @@ interface ShelfEntry {
   bugs: number;
   naps: number;
   icon: number;
-  line2?: boolean;
   highlight: string;
   ip?: boolean;
   [k: string]: any;
@@ -93,14 +92,6 @@ interface ShelfEntry {
 interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number }   // scale は v2.12.1〜。ships・frac は段階1から使わない（シリーズは毎秒売上）
 interface CatalogEntry { n: string; r: number }   // 再設計 段階1: 作品棚の1作品（r = 🪙/秒）
 
-interface Line2State {
-  unlocked: boolean;
-  genre: string | null;
-  project: Project | null;
-  projectDP: number;
-  commitMark: number;
-  wip: StageWip;
-}
 
 interface DayStats { date: string; keys: number; cursorPx: number; lines: number; bugs: number; releases: number; commits: number; treats: number }
 
@@ -137,9 +128,8 @@ interface GameState {
   fever: { gauge: number; [k: string]: any };
   debt: number; brand: number; vendorReadyAt: number; vendorUses?: number;   // vendorReadyAt は v2.12.1 から使わない（続け頼みの割増 vendorUses に置き換え）
   shelf: ShelfEntry[]; recentNames: string[];
-  staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number; policy: string | null;
+  staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number;
   wip: StageWip;
-  line2: Line2State;
   today: DayStats;
   totals: Totals;
   flags: Record<string, any>;
@@ -154,7 +144,8 @@ interface GameState {
   challenge: { id: string; startCoins: number } | null; challengeRewards: Record<string, boolean>;
   trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];
-  researchLv: Record<string, number>;
+  genreKnow: Record<string, number>;   /* 段階5: ジャンル知見（永続） */
+  runGenre: Record<string, number>;    /* 段階5: この会社で出した作品のジャンル別本数 */
   buffs: { prodUntil?: number; clickUntil?: number };
   tut: { stage: number; seen: Record<string, boolean>; skipped: boolean };
   startedAt: number; lastTick: number;

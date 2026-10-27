@@ -320,6 +320,7 @@
   .depthead .rv small{font-size:10px;color:var(--sub);font-weight:700;}
   .depthead .lampbar{width:100%;margin:2px 0;}
   .depthead .rs{font-size:10.5px;color:var(--sub);font-weight:700;line-height:1.35;}
+  .depthead .rs.dl{color:var(--accent-d);}
   .dh-btns{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
   .dh-btns .buybtn{flex:1 1 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
   .dh-btns .pricetag,.catrow .pricetag{font-size:10.5px;padding:0 4px;}
@@ -571,6 +572,7 @@
   body:not(.strip) .depthead .rh{color:var(--syn-purple);}
   body:not(.strip) .depthead .rv{font-family:var(--mono);color:var(--syn-num);}
   body:not(.strip) .depthead .rv small,body:not(.strip) .depthead .rs,body:not(.strip) .depthead .dlv{color:var(--ide-sub);}
+  body:not(.strip) .depthead .rs.dl{color:var(--syn-str);}
   body:not(.strip) .deptcol+.deptcol{border-left:1px solid var(--ide-line);}
   body:not(.strip) .catrow:hover{background:var(--ide-panel2);}
   body:not(.strip) .catrow .sc-top .nm{color:var(--syn-str);}

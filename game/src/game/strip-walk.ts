@@ -12,7 +12,7 @@ let flowStaggerN = 0;      /* 同一 tick 内の発火ずらしカウンタ */
 const FLOW_Q_BY_TIER = [5, 5, 10, 20];   /* ティア別量子 (DP/枚)。設計 §3.1 */
 let flowTierCur = 0, flowTierLowAt = 0;
 let stripCoins = [];       /* リリース時のコイン噴水 (P3) */
-let stripGitLog = [], stripGitLog2 = [];   /* モニタの git ログ行 (直近3コミット) */
+let stripGitLog = [];   /* モニタの git ログ行 (直近3コミット) */
 let stripBoardPulseAt = 0, stripBoardPulseAt2 = 0;   /* 付箋到着時のボード金パルス */
 let stripPkgGlowUntil = 0; /* パッケージ節目の完成箱グロー */
 let lastPackagesSeen = -1, lastRpIntSeen = -1, lastIdeasSeen = -1;
@@ -32,7 +32,7 @@ function flowTier(){ return flowTierCur; }
 function flowQuantum(){ return FLOW_Q_BY_TIER[flowTierCur]; }
 /* ティア判定: 総スループット T (DP/分)。昇格は即時、降格は30秒遅延 (ちらつき防止) */
 function flowTierTick(){
-  const T = productionRate() + (S.line2.unlocked ? line2Rate() : 0);
+  const T = productionRate();
   const raw = T < 15 ? 0 : T < 60 ? 1 : T < 150 ? 2 : 3;
   if(raw > flowTierCur){ flowTierCur = raw; flowTierLowAt = 0; }
   else if(raw < flowTierCur){
@@ -138,7 +138,6 @@ function walkTripUpdate(dt){
   if(PLAY_STATES.includes(catState) && !fishEvent && !bugEvent && Math.random() < dt * 0.35){
     const zones = ["shelf"];
     if(hasResearcher()) zones.push("research");
-    if(S.line2.unlocked) zones.push("desk2");
     const probe = { phase: "go", destZone: zones[Math.floor(Math.random() * zones.length)] };
     if(Math.abs(tripDestX(probe) - miyukeStrip.x) >= 40) startTrip("stroll", probe.destZone);
   }
@@ -179,7 +178,6 @@ function layoutItems(): LayoutItem[] {
     { id: "desk",     label: "みゅけの机",   cx: stripDeskCX(),     w: 150, h: 80, top: STRIP_GROUND - 80 },
     { id: "research", label: "研究机",       cx: stripResearchCX(), w: 88,  h: 46, top: STRIP_GROUND - 46, on: hasResearcher() },
     { id: "rack",     label: "サーバーラック", cx: stripRackCX(),   w: 52,  h: 68, top: STRIP_GROUND - 68, on: officeTier(S) >= 2 && S.upgrades.ci > 0 },
-    { id: "desk2",    label: "第2ラインの机", cx: stripDesk2CX(),   w: 132, h: 72, top: STRIP_GROUND - 72, on: !!S.line2.unlocked },
     { id: "trophy",   label: "トロフィー台", cx: stripTrophyCX(),   w: 30,  h: 22, top: STRIP_GROUND - 22, on: !!S.stamps.prestige1 },
   ];
   return items.filter(it => it.on !== false).concat(layoutPropItems());
