@@ -11,29 +11,57 @@
    本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
    部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
    あるため、「部分 ≤ グループ寄与」の反証条件は構造的に保たれる */
-const SUB_MAX_LV = 10;
+/* ---------- 経営方針（主役を選べる収入源・2026-10-27） ----------
+   会社ごとに1つ選ぶ（売却・持株化で選び直し）。選んだ収入源が大きく伸び、選ばない収入源も
+   標準の伸びで動く（労働は常に効く・理念書3）。どれを選んでも成立し、どれが強いかは
+   遊び方（張り付くか・放置か・子会社に注ぎ込むか）で入れ替わる（sim の方針比較ゲート）。
+   倍率の大きさが不揃いなのは、30日の複利への効き方が違うため: 本社の生産倍率は星屑に跳ね返って
+   複利で効くので ×1.5 だと放置でも張り付きでも量産体制が最良になった（sim 実測）。×1.1 で、
+   張り付き=職人気質・放置=量産体制・子会社に注ぎ込む=多角経営 と最良が入れ替わる */
+const POLICIES = [
+  { id:"craft", name:"職人気質", icon:"🐾", desc:"応援クリックが主役。自動生産との連動 ×3・応援P ×2" },
+  { id:"mass",  name:"量産体制", icon:"🏭", desc:"本社の生産が主役。実装と全工程の速さ ×1.1" },
+  { id:"group", name:"多角経営", icon:"🏢", desc:"子会社が主役。子会社の売上 ×4・設立費 ×0.5" }
+];
+function policyIs(id){ return S.policy === id; }
+function choosePolicy(id){
+  if(S.policy || !POLICIES.some(p => p.id === id)) return;
+  S.policy = id;
+  const p = POLICIES.find(x => x.id === id);
+  addLog(p.icon + " 経営方針を「" + p.name + "」に決めた（" + p.desc + "）。売却するまで変えられない");
+  say("方針は「" + p.name + "」でいくにゃ！");
+  save(); renderPanel();
+}
+/* 主役を選べる収入源（2026-10-27）: 子会社の売上と価格は、本社の作品単価と同じ桁
+   （仕事の桁 × 星屑倍率の dustPriceExp 乗 = subUnit）に載せる。売上も価格も同じ単位で
+   伸びるので、元が取れるまでの時間は周回が進んでも変わらない（理念書4 スケール対価）。
+   1日 3 時間・ほぼ毎日売却するペースでも、設立は約1時間で元が取れ、人員と規模の掛け算で
+   本社を追い抜ける大きさまで育つ。規模は上限100・節目つき（設備と同じ MILESTONE_LVS） */
+const SUB_ECON = { found: 200, foundMul: 2, head: 30, headMul: 1.03, scale: 150, scaleMul: 1.5, coinPerStaff: 0.35, lvStep: 0.3 };
+const SUB_MAX_LV = 100;
+function subUnit(){ return workScale() * Math.pow(dustMult(), BAL.dustPriceExp); }
 const SUB_NAME_A = ["ねこねこ", "まるまる", "にゃんころ", "ふわラボ", "こねこ", "たまご", "ひげ", "すやすや"];
 function subGenreRate(genreId){
   const i = GENRES.findIndex(g => g.id === genreId);
   return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
 }
-function subLvMult(sub){ return 1 + 0.3 * (sub.lv - 1); }
+function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv") - 1); }
 function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
   const base = sub.staff * subLvMult(sub) * subFocus(sub) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
-  return { coins: base * 0.35 * subGenreRate(sub.genre), dp: base * 0.2 };
+  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (policyIs("group") ? 4 : 1), dp: base * 0.2 };
 }
 function subDustValue(sub){ return Math.max(1, Math.floor((sub.staff * 25 + sub.lv * 500) / 500)); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
-function foundCost(){ return 15000 * Math.pow(2, (S.subs || []).length); }
-function subHeadCost(sub){ return Math.ceil(120 * Math.pow(1.06, sub.staff)); }
+function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit() * (policyIs("group") ? 0.5 : 1)); }
+function subHeadCost(sub){ return Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff) * subUnit()); }
 function subHeadCostN(sub, n){
   let t = 0;
-  for(let i = 0; i < n; i++) t += Math.ceil(120 * Math.pow(1.06, sub.staff + i));
+  for(let i = 0; i < n; i++) t += Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff + i) * subUnit());
   return t;
 }
-function subScaleCost(sub){ return Math.ceil(4000 * Math.pow(2.2, sub.lv - 1)); }
+function subScaleCost(sub){ return Math.ceil(SUB_ECON.scale * Math.pow(SUB_ECON.scaleMul, sub.lv - 1) * subUnit()); }
 function normalizeAlloc(){
   const subs = S.subs || [];
   if(!subs.length) return;
@@ -278,6 +306,7 @@ function resetCompanyRun(){
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
+  S.policy = null;   /* 経営方針は会社ごと（新会社で選び直す） */
   S.studioLv = 1;   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む） */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };

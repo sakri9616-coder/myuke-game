@@ -33,7 +33,7 @@ function freshState(): GameState {
     debt: 0, brand: 0, vendorReadyAt: 0,
     shelf:[], recentNames:[],
     /* v2 追加分（v1セーブには無いので load() で補完される） */
-    staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{}, cheerP:0,
+    staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{}, cheerP:0, policy:null,
     wip:{ code:0, tested:0, built:0 },
     line2:{ unlocked:false, genre:null, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } },
     today:{ date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 },
@@ -250,7 +250,8 @@ function load(rawText?: string){
       st.genre = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : "app";
     }
     if(!S.clickUp || typeof S.clickUp !== "object") S.clickUp = {};
-    if(typeof S.cheerP !== "number" || !isFinite(S.cheerP)) S.cheerP = 0;   /* v2.11: 応援P（旧セーブは 0 から） */
+    if(typeof S.cheerP !== "number" || !isFinite(S.cheerP)) S.cheerP = 0;
+    if(!["craft", "mass", "group"].includes(S.policy)) S.policy = null;   /* v2.11: 経営方針（旧セーブは未選択から） */   /* v2.11: 応援P（旧セーブは 0 から） */
     /* Sprint 1 追加フィールド（旧セーブには無いので既定値で補完） */
     if(typeof S.nextRequestGenre === "undefined") S.nextRequestGenre = null;
     if(typeof S.bigDrawStreak !== "number") S.bigDrawStreak = 0;

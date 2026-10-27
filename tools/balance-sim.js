@@ -109,12 +109,12 @@ const CLICK_DEFS = [
 ];
 const clickCost = (def, lv) => Math.ceil(def.base * Math.pow(def.grow || 1.30, lv));   // Sprint 1: 1.55→1.30 ／ 応援P 払いの肉球・グローブは 1.12
 const clickPower = (cu, focus) => (0.25 + 0.18*ue(cu, "glove")) * (focus ? 1.1 : 1);
-const clickLinkMult = cu => 1 + 0.25 * ue(cu, "paw");   /* game の clickLinkMult（肉球 = 自動生産との連動率） */
+const clickLinkMult = cu => (1 + 0.25 * ue(cu, "paw")) * (POLICY === "craft" ? 3 : 1);   /* game の clickLinkMult（肉球 = 自動生産との連動率） */
 const comboCapBonus = cu => 2.0 + 0.25*(cu.uchiwa||0);
 const critRate = cu => 0.08 + 0.01*(cu.cheer||0);
 
 // 決定的乱数 (LCG)
-let seed = 20261024;
+let seed = 20261024, seedOffset = 0;
 const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 
 /* Sprint 1 (game と同一仕様): 着工アイデア消費と企画中。
@@ -122,6 +122,12 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
    一人遊び約1.5回/分 (+2) → 約 4.2/分。リリース +2、お世話係の差し入れは微量 */
 const IDEA_COST = { TUT:0, XS:0, S:2, M:5, L:10 };
 const IDEA_PER_MIN = 4.2;
+/* 子会社の経済（game の SUB_ECON を抽出）。SUB_SHARE = 子会社に回す支出の割合（主役比較用。既定 0 = 本社だけ） */
+const SUB_ECON = (() => { const m = GAME_SRC.match(/const SUB_ECON = (\{[^}]*\})/); if(!m) throw new Error("balance-sim: SUB_ECON を抽出できない"); return Function("return " + m[1])(); })();
+let SUB_SHARE = +(process.env.SUB_SHARE || 0);
+/* 経営方針（game の POLICIES）: craft = 応援の連動 ×3・応援P ×2 / mass = 本社の実装と全工程 ×1.1 / group = 子会社の売上 ×4・設立費 ×0.5。既定 null = 未選択 */
+let POLICY = process.env.POLICY || null;
+const polMass = () => POLICY === "mass" ? 1.1 : 1;
 const LINK_RATE = (() => { const m = GAME_SRC.match(/linkRate: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.linkRate を抽出できない"); return +m[1]; })();
 const PLAN_PRICE_STEP = (() => { const m = GAME_SRC.match(/PLAN_PRICE_STEP = ([\d.]+)/); if(!m) throw new Error("balance-sim: PLAN_PRICE_STEP を抽出できない"); return +m[1]; })();
 const CARRY_MULT = (() => { const m = GAME_SRC.match(/carryMult: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.carryMult を抽出できない"); return +m[1]; })();
@@ -151,12 +157,13 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin, dm){
 }
 
 function simulate(days, active, reqMode, prestigeAt, profile){
-  seed = 20261024; // プレイヤー間で乱数を揃える
+  seed = 20261024 + seedOffset * 7919; // プレイヤー間で乱数を揃える（seedOffset は多シード平均用）
   /* 第2ウェーブ K のプロファイル: minority = 上限6＋スタッフ生産 ×1.25 /
      idle = ブーストとクリックなし / black = バグ ×3・価格 ×2 */
   const capOf = () => profile === "minority" ? 6 : STAFF_CAPS[studioLv - 1];
   const bugPerDP = BAL.bugPerDP * (profile === "black" ? 3 : 1);
   const up = {}, res = {}, cu = {};
+  let subs = [], subCoinsRun = 0, subCoinsTotal = 0;   /* 子会社（game の S.subs の簡略: 得意ジャンルの単価は中位の 1.3） */
   let cheerP = 0;   /* 応援P（game の S.cheerP）: DP が付くクリック1回につき1。応援強化はこれで買い、売却では残る */
   let staff = [], studioLv = 1;
   let coins = 0, rp = 0, dust = 0, dustTotal = 0, runDP = 0, bugStock = 0;
@@ -201,7 +208,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
 
   /* Sprint 3: 倍率は通算獲得で決まる（game の dustMult と同じ。上限なし） */
   const dustMult = () => 1 + BAL.dustBonus * (dustTotal <= BAL.dustMultSoftcap ? dustTotal : BAL.dustMultSoftcap * Math.sqrt(dustTotal / BAL.dustMultSoftcap));
-  const stageMultSim = st => dpMult(up) * dustMult() * firstBoost() * (1 + 0.05 * rep[st]);   /* game の stageMult と同じ（全DP×会社全体×やる気MAX×反復研究） */
+  const stageMultSim = st => dpMult(up) * dustMult() * polMass() * firstBoost() * (1 + 0.05 * rep[st]);   /* game の stageMult と同じ（全DP×会社全体×やる気MAX×反復研究） */
   const rates = () => {
     const ss = staffSums(staff);
     return {
@@ -278,7 +285,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     for(let min = 0; min < PLAYER.minutesPerDay; min++){
       const R = rates(), ss = R.ss;
       if(profile === "minority"){ ss.prog *= 1.25; ss.progW *= 1.25; }
-      const mlt = dpMult(up) * dustMult();
+      const mlt = dpMult(up) * dustMult() * polMass();
       const codingFrac = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*ss.careW);
       // --- 生産 ---
       const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
@@ -287,7 +294,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       let clickRaw = 0;
       if(inSession){
         clickRaw = sessionClickDPperMin(cu, perks.focus, raw, dustMult());   /* 連動分は倍率前の自動生産（game の clickBaseDP と同じ。倍率の二重掛けをしない） */
-        cheerP += PLAYER.clicksPerMin;
+        cheerP += PLAYER.clicksPerMin * (POLICY === "craft" ? 2 : 1);
         for(;;){   /* 応援強化はコインと別の財布なので、貯まったら安い順に買う */
           let bd = null, bc = Infinity;
           for(const def of CLICK_DEFS){ const lv = cu[def.id]||0; if(lv < def.max){ const c = clickCost(def, lv); if(c < bc){ bc = c; bd = def; } } }
@@ -420,6 +427,45 @@ function simulate(days, active, reqMode, prestigeAt, profile){
          全研究 = 反復を除く全研究の完了日） */
       if(milestones.resT1Day === null && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) milestones.resT1Day = day;
       if(milestones.resAllDay === null && RESEARCH.every(r => res[r.id])) milestones.resAllDay = day;
+      /* 子会社: 売上（本社と同じ桁 subUnit）と、支出のうち SUB_SHARE を子会社へ */
+      if(studioLv >= 5 || subs.length){
+        const u = (project.scale || 1) * Math.pow(dustMult(), BAL.dustPriceExp);   /* game の subUnit（会社の桁）。売上にも価格にも掛かる */
+        const lvM = lv => 1 + SUB_ECON.lvStep * (ue({ lv }, "lv") - 1);
+        const focus = () => 0.5 + 1.5 * Math.sqrt(1 / Math.max(1, subs.length));
+        const polG = POLICY === "group" ? 4 : 1;
+        const inc = sb => sb.staff * lvM(sb.lv) * focus() * SUB_ECON.coinPerStaff * 1.3 * u * polG;
+        if(subs.length){
+          const c = subs.reduce((a, sb) => a + inc(sb), 0);
+          coins += c; coinsEarned += c; dayCoins += c; runCoins += c; subCoinsRun += c; subCoinsTotal += c;
+          runDP += subs.reduce((a, sb) => a + sb.staff * lvM(sb.lv) * focus() * 0.2, 0) * mlt;
+        }
+        if(SUB_SHARE > 0 && studioLv >= 5){
+          let budget = coins * SUB_SHARE;
+          for(let k = 0; k < 6; k++){
+            /* 元が取れるまでの時間（費用 ÷ 売上の増分）が最短の手を買う */
+            const opts = [];
+            if(subs.length < 4){
+              const c = SUB_ECON.found * Math.pow(SUB_ECON.foundMul, subs.length) * u * (POLICY === "group" ? 0.5 : 1);
+              const after = [...subs, { staff:5, lv:1 }];
+              const f2 = 0.5 + 1.5 * Math.sqrt(1 / after.length);
+              const gain = after.reduce((a, sb) => a + sb.staff * lvM(sb.lv) * f2, 0) * SUB_ECON.coinPerStaff * 1.3 * u * polG - subs.reduce((a, sb) => a + inc(sb), 0);
+              if(gain > 0) opts.push({ c, pb: c / gain, act: () => subs.push({ staff:5, lv:1 }) });
+            }
+            for(const sb of subs){
+              const ch = SUB_ECON.head * Math.pow(SUB_ECON.headMul, sb.staff) * u;
+              opts.push({ c: ch, pb: ch / (lvM(sb.lv) * focus() * SUB_ECON.coinPerStaff * 1.3 * u * polG), act: () => sb.staff++ });
+              if(sb.lv < 100){
+                const cs = SUB_ECON.scale * Math.pow(SUB_ECON.scaleMul, sb.lv - 1) * u;
+                opts.push({ c: cs, pb: cs / (sb.staff * (lvM(sb.lv + 1) - lvM(sb.lv)) * focus() * SUB_ECON.coinPerStaff * 1.3 * u * polG), act: () => sb.lv++ });
+              }
+            }
+            opts.sort((a, b) => a.pb - b.pb);
+            const o = opts[0];
+            if(!o || o.c > budget) break;
+            coins -= o.c; budget -= o.c; o.act();
+          }
+        }
+      }
       // --- 購入（最大4件/分） ---
       /* Wave G・バグ外注のプレイヤーモデル: アクティブなプレイヤーはバグが
          滞留したら外注で一掃する（実機の relief valve。費用はバグ×30、
@@ -535,7 +581,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     /* 手応えの計測（理念書3・4）: 日の終わり（売却前）の放置生産・実際に流れる量・1クリックの重み。
        1クリックの進捗 = 直接20% ＋ 手で運ぶ（carryMult 倍。仕掛品があれば）＋ 後工程に余裕がある分の流入 */
     {
-      const R = rates(), mltF = dpMult(up) * dustMult();
+      const R = rates(), mltF = dpMult(up) * dustMult() * polMass();
       const cfF = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
       const bstF = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       const prodF = ((BAL.basePerMin + bstF) * cfF + R.bot + R.ss.prog) * mltF;
@@ -563,7 +609,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
     if(day === 7){
       const R = rates();
-      const mlt = dpMult(up) * dustMult();
+      const mlt = dpMult(up) * dustMult() * polMass();
       const codingFrac = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
       const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       const passivePerMin = ((BAL.basePerMin + boost) * codingFrac + R.bot + R.ss.prog) * mlt;
@@ -575,7 +621,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     //     prestigeAt を渡すとその個数で回す計測ランになる — 第2ウェーブ I） ---
     /* game の dustGainFromDP と同じ式（softcap 超過分は dustGainExp 乗） */
     const gainX = runDP / BAL.prestigeDPPerDust;
-    const gain = Math.floor(gainX <= BAL.dustSoftcap ? gainX : BAL.dustSoftcap * Math.pow(gainX / BAL.dustSoftcap, BAL.dustGainExp));
+    const gain = Math.floor(gainX <= BAL.dustSoftcap ? gainX : BAL.dustSoftcap * Math.pow(gainX / BAL.dustSoftcap, BAL.dustGainExp))
+      + subs.reduce((a, sb) => a + Math.max(1, Math.floor((sb.staff * 25 + sb.lv * 500) / 500)), 0);   /* グループEXIT: 子会社の価値（game の subDustValue） */
     if(milestones.prestigeFeasibleDay === null && gain >= 3) milestones.prestigeFeasibleDay = day;
     if(gain >= (prestigeAt || 10)){
       milestones.prestigeCount++;
@@ -592,7 +639,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       for(const k of Object.keys(up)) delete up[k];
       for(const k of Object.keys(res)) delete res[k];
       /* 応援強化はみゅけの腕前なので売却では残す（game の resetCompanyRun と同じ） */
-      staff = []; studioLv = 1; line2 = false; project2 = null;
+      staff = []; studioLv = 1; line2 = false; project2 = null; subs = []; subCoinsRun = 0;
       wip = { code:0, tested:0, built:0 }; wip2 = { code:0, tested:0, built:0 };
     }
     /* Sprint 3: 星屑ショップ（貪欲: 初期資金 → 集中ブースト。ベテラン制度と
@@ -602,7 +649,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
   }
   if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys, feel };
+  return { subCoinsTotal, milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys, feel };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -954,3 +1001,33 @@ console.log("\n== Wave L: 自社IP の生涯価値・価格スタック ==");
    小さく、情緒（古参が残る）が主・数字は従という仕様の置きどおり */
 console.log("\n== Wave M: 役員オーラ ==");
 console.log("上限: 同役職 ×1.3（3匹集中）／ 分散時は各役職 +10%。日次 sim の主指標には載せない（EXIT ごとの選択依存のため）");
+
+/* ===== 主役を選べる収入源（2026-10-27）: 経営方針 × 遊び方の比較 =====
+   遊び方は3つ: 張り付き（active・子会社に回さない）／放置（passive・回さない）／経営（passive・社格Lv5以降の手持ちの
+   SUB_SHARE_GROUP を子会社へ）。方針は craft / mass / group。8シード平均の 30日コインを並べる。
+   ゲート: (1) 遊び方ごとに最も稼ぐ方針が違う（張り付き=職人気質・放置=量産体制・経営=多角経営）＝注ぎ込み方で主役が入れ替わる
+           (2) どの遊び方でも、どの方針も方針なし（v2.10 相当）を下回らない（選んで損をする方針がない）。
+           30日の複利で倍率の差は数十倍に開くので、方針どうしの差の大きさは問わない（sakuri: 比は決めない） */
+console.log("");
+console.log("== 主役を選べる収入源: 経営方針 × 遊び方（8シード平均・30日コイン）==");
+{
+  const SEEDS = 8, SUB_SHARE_GROUP = 0.6;
+  const styles = [{ id:"張り付き", active:true, share:0 }, { id:"放置", active:false, share:0 }, { id:"経営", active:false, share:SUB_SHARE_GROUP }];
+  const pols = [null, "craft", "mass", "group"], name = { null:"方針なし", craft:"職人気質", mass:"量産体制", group:"多角経営" };
+  const want = { "張り付き":"craft", "放置":"mass", "経営":"group" };
+  let ok1 = true, ok2 = true;
+  for(const st of styles){
+    const row = {};
+    for(const pol of pols){
+      POLICY = pol; SUB_SHARE = st.share; let c = 0, subC = 0;
+      for(let k = 0; k < SEEDS; k++){ seedOffset = k; const r = simulate(30, st.active); c += r.econ.coinsEarned; subC += r.subCoinsTotal; }
+      row[pol] = { c: c / SEEDS, sub: subC / Math.max(1, c) };
+    }
+    const best = pols.reduce((a, b) => row[a].c >= row[b].c ? a : b);
+    if(best !== want[st.id]) ok1 = false;
+    if(pols.some(pol => row[pol].c < row[null].c * 0.95)) ok2 = false;
+    console.log(st.id + ": " + pols.map(pol => name[pol] + " " + Math.round(row[pol].c).toLocaleString() + "🪙" + (row[pol].sub > 0.005 ? "（子会社 " + Math.round(row[pol].sub * 100) + "%）" : "")).join(" ／ ") + " → 最良 " + name[best]);
+  }
+  POLICY = process.env.POLICY || null; SUB_SHARE = +(process.env.SUB_SHARE || 0); seedOffset = 0;
+  console.log("方針ゲート（遊び方ごとに主役が入れ替わる / どの方針も方針なしを下回らない）: " + (ok1 ? "PASS" : "FAIL") + " / " + (ok2 ? "PASS" : "FAIL"));
+}

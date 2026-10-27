@@ -23,7 +23,7 @@ const VERBS = {
   setLine2Genre: setLine2Genre, acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   dropRequest: dropRequestCore,
-  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
+  choosePolicy: choosePolicy, foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, sellSub: sellSubCore,
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,

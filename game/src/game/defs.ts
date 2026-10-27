@@ -195,7 +195,7 @@ const CLICK_DEFS = [
   { id:"synrp",  name:"研究メモ連動",     base:800, max:5,  desc:"クリックで研究P +0.004/Lv（端数は貯まる）" }
 ];
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
-function clickLinkMult(){ return 1 + 0.25 * upEff(S.clickUp, "paw"); }
+function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")) * (policyIs("craft") ? 3 : 1); }   /* 経営方針「職人気質」 */
 function clickPower(){
   const base = 0.25 + 0.18*upEff(S.clickUp, "glove");
   return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ */
