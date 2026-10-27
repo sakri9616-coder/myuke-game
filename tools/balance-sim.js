@@ -69,9 +69,12 @@ const BAL = extractLiteral("BAL");
 const UPGRADE_DEFS = extractLiteral("UPGRADE_DEFS").map(d => ({ id: d.id, base: d.base, max: d.max }));
 const cost = (def, lv) => Math.ceil(def.base * Math.pow(1.15, lv));
 /* 工程中心（2026-10-27・game と同一）: 強化は自分の工程にだけ効く */
-const dpMult = up => 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);   /* 全DP（game の dpMult。実装と全工程に効く） */
+/* 節目ジャンプ（game の milestoneBonus / upEff と同じ）: Lv10・25・50・100 に届くとその Lv の半分を上乗せ */
+const MILESTONE_LVS = [10, 25, 50, 100];
+const ue = (o, id) => { const lv = o[id] || 0; return lv + MILESTONE_LVS.reduce((a, c) => lv >= c ? a + c * 0.5 : a, 0); };
+const dpMult = up => 1 + 0.05*ue(up, "keyboard") + 0.08*ue(up, "ide") + 0.03*ue(up, "ci") + 0.04*ue(up, "pack");   /* 全DP（game の dpMult。実装と全工程に効く） */
 const buildEquipMult = () => 1;   /* v2.8.0 のビルド倍率は廃止（全DP に戻した） */
-const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*(up.duck||0) + 1.2*(up.tester||0) + (res.res_duckplay?0.2:0) + ss.qa;
+const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*ue(up, "duck") + 1.2*ue(up, "tester") + (res.res_duckplay?0.2:0) + ss.qa;
 /* 研究（ゲームの RESEARCH_DEFS と同じ並び・価格）
    Sprint 4: ティア2（前提つき）を追加。ジャンル依存の効果（res_game2/ai2/robot2）は
    sim がジャンルを引いていないため未モデル化（影響は軽微な範囲に留まる） */
@@ -119,10 +122,7 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
 const IDEA_COST = { TUT:0, XS:0, S:2, M:5, L:10 };
 const IDEA_PER_MIN = 4.2;
 const LINK_RATE = (() => { const m = GAME_SRC.match(/linkRate: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.linkRate を抽出できない"); return +m[1]; })();
-const PLAN_TIME_FRAC = (() => { const m = GAME_SRC.match(/PLAN_TIME_FRAC = ([\d.]+)/); if(!m) throw new Error("balance-sim: PLAN_TIME_FRAC を抽出できない"); return +m[1]; })();
 const PLAN_PRICE_STEP = (() => { const m = GAME_SRC.match(/PLAN_PRICE_STEP = ([\d.]+)/); if(!m) throw new Error("balance-sim: PLAN_PRICE_STEP を抽出できない"); return +m[1]; })();
-const PLAN_MEET_MIN_MIN = 0.5, PLAN_MEET_MAX_MIN = 20;   /* game の planMeetDurSec の下限30秒・上限20分 */
-let planPolicy = "smart", seedOffset = 0;
 const CARRY_MULT = (() => { const m = GAME_SRC.match(/carryMult: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.carryMult を抽出できない"); return +m[1]; })();
 const PLAYER = { minutesPerDay: 180, keysPerHour: 2400, cursorPxPerHour: 90000, requestMatchRate: 0.4,
                  clickSessions: [30, 90, 150], clickSessionMin: 3, clicksPerMin: 40,
@@ -150,7 +150,7 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin, dm){
 }
 
 function simulate(days, active, reqMode, prestigeAt, profile){
-  seed = 20261024 + seedOffset * 7919; // プレイヤー間で乱数を揃える（seedOffset は方針比較の多シード平均用）
+  seed = 20261024; // プレイヤー間で乱数を揃える
   /* 第2ウェーブ K のプロファイル: minority = 上限6＋スタッフ生産 ×1.25 /
      idle = ブーストとクリックなし / black = バグ ×3・価格 ×2 */
   const capOf = () => profile === "minority" ? 6 : STAFF_CAPS[studioLv - 1];
@@ -194,7 +194,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   /* 工程中心の計測: いまの律速工程（30分ごとの多数決）と、その切り替わり回数 */
   let bnStage = "impl", bnVotes = { impl:0, test:0, build:0, ship:0 }, bnBlock = null, bnSwitches = 0;
   const bnTime = { impl:0, test:0, build:0, ship:0 };
-  let staffShare7 = null, shareSum = 0, shareN = 0, planBuys = 0, planMeet = 0, planLostMin = 0;
+  let staffShare7 = null, shareSum = 0, shareN = 0, planBuys = 0;
   const feel = [];
 
   /* Sprint 3: 倍率は通算獲得で決まる（game の dustMult と同じ。上限なし） */
@@ -205,8 +205,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     return {
       ss,
       /* game の stageMult と同じ: 後工程にも実装と同じ会社全体の倍率が掛かる */
-      test: (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + ss.testDP) * stageMultSim("test"),
-      build: (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * buildEquipMult(up) * stageMultSim("build"),
+      test: (BAL.stageBaseRate + BAL.equipDP.tester*ue(up, "tester") + ss.testDP) * stageMultSim("test"),
+      build: (BAL.stageBaseRate + BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * buildEquipMult(up) * stageMultSim("build"),
       ship: (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + ss.ship) * stageMultSim("ship"),
       bot: 2*(up.bot||0)*(res.res_bottrain ? 1.5 : 1)*(res.res_bot2 ? 1.5 : 1)   /* Sprint 4: ボットAI学習 */
     };
@@ -247,8 +247,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   }
   function release(sz, isLine2, plv, scale){
     scale = scale || 1;
-    if(!isLine2) planMeet = 0;   /* 企画会議は作品に付く（game の planMeetSec と同じ） */
-    let c = BAL.coinBase[sz] * scale * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
+    let c = BAL.coinBase[sz] * scale * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*ue(up, "ci")) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
     let r = Math.round(BAL.rpBase[sz] * Math.sqrt(scale));   /* game と同じ（研究Pは桁の平方根） */
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -312,32 +311,22 @@ function simulate(days, active, reqMode, prestigeAt, profile){
         projDP += want - left;
       }
       const clickProd = clickRaw * 0.8;
-      /* 企画会議中は自動の実装が止まる（game の planMeetSec。応援クリックは止まらない） */
-      const inMeet = planMeet > 0;
-      const rawL1 = inMeet ? 0 : raw;
-      if(inMeet){ planMeet = Math.max(0, planMeet - 1); planLostMin++; runDP += raw * prodF; }   /* 会議ぶんも星屑の元には数える（game の creditMeetDP） */
-      const produced = (rawL1 + clickProd) * prodF;
+      const produced = (raw + clickProd) * prodF;
       wip.code += produced; runDP += produced;
       /* 応援クリック由来の分はバグ混入 ×inputBugRate（game の produceDP と同じ） */
-      bugStock += (rawL1 + clickProd * BAL.inputBugRate) * prodF * bugPerDP * (1 - 0.15 * (project.planLv || 0));   /* 企画Lv（game の planBugMult） */
+      bugStock += (raw + clickProd * BAL.inputBugRate) * prodF * bugPerDP * (1 - 0.15 * (project.planLv || 0));   /* 企画Lv（game の planBugMult） */
       // 応援クリックの20%だけが工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
       if(clickRaw > 0){
         if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * bugPerDP * BAL.inputBugRate; }
         else { const direct = clickRaw * 0.2 * mlt * fb * resMultV * feverF; projDP += direct; runDP += direct; }
       }
       ideas += IDEA_PER_MIN + 0.3 * ss.careW;
-      /* 企画を練る（game の planProject）: 着工中の作品が半分に届く前に、会議中でなく、アイデアが足りれば。
-         会議の長さは「この作品の実装時間の PLAN_TIME_FRAC」。方針（PLAN_POLICY）:
-         always = 練れるなら練る / smart = 後工程が詰まっていて、会議の間も仕掛品で工程が回るときだけ / never = 練らない */
-      if(planPolicy !== "never" && project.size !== "TUT" && !project.planning && !inMeet && (project.planLv || 0) < 3 && projDP < project.total * 0.5){
+      /* 企画を練る（game の planProject）: 着工中の作品が半分に届く前に、足りれば練る。
+         アイデアの蓄え → オーバークロックの溜まりの損得は日次モデルに載せず（フィーバーは feverF の定数）、
+         Wave F の後の解析節「企画とアイデアの蓄え」で示す */
+      if(project.size !== "TUT" && !project.planning && (project.planLv || 0) < 3 && projDP < project.total * 0.5){
         const pc = Math.ceil(project.total / (project.scale || 1) / 20) * ((project.planLv || 0) + 1);   /* アイデア払いなので桁を掛けない */
-        const implRate = Math.max(1, raw * prodF);
-        const meet = Math.min(PLAN_MEET_MAX_MIN, Math.max(PLAN_MEET_MIN_MIN, PLAN_TIME_FRAC * project.total / implRate));
-        const stageMin = Math.min(R.test * (bugStock > 8 ? Math.max(0.5, 1 - (bugStock - 8) * 0.02) : 1), R.build, R.ship);
-        const smartOk = implRate > stageMin * 1.05 && (wip.code + wip.tested + wip.built) >= stageMin * meet;
-        if(ideas >= pc + (project.ideaCost || 0) && (planPolicy === "always" || smartOk)){
-          ideas -= pc; project.planLv = (project.planLv || 0) + 1; planBuys++; planMeet = Math.ceil(meet);
-        }
+        if(ideas >= pc + (project.ideaCost || 0)){ ideas -= pc; project.planLv = (project.planLv || 0) + 1; planBuys++; }
       }
       // 企画中: アイデアが貯まったら着工
       for(const pr of [project, project2]){
@@ -563,9 +552,9 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       const R = rates(), bm = buildEquipMult(up);
       const cfD = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
       const boostD = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
-      const inv = (R.bot + R.ss.prog) * dpMult(up) + (BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) + ((BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + BAL.stageBaseRate * (bm - 1)) + (BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
-      const all = ((BAL.basePerMin + boostD) * cfD + R.bot + R.ss.prog) * dpMult(up) + (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) +
-        (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      const inv = (R.bot + R.ss.prog) * dpMult(up) + (BAL.equipDP.tester*ue(up, "tester") + R.ss.testDP) + ((BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * bm + BAL.stageBaseRate * (bm - 1)) + (BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      const all = ((BAL.basePerMin + boostD) * cfD + R.bot + R.ss.prog) * dpMult(up) + (BAL.stageBaseRate + BAL.equipDP.tester*ue(up, "tester") + R.ss.testDP) +
+        (BAL.stageBaseRate + BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * bm + (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
       shareSum += inv / all; shareN++;
       staffShare7 = shareSum / shareN;
     }
@@ -610,7 +599,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
   }
   if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys, planLostMin, feel };
+  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys, feel };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -646,7 +635,7 @@ function report(label, r){
       let best = 0, flat = 0, maxFlat = 0;
       for(const x of r.feel){ if(x.thr > best * 1.1){ best = x.thr; flat = 0; } else { flat++; if(flat > maxFlat) maxFlat = flat; } }
       console.log("成長: 流れる量の最高記録 " + r.feel[0].thr.toFixed(0) + " → " + best.toFixed(0) + " DP/分（×" + (best / Math.max(1e-9, r.feel[0].thr)).toFixed(1) + "）・記録が1割伸びない最長 " + maxFlat + " 日"); }
-    console.log("企画を練った回数（30日）: " + r.planBuys + " 回 / リリース " + r.totalReleasesEver + " 作品・企画会議で実装を止めた時間 " + r.planLostMin + " 分");
+    console.log("企画を練った回数（30日）: " + r.planBuys + " 回 / リリース " + r.totalReleasesEver + " 作品");
     console.log("工程能力のうちスタッフと設備が生む割合（7日目以降の日末平均）: " + (r.staffShare7 * 100).toFixed(0) + "%"); }
   if(r.snapshot7){
     console.log("7日目時点: スタッフ " + r.snapshot7.staff + "人 / スタジオLv" + r.snapshot7.studioLv +
@@ -688,36 +677,6 @@ console.log("Sprint 1 ゲート（改訂2）: 初リリース ≤ 約5分（両�
 console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstReleaseMin + "分 active=" + ra7.milestones.firstReleaseMin + "分 / コイン比 " +
   coinRatio.toFixed(2) + " / 星屑比 " + dustRatio.toFixed(2) + " / 件数比 " + countRatio.toFixed(2) + " / 7日目以降の0リリース日 passive=" +
   rp7.releasesByDay.slice(6).filter(x=>x===0).length + " active=" + ra7.releasesByDay.slice(6).filter(x=>x===0).length);
-/* 企画会議のゲート（2026-10-27・sakuri「押さないメリットがないため作業でしかない」）:
-   練り方に正解が状況で変わる判断があることを、方針の比較で示す。
-   「詰まり時だけ練る」が「常に練る」と「練らない」の両方を上回れば、押すか押さないかが判断になっている */
-{
-  /* 1本の軌道は社格・売却のタイミングで大きく揺れる（同じ方針でも数十%）ので、8シードの平均で比べる */
-  const SEEDS = 8, pol = {};
-  const avg = rs => ({ econ: { coinsEarned: rs.reduce((a, r) => a + r.econ.coinsEarned, 0) / rs.length }, dustTotal: Math.round(rs.reduce((a, r) => a + r.dustTotal, 0) / rs.length) });
-  for(const pp of ["always", "smart", "never"]){
-    planPolicy = pp; const A = [], P = [];
-    for(let k = 0; k < SEEDS; k++){ seedOffset = k; A.push(simulate(30, true)); P.push(simulate(30, false)); }
-    pol[pp] = { a: avg(A), p: avg(P) };
-  }
-  planPolicy = "smart"; seedOffset = 0;
-  const sc = r => r.econ.coinsEarned;
-  console.log("企画会議の方針比較（8シード平均・30日コイン / 星屑）: " + ["always", "smart", "never"].map(pp =>
-    ({ always: "常に練る", smart: "後工程が詰まった時だけ", never: "練らない" })[pp] + " active " + Math.round(sc(pol[pp].a)).toLocaleString() + "🪙/" + pol[pp].a.dustTotal +
-    "・passive " + Math.round(sc(pol[pp].p)).toLocaleString() + "🪙/" + pol[pp].p.dustTotal).join(" ｜ "));
-  console.log("  （参考値。1本の軌道は社格・売却のタイミングで 0.4〜1.6 倍まで揺れ、会議の時間は30日で数十分なので、方針の差はこの揺れに埋もれる）");
-  /* ゲートは1作品の局所 A/B（流体モデル）で判定する: 規模 T・実装速度 I・後工程速度 D・仕掛品 W。
-     会議 m = PLAN_TIME_FRAC × T / I のあいだ実装が止まる。出荷にかかる時間は
-     練らない: T / min(I, D)、練る: 後工程が詰まっていて仕掛品で m を越えられれば同じ、実装律速なら T / I + m。
-     価格は ×(1 + PLAN_PRICE_STEP)。コイン/分の比で「詰まり中は得・実装律速は損」を示す */
-  const ab = (I, D, W) => { const T = 2600, m = PLAN_TIME_FRAC * T / I;
-    const t0 = T / Math.min(I, D);
-    const t1 = I > D ? t0 + Math.max(0, D * m - W) / D : T / I + m;   /* 詰まり中: 仕掛品で足りない分だけ後工程が待つ */
-    return (1 + PLAN_PRICE_STEP) * t0 / t1; };
-  const gClog = ab(200, 100, 3000), gImpl = ab(100, 200, 0);
-  console.log("企画会議の局所 A/B（1作品のコイン/分・練らない = 1）: 後工程が詰まり仕掛品あり ×" + gClog.toFixed(2) + " / 実装が律速 ×" + gImpl.toFixed(2));
-  console.log("企画会議ゲート（詰まり中は +10% 以上の得・実装律速は 5% 以上の損）: " + (gClog >= 1.1 && gImpl <= 0.95 ? "PASS" : "FAIL"));
-}
 console.log("Sprint 3: 星屑ショップ最小モデル（初期資金→集中を貪欲購入）を有効化。プレステージ到達日と引っ越し後の回復は各レポートの「回復の速さ」行を参照");
 
 /* ===== Phase C: 依頼の自動獲得（営業）vs 手動 — 到達時間の比較 =====
@@ -791,6 +750,35 @@ console.log("== Wave F: オーバークロックの寄与（再設計版・ア�
   console.log("寄与判定（15〜40%）: " + (up / base >= 0.15 && up / base <= 0.40 ? "PASS" : "FAIL"));
   const toolDirect = 300 * clickBase * 3.0 * 1.72 * 0.2;   /* バケツ上限連打時の直接貫通/分 */
   console.log("連打ツールの直接貫通上限: " + toolDirect.toFixed(0) + " DP/分（自動生産 " + P + " を下回る）: " + (toolDirect < P ? "PASS" : "FAIL"));
+}
+
+/* ===== 企画とアイデアの蓄え（2026-10-27・sakuri の選択「在庫のアイデアにも価値」） =====
+   手元のアイデアはオーバークロックの溜まりを ×(1 + IDEA_CHARGE_MAX × (1 − e^(−N/IDEA_CHARGE_SCALE))) にする。
+   企画を練ると価格 +PLAN_PRICE_STEP（DP 換算で 作品の DP × step）を得るかわりに、蓄えが c 個減り、
+   アイデア収入（約 IDEA_PER_MIN/分）で戻るまでのあいだ、フィーバーの上乗せ（Wave F の
+   生産バースト＋クリック増分。溜まりの速さに比例）が減る。蓄熱パッシブは溜まりの速さに依らないので除く。
+   同じ Wave F の中盤アクティブ（自動生産 330 DP/分）で、損得を DP で比べる。放置中心はゲージが
+   ほとんど溜まらないので損は 0。
+   ゲート: アクティブは「M を1回だけ練る」が得・「M を3回まで練り切る」が損、放置は練るほど得
+   （押すか押さないか、どこまで練るかが遊び方で分かれる） */
+{
+  const num = k => { const m = GAME_SRC.match(new RegExp(k + " = ([\\d.]+)")); if(!m) throw new Error("balance-sim: " + k + " を抽出できない"); return +m[1]; };
+  const IMAX = num("IDEA_CHARGE_MAX"), ISC = num("IDEA_CHARGE_SCALE"), STEP = num("PLAN_PRICE_STEP");
+  const fm = GAME_SRC.match(/const FEVER = \{ chargePerBoostDP: ([\d.]+), chargePerClick: ([\d.]+), durationMs: (\d+), prodMult: ([\d.]+), clickMult: ([\d.]+), passiveMax: ([\d.]+) \}/);
+  const P = 330, chargeMin = 30 * +fm[1] + 40 * +fm[2], cycleMin = 100 / chargeMin, durMin = +fm[3] / 60000;
+  const clickAvgGain = (0.25 + (P / 60) * 0.05) * 2.84 * 1.72;
+  const F1 = P * (+fm[4] - 1) * durMin / cycleMin + (40 * durMin) * clickAvgGain * (+fm[5] - 1) / cycleMin;   /* 溜まり ×1 のときのフィーバー上乗せ DP/分 */
+  const mult = n => 1 + IMAX * (1 - Math.exp(-Math.max(0, n) / ISC));
+  const lossOf = (N, c) => { let L = 0; for(let t = 0; t < c / IDEA_PER_MIN; t += 0.5) L += (mult(N) - mult(N - c + IDEA_PER_MIN * t)) * F1 * 0.5; return L; };
+  const sz = BAL.sizes, pcM = Math.ceil(sz.M / 20);
+  const cases = [
+    ["M を1回練る（蓄え 400 から " + pcM + " 個）", 400, pcM, STEP * sz.M],
+    ["M を3回まで練り切る（蓄え 800 から " + pcM * 6 + " 個）", 800, pcM * 6, 3 * STEP * sz.M],
+    ["L を1回練る（蓄え 600 から " + Math.ceil(sz.L / 20) + " 個）", 600, Math.ceil(sz.L / 20), STEP * sz.L]
+  ];
+  console.log("\n== 企画とアイデアの蓄え（中盤アクティブ・自動生産 " + P + " DP/分・フィーバー上乗せ " + F1.toFixed(0) + " DP/分 × 溜まり倍率）==");
+  const res = cases.map(([lb, N, c, gain]) => { const loss = lossOf(N, c); console.log("  " + lb + ": 得 " + gain.toFixed(0) + " DP ／ 蓄えが戻るまでの損 アクティブ " + loss.toFixed(0) + " DP・放置 0 DP"); return gain - loss; });
+  console.log("企画と蓄えのゲート（アクティブ: 1回は得・練り切りは損 ／ 放置: 練るほど得）: " + (res[0] > 0 && res[1] < 0 ? "PASS" : "FAIL"));
 }
 
 /* ===== Wave G: デスマーチの損得 / ケア返済ペース（承認済み仕様書 G 節の数値ゲート・復元） =====

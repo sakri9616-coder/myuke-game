@@ -10,8 +10,15 @@ function buyUpgrade(id){
   addLog("アップグレード: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + "🪙）");
   say(def.name+"を買ったにゃ！");
   if(id==="bot") say("子ねこボットが仲間になったにゃ！");
+  announceMilestone(def, lv + 1);
   checkStamps(); save(); renderPanel();
   tutCheck();
+}
+/* 節目ジャンプに届いた瞬間は、ログとセリフで知らせる（理念書4「解放ジャンプ」） */
+function announceMilestone(def, lv){
+  if(!def.ms || !MILESTONE_LVS.includes(lv)) return;
+  addLog("✨ 節目ボーナス！ "+def.name+" が Lv"+lv+" に届き、効果に +"+(lv * MILESTONE_SHARE)+"Lv分が上乗せされた（実効 Lv"+(lv + milestoneBonus(lv))+"）");
+  say(def.name+"が節目のLv"+lv+"にゃ！ 効果がぐんと上がったよ");
 }
 function buyResearch(id){
   const def = RESEARCH_DEFS.find(r=>r.id===id) || REPEAT_RESEARCHES.find(r=>r.id===id);
@@ -110,6 +117,7 @@ function buyClickUp(id){
   SoundKit.play("purchase");
   addLog("応援強化: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + "🪙）");
   say(def.name+"を強化したにゃ！ 応援がもっと届くよ");
+  announceMilestone(def, lv + 1);
   updateComboUI();
   save(); renderPanel();
   tutCheck();

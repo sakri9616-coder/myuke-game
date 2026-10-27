@@ -37,23 +37,42 @@ const BAL = {
   line2CoinRate: 0.7        // 第2ラインのリリース報酬倍率
 };
 const UPGRADE_DEFS = [
-  { id:"keyboard", name:"メカニカルキーボード", stage:"実装", base:40,  desc:"全DP +5%/Lv", max:10 },
-  { id:"ide",      name:"高機能IDE",           stage:"実装", base:120, desc:"全DP +8%/Lv", max:10 },
+  { id:"keyboard", name:"メカニカルキーボード", stage:"実装", base:40,  desc:"全DP +5%/Lv", max:100, ms:true },
+  { id:"ide",      name:"高機能IDE",           stage:"実装", base:120, desc:"全DP +8%/Lv", max:100, ms:true },
   { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:260, desc:"考え中アイデア +1/Lv", max:5 },
   { id:"chair",    name:"ふかふか椅子",         stage:"実装", base:180, desc:"集中力の減り -8%/Lv", max:5 },
-  { id:"duck",     name:"ラバーダック検査員",   stage:"テスト", base:60, desc:"QA +0.4 バグ/分/Lv", max:10 },
-  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:8 },
-  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"コイン +10%/Lv・全DP +3%/Lv・ビルド速度 +6 DP/分/Lv", max:10 },
-  { id:"pack",     name:"自働梱包機",           stage:"ビルド", base:160, desc:"全DP +4%/Lv・ビルド速度 +5 DP/分/Lv", max:10 },
+  { id:"duck",     name:"ラバーダック検査員",   stage:"テスト", base:60, desc:"QA +0.4 バグ/分/Lv", max:100, ms:true },
+  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true },
+  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"コイン +10%/Lv・全DP +3%/Lv・ビルド速度 +6 DP/分/Lv", max:100, ms:true },
+  { id:"pack",     name:"自働梱包機",           stage:"ビルド", base:160, desc:"全DP +4%/Lv・ビルド速度 +5 DP/分/Lv", max:100, ms:true },
   { id:"bot",      name:"子ねこボット",         stage:"運搬", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:3 }
 ];
 function upgradeCost(def, lv){ return Math.ceil(def.base * Math.pow(1.15, lv)); }
+/* 節目ジャンプ（理念書4「解放ジャンプ」・スケール対価）: 主要な設備と応援強化は Lv 上限を
+   100 まで開け、Lv10・25・50・100 に届くたびに、その節目の Lv の半分ぶんの効果が上乗せされる
+   （Lv10 で実効 Lv15＝効果 ×1.5、Lv25 で 29.5→42.5 …）。上乗せは足し算なので、節目を越えた後は
+   普通に1Lvずつ伸びる。sim 実測（8シード平均）: 節目の倍率を掛け算（×2）にすると 30 日の星屑が
+   19 倍、節目の Lv を丸ごと足すと 4〜5 倍まで膨らんだので、半分に留めた（v2.9.0 比 約2倍）。
+   価格は 1.15 倍（応援強化は 1.30 倍）ずつ伸びるので、上限が無いぶん収入の桁に追従する
+   シンクになる。旧セーブのレベルはそのまま読める（上限を広げただけ） */
+const MILESTONE_LVS = [10, 25, 50, 100];
+const MILESTONE_SHARE = 0.5;   /* 節目で上乗せする Lv の割合 */
+function milestoneBonus(lv){ let b = 0; for(const c of MILESTONE_LVS) if(lv >= c) b += c * MILESTONE_SHARE; return b; }
+function nextMilestone(lv){ return MILESTONE_LVS.find(c => c > lv) || null; }
+/* パネル用: 「節目ボーナス +N Lv 分・次は LvM」の一言 */
+function milestoneNote(def, lv){
+  if(!def.ms) return "";
+  const b = milestoneBonus(lv), nx = nextMilestone(lv);
+  return "<br>" + (b > 0 ? "節目ボーナス +" + b + "Lv分・" : "") + (nx ? "節目 Lv" + nx + " で +" + (nx * MILESTONE_SHARE) + "Lv分" : "全節目達成");
+}
+/* 効果の計算に使う実効レベル（レベル ＋ 節目ボーナス） */
+function upEff(up, id){ const lv = up[id] || 0; return lv + milestoneBonus(lv); }
 /* 全DP 倍率: どの強化を買っても、ライン全体（実装と全工程）が目に見えて速くなる
    （理念書4「成長をはっきり体感させる」。v2.8.0 で自分の工程だけに絞ったのは、
    詰まっていない工程の強化が何も変えず、買っても手応えがなかったので戻した）。
    工程ごとの差は、設備の速度（equipDP）と担当スタッフの足し算で付く */
 function dpMult(up){
-  return 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);
+  return 1 + 0.05*upEff(up, "keyboard") + 0.08*upEff(up, "ide") + 0.03*upEff(up, "ci") + 0.04*upEff(up, "pack");
 }
-function qaPerMin(up){ return BAL.qaBasePerMin + 0.4*(up.duck||0) + 1.2*(up.tester||0); }
+function qaPerMin(up){ return BAL.qaBasePerMin + 0.4*upEff(up, "duck") + 1.2*upEff(up, "tester"); }
 

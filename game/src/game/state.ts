@@ -41,8 +41,6 @@ function stateTick(now){
   if(S.project && S.project.planning && Math.random() < 0.7){
     setState("think", 4000); say("企画を考え中…ひらめき待ちにゃ"); return;
   }
-  /* 企画会議中は考え込む（実装は止まっている） */
-  if(inPlanMeet(S.project)){ setState("think", 4000); return; }
   // 次の状態を決める
   const idleLong = now - lastInputAt > 5*60000;
   const r = Math.random();

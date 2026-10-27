@@ -333,6 +333,20 @@ function renderStrip(){
     if(fFrac >= 1 && !fActive && blinkOn(50, 30)) sDrawSprite("icon_bolt", gx, G - 43, 1);
     if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
+    /* 2026-10-27: アイデアの蓄えで溜まりが速い時だけ、筒の上に倍率の札（文字のみ） */
+    const im = ideaChargeMult();
+    if(im >= 1.05 && !fActive && fFrac < 1){   /* 満タン・発動中は稲妻の場所なので出さない */
+      sctx.save();
+      sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      sctx.textAlign = "center";
+      sctx.textBaseline = "bottom";
+      sctx.lineWidth = 2;
+      sctx.strokeStyle = "#fff8ec";
+      sctx.strokeText("💡×" + im.toFixed(1), gx, G - 45);
+      sctx.fillStyle = "#4a3b2c";
+      sctx.fillText("💡×" + im.toFixed(1), gx, G - 45);
+      sctx.restore();
+    }
     stripHitRects.fever = { x: gx - 7, y: G - 52, w: 14, h: 52 };
   }
   /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
