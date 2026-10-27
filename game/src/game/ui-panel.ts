@@ -395,27 +395,38 @@ function renderPanel(){
     for(const role of Object.keys(DEPTS)){
       const d = DEPTS[role], def = STAFF_ROLES[role], lv = deptLv(role), n = ss.byRole[role] || 0;
       const maxed = lv >= DEPT_MAX_LV, chief = deptChief(role), locked = roleLocked(role);
-      /* 見出しも猫も同じカード形（絵の枠・名前＋Lv・説明・下にボタン列）。雇用は見出しカードのボタン列へ */
+      /* 部署は工場の工程カードと同じ作り（色の上辺・名前とLv・大きな数字・Lvのバー・小さな説明）で、雇用もここに置く。
+         所属の猫はスケッチどおり1行ずつの軽い行にして、部署との情報量の差をはっきりさせる */
+      const total = role === "prog" ? [ss.prog.toFixed(1), "DP/分", "実装の合計"]
+        : role === "test" ? [ss.qa.toFixed(1), "バグ/分", "テスト速度 +" + ss.testDP.toFixed(0) + " DP/分"]
+        : role === "carry" ? [ss.ship.toFixed(0), "DP/分", "出荷の合計"]
+        : role === "research" ? [ss.rp.toFixed(2), "研究P/分", "研究の合計"]
+        : role === "care" ? [ss.careW.toFixed(1), "お世話力", "集中力の減りを抑える"]
+        : role === "sales" ? [String(S.staff.filter(x => x.role === "sales").reduce((a, x) => a + x.lv + lv - 1, 0)), "担当力", "依頼を自動で取ってくる"]
+        : [ss.cheer.toFixed(1), "回/秒", "みゅけの横で応援"];
       h += "<div class='deptcol" + (locked ? " locked" : "") + "'>" +
-        "<div class='staffcard deptcard deptcol-head' data-fix='hire:" + role + "'>" +
-        "<div class='sc-row'><div class='sc-img'>" + d.icon + "</div>" +
-        "<div class='sc-main'><div class='sc-top'><span class='nm'>" + d.name + "</span><span class='lvbadge'>Lv" + lv + "</span></div>" +
-        "<div class='sc-eff'>" + def.stage + " ・ " + n + "人</div></div></div>" +
-        "<div class='sc-eff sc-desc'>出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → ×" + (deptMult(role) + 0.15).toFixed(2)) +
-        (locked ? "<br>社格「" + rankName(CHEER_STAFF_RANK) + "」から" : "") + "</div>" +
-        "<div class='sc-btns'>" +
+        "<div class='depthead' data-fix='hire:" + role + "'>" +
+        "<div class='rh'><span>" + d.icon + "</span><span class='nm'>" + d.name + "</span><span class='dlv'>Lv" + lv + "</span></div>" +
+        "<div class='rv'>" + total[0] + " <small>" + total[1] + "</small></div>" +
+        "<span class='lampbar'><i style='width:" + Math.round(lv / DEPT_MAX_LV * 100) + "%'></i></span>" +
+        "<div class='rs'>" + total[2] + "</div>" +
+        "<div class='rs'>所属 " + n + "人 ・ ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : "→" + (deptMult(role) + 0.15).toFixed(2)) + "</div>" +
+        (locked ? "<div class='rs'>社格「" + rankName(CHEER_STAFF_RANK) + "」から</div>" : "") +
+        "<div class='dh-btns'>" +
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ")) +
         buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +
         "</div></div>";
       for(const st of S.staff.filter(x => x.role === role)){
         const m = staffOutMult(st) * deptMult(role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
-        const tc = trainCost(st), smax = st.lv >= STAFF_MAX_LV;
-        h += "<div class='staffcard deptcard'>" +
-          "<div class='sc-row'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
-          "<div class='sc-main'><div class='sc-top'><span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span></div>" +
-          "<div class='sc-eff'>" + COAT_NAMES[st.coat] + (chief === st ? " ・ ⭐部長" : "") + "</div></div></div>" +
-          "<div class='sc-eff sc-desc'>" + staffEff(st, m) + "</div>" +
-          "<div class='sc-btns'>" + (smax ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")", false, "育成 ")) + "</div></div>";
+        const tc = trainCost(st), smax = st.lv >= STAFF_MAX_LV, eff = staffEff(st, m);
+        /* 行には自分の分の数字だけ（工程名と単位は列の見出しにある）。全文は title に */
+        const short = def.unit ? "+" + (def.out * m).toFixed(def.out < 1 ? 2 : 1)
+          : role === "sales" ? "担当 " + (st.lv + lv - 1) : "×" + m.toFixed(2);
+        h += "<div class='catrow' title='" + esc(st.name + "（" + COAT_NAMES[st.coat] + "）" + eff) + "'>" +
+          "<div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
+          "<div class='sc-top'><span class='nm'>" + (chief === st ? "⭐" : "") + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span></div>" +
+          "<div class='cr-bot'><span class='sc-eff'>" + short + "</span>" +
+          (smax ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")")) + "</div></div>";
       }
       h += "</div>";
     }
