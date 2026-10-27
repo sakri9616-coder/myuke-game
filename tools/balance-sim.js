@@ -69,9 +69,12 @@ const BAL = extractLiteral("BAL");
 const UPGRADE_DEFS = extractLiteral("UPGRADE_DEFS").map(d => ({ id: d.id, base: d.base, max: d.max }));
 const cost = (def, lv) => Math.ceil(def.base * Math.pow(1.15, lv));
 /* 工程中心（2026-10-27・game と同一）: 強化は自分の工程にだけ効く */
-const dpMult = up => 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);   /* 全DP（game の dpMult。実装と全工程に効く） */
+/* 節目ジャンプ（game の milestoneBonus / upEff と同じ）: Lv10・25・50・100 に届くとその Lv の半分を上乗せ */
+const MILESTONE_LVS = [10, 25, 50, 100];
+const ue = (o, id) => { const lv = o[id] || 0; return lv + MILESTONE_LVS.reduce((a, c) => lv >= c ? a + c * 0.5 : a, 0); };
+const dpMult = up => 1 + 0.05*ue(up, "keyboard") + 0.08*ue(up, "ide") + 0.03*ue(up, "ci") + 0.04*ue(up, "pack");   /* 全DP（game の dpMult。実装と全工程に効く） */
 const buildEquipMult = () => 1;   /* v2.8.0 のビルド倍率は廃止（全DP に戻した） */
-const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*(up.duck||0) + 1.2*(up.tester||0) + (res.res_duckplay?0.2:0) + ss.qa;
+const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*ue(up, "duck") + 1.2*ue(up, "tester") + (res.res_duckplay?0.2:0) + ss.qa;
 /* 研究（ゲームの RESEARCH_DEFS と同じ並び・価格）
    Sprint 4: ティア2（前提つき）を追加。ジャンル依存の効果（res_game2/ai2/robot2）は
    sim がジャンルを引いていないため未モデル化（影響は軽微な範囲に留まる） */
@@ -202,8 +205,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     return {
       ss,
       /* game の stageMult と同じ: 後工程にも実装と同じ会社全体の倍率が掛かる */
-      test: (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + ss.testDP) * stageMultSim("test"),
-      build: (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * buildEquipMult(up) * stageMultSim("build"),
+      test: (BAL.stageBaseRate + BAL.equipDP.tester*ue(up, "tester") + ss.testDP) * stageMultSim("test"),
+      build: (BAL.stageBaseRate + BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * buildEquipMult(up) * stageMultSim("build"),
       ship: (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + ss.ship) * stageMultSim("ship"),
       bot: 2*(up.bot||0)*(res.res_bottrain ? 1.5 : 1)*(res.res_bot2 ? 1.5 : 1)   /* Sprint 4: ボットAI学習 */
     };
@@ -244,7 +247,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   }
   function release(sz, isLine2, plv, scale){
     scale = scale || 1;
-    let c = BAL.coinBase[sz] * scale * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
+    let c = BAL.coinBase[sz] * scale * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*ue(up, "ci")) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
     let r = Math.round(BAL.rpBase[sz] * Math.sqrt(scale));   /* game と同じ（研究Pは桁の平方根） */
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -543,9 +546,9 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       const R = rates(), bm = buildEquipMult(up);
       const cfD = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
       const boostD = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
-      const inv = (R.bot + R.ss.prog) * dpMult(up) + (BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) + ((BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + BAL.stageBaseRate * (bm - 1)) + (BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
-      const all = ((BAL.basePerMin + boostD) * cfD + R.bot + R.ss.prog) * dpMult(up) + (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) +
-        (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      const inv = (R.bot + R.ss.prog) * dpMult(up) + (BAL.equipDP.tester*ue(up, "tester") + R.ss.testDP) + ((BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * bm + BAL.stageBaseRate * (bm - 1)) + (BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      const all = ((BAL.basePerMin + boostD) * cfD + R.bot + R.ss.prog) * dpMult(up) + (BAL.stageBaseRate + BAL.equipDP.tester*ue(up, "tester") + R.ss.testDP) +
+        (BAL.stageBaseRate + BAL.equipDP.ci*ue(up, "ci") + BAL.equipDP.pack*ue(up, "pack")) * bm + (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
       shareSum += inv / all; shareN++;
       staffShare7 = shareSum / shareN;
     }

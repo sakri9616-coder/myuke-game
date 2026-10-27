@@ -522,7 +522,7 @@ function renderPanel(){
       if(def.id === "bot") continue;   /* ボットは「同僚」枠としてグリッドの外に別掲 */
       const lv = S.upgrades[def.id]||0, cost = upgradeCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='up:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span> <span class='tagchip'>"+def.stage+"</span>"+
-        "<div class='ds'>"+def.desc+"</div></div>"+
+        "<div class='ds'>"+def.desc+milestoneNote(def, lv)+"</div></div>"+
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("up:"+def.id, cost, "coins", "buyUpgrade(\""+def.id+"\")"))+"</div>";
     }
     h += "</div>";
@@ -690,7 +690,7 @@ function renderPanel(){
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
-        "<div class='ds'>"+def.desc+"</div></div>"+
+        "<div class='ds'>"+def.desc+milestoneNote(def, lv)+"</div></div>"+
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "coins", "buyClickUp(\""+def.id+"\")"))+"</div>";
     }
     h += "</div>";
