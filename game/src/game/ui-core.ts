@@ -109,6 +109,67 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
   const aria = (prefix ? prefix.replace(/<[^>]*>/g, "") : "購入") + " " + fmt(cost) + unit + (a.almost ? "（あと " + fmt(a.deficit) + unit + "）" : "");
   return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + " aria-label='" + esc(aria) + "'>" + label + "</button>";
 }
+/* 購入ボタンの長押し: 押している間、加速しながら買えるだけ買う。
+   - ボタンは再描画で作り直されるので、要素ではなく onclick の「動詞(引数)」を覚えて買い続ける
+   - 1歩ごとに buyMany で n 回まとめて買う (保存・再描画は1歩に1回)。n と間隔は押している長さで増える
+   - 長押しが始まったら、指を離した時の click は捨てる (1回余計に買わない)
+   - 管理ウィンドウ (viewer) では1歩を1コマンドで帯へ送り、返事が来てから次の歩に進む */
+const BUY_HOLD_DELAY = 380;   /* これより長く押したら長押し */
+const buyHold = { verb: "", args: null as any[] | null, timer: 0, start: 0, active: false, eatClick: false };
+function buyHoldParse(btn){
+  const m = /^\s*(\w+)\((.*)\)\s*$/.exec(btn.getAttribute("onclick") || "");
+  if(!m || !Object.prototype.hasOwnProperty.call(HOLD_VERBS, m[1])) return null;
+  try{ return { verb: m[1], args: JSON.parse("[" + m[2] + "]") }; }catch(e){ return null; }
+}
+function buyHoldStop(){
+  clearTimeout(buyHold.timer);
+  buyHold.timer = 0; buyHold.verb = ""; buyHold.args = null;
+  buyHold.active = false;
+}
+function buyHoldStep(){
+  if(!buyHold.verb) return;
+  buyHold.active = true;
+  buyHold.eatClick = true;
+  const t = (Date.now() - buyHold.start) / 1000;
+  /* 最初の約1秒は1個ずつ、そのあと 0.6秒ごとに倍。間隔も 260ms → 90ms へ縮める */
+  const n = t < 1 ? 1 : Math.min(200, Math.ceil(Math.pow(2, (t - 1) / 0.6)));
+  const gap = Math.max(90, 260 - t * 170);
+  const next = (bought) => {
+    if(!buyHold.verb) return;
+    if(!(bought >= n)){ buyHoldStop(); return; }   /* 買えなくなったら止める */
+    buyHold.timer = setTimeout(buyHoldStep, gap);
+  };
+  if(IS_VIEWER){
+    sendMenuCmd("buyMany", [buyHold.verb, buyHold.args, n], null, (m) => {
+      next(m && m.ok && m.payload ? Number(m.payload.value) || 0 : 0);
+    });
+  } else next(buyMany(buyHold.verb, buyHold.args, n));
+}
+try{
+  document.addEventListener("pointerdown", (e) => {
+    buyHoldStop();
+    buyHold.eatClick = false;
+    if(e.button !== 0) return;
+    const btn = e.target && (e.target as HTMLElement).closest ? (e.target as HTMLElement).closest("button.buybtn") as HTMLButtonElement : null;
+    if(!btn || btn.disabled) return;
+    const p = buyHoldParse(btn);
+    if(!p) return;
+    buyHold.verb = p.verb; buyHold.args = p.args; buyHold.start = Date.now() + BUY_HOLD_DELAY;
+    buyHold.timer = setTimeout(buyHoldStep, BUY_HOLD_DELAY);
+  }, true);
+  for(const ev of ["pointerup", "pointercancel"]) document.addEventListener(ev, () => {
+    buyHoldStop();
+    /* 押した要素が再描画で消えていると click は来ないので、捨てる指示は少しで失効させる */
+    if(buyHold.eatClick) setTimeout(() => { buyHold.eatClick = false; }, 60);
+  }, true);
+  window.addEventListener("blur", buyHoldStop);
+  document.addEventListener("click", (e) => {
+    if(!buyHold.eatClick) return;
+    buyHold.eatClick = false;
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+  document.addEventListener("contextmenu", (e) => { if(buyHold.verb) e.preventDefault(); }, true);   /* タッチ長押しのメニューを出さない */
+}catch(e){}
 /* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
 function setTextIfChanged(id, text){
   const el = document.getElementById(id);
