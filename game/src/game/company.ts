@@ -28,7 +28,28 @@ function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv
 function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
   const base = sub.staff * subLvMult(sub) * subFocus(sub) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
-  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」 */
+  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")) * branchMult("b_subs") * seriesSubMult(), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」／段階6: 星屑の枝とシリーズの相乗 */
+}
+/* 段階6: 配当と再投資。売上のうち配当率ぶんが本社のコインに入り、残りは子会社が自分の人員と規模に
+   つぎ込む（複利）。配当を絞るほど今のコインは減り、子会社は速く育つ */
+function subDiv(sub){ return typeof sub.div === "number" ? sub.div : 100; }
+function setSubDiv(id, delta){
+  const sub = (S.subs || []).find(s => s.id === id);
+  if(!sub) return;
+  sub.div = Math.max(0, Math.min(100, subDiv(sub) + delta));
+  save(); renderPanel();
+}
+function subReinvest(sub, coins){
+  sub.reinv = (sub.reinv || 0) + coins;
+  for(let guard = 0; guard < 50; guard++){
+    /* 人員と規模のうち、値段あたりの伸びが大きいほうを買う */
+    const hc = subHeadCost(sub), sc = sub.lv < SUB_MAX_LV ? subScaleCost(sub) : Infinity;
+    const hg = 1 / sub.staff / hc, sg = (subLvMult({ lv: sub.lv + 1 }) / subLvMult(sub) - 1) / sc;
+    const scale = sg > hg, c = scale ? sc : hc;
+    if(sub.reinv < c) break;
+    sub.reinv -= c;
+    if(scale) sub.lv++; else sub.staff++;
+  }
 }
 /* 段階4: 子会社の売却益も企業価値から（その子会社の1時間の売上 ÷ 星屑1個ぶんの企業価値）。
    旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
@@ -136,17 +157,38 @@ function sellSub(id){
 const DUST_PERKS = [
   { id:"starlight", name:"星あかり",     cost:1,  desc:"フィーバーのゲージが +15% たまりやすくなります" },
   { id:"omamori",   name:"星屑のお守り", cost:1,  desc:"金の魚の間隔が -5% になります（幸運のヒレと重なります）" },
-  { id:"piggybank", name:"星の貯金箱",   cost:2,  desc:"売却時、所持コインの 10%（最大 500🪙）を新会社に持ち越します" },
+  { id:"piggybank", name:"星の貯金箱",   cost:2,  desc:"売却時、所持コインの 10%（上限は前の会社の収入30分ぶん）を新会社に持ち越します" },
   { id:"stardecor", name:"棚の星飾り",   cost:2,  desc:"帯の作品棚の天板に星の飾りが出ます（見た目の自慢）" },
-  { id:"seedmoney", name:"初期資金",     cost:3,  desc:"売却して創業した直後の所持コインが 300🪙 から始まります" },
+  { id:"seedmoney", name:"初期資金",     cost:3,  desc:"新会社が、前の会社の自動収入10分ぶん（最低 3,000🪙）を持って始まります" },
   { id:"dreamplus", name:"夢の続き",     cost:3,  desc:"夢のお土産（30分以上あけて戻った時のアイデア）が +1 個増えます" },
   { id:"focus",     name:"集中ブースト", cost:4,  desc:"応援クリックの威力 +10%" },
   { id:"notebook",  name:"研究ノート",   cost:6,  desc:"売却時に、完了した研究を1件（最も研究Pが高かったもの）引き継ぎます" },
   { id:"veteran",   name:"ベテラン制度", cost:8,  desc:"売却時に、最も育ったスタッフ1人が新会社に来てくれます" },
-  /* Sprint 4: レベル制（反復購入できる星屑シンク）。S.dustPerks[id] に数値で持つ */
-  { id:"starcharm", name:"星のチャーム", lv:true, baseCost:3, costMul:1.8, maxLv:10, desc:"生産 +2%/Lv（最大Lv10）" },
-  { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:10, desc:"フィッシュの間隔 -8%/Lv（最大Lv10）" }
+  /* Sprint 4: レベル制（反復購入できる星屑シンク）。S.dustPerks[id] に数値で持つ。段階6: 星のチャームは廃止（枝に置き換え） */
+  { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:10, desc:"フィッシュの間隔 -8%/Lv（最大Lv10）" },
+  /* 段階6: 収入源ごとの枝（上限なし）。1Lv +15%。その会社でその収入源の強化の列に投資したほど強く効く
+     （列の Lv 20 ごとに枝の効きが +100%）。どの収入源を主役にするかで、星屑の使い道も分かれる */
+  { id:"b_labor",   name:"星の肉球（労働）",   lv:true, branch:"labor",   baseCost:2, costMul:1.5, maxLv:Infinity, desc:"応援クリックの威力" },
+  { id:"b_line",    name:"星の工房（本社ライン）", lv:true, branch:"line",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品の売上（作りながら・リリース時）" },
+  { id:"b_catalog", name:"星の棚（作品棚）",   lv:true, branch:"catalog", baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品棚とシリーズの売上" },
+  { id:"b_sales",   name:"星の名刺（営業）",   lv:true, branch:"sales",   baseCost:2, costMul:1.5, maxLv:Infinity, desc:"依頼達成ボーナス" },
+  { id:"b_subs",    name:"星の持株（子会社）", lv:true, branch:"subs",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"子会社の売上" }
 ];
+/* 枝が効く強さの元: この会社でその収入源の列に積んだ Lv（労働は応援強化。腕前なので売却しても残る） */
+const BRANCH_ENGINE = { labor: null, line: "direct", catalog: "promo", sales: "scout", subs: "gmgmt" };
+function branchInvest(src){
+  const e = BRANCH_ENGINE[src];
+  return e ? (S.upgrades[e] || 0) : ((S.clickUp.paw || 0) + (S.clickUp.glove || 0)) / 2;
+}
+function branchMult(id){
+  const lv = perkLv(id);
+  if(!lv) return 1;
+  const def = DUST_PERKS.find(p => p.id === id);
+  return 1 + 0.15 * lv * (1 + branchInvest(def.branch) / 20);
+}
+/* 段階6: シリーズの相乗（自社IP 1本ごとに 子会社の売上 +10%・依頼達成ボーナス +5%） */
+function seriesSubMult(){ return 1 + 0.1 * (S.ips || []).length; }
+function seriesReqMult(){ return 1 + 0.05 * (S.ips || []).length; }
 function fishIntervalMul(){ return (1 - 0.08 * perkLv("luckyfin")) * (hasPerk("omamori") ? 0.95 : 1); }   /* 第2ウェーブ I: 星屑のお守りで別枠 -5% */
 function buyDustPerk(id){
   const def = DUST_PERKS.find(p => p.id === id);
@@ -181,7 +223,7 @@ function prestigePreview(){
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
   const gain = dustGainFromValue(S.runPeakValue || 0);
   const total = dustTotal();
-  const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン"];
+  const resets = ["コイン", "アップグレード", "研究", "スタッフ"];
   if((S.subs || []).length) resets.push("子会社");
   const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典", "応援強化と応援P（みゅけの腕前）", "ジャンル知見（余った研究P " + fmt(Math.floor(S.rp || 0)) + " も知見になる）"];
   if(hasPerk("veteran") && S.staff.length){
@@ -194,8 +236,10 @@ function prestigePreview(){
     resets.splice(resets.indexOf("研究"), 1);
     keeps.push("研究『"+nbTop.name+"』"+(nbTop.requires ? "とその前提" : "")+"（研究ノート）");
   }
-  if(hasPerk("seedmoney")) keeps.push("初期資金 3,000🪙");
-  if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大5,000🪙を持ち越し）");
+  if(hasPerk("seedmoney")) keeps.push("初期資金 " + fmt(seedMoney()) + "🪙");
+  if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10% " + fmt(piggyCarry(S.coins)) + "🪙 を持ち越し）");
+  const nx = nextExitMs();
+  if(nx && (S.prestiges || 0) + 1 >= nx.n) keeps.push("EXIT の節目「" + nx.name + "」が開く");
   if(S.executives && S.executives.length) keeps.push("役員 " + S.executives.map(e => "『"+e.name+"』").join(""));   /* 第2ウェーブ M */
   return {
     gain, subGain,
@@ -274,6 +318,24 @@ function doPrestige(){
    viewer 側スタブで済ませる (resetSave / doResetSave と同じ分担)。
    帯 (owner) で confirm を出すと帯のスレッドがモーダルで止まり、cmd-result も
    スナップショットも返らなくなって全体が固まる (v2.4.7 実機バグ・二窓リグで再現済み) */
+/* 段階6: EXIT の節目。売却の回数で、2社目以降の立ち上がりを短くする仕組みが増えていく（持株化でも残る） */
+const EXIT_MILESTONES = [
+  { n: 1,  id: "autoResearch", name: "研究の自動選択", desc: "研究部がなくても、安い研究から自動で進めます" },
+  { n: 3,  id: "start2",       name: "零細から創業",   desc: "新会社が社格「零細」から始まります" },
+  { n: 5,  id: "autoEquip",    name: "設備の自動購入", desc: "所持コインの半分で買える設備を自動で買います" },
+  { n: 8,  id: "start3",       name: "中小から創業",   desc: "新会社が社格「中小」から始まります" },
+  { n: 12, id: "autoDept",     name: "部署の自動 Lv.up", desc: "所持コインの半分で上げられる部署を自動で上げます" }
+];
+function exitMs(id){ const m = EXIT_MILESTONES.find(x => x.id === id); return !!m && (S.prestiges || 0) >= m.n; }
+function nextExitMs(){ return EXIT_MILESTONES.find(m => (S.prestiges || 0) < m.n) || null; }
+function startRank(){ return exitMs("start3") ? 3 : exitMs("start2") ? 2 : 1; }
+function exitMsHTML(){
+  return "<div class='note' style='margin-top:4px'>🎖 EXIT の節目: " + EXIT_MILESTONES.map(m =>
+    ((S.prestiges || 0) >= m.n ? "✅" : "○") + m.n + "回 " + m.name).join(" ／ ") + "</div>";
+}
+/* 段階6: 固定額だった持ち越しを、前の会社の自動収入の N 分ぶんにした（桁が上がっても効き目が残る） */
+function seedMoney(){ return Math.max(3000, Math.floor(autoIncomePerSec() * 600)); }
+function piggyCarry(coins){ return Math.min(Math.floor(coins * 0.1), Math.max(5000, Math.floor(autoIncomePerSec() * 1800))); }
 /* 会社ひとつ分の状態を新会社の初期値へ戻す（EXIT と持株化で共通）。
    特典による持ち越しは呼び出し側がこの後に上書きする */
 function resetCompanyRun(){
@@ -288,7 +350,7 @@ function resetCompanyRun(){
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
-  S.studioLv = 1;   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む） */
+  S.studioLv = startRank();   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む）。段階6: EXIT の節目で開始社格が上がる */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };
 }
@@ -297,6 +359,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   const gain = pv.gain;
   if(gain < 3) return;   /* 第2ウェーブ I: 小口 EXIT の下限は 3 個 */
   const coinsBefore = S.coins;   /* 星の貯金箱の持ち越し計算用（リセット前に確保） */
+  const carryCoins = (hasPerk("seedmoney") ? seedMoney() : 0) + (hasPerk("piggybank") ? piggyCarry(coinsBefore) : 0);   /* 段階6: 前の会社の収入の N 分ぶん */
   /* 第2ウェーブ M: 役員候補はリセット前に確定する（未指定なら act 1位） */
   let execCand = null;
   if(execSel !== "__none" && S.staff.length){
@@ -332,7 +395,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
   resetCompanyRun();
   /* 特典の引き継ぎ: 初期資金・星の貯金箱・研究ノート・ベテラン */
-  S.coins = (hasPerk("seedmoney") ? 3000 : 0) + (hasPerk("piggybank") ? Math.min(5000, Math.floor(coinsBefore * 0.1)) : 0);   /* 段階3: コインの桁 ×10 に合わせた */
+  S.coins = carryCoins;
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   if(keptStaff){ S.staff = [keptStaff]; S.staffSeq = Math.max(S.staffSeq, keptStaff.id); }
   addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round((dustMultFor(S.dustTotal) - 1)*100)+"%）");
@@ -356,8 +419,9 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   }
   if(keptStaff) addLog("⭐ ベテラン制度: "+keptStaff.name+"（Lv"+keptStaff.lv+"）が一緒についてきた");
   if(keptResearch && keptResearch.length) addLog("⭐ 研究ノート: 『"+(RESEARCH_DEFS.find(r=>r.id===keptResearch[0])||{}).name+"』を引き継いだ");
-  if(hasPerk("seedmoney")) addLog("⭐ 初期資金: 300🪙 からスタート");
-  if(hasPerk("piggybank") && S.coins > (hasPerk("seedmoney") ? 300 : 0)) addLog("⭐ 星の貯金箱: 前の会社のコインを持ち越した");
+  if(carryCoins > 0) addLog("⭐ " + (hasPerk("seedmoney") ? "初期資金" : "") + (hasPerk("seedmoney") && hasPerk("piggybank") ? "と" : "") + (hasPerk("piggybank") ? "星の貯金箱" : "") + ": " + fmt(carryCoins) + "🪙 からスタート");
+  const msNow = EXIT_MILESTONES.find(m => m.n === S.prestiges);
+  if(msNow) addLog("🎖 EXIT " + msNow.n + " 回目の節目: 「" + msNow.name + "」— " + msNow.desc);
   say("売却成立だにゃ〜！ 星屑"+gain+"個ゲット");
   startProject("S");
   /* 第2ウェーブ M: 役員がいる会社の創業は「おかえり」から始まる */
@@ -369,32 +433,37 @@ function doPrestigeCore(execSel, vetSel, swapSel){
 }
 
 /* ---------- 第2ウェーブ J: ホールディングス化（第2層プレステージ） ----------
-   条件は最高到達社格 Lv6＋子会社2社＋EXIT 5回。持株化は EXIT のリセットに
+   条件は最高到達社格 Lv6＋子会社2社＋EXIT 12回＋時代の通算星屑（段階6）。持株化は EXIT のリセットに
    「第1層（星屑・星屑特典・通算星屑）を畳む」を足したもので、星団とレガシー
    技術・作品棚・実績・最高到達社格・レイアウトは残る。星団の益は時代の
-   通算星屑（eraDust＝星屑を買っても減らない）÷20・最低1 — 特典を買うことが
+   通算星屑（eraDust＝星屑を買っても減らない）の桁3つごとに1個・最低1 — 特典を買うことが
    星団を減らさない形にしてある */
 const LEGACY_TECHS = [
   { id:"forecast", name:"トレンド予報",       cost:1, desc:"次の市場の流れ（ブームと不況）が先読みできます" },
-  { id:"grade1",  name:"オフィスグレード I",   cost:1, desc:"帯の棚に金の星の置物が出ます" },
   { id:"cap1",    name:"上限拡張 I",           cost:2, desc:"スタッフ上限 +6" },
   { id:"ai_base", name:"AI 開発基盤",          cost:2, desc:"モジュールの品質上限 1.5 → 1.75" },
   { id:"group",   name:"グループ経営",         cost:2, desc:"子会社の収益 +30%" },
   { id:"quantum", name:"量子コンピュータ",     cost:3, desc:"全生産 +25%" },
-  { id:"cap2",    name:"上限拡張 II",          cost:3, req:"cap1", desc:"スタッフ上限 さらに +6（合わせて最大48人）" },
-  { id:"grade2",  name:"オフィスグレード II",  cost:2, req:"grade1", desc:"別館看板が金の本社看板になります" },
-  { id:"grade3",  name:"オフィスグレード III", cost:3, req:"grade2", desc:"帯の棚に金のトロフィーが出ます" }
+  { id:"cap2",    name:"上限拡張 II",          cost:3, req:"cap1", desc:"スタッフ上限 さらに +6（合わせて最大48人）" }
 ];
 function hasLegacyTech(id){ return !!(S.legacyTech && S.legacyTech[id]); }
-function legacyGrade(){ return hasLegacyTech("grade3") ? 3 : hasLegacyTech("grade2") ? 2 : hasLegacyTech("grade1") ? 1 : 0; }
+/* 段階6: 見た目だけのオフィスグレードは星団で買わず、持株化の回数で開く（星団は力の解放だけに使う）。
+   1回目: 棚に金の星・2回目: 金の本社看板・3回目: 金のトロフィー */
+function legacyGrade(){ return Math.min(3, S.holdings || 0); }
+/* 段階6: 持株化までの長さ。EXIT 5回 → 12回（節目をひと通り開いてから）に加えて、この時代の通算星屑 100京個。
+   星屑の倍率が掛け算になってから EXIT の回数は1日目に12回を超える（sim）ので、回数だけでは持株化が早すぎた。
+   通算星屑の桁で測り、放置 1日3時間で約1週間（sim の参考値）にそろえる */
+const HOLD_EXITS = 12, HOLD_ERA_DUST = 1e18;
 function holdingsPreview(){
   const cond = {
     lv6: (S.maxStudioLv || 1) >= 6,
     subs: (S.subs || []).length >= 2,
-    exits: (S.prestiges || 0) >= 5
+    exits: (S.prestiges || 0) >= HOLD_EXITS,
+    era: (S.eraDust || 0) >= HOLD_ERA_DUST
   };
-  return { cond, can: cond.lv6 && cond.subs && cond.exits,
-           gain: Math.max(1, Math.floor((S.eraDust || 0) / 20)) };
+  /* 星団は通算星屑の桁で（÷20 のままだと 100京個から 5京個の星団が出て、レガシー技術が一度に全部買えた） */
+  return { cond, can: cond.lv6 && cond.subs && cond.exits && cond.era,
+           gain: Math.max(1, Math.floor(Math.log10(Math.max(1, S.eraDust || 0)) / 3)) };
 }
 function buyLegacyTech(id){
   const def = LEGACY_TECHS.find(t => t.id === id);
@@ -441,22 +510,25 @@ function doHoldings(){
    満たした瞬間に達成となり、報酬は EXIT でも持株化でも消えない
    永続パッシブ層 (challengeRewards) に入る。未達のまま会社を手放すと
    チャレンジは消える (ペナルティはそれだけ) */
-const BLACK_RUN_COINS_GOAL = 300000;
+/* 段階6: 目標の見直し。ブラック企業は累計コイン（桁が上がると一瞬で届いた）から企業価値へ。
+   社格の目標は開始社格 +3（EXIT の節目で開始社格が上がっても易しくならない） */
+const BLACK_GOAL_DUST = 10;
 const CHALLENGE_DEFS = [
-  { id:"minority", name:"少数精鋭",     rule:"スタッフ上限 6人（社格・技術より優先）／ スタッフの出力 +25%", goal:"スタジオ Lv4 到達", reward:"全スタッフの出力 +10%（永続）" },
-  { id:"black",    name:"ブラック企業", rule:"バグ発生率 ×3 ／ 販売価格 ×2", goal:"この会社で累計 300,000🪙 稼ぐ", reward:"ブランドの増え幅 +50%（永続）" },
-  { id:"idle",     name:"完全放置",     rule:"応援クリックと実作業ブーストが DP を生まない ／ フィーバーは自動生産から細く貯まる", goal:"スタジオ Lv4 到達", reward:"自動生産 +15%（永続）" }
+  { id:"minority", name:"少数精鋭",     rule:"スタッフ上限 6人（社格・技術より優先）／ スタッフの出力 +25%", goal:"開始社格から 3 段上へ", reward:"全スタッフの出力 +10%（永続）" },
+  { id:"black",    name:"ブラック企業", rule:"バグ発生率 ×3 ／ 販売価格 ×2", goal:"企業価値を星屑 " + BLACK_GOAL_DUST + " 個ぶんまで", reward:"ブランドの増え幅 +50%（永続）" },
+  { id:"idle",     name:"完全放置",     rule:"応援クリックと実作業ブーストが DP を生まない ／ フィーバーは自動生産から細く貯まる", goal:"開始社格から 3 段上へ", reward:"自動生産 +15%（永続）" }
 ];
+function challengeGoalLv(){ return Math.min(STAFF_CAPS.length, (S.challenge && S.challenge.startLv || startRank()) + 3); }
 function challengeDef(id){ return CHALLENGE_DEFS.find(c => c.id === id) || null; }
 function challengeActive(id){ return !!(S.challenge && S.challenge.id === id); }
 function challengeStartable(){
   return !S.challenge && ((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1) &&
-    S.studioLv === 1 && (S.runPeakValue || 0) < BAL.valuePerDust;
+    S.studioLv === startRank() && (S.runPeakValue || 0) < BAL.valuePerDust;
 }
 function startChallenge(id){
   if(!challengeDef(id) || S.challenge) return;
   if(!challengeStartable()){ say("チャレンジは会社を設立した直後だけ受けられるにゃ"); return; }
-  S.challenge = { id: id, startCoins: S.totals.coinsEarned || 0 };
+  S.challenge = { id: id, startLv: S.studioLv };
   addLog("🎯 チャレンジ開始: 『"+challengeDef(id).name+"』— "+challengeDef(id).rule);
   say("チャレンジ『"+challengeDef(id).name+"』、はじめるにゃ！");
   save(); renderPanel();
@@ -471,8 +543,8 @@ function abandonChallenge(){
 function challengeGoalMet(){
   const c = S.challenge;
   if(!c) return false;
-  if(c.id === "black") return (S.totals.coinsEarned || 0) - (c.startCoins || 0) >= BLACK_RUN_COINS_GOAL;
-  return S.studioLv >= 4;   /* minority / idle は Lv4 到達が目標 */
+  if(c.id === "black") return (S.runPeakValue || 0) >= BLACK_GOAL_DUST * BAL.valuePerDust;
+  return S.studioLv >= challengeGoalLv();   /* minority / idle は開始社格 +3 */
 }
 function checkChallenge(){
   const c = S.challenge;

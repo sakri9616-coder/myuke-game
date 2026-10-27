@@ -128,7 +128,7 @@ let delegateClock = 0;
 /* 1秒ティックから（5秒に1回だけ動く） */
 function deptDelegateTick(){
   if(++delegateClock % 5) return;
-  if(delegated("research", 3)){
+  if(delegated("research", 3) || exitMs("autoResearch")){   /* 段階6: EXIT 1回目の節目でも */
     const next = RESEARCH_DEFS.filter(r => !S.research[r.id] && (!r.requires || S.research[r.requires])).sort((a, b) => a.cost - b.cost)[0];
     if(next && S.rp >= next.cost){ S.rp -= next.cost; S.research[next.id] = true; addLog("🔬 研究部が『" + next.name + "』を進めた（-" + next.cost + "🔬）"); }
   }
@@ -141,6 +141,17 @@ function deptDelegateTick(){
       }
     }
     if(delegated(role, 10) && !roleLocked(role) && S.staff.length < staffCap() && hireCost(role) <= S.coins * 0.5) hireStaff(role, true);
+  }
+  /* 段階6: EXIT の節目の自動購入（所持コインの半分で払える一番安いものを1つ。ログは出さない＝高頻度の買い物でログを埋めない） */
+  if(exitMs("autoEquip")){
+    let best = null, bc = Infinity;
+    for(const d of UPGRADE_DEFS){ const lv = S.upgrades[d.id] || 0; if(lv < d.max){ const c = upgradeCost(d, lv); if(c < bc){ bc = c; best = d; } } }
+    if(best && bc <= S.coins * 0.5){ S.coins -= bc; S.upgrades[best.id] = (S.upgrades[best.id] || 0) + 1; announceMilestone(best, S.upgrades[best.id]); }
+  }
+  if(exitMs("autoDept")){
+    let best = null, bc = Infinity;
+    for(const role of Object.keys(DEPTS)) if(deptLv(role) < DEPT_MAX_LV && !roleLocked(role) && deptCost(role) < bc){ bc = deptCost(role); best = role; }
+    if(best && bc <= S.coins * 0.5){ if(!S.depts) S.depts = freshDepts(); S.coins -= bc; S.depts[best] = deptLv(best) + 1; }
   }
 }
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------
@@ -249,7 +260,7 @@ function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }
 const CLICK_POWER_BASE = 0.25;   /* てぶくろ Lv0 の威力（持ち場の手助けで「威力の倍率」を測る基準） */
 function clickPower(){
   const base = CLICK_POWER_BASE + 0.18*upEff(S.clickUp, "glove");
-  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ */
+  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult() * branchMult("b_labor");   /* 星屑特典「集中ブースト」＋ご褒美バフ＋段階6の枝「星の肉球」 */
 }
 function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.quality||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0
 function critRate(){ return 0.08 + 0.01*(S.clickUp.quality||0); }

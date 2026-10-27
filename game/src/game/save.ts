@@ -57,7 +57,7 @@ function freshState(): GameState {
     /* 第2ウェーブ J 追加分: 第2層プレステージ（星団・レガシー技術・持株化回数・
        その時代の通算星屑）。持株化でのみ増減し、EXIT では消えない */
     legacy:0, legacyTech:{}, holdings:0, eraDust:0,
-    /* 第2ウェーブ K 追加分: 挑戦中のチャレンジ { id, startCoins } と、
+    /* 第2ウェーブ K 追加分: 挑戦中のチャレンジ { id, startLv }（段階6: 開始社格）と、
        獲得済みの永続報酬。報酬層は EXIT でも持株化でも消えない */
     challenge:null, challengeRewards:{},
     /* 第2ウェーブ L 追加分: 市場トレンド { boom, slump, nextBoom, nextSlump,
@@ -302,6 +302,7 @@ function load(rawText?: string){
     }
     S.wip = Object.assign({ code:0, tested:0, built:0 }, data.wip||{});
     delete (S as any).line2;   /* 段階5: 第2ラインは廃止（旧セーブの互換は持たない — sakuri 2026-10-27） */
+    if(S.dustPerks && typeof S.dustPerks === "object") delete S.dustPerks.starcharm;   /* 段階6: 星のチャームは廃止（枝に置き換え） */
     if(S.today.date !== todayKey()){
       S.today = { date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 };
     }
