@@ -28,7 +28,7 @@ const VERBS = {
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,
   startChallenge: startChallenge, abandonChallenge: abandonChallenge,
-  setDevGenrePref: setDevGenrePref, designateIP: designateIP,
+  setDevGenrePref: setDevGenrePref, designateIP: designateIP, planProject: planProject,
   doDeathMarch: doDeathMarchCore,
   outsourceBugs: outsourceBugsCore,
   moduleOutsource: moduleOutsourceCore,

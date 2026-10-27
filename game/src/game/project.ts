@@ -21,6 +21,30 @@ function drawSizeByTime(){
   S.bigDrawStreak = (BAL.sizes[size] / rate > 150) ? S.bigDrawStreak + 1 : 0;
   return size;
 }
+/* ---------- 企画を練る（2026-10-27・工程中心化）----------
+   余ったアイデアを、進行中の作品の企画に注ぎ込む。企画Lv 1つにつき
+   作品の価格 +15%・その作品のバグ混入 -15%（仕様が固まるほどテストが楽になる）。
+   最大 Lv3、練れるのは進捗が半分に届くまで。費用は作品の大きさに比例し、
+   Lv が上がるほど重い（totalDP/20 × 次のLv）。どの作品に練り込むかを選ぶのが判断になる */
+const PLAN_MAX = 3;
+function planLv(p){ return (p && p.planLv) || 0; }
+function planCost(p){ return Math.ceil(p.totalDP / 20) * (planLv(p) + 1); }
+function planPriceMult(p){ return 1 + 0.15 * planLv(p); }
+function planBugMult(p){ return 1 - 0.15 * planLv(p); }
+function canPlan(p, dp){ return !!p && p.size !== "TUT" && planLv(p) < PLAN_MAX && dp < p.totalDP * 0.5; }
+function planProject(which){
+  const l2 = which === "l2";
+  const p = l2 ? S.line2.project : S.project;
+  const dp = l2 ? S.line2.projectDP : S.projectDP;
+  if(!canPlan(p, dp)){ say("この作品の企画はもう練れないにゃ"); return; }
+  const cost = planCost(p);
+  if(S.ideas < cost){ say("アイデアが足りないにゃ（あと " + Math.ceil(cost - S.ideas) + " 個）"); return; }
+  S.ideas -= cost;
+  p.planLv = planLv(p) + 1;
+  addLog("💡 『" + p.name + "』の企画を練った（企画Lv" + p.planLv + "・価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "）");
+  say("企画を練ったにゃ！ いい作品になりそう");
+  save(); renderPanel();
+}
 /* プロジェクトの着工可否を決める: アイデアが足りれば消費して着工、
    足りなければ planning（企画中）にして、貯まるまで工程に流さない */
 function settleProject(p){

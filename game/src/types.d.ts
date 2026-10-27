@@ -32,6 +32,7 @@ interface Project {
   activeSec: number;
   modules?: ProjectModule[];
   ip?: boolean;
+  planLv?: number;   // 企画を練った回数（0〜3）
   deathMarch?: boolean;
   [k: string]: any;
 }

@@ -25,9 +25,9 @@ function recoatFor(st){
   return COATS[h % COATS.length];
 }
 const STAFF_ROLES = {
-  prog:    { name:"プログラマ猫", stage:"実装",   base:210, out:2.2,  unit:"DP/分",   desc:"コード生産 +2.2 DP/分" },
-  test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +4 DP/分" },
-  carry:   { name:"運搬係",       stage:"出荷",   base:150, out:5,    unit:"DP/分",   desc:"出荷速度 +5 DP/分" },
+  prog:    { name:"プログラマ猫", stage:"実装",   base:210, out:6,    unit:"DP/分",   desc:"コード生産 +6 DP/分" },
+  test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +8 DP/分" },
+  carry:   { name:"運搬係",       stage:"出荷",   base:150, out:8,    unit:"DP/分",   desc:"出荷速度 +8 DP/分" },
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
   care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" },
   sales:   { name:"営業",         stage:"営業",   base:230, out:0,    unit:"",        desc:"依頼を自動で取ってくる（Lvが高いほど良い依頼）" }
@@ -158,7 +158,7 @@ function computeStaffSums(){
     const m = staffOutMult(st) * deptMult(st.role), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み / Phase C: 部署Lv 倍率 */
     s.byRole[st.role] = (s.byRole[st.role]||0) + 1;
     if(st.role === "prog"){ s.prog += def.out * m; s.progW += m; }
-    if(st.role === "test"){ s.qa += def.out * m; s.testDP += 4 * m; }
+    if(st.role === "test"){ s.qa += def.out * m; s.testDP += BAL.testStaffDP * m; }
     if(st.role === "carry"){ s.ship += def.out * m; }
     if(st.role === "research"){ s.rp += def.out * m; }
     if(st.role === "care"){ s.careW += m; }

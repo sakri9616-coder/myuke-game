@@ -7,7 +7,9 @@
    - 生産: 基本進捗(8/分)＋入力ブーストは「コーディング系の状態」のときだけ進む。
      状態マシンの遷移確率（遊び約8%＋集中力切れの休憩）から稼働率 ≈ 0.93 と置く。
      子ねこボットとプログラマ猫は状態によらず常時生産する。
-   - 生産はすべて produceDP() を通る = dpMult × dustMult が掛かる。
+   - 生産はすべて produceDP() を通る = dpMult（実装の倍率: キーボード・IDE）× dustMult が掛かる。
+     工程中心（2026-10-27）: 後工程は 素の能力＋担当スタッフ＋設備 × 会社全体の倍率 × 反復研究。
+     応援は溜まった仕掛品を手で運んで出荷する（cheerCarry）。
      第2ラインは line2Rate() 自体に倍率が含まれ、さらに produceDP でも掛かる
      （出荷版の実装どおり二重適用を再現している）。
    - 工程: 生産 → 仕掛品 → テスト(bugFで減速) → ビルド → 出荷。各工程レート/分で処理し、
@@ -66,7 +68,9 @@ const GAME_STUDIO = (() => {
 const BAL = extractLiteral("BAL");
 const UPGRADE_DEFS = extractLiteral("UPGRADE_DEFS").map(d => ({ id: d.id, base: d.base, max: d.max }));
 const cost = (def, lv) => Math.ceil(def.base * Math.pow(1.15, lv));
-const dpMult = up => 1 + 0.05*(up.keyboard||0) + 0.08*(up.ide||0) + 0.03*(up.ci||0) + 0.04*(up.pack||0);
+/* 工程中心（2026-10-27・game と同一）: 強化は自分の工程にだけ効く */
+const dpMult = up => 1 + 0.08*(up.keyboard||0) + 0.12*(up.ide||0);   /* 実装の倍率（game の implMult） */
+const buildEquipMult = up => 1 + BAL.buildEquipPct * ((up.ci||0) + (up.pack||0));
 const qaPerMin = (up, res, ss) => BAL.qaBasePerMin + 0.4*(up.duck||0) + 1.2*(up.tester||0) + (res.res_duckplay?0.2:0) + ss.qa;
 /* 研究（ゲームの RESEARCH_DEFS と同じ並び・価格）
    Sprint 4: ティア2（前提つき）を追加。ジャンル依存の効果（res_game2/ai2/robot2）は
@@ -88,7 +92,7 @@ function staffSums(staff){
     const m = (1 + 0.25*(st.lv - 1)) * (st.lv >= 10 ? 1.3 : st.lv >= 5 ? 1.15 : 1);
     s.byRole[st.role] = (s.byRole[st.role]||0) + 1;
     if(st.role === "prog"){ s.prog += STAFF_ROLES.prog.out * m; s.progW += m; }
-    if(st.role === "test"){ s.qa += STAFF_ROLES.test.out * m; s.testDP += 4 * m; }
+    if(st.role === "test"){ s.qa += STAFF_ROLES.test.out * m; s.testDP += BAL.testStaffDP * m; }
     if(st.role === "carry"){ s.ship += STAFF_ROLES.carry.out * m; }
     if(st.role === "research"){ s.rp += STAFF_ROLES.research.out * m; }
     if(st.role === "care"){ s.careW += m; }
@@ -114,6 +118,7 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
    一人遊び約1.5回/分 (+2) → 約 4.2/分。リリース +2、お世話係の差し入れは微量 */
 const IDEA_COST = { TUT:0, XS:0, S:2, M:5, L:10 };
 const IDEA_PER_MIN = 4.2;
+const CARRY_MULT = (() => { const m = GAME_SRC.match(/carryMult: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.carryMult を抽出できない"); return +m[1]; })();
 const PLAYER = { minutesPerDay: 180, keysPerHour: 2400, cursorPxPerHour: 90000, requestMatchRate: 0.4,
                  clickSessions: [30, 90, 150], clickSessionMin: 3, clicksPerMin: 40,
                  codingFrac: 0.93,
@@ -180,18 +185,22 @@ function simulate(days, active, reqMode, prestigeAt, profile){
        Stage 7 (引っ越し gain>=3)= prestigeFeasibleDay (到達可能になった日。第2ウェーブ I で下限 3 に一致) */
   const sizePool = ["S","S","M","M","L"];
   let snapshot7 = null;
+  /* 工程中心の計測: いまの律速工程（30分ごとの多数決）と、その切り替わり回数 */
+  let bnStage = "impl", bnVotes = { impl:0, test:0, build:0, ship:0 }, bnBlock = null, bnSwitches = 0;
+  const bnTime = { impl:0, test:0, build:0, ship:0 };
+  let staffShare7 = null, shareSum = 0, shareN = 0, planBuys = 0;
 
   /* Sprint 3: 倍率は通算獲得で決まる。game の dustMult と同じく dustMultSoftcap 超は平方根 */
   const dustMult = () => { const c = BAL.dustMultSoftcap, d = dustTotal; return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c)); };
-  const stageMultSim = st => dpMult(up) * dustMult() * (1 + 0.05 * rep[st]);   /* game の stageMult と同じ（反復研究は工程ごと） */
+  const stageMultSim = st => dustMult() * firstBoost() * (1 + 0.05 * rep[st]);   /* game の stageMult と同じ（会社全体×一時的×反復研究。設備の％はビルドだけ） */
   const rates = () => {
     const ss = staffSums(staff);
     return {
       ss,
       /* game の stageMult と同じ: 後工程にも実装と同じ会社全体の倍率が掛かる */
-      test: (BAL.stageBaseRate + 6*(up.tester||0) + ss.testDP) * stageMultSim("test"),
-      build: (BAL.stageBaseRate + 5*(up.ci||0) + 4*(up.pack||0)) * stageMultSim("build"),
-      ship: (BAL.stageBaseRate + 6*(up.bot||0) + ss.ship) * stageMultSim("ship"),
+      test: (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + ss.testDP) * stageMultSim("test"),
+      build: (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * buildEquipMult(up) * stageMultSim("build"),
+      ship: (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + ss.ship) * stageMultSim("ship"),
       bot: 2*(up.bot||0)*(res.res_bottrain ? 1.5 : 1)*(res.res_bot2 ? 1.5 : 1)   /* Sprint 4: ボットAI学習 */
     };
   };
@@ -223,8 +232,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     if(bigStreak === 0 && BAL.sizes[size]/rate > 150) bigStreak = 1; else if(BAL.sizes[size]/rate <= 150) bigStreak = 0;
     return settle({ size, total: BAL.sizes[size], ideaCost: IDEA_COST[size]||0, planning: false });
   }
-  function release(sz, isLine2){
-    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*(up.ci||0)) * Math.sqrt(dustMult()) * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率。星屑は単価には平方根で効く (出荷数でも伸びるため。game と同じ) */
+  function release(sz, isLine2, plv){
+    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * Math.sqrt(dustMult()) * (1 + 0.15 * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率。星屑は単価には平方根で効く (出荷数でも伸びるため。game と同じ) */
     let r = BAL.rpBase[sz];
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -279,16 +288,30 @@ function simulate(days, active, reqMode, prestigeAt, profile){
          仕掛品へ（この sim 自身の工程キャップで堰き止められる） */
       const debtF = profile === "black" ? 1 / (1 + simDebt / 50) : 1;   /* 実機 produceDP の debtEff と同じ形 */
       const prodF = mlt * fb * resMultV * feverF * debtF;
-      const produced = (raw + clickRaw * 0.8) * prodF;
+      /* 工程中心（game の cheerCarry と同じ）: 応援は溜まった仕掛品を下流から手で運んで出荷する
+         （威力 × carryMult ぶん。新しい DP は生まないので runDP には数えない）。生産側は従来どおり */
+      if(clickRaw > 0 && !project.planning){
+        let left = clickRaw * CARRY_MULT * prodF;
+        const want = left;
+        for(const k of ["built", "tested", "code"]){ const t = Math.min(left, wip[k]); wip[k] -= t; left -= t; }
+        projDP += want - left;
+      }
+      const clickProd = clickRaw * 0.8;
+      const produced = (raw + clickProd) * prodF;
       wip.code += produced; runDP += produced;
       /* 応援クリック由来の分はバグ混入 ×inputBugRate（game の produceDP と同じ） */
-      bugStock += (raw + clickRaw * 0.8 * BAL.inputBugRate) * prodF * bugPerDP;
+      bugStock += (raw + clickProd * BAL.inputBugRate) * prodF * bugPerDP * (1 - 0.15 * (project.planLv || 0));   /* 企画Lv（game の planBugMult） */
       // 応援クリックの20%だけが工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
       if(clickRaw > 0){
         if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * bugPerDP * BAL.inputBugRate; }
         else { const direct = clickRaw * 0.2 * mlt * fb * resMultV * feverF; projDP += direct; runDP += direct; }
       }
       ideas += IDEA_PER_MIN + 0.3 * ss.careW;
+      /* 企画を練る（game の planProject）: 着工中の作品が半分に届く前に、足りれば練る */
+      if(project.size !== "TUT" && !project.planning && (project.planLv || 0) < 3 && projDP < project.total * 0.5){
+        const pc = Math.ceil(project.total / 20) * ((project.planLv || 0) + 1);
+        if(ideas >= pc + (project.ideaCost || 0)){ ideas -= pc; project.planLv = (project.planLv || 0) + 1; planBuys++; }
+      }
       // 企画中: アイデアが貯まったら着工
       for(const pr of [project, project2]){
         if(pr && pr.planning && ideas >= pr.ideaCost){ ideas -= pr.ideaCost; pr.planning = false; }
@@ -304,6 +327,17 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       const caps = { test: R.test, build: R.build, ship: R.ship };
       const used = project.planning ? { test:0, build:0, ship:0, credited:0 } : processPipe(wip, caps, bugF);
       projDP += used.credited;
+      {
+        const inflow = raw * prodF;
+        let st = "impl", low = inflow;
+        for(const k of ["test", "build", "ship"]){ const v = k === "test" ? R.test * bugF : R[k]; if(v < low){ low = v; st = k; } }
+        bnStage = st; bnVotes[st]++; bnTime[st]++;
+        if(min % 30 === 29){
+          const top = Object.keys(bnVotes).reduce((a, b) => bnVotes[b] > bnVotes[a] ? b : a);
+          if(bnBlock !== null && top !== bnBlock) bnSwitches++;
+          bnBlock = top; bnVotes = { impl:0, test:0, build:0, ship:0 };
+        }
+      }
       if(line2 && project2){
         const used2 = project2.planning ? { credited:0 } : processPipe(wip2, caps, bugF);
         proj2DP += used2.credited;
@@ -321,7 +355,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       // --- リリース判定 ---
       while(projDP >= project.total){
         projDP -= project.total;
-        project = release(project.size, false);
+        project = release(project.size, false, project.planLv);
         dayReleases++;
         if(milestones.firstReleaseMin === null) milestones.firstReleaseMin = min + 1;
       }
@@ -417,7 +451,19 @@ function simulate(days, active, reqMode, prestigeAt, profile){
           // 4) 貪欲: 最安の候補を買う
           const ssNow = staffSums(staff);
           let best = null;
-          const consider = (kind, key, c, extra) => { if(coins >= c && (!best || c < best.c)) best = { kind, key, c, extra }; };
+          /* 工程中心のプレイヤー像: 詰まっている工程の強化（設備・担当の雇用）を
+             優先して買う。その工程の最安品が手持ちを超えるなら、その価格の3割未満の
+             ものだけ寄り道で買い、残りは貯める */
+          const STAGE_OF = { keyboard:"impl", ide:"impl", prog:"impl", tester:"test", test:"test",
+                             ci:"build", pack:"build", carry:"ship", bot:"ship" };
+          let need = Infinity;
+          const consider = (kind, key, c, extra) => {
+            const onBn = STAGE_OF[key] === bnStage;
+            if(onBn && c < need) need = c;
+            if(coins < c) return;
+            const pri = onBn || kind === "clickup" ? 0 : 1;   /* 応援クリック派はクリック強化も本筋として買う */
+            if(!best || pri < best.pri || (pri === best.pri && c < best.c)) best = { kind, key, c, extra, pri };
+          };
           for(const def of UPGRADE_DEFS){
             const lv = up[def.id]||0;
             if(lv < def.max) consider("upgrade", def.id, cost(def, lv));
@@ -426,9 +472,10 @@ function simulate(days, active, reqMode, prestigeAt, profile){
             let rolePick = null, roleCost = Infinity, roleCount = Infinity;
             for(const role of Object.keys(STAFF_ROLES)){
               const n = ssNow.byRole[role]||0, c = hireCost(staff, role);
-              if(n < roleCount || (n === roleCount && c < roleCost)){ rolePick = role; roleCost = c; roleCount = n; }
+              if(STAGE_OF[role]) consider("hire", role, c);   /* 工程の担当は詰まり具合で選ぶ */
+              else if(n < roleCount || (n === roleCount && c < roleCost)){ rolePick = role; roleCost = c; roleCount = n; }
             }
-            consider("hire", rolePick, roleCost);
+            if(rolePick) consider("hire", rolePick, roleCost);
           }
           if(active){
             for(const def of CLICK_DEFS){
@@ -440,6 +487,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
             if(st.lv < STAFF_POLICY_MAX_LV && coins >= trainCost(st) * 2.5) consider("train", null, trainCost(st), st);
           }
           if(!best) return false;
+          if(best.pri === 1 && need < Infinity && best.c >= need * 1.0) return false;
           coins -= best.c;
           if(best.kind === "upgrade"){
             up[best.key] = (up[best.key]||0) + 1;
@@ -462,6 +510,18 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     /* Sprint 4: その日の経済スナップショット（引っ越し判定の前に取る）。
        ご褒美価格は game の treatCost と同じ式（その日の初回購入価格） */
     econ = { dayCoins, coinsEarned, treatCost: Math.ceil(150 * (1 + coinsEarned / 25000)) };
+    /* 投資由来の能力割合: 各工程の能力のうち、スタッフと設備が生んでいる分（素の能力＝みゅけ本人・入力・
+       工程の基本値を除く）。売却直後の更地を拾わないよう、7日目以降の毎日の終わり（売却前）の平均で見る */
+    if(day >= 7){
+      const R = rates(), bm = buildEquipMult(up);
+      const cfD = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
+      const boostD = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
+      const inv = (R.bot + R.ss.prog) * dpMult(up) + (BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) + ((BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + BAL.stageBaseRate * (bm - 1)) + (BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      const all = ((BAL.basePerMin + boostD) * cfD + R.bot + R.ss.prog) * dpMult(up) + (BAL.stageBaseRate + BAL.equipDP.tester*(up.tester||0) + R.ss.testDP) +
+        (BAL.stageBaseRate + BAL.equipDP.ci*(up.ci||0) + BAL.equipDP.pack*(up.pack||0)) * bm + (BAL.stageBaseRate + BAL.equipDP.bot*(up.bot||0) + R.ss.ship);
+      shareSum += inv / all; shareN++;
+      staffShare7 = shareSum / shareN;
+    }
     if(day === 7){
       const R = rates();
       const mlt = dpMult(up) * dustMult();
@@ -469,6 +529,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
       const passivePerMin = ((BAL.basePerMin + boost) * codingFrac + R.bot + R.ss.prog) * mlt;
       const clickPerMin = sessionClickDPperMin(cu, perks.focus, passivePerMin) * mlt;
+
       snapshot7 = { passivePerMin, clickPerMin, ratio: (passivePerMin + clickPerMin) / passivePerMin, staff: staff.length, studioLv };
     }
     // --- プレステージ（既定は星屑10個ぶんで実施。3個ぶん到達日も記録。
@@ -502,7 +563,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
   }
   if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone };
+  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -529,6 +590,11 @@ function report(label, r){
       " 作品 vs 引っ越し2日後（" + (pd + 2) + "日目） " + r.releasesByDay[pd + 1] + " 作品");
   }
   console.log("日別リリース: " + r.releasesByDay.join(","));
+  { const T = Object.values(r.bnTime).reduce((a, b) => a + b, 0) || 1;
+    console.log("律速工程の時間比: 実装 " + (r.bnTime.impl / T * 100).toFixed(0) + "% / テスト " + (r.bnTime.test / T * 100).toFixed(0) + "% / ビルド " +
+      (r.bnTime.build / T * 100).toFixed(0) + "% / 出荷 " + (r.bnTime.ship / T * 100).toFixed(0) + "%・切り替わり " + r.bnSwitches + " 回（30分単位）");
+    console.log("企画を練った回数（30日）: " + r.planBuys + " 回 / リリース " + r.totalReleasesEver + " 作品");
+    console.log("工程能力のうちスタッフと設備が生む割合（7日目以降の日末平均）: " + (r.staffShare7 * 100).toFixed(0) + "%"); }
   if(r.snapshot7){
     console.log("7日目時点: スタッフ " + r.snapshot7.staff + "人 / スタジオLv" + r.snapshot7.studioLv +
       " / 放置生産 " + r.snapshot7.passivePerMin.toFixed(1) + " DP/分");
@@ -559,6 +625,12 @@ const coinRatio = ra7.econ.coinsEarned / Math.max(1, rp7.econ.coinsEarned);
 const dustRatio = ra7.dustTotal / Math.max(1, rp7.dustTotal);
 const countRatio = ra7.totalReleasesEver / Math.max(1, rp7.totalReleasesEver);
 console.log("30日コイン比（アクティブ/パッシブ）: " + coinRatio.toFixed(2) + " 倍 / 星屑比: " + dustRatio.toFixed(2) + " 倍 / 件数比: " + countRatio.toFixed(2) + " 倍");
+/* 工程中心のゲート（2026-10-27）: 7日目以降、工程能力の半分以上がスタッフと設備から来る /
+   30日で律速工程が3回以上入れ替わる（どの工程に投資するかの判断が回り続ける） */
+for(const [lb, r] of [["passive", rp7], ["active", ra7]]){
+  console.log("工程中心ゲート " + lb + ": 投資由来の能力 " + (r.staffShare7 * 100).toFixed(0) + "%（≥50%） " + (r.staffShare7 >= 0.5 ? "PASS" : "FAIL") +
+    " / 律速の入れ替わり " + r.bnSwitches + " 回（≥3） " + (r.bnSwitches >= 3 ? "PASS" : "FAIL"));
+}
 console.log("Sprint 1 ゲート（改訂2）: 初リリース ≤ 約5分（両タイプ） / 主指標＝星屑通算比 ≥1.3 かつ コイン比 ≥1.1 かつ 件数比 ≥1.0 / 7日目以降は全日 ≥1 リリース");
 console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstReleaseMin + "分 active=" + ra7.milestones.firstReleaseMin + "分 / コイン比 " +
   coinRatio.toFixed(2) + " / 星屑比 " + dustRatio.toFixed(2) + " / 件数比 " + countRatio.toFixed(2) + " / 7日目以降の0リリース日 passive=" +
