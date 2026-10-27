@@ -66,6 +66,8 @@ function botFocusKeys(){
   return [];
 }
 function botBuy(){
+  /* 段階6: 持株化の条件の子会社2社は、ほかの条件が揃ってから狙う */
+  if(S.prestiges >= HOLD_EXITS && S.studioLv >= 5 && (S.subs || []).length < 2 && S.coins >= foundCost()) foundSub(unlockedGenres()[0].id);
   for(const r of RESEARCH_DEFS){ if(!S.research[r.id] && (!r.requires || S.research[r.requires]) && S.rp >= r.cost) buyResearch(r.id); }
   for(let i = 0; i < 20; i++){
     const paw = CLICK_DEFS[0], glove = CLICK_DEFS[1];
@@ -128,6 +130,19 @@ function botBuy(){
       if(best && bc <= S.coins && (fixCost === Infinity || bc <= fixCost / 4) && bc <= focusNext / 2) pick = best;
     }
     if(!pick || !doBuy(pick)) break;
+  }
+}
+/* 段階6: 売却のあとは星屑を枝に使う（寄せたビルドはその枝、それ以外は一番安い枝） */
+function botDust(){
+  for(let guard = 0; guard < 200; guard++){
+    let best = null, bc = Infinity;
+    for(const d of DUST_PERKS){
+      if(!d.branch || (BOT.focus && d.branch !== BOT.focus)) continue;
+      const c = Math.ceil(d.baseCost * Math.pow(d.costMul, perkLv(d.id)));
+      if(c < bc){ bc = c; best = d; }
+    }
+    if(!best || bc > S.dust) break;
+    buyDustPerk(best.id);
   }
 }
 function botBestImpl(costOf){
@@ -202,8 +217,10 @@ function simulate(opts){
       const need = exitAt ? Math.max(exitAt, Math.ceil((R.exits.length ? R.exits[R.exits.length - 1].gain : 0) * 1.5)) : 0;
       if(exitAt && gain >= need){
         run("doPrestigeCore('__none', '__auto', -1)");
+        run("botDust()");
         R.exits.push({ t, gain });
       }
+      if(R.holdReady === undefined && run("holdingsPreview().can")) R.holdReady = { t, day: day + 1 };   /* 段階6: 持株化の条件が揃った時刻 */
       if(opts.onMinute) opts.onMinute(t, run);
       if(t % 10 === 0) R.log.push({ t, day: day + 1, runDP: Math.round(run("S.runDP")), gain, coins: Math.round(run("S.coins")), rel: run("S.totals.releases"), rank: run("S.studioLv"), staff: run("S.staff.length"), dust: run("dustTotal()") });
     }
@@ -279,7 +296,7 @@ if(require.main === module){
     console.log("== ゲート改訂3（game-sim・" + n + "シードの中央値） ==");
     for(const [id, name, val, ok] of G.rows) console.log((ok === null ? "  --  " : ok ? "  PASS " : "  FAIL ") + id + " " + name + ": " + val);
     const cs = G.cl.map(r => (r.clickShare * 100).toFixed(0) + "%").join(" / ");
-    console.log("参考: 秒5クリック40分のクリック由来 DP " + cs + "、放置10日の売却 " + G.long.exits.length + " 回（初回 " + (G.long.exits[0] ? G.long.exits[0].t + "分" : "なし") + "）、通算星屑 " + G.long.dustTotal + "、入金の最長途切れ " + G.long.maxDryMin + "分");
+    console.log("参考: 秒5クリック40分のクリック由来 DP " + cs + "、放置10日の売却 " + G.long.exits.length + " 回（初回 " + (G.long.exits[0] ? G.long.exits[0].t + "分" : "なし") + "）、通算星屑 " + G.long.dustTotal + "、入金の最長途切れ " + G.long.maxDryMin + "分、持株化の条件 " + (G.long.holdReady ? G.long.holdReady.day + "日目" : "10日で未到達") + "（目安 約7日）、社格 " + G.long.rank);
     for(const b of G.g5) console.log("  G5 " + b.src + "（社格" + b.rank + "）: 最後の60分 " + JSON.stringify(b.last60));
     console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
   } else {
