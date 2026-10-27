@@ -305,13 +305,24 @@
   /* 再設計 段階4: スタッフタブの部署ごとの列（見出し・所属の猫・雇用）。上に次の社格の予告 */
   .rankbox{padding:9px 12px;}
   .rankbox .nm{font-size:14.5px;}
-  .deptcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:6px 0;align-items:start;}
-  .deptcol{display:flex;flex-direction:column;gap:5px;}
-  .deptcol>.item,.deptcol>.staffcard{margin:0;}
+  .deptcols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:6px;margin:6px 0;
+    align-items:start;overflow-x:auto;padding-bottom:2px;}
+  .deptcol{display:flex;flex-direction:column;gap:4px;min-width:0;}
   .deptcol.locked{opacity:.6;}
-  .deptcol-head{border-top:4px solid var(--wood);}
-  .deptcol .sc-img{width:44px;height:40px;}
-  .deptcol .sc-img img{max-width:40px;max-height:36px;}
+  .deptcard{flex-direction:column;align-items:stretch;gap:4px;padding:5px 6px;border-width:2px;border-radius:8px;}
+  .deptcard .sc-row{display:flex;align-items:center;gap:6px;}
+  .deptcard .sc-img{width:32px;height:30px;border-width:2px;border-radius:6px;font-size:16px;}
+  .deptcard .sc-img img{max-width:30px;max-height:28px;}
+  .deptcard .sc-top{gap:4px;flex-wrap:nowrap;}
+  .deptcard .sc-top .nm{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .deptcard .lvbadge{font-size:10px;padding:0 3px;}
+  .deptcard .sc-eff{font-size:10.5px;line-height:1.3;}
+  .deptcard .sc-desc{min-height:2.6em;}
+  .deptcard .sc-btns{display:flex;flex-wrap:wrap;gap:4px;}
+  .deptcard .sc-btns .buybtn{flex:1 1 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
+  .deptcard .sc-btns .pricetag{font-size:10.5px;padding:0 4px;}
+  .deptcard .sc-btns .tagchip{font-size:10.5px;}
+  .deptcol-head{border-top-width:4px;border-top-color:var(--wood);}
   /* 購入ボタンはカード/行の中で潰さない (価格タグが割れるのを防ぐ) */
   .buy>button, .staffcard>button{flex:0 0 auto;}
   .buybtn .buy-act{white-space:nowrap;}
@@ -544,6 +555,7 @@
     box-shadow:inset 0 2px 0 rgba(70,49,38,.15);}
   body:not(.strip) .sc-eff{color:var(--ide-sub);}
   body:not(.strip) .deptcol-head{border-top:3px solid var(--ide-status);}
+  body:not(.strip) .staffcard.deptcard{padding:5px 6px;gap:4px;}
   body:not(.strip) .sc-pct{font-family:var(--mono);}
   body:not(.strip) .workcard{background:var(--ide-panel);border-color:var(--ide-line);
     box-shadow:0 2px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);}

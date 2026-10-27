@@ -375,7 +375,7 @@ function renderPanel(){
         (S.buffs.clickUntil > Date.now() ? "<span class='vchip'>👆 クリック+10% <b>あと約"+Math.ceil((S.buffs.clickUntil-Date.now())/60000)+"分</b></span>" : "") +
         "</div>";
     }
-    /* 再設計 段階4（sakuri のスケッチ 2026-10-27）: 部署ごとの列。見出し（部署名＋Lv.up）・所属の猫・雇用 を縦に並べる。
+    /* 再設計 段階4（sakuri のスケッチ 2026-10-27）: 部署を横一列に並べ、各列に見出し（部署名＋Lv.up・雇用）と所属の猫を縦に並べる。
        カード・行・ボタンは従来の部品のまま（雰囲気は引き継ぐ） */
     const staffEff = (st, m) => {
       const def = STAFF_ROLES[st.role];
@@ -395,25 +395,28 @@ function renderPanel(){
     for(const role of Object.keys(DEPTS)){
       const d = DEPTS[role], def = STAFF_ROLES[role], lv = deptLv(role), n = ss.byRole[role] || 0;
       const maxed = lv >= DEPT_MAX_LV, chief = deptChief(role), locked = roleLocked(role);
+      /* 見出しも猫も同じカード形（絵の枠・名前＋Lv・説明・下にボタン列）。雇用は見出しカードのボタン列へ */
       h += "<div class='deptcol" + (locked ? " locked" : "") + "'>" +
-        "<div class='item buy slim deptcol-head'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
-        " <span class='lvbadge'>Lv" + lv + "</span>" +
-        "<div class='ds'>" + def.stage + " ・ 所属 " + n + "人 ・ 出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
-        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ")) + "</div>";
+        "<div class='staffcard deptcard deptcol-head' data-fix='hire:" + role + "'>" +
+        "<div class='sc-row'><div class='sc-img'>" + d.icon + "</div>" +
+        "<div class='sc-main'><div class='sc-top'><span class='nm'>" + d.name + "</span><span class='lvbadge'>Lv" + lv + "</span></div>" +
+        "<div class='sc-eff'>" + def.stage + " ・ " + n + "人</div></div></div>" +
+        "<div class='sc-eff sc-desc'>出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → ×" + (deptMult(role) + 0.15).toFixed(2)) +
+        (locked ? "<br>社格「" + rankName(CHEER_STAFF_RANK) + "」から" : "") + "</div>" +
+        "<div class='sc-btns'>" +
+        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ")) +
+        buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +
+        "</div></div>";
       for(const st of S.staff.filter(x => x.role === role)){
         const m = staffOutMult(st) * deptMult(role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
         const tc = trainCost(st), smax = st.lv >= STAFF_MAX_LV;
-        h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
-          "<div class='sc-main'><div class='sc-top'>" +
-          "<span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
-          (chief === st ? "<span class='tagchip'>⭐部長</span>" : "") +
-          "<small>" + COAT_NAMES[st.coat] + "</small></div>" +
-          "<div class='sc-eff'>" + staffEff(st, m) + "</div></div>" +
-          (smax ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")")) + "</div>";
+        h += "<div class='staffcard deptcard'>" +
+          "<div class='sc-row'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
+          "<div class='sc-main'><div class='sc-top'><span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span></div>" +
+          "<div class='sc-eff'>" + COAT_NAMES[st.coat] + (chief === st ? " ・ ⭐部長" : "") + "</div></div></div>" +
+          "<div class='sc-eff sc-desc'>" + staffEff(st, m) + "</div>" +
+          "<div class='sc-btns'>" + (smax ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")", false, "育成 ")) + "</div></div>";
       }
-      h += "<div class='item buy slim deptcol-hire' data-fix='hire:" + role + "'><div><span class='nm'>" + (ROLE_ICONS[role]||"🐱") + " " + def.name + "を雇用</span>" +
-        "<div class='ds'>" + def.desc + (locked ? "（社格「" + rankName(CHEER_STAFF_RANK) + "」から）" : "") + "</div></div>" +
-        buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") + "</div>";
       h += "</div>";
     }
     h += "</div>";
