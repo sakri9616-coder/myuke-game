@@ -300,6 +300,13 @@ const STAMP_DEFS = [
   { id:"staff5",       name:"チーム5人",        test:s=>s.staff.length>=5, prog:s=>[s.staff.length,5] },
   { id:"line2_first",  name:"第2ライン初出荷", test:s=>s.flags.line2Released===true },
   { id:"goldfish",     name:"金のフィッシュ",  test:s=>s.totals.goldFish>=1 },
-  { id:"click1000",    name:"応援1000回",       test:s=>s.totals.clicks>=1000, prog:s=>[s.totals.clicks,1000] }
+  { id:"click1000",    name:"応援1000回",       test:s=>s.totals.clicks>=1000, prog:s=>[s.totals.clicks,1000] },
+  /* 工程・設備の実績（詰まり解消／全工程グリーンは trackLineStamps が1秒ティックでフラグを立てる） */
+  { id:"bn_cleared",   name:"詰まり解消",       test:s=>s.flags.bnCleared===true },
+  { id:"all_green",    name:"全工程グリーン",   test:s=>s.flags.allGreen===true },
+  { id:"equip_all",    name:"設備ひと通り",     test:s=>UPGRADE_DEFS.every(u=>(s.upgrades[u.id]||0)>=1), prog:s=>[UPGRADE_DEFS.filter(u=>(s.upgrades[u.id]||0)>=1).length,UPGRADE_DEFS.length] },
+  { id:"equip_max",    name:"設備を極めた",     test:s=>UPGRADE_DEFS.some(u=>(s.upgrades[u.id]||0)>=u.max) },
+  { id:"rep_all3",     name:"工程研究そろい",   test:s=>REPEAT_RESEARCHES.every(r=>((s.researchLv||{})[r.id]||0)>=3), prog:s=>[Math.min(...REPEAT_RESEARCHES.map(r=>((s.researchLv||{})[r.id]||0))),3] },
+  { id:"dept5",        name:"部署 Lv5",         test:s=>Object.values(s.depts||{}).some(v=>Number(v)>=5), prog:s=>[Math.max(1,...Object.values(s.depts||{}).map(Number)),5] }
 ];
 
