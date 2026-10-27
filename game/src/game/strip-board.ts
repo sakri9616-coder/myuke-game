@@ -282,21 +282,32 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   {
     /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。20個を超えたら「売りどき」 */
     const sellNow = prestigePreview().gain;
-    const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人" +
-      " ・ 企業価値 " + fmt(companyValue()) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "") +
-      (S.subs && S.subs.length ? " ・ グループ" + S.subs.length + "社・総勢" + totalPeople() + "人" : "") +
-      (S.holdings ? " ・ 持株×" + S.holdings : "") +   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
-      (S.challenge ? " ・ 🎯" + (challengeDef(S.challenge.id) || {}).name : "");   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
+    const parts = [companyRank() + " " + S.staff.length + "/" + staffCap() + "人",
+      "企業価値 " + fmt(companyValue()) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "")];
+    if(S.subs && S.subs.length) parts.push("グループ" + S.subs.length + "社・総勢" + totalPeople() + "人");
+    if(S.holdings) parts.push("持株×" + S.holdings);   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
+    if(S.challenge) parts.push("🎯" + (challengeDef(S.challenge.id) || {}).name);   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
     sctx.save();
     sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";
-    const tw = sctx.measureText(rankTxt).width + 10;
+    /* 右隣に第2ラインのボードがあれば、その手前で折り返して2段目へ（ボードの間は空いている） */
+    const b2L = S.line2 && S.line2.unlocked ? stripDesk2CX() - STRIP_BOARD.w2 / 2 : Infinity;
     let tx = bx + bw + 1;
-    if(tx + tw > stripVW - 2) tx = bx - tw - 1;
+    const limit = (b2L > tx ? Math.min(b2L - 2, stripVW - 2) : stripVW - 2) - tx;
+    const lines = [];
+    for(const t of parts){
+      const last = lines.length ? lines[lines.length - 1] : null;
+      if(last && sctx.measureText(last + " ・ " + t).width + 10 <= limit) lines[lines.length - 1] = last + " ・ " + t;
+      else lines.push(t);
+    }
+    const tw = Math.max(...lines.map(t => sctx.measureText(t).width)) + 10;
+    if(tw > limit) tx = bx - tw - 1;
     if(tx >= 1){
-      drawBoardTab(tx, top + 1, tw);
-      sctx.fillStyle = "#4a3b2c";
-      sctx.fillText(rankTxt, tx + 5, top + 7);
+      lines.forEach((t, k) => {
+        drawBoardTab(tx, top + 1 + k * 13, tw);
+        sctx.fillStyle = "#4a3b2c";
+        sctx.fillText(t, tx + 5, top + 7 + k * 13);
+      });
     }
     sctx.restore();
   }

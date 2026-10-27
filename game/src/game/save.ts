@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.14.4";   /* 表示ラベルの単一の出所 (v2.14.4: 連打ツールを使っても重くならないように。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.15.0";   /* 表示ラベルの単一の出所 (v2.15.0: 再設計 段階3 企業価値・社格の自動昇格・星屑を企業価値から。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
