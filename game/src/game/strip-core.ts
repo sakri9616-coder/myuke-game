@@ -302,43 +302,56 @@ function drawHoverTarget(t){
   if(art && drawHoverSpriteHalo(art)) return;
   drawHoverSilhouette(t.r);
 }
-/* ホバーの縁取り: 対象の当たり判定内の「実際に描かれたピクセル」をマスクに
-   して黄色く膨らませ、元の形をくり抜いた輪だけを重ねる。四角い枠ではなく
-   絵そのものの輪郭に沿う (sakuri: 「普通絵のシェイプに合わせるでしょうに」)。
-   オフスクリーン2枚を使い回す。getImageData の無い環境 (smoke) では何もしない */
-let hoverMaskCv = null, hoverHaloCv = null;
+/* ホバーの縁取り (絵の記録から作る版・2026-10-27)。
+   旧版は帯の canvas を getImageData で読み戻してマスクにしていた。バグにカーソルを
+   乗せている間は毎フレーム読み戻しになり、GPU の描画を待つ同期が毎フレーム入るうえ、
+   Chromium は読み戻しの多い canvas を GPU から CPU 描画へ落とすため、バグが出ると
+   帯全体が重くなっていた。いまは sDrawSprite / sDrawNine が貼った絵を stripSpriteLog に
+   残し、対象の範囲の絵だけを黄色版 (yellowSpriteOf) で膨らませて輪を作る。画面は読まない。
+   対象の矩形が art: [記録の始め, 終わり] を持てばその絵だけ、無ければ矩形に 6 割以上
+   入っている絵を使う (隣の家具の線は拾わない) */
+let stripSpriteLog = [];
+let hoverHaloCv = null;
 function drawHoverSilhouette(r){
-  if(!stripCv || !sctx.getImageData) return;
-  const pad = 1.2;
-  const dx0 = Math.max(0, Math.floor((r.x - pad) * stripScale));
-  const dy0 = Math.max(0, Math.floor((r.y - pad) * stripScale));
-  const dx1 = Math.min(stripCv.width, Math.ceil((r.x + r.w + pad) * stripScale));
-  const dy1 = Math.min(stripCv.height, Math.ceil((r.y + r.h + pad) * stripScale));
-  const w = dx1 - dx0, h = dy1 - dy0;
-  if(w < 2 || h < 2) return;
-  let img;
-  try { img = sctx.getImageData(dx0, dy0, w, h); } catch(e){ return; }
-  if(!hoverMaskCv){ hoverMaskCv = document.createElement("canvas"); hoverHaloCv = document.createElement("canvas"); }
-  for(const cv of [hoverMaskCv, hoverHaloCv]){
-    if(cv.width !== w) cv.width = w;
-    if(cv.height !== h) cv.height = h;
+  if(!stripCv || !stripSpriteLog.length) return;
+  let picks;
+  if(r.art) picks = stripSpriteLog.slice(r.art[0], r.art[1]);
+  else {
+    const x0 = r.x * stripScale, y0 = r.y * stripScale, x1 = (r.x + r.w) * stripScale, y1 = (r.y + r.h) * stripScale;
+    picks = stripSpriteLog.filter(e => {
+      const iw = Math.min(x1, e.x + e.w) - Math.max(x0, e.x), ih = Math.min(y1, e.y + e.h) - Math.max(y0, e.y);
+      return iw > 0 && ih > 0 && iw * ih >= 0.6 * e.w * e.h;
+    });
   }
-  const mx = hoverMaskCv.getContext("2d");
-  mx.clearRect(0, 0, w, h);
-  mx.putImageData(img, 0, 0);
-  mx.globalCompositeOperation = "source-in";
-  mx.fillStyle = "#ffd94d"; mx.fillRect(0, 0, w, h);
-  mx.globalCompositeOperation = "source-over";
+  if(!picks.length) return;
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for(const e of picks){ bx0 = Math.min(bx0, e.x); by0 = Math.min(by0, e.y); bx1 = Math.max(bx1, e.x + e.w); by1 = Math.max(by1, e.y + e.h); }
+  const d = Math.max(1, Math.round(stripScale * 1.4));
+  const w = bx1 - bx0 + d * 2, h = by1 - by0 + d * 2;
+  if(w < 2 || h < 2 || w > 4096 || h > 1024) return;
+  if(!hoverHaloCv) hoverHaloCv = document.createElement("canvas");
+  if(hoverHaloCv.width !== w) hoverHaloCv.width = w;
+  if(hoverHaloCv.height !== h) hoverHaloCv.height = h;
   const hx = hoverHaloCv.getContext("2d");
   hx.clearRect(0, 0, w, h);
-  const d = Math.max(1, Math.round(stripScale * 1.4));
-  for(const [ox, oy] of [[-d,0],[d,0],[0,-d],[0,d],[-d,-d],[d,-d],[-d,d],[d,d]])
-    hx.drawImage(hoverMaskCv, ox, oy);
+  hx.imageSmoothingEnabled = false;
+  const paint = (ox, oy) => {
+    for(const e of picks){
+      const yc = yellowSpriteOf(e.name);
+      if(!yc) continue;
+      const ex = e.x - bx0 + d + ox, ey = e.y - by0 + d + oy;
+      for(const q of e.parts){
+        if(e.flip){ hx.save(); hx.translate(ex + e.w, ey); hx.scale(-1, 1); hx.drawImage(yc, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7]); hx.restore(); }
+        else hx.drawImage(yc, q[0], q[1], q[2], q[3], ex + q[4], ey + q[5], q[6], q[7]);
+      }
+    }
+  };
+  for(const [ox, oy] of [[-d,0],[d,0],[0,-d],[0,d],[-d,-d],[d,-d],[-d,d],[d,d]]) paint(ox, oy);
   hx.globalCompositeOperation = "destination-out";
-  hx.drawImage(hoverMaskCv, 0, 0);
+  paint(0, 0);
   hx.globalCompositeOperation = "source-over";
   sctx.save();
   sctx.setTransform(1, 0, 0, 1, 0, 0);
-  sctx.drawImage(hoverHaloCv, dx0, dy0);
+  sctx.drawImage(hoverHaloCv, bx0 - d, by0 - d);
   sctx.restore();
 }

@@ -79,7 +79,7 @@ function drawStripBoardSideTabs(bx, top){
   sctx.textAlign = "left"; sctx.textBaseline = "middle";
   /* 2026-10-27: 作りながら入るコインの流れ（🪙/秒）を残高の横に出す */
   const flowTxt = coinFlowEMA >= 0.05 ? "  +" + fmtRate(coinFlowEMA) + "/秒" : "";
-  const coinTxt = "🪙 " + fmt(Math.floor(S.coins)) + flowTxt;
+  const coinTxt = "🪙 " + fmt(Math.floor(stripMeter("coins", S.coins))) + flowTxt;   /* メーター表示 (strip-meter.ts) */
   const prodTxt = "生産 +" + Math.round((concProdMult() - 1) * 100) + "%";
   const brainW = sctx.measureText("🧠").width, meterW = 20;
   const coinW = sctx.measureText(coinTxt).width + 10;
@@ -96,7 +96,7 @@ function drawStripBoardSideTabs(bx, top){
   drawBoardTab(tx, cy, tw);
   sctx.fillText("🧠", tx + 4, cy + 6.3);
   const mx = tx + 4 + brainW + 3;
-  const conc = Math.max(0, Math.min(100, S.concentration)) / 100;
+  const conc = Math.max(0, Math.min(100, stripMeter("conc", S.concentration, true))) / 100;
   sDrawNine("ui_meter_track_3", mx, cy + 3.5, meterW, 5, 2, 0);
   if(conc > 0) sDrawNine("ui_meter_fill_3", mx + 1, cy + 4.5, Math.max(2, (meterW - 2) * conc), 3, 1, 0);
   sctx.fillText(prodTxt, mx + meterW + 4, cy + 6.3);
@@ -260,7 +260,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       const done = moduleComplete(md);
       sDrawNine("ui_chip_" + (blink ? "alert" : done ? "done" : "todo") + "_9", cxp, cyp, cw, 11, 3, 3);
       sctx.fillStyle = "#f5efe2";
-      const label = md.name + " " + (md.out ? "外注" : done ? "★" + fmtDec(moduleQuality(md), 1) : Math.min(100, Math.floor(md.inv / md.need * 100)) + "%");
+      const label = md.name + " " + (md.out ? "外注" : done ? "★" + fmtDec(moduleQuality(md), 1) : Math.min(100, Math.floor(stripMeter("mod" + i, md.inv) / md.need * 100)) + "%");
       sctx.fillText(label, cxp + cw / 2, cyp + 5.8);
     });
     sctx.restore();
@@ -283,7 +283,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。20個を超えたら「売りどき」 */
     const sellNow = prestigePreview().gain;
     const parts = [companyRank() + " " + S.staff.length + "/" + staffCap() + "人",
-      "企業価値 " + fmt(companyValue()) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "")];
+      "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "")];
     if(S.subs && S.subs.length) parts.push("グループ" + S.subs.length + "社・総勢" + totalPeople() + "人");
     if(S.holdings) parts.push("持株×" + S.holdings);   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
     if(S.challenge) parts.push("🎯" + (challengeDef(S.challenge.id) || {}).name);   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
@@ -332,6 +332,6 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   stripHitRects[key] = { x: bx, y: top, w: bw, h: bh };
 }
 function drawStripProjectBoardMain(){
-  drawStripProjectBoard(propPlace("board").cx, STRIP_BOARD.w, S.project, S.projectDP, "board", false);
+  drawStripProjectBoard(propPlace("board").cx, STRIP_BOARD.w, S.project, stripMeter("dp1", S.projectDP), "board", false);
 }
 

@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.18.1";   /* 表示ラベルの単一の出所 (v2.18.1: 数字の単位を k・m・g・t・p・e に。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.18.2";   /* 表示ラベルの単一の出所 (v2.18.2: バグ発生時の重さの解消とメーター表示。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -88,13 +88,33 @@ let sessBase = { releases:0, coinsEarned:0, startedAt:Date.now() };
    save_game コマンドで書く)。WebView の localStorage にも同じものを書いておき、
    起動時は両方を見て lastTick の新しい方を採る (ファイルが無い旧セーブは
    localStorage から読み、次の save() でファイルへ移る) */
-function writeSaveFile(json: string){
+/* ファイルへの書き込みは SAVE_FILE_GAP_MS に1回までにまとめる (2026-10-27)。
+   バグ潰し・魚などは1回ごとに save() するので、連打ツールで秒10回書き込み (毎回ディスク同期)
+   になり、バグが出ると重くなる一因だった。localStorage は従来どおり毎回書くので、
+   間引いた間に落ちても起動時は新しい方 (lastTick の大きい方) から読まれる */
+const SAVE_FILE_GAP_MS = 2000;
+let saveFileLastAt = 0, saveFilePending: string | null = null, saveFileTimer: any = 0;
+function writeSaveFile(json: string, now?: boolean){
   const T = window.__TAURI__;
   if(!T || !T.core || !T.core.invoke) return;
+  saveFilePending = json;
+  const wait = SAVE_FILE_GAP_MS - (Date.now() - saveFileLastAt);
+  if(!now && wait > 0){
+    if(!saveFileTimer) saveFileTimer = setTimeout(() => { saveFileTimer = 0; if(saveFilePending) writeSaveFile(saveFilePending, true); }, wait);
+    return;
+  }
+  if(saveFileTimer){ clearTimeout(saveFileTimer); saveFileTimer = 0; }
+  saveFilePending = null;
+  saveFileLastAt = Date.now();
   try{
     const p = T.core.invoke("save_game", { data: json });
     if(p && p.catch) p.catch(function(err){ console.error("[miyuke] セーブファイルの書き込みに失敗", err); });
   }catch(e){}
+}
+/* 終了直前など、間引かずにすぐ書く */
+function flushSave(){
+  save();
+  if(saveFilePending) writeSaveFile(saveFilePending, true);
 }
 function saveLastTick(raw: string){
   try{ return Number(JSON.parse(raw).lastTick) || 0; }catch(e){ return -1; }

@@ -215,6 +215,7 @@ function sDrawSprite(name, gx, gy, scale, flip?){
     else sctx.setTransform(1, 0, 0, 1, ddx, ddy);
     sctx.drawImage(cv, 0, 0, dw, dh);
     sctx.restore();
+    stripSpriteLog.push({ name, flip: !!flip, x: ddx, y: ddy, w: dw, h: dh, parts: [[0, 0, cv.width, cv.height, 0, 0, dw, dh]] });
     return true;
   }
   const dx = Math.round(gx - w / 2), dy = Math.round(gy - h);
@@ -246,6 +247,8 @@ function sDrawSpriteStretchV(name, gx, gy, h, cap){
   sctx.drawImage(cv, 0, cap, cv.width, cv.height - cap * 2, dx, y1, dw, y2 - y1);
   sctx.drawImage(cv, 0, cv.height - cap, cv.width, cap, dx, y2, dw, y3 - y2);
   sctx.restore();
+  stripSpriteLog.push({ name, flip: false, x: dx, y: y0, w: dw, h: y3 - y0, parts: [
+    [0, 0, cv.width, cap, 0, 0, dw, y1 - y0], [0, cap, cv.width, cv.height - cap * 2, 0, y1 - y0, dw, y2 - y1], [0, cv.height - cap, cv.width, cap, 0, y2 - y0, dw, y3 - y2]] });
   return true;
 }
 /* 伸び縮みする枠の絵 (第2次発注 §2): 左上 (x, y)・大きさ (w, h) の箱に、角 kx×ky を
@@ -263,11 +266,16 @@ function sDrawNine(name, x, y, w, h, kx, ky, kyb?){
   sctx.save();
   sctx.imageSmoothingEnabled = false;
   sctx.setTransform(1, 0, 0, 1, 0, 0);
+  const parts = [];
   for(let j = 0; j < 3; j++) for(let i = 0; i < 3; i++){
     const sw = sx[i + 1] - sx[i], sh = sy[j + 1] - sy[j], dw = dx[i + 1] - dx[i], dh = dy[j + 1] - dy[j];
-    if(sw > 0 && sh > 0 && dw > 0 && dh > 0) sctx.drawImage(cv, sx[i], sy[j], sw, sh, dx[i], dy[j], dw, dh);
+    if(sw > 0 && sh > 0 && dw > 0 && dh > 0){
+      sctx.drawImage(cv, sx[i], sy[j], sw, sh, dx[i], dy[j], dw, dh);
+      parts.push([sx[i], sy[j], sw, sh, dx[i] - dx[0], dy[j] - dy[0], dw, dh]);
+    }
   }
   sctx.restore();
+  if(parts.length) stripSpriteLog.push({ name, flip: false, x: dx[0], y: dy[0], w: dx[3] - dx[0], h: dy[3] - dy[0], parts });
   return true;
 }
 /* 左上 (x, y) に原寸 (または w×h に引き伸ばし) で貼る。画面の中身・札の中の小物用 */
@@ -348,7 +356,7 @@ function drawStripProgressScreen(ix, iy, bx, by, bw){
   if(p.planning){
     if(blinkOn(12, 7)) sDrawNine("ui_minibar_fill_yellow_3", bx + 1, by, 4, 2, 1, 0);   /* 企画中は点滅 */
   } else {
-    const frac = Math.max(0, Math.min(1, S.projectDP / p.totalDP));
+    const frac = Math.max(0, Math.min(1, stripMeter("dp1", S.projectDP) / p.totalDP));
     if(frac > 0) sDrawNine("ui_minibar_fill_3", bx, by, Math.max(2, bw * frac), 2, 1, 0);
     const ft = 1 / (p.feats.length + 1);
     const nextM = ft * ((p.doneFeats || 0) + 1);
