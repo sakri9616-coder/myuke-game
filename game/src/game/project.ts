@@ -63,11 +63,10 @@ function planLv(p){ return (p && p.planLv) || 0; }
 function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
 function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
-function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < PLAN_MAX && dp < p.totalDP * 0.5; }
-function planProject(which){
-  const l2 = which === "l2";
-  const p = l2 ? S.line2.project : S.project;
-  const dp = l2 ? S.line2.projectDP : S.projectDP;
+function planMax(){ return PLAN_MAX + (S.upgrades.monitor || 0); }   /* 段階5: ワイドモニターで企画を練れる上限が伸びる */
+function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < planMax() && dp < p.totalDP * 0.5; }
+function planProject(_which?){
+  const p = S.project, dp = S.projectDP;
   if(!canPlan(p, dp)){ say("この作品の企画はもう練れないにゃ"); return; }
   const cost = planCost(p);
   if(S.ideas < cost){ say("アイデアが足りないにゃ（あと " + Math.ceil(cost - S.ideas) + " 個）"); return; }
@@ -94,7 +93,7 @@ function settleProject(p){
 }
 /* 企画中プロジェクトにアイデアが貯まったら着工する（tick から毎秒呼ばれる） */
 function tryStartPlanning(){
-  for(const p of [S.project, S.line2.project]){
+  for(const p of [S.project]){
     if(p && p.planning && S.ideas >= (p.ideaCost || 0)){
       S.ideas -= p.ideaCost; p.planning = false;
       addLog("💡 企画がまとまった！『"+p.name+"』に着工（アイデア-"+p.ideaCost+"）");

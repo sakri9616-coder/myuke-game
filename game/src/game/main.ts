@@ -20,7 +20,6 @@ if(IS_VIEWER){
   sessBase = { releases: S.totals.releases, coinsEarned: S.totals.coinsEarned, startedAt: Date.now() };
   if(hadSave) setupReturnCeremony();
   if(!S.project){ S.project = settleProject(genProject(S.totals.releases===0 && S.shelf.length===0 ? "TUT" : null)); S.projectDP = 0; attachModules(S.project); }
-  if(S.line2.unlocked && !S.line2.project){ S.line2.project = settleProject(genProject(null, S.line2.genre, line2Rate())); S.line2.projectDP = 0; S.line2.commitMark = 0; }
   if(!S.requests.length && !S.activeRequest) genRequests();
   if(!hadSave){
     addLog("みゅけが引っ越してきた。開発、はじめるにゃ。");

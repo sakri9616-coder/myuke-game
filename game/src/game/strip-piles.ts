@@ -15,11 +15,7 @@ function pileModel(){
     test:  { frac: byId.test.frac,  n: Math.round(byId.test.frac * 8),
              red: byId.test.lamp === "red" },
     build: { frac: byId.build.frac, n: Math.round(byId.build.frac * 5),
-             red: byId.build.lamp === "red" },
-    l2: S.line2.unlocked ? {
-      codeN: Math.round(Math.min(1, S.line2.wip.code / capC) * 4),
-      testN: Math.round(Math.min(1, S.line2.wip.tested / capT) * 4)
-    } : null
+             red: byId.build.lamp === "red" }
   };
 }
 /* カード1枚 (icon_card / テスト済みは icon_card_ok)。
@@ -135,21 +131,6 @@ function drawStripPiles(){
     }
   }
   if(jam.build) stripHitRects.piles.push({ x: dx - 38, y: G - 11, w: 12, h: 11, cone: true });
-}
-/* 第2ラインのミニフロー: 第2机の天面左端に小さい山2つ (実装/テスト済み) */
-function drawStripLine2Piles(){
-  if(!S.line2.unlocked) return;
-  const G = STRIP_GROUND, m = pileModel();
-  if(!m.l2) return;
-  /* バッチ14: 新 prop_desk2 (64×64) の天板は ×2 接地で G-33 付近。
-     ミニ山はノートPC (dcx-22..+18) を避けて天板の左右に置く */
-  const topY = spriteSize("prop_desk2") ? G - 33 : G - 16;
-  const dcx = stripDesk2CX();
-  const mini = (cxOff, n, tickMark) => {
-    for(let i = 0; i < n; i++) sDrawSprite(tickMark ? "icon_card_ok" : "icon_card", dcx + cxOff, topY - i * 4, 1);
-  };
-  mini(-38, m.l2.codeN, false);
-  mini(34, m.l2.testN, true);
 }
 /* 移動中の物 (描画層④: 家具より手前・キャラより後ろ) */
 function drawStripFlowItems(){
@@ -289,8 +270,6 @@ function renderStrip(){
   drawStripStationBooths();                         /* 工程の持ち場のブース (会議室・テスト室・ビルド室・出荷場)。いちばん奥 */
   drawStripShelf();                                 /* B: 作品棚＋柵 (②背面物+③) */
   if(hasResearcher()) drawStripResearchStation();   /* C: 研究机 */
-  if(S.line2.unlocked) drawStripDesk2();            /* D: 第2ライン机 */
-  if(S.line2.unlocked) drawStripProjectBoard2();   /* D': 第2ラインのプロジェクトボード */
   drawStripServerRack();                            /* E': サーバーラック (tier>=2 + CIマシン) */
   if(S.stamps.first_release) drawStripEasel();      /* E: イーゼル */
   if(S.stamps.prestige1) drawStripTrophy();         /* E: トロフィー台 */
@@ -408,7 +387,6 @@ function renderStrip(){
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
   drawStripLineUpgrades();     /* 自動テスト機・梱包機 (アップグレードの段)。山の背後に立つ機械 */
   drawStripPiles();
-  drawStripLine2Piles();
   drawStripStationSignals();   /* 工程ごとの信号柱 (緑/黄/赤) */
   drawStripStationHelp(pileModel());   /* 持ち場の手作業の絵・押せる合図・当たり判定 */
   drawStripFlowItems();

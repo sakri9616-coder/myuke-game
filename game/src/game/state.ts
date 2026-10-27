@@ -5,7 +5,7 @@ let stateEnteredAt = Date.now();
 const PLAY_STATES = ["yarn","groom","watch","chase","zoomies","duckplay","treasure"];
 function availablePlays(){
   return PLAY_STATES.filter(p =>
-    (p!=="duckplay" || S.research.res_duckplay) &&
+    p!=="duckplay" &&   /* 段階5: アヒル会議の研究は廃止 */
     (p!=="treasure" || S.research.res_play2));
 }
 function pickRestState(){
@@ -25,8 +25,7 @@ function stateTick(now){
   // 状態ごとの後処理
   if(catState === "nap"){ S.concentration = Math.min(100, S.concentration + 45); }
   if(PLAY_STATES.includes(catState)){
-    /* res_plant の効果は正確に +20%（22 → 26.4） */
-    S.concentration = Math.min(100, S.concentration + (S.research.res_plant ? 26.4 : 22));
+    S.concentration = Math.min(100, S.concentration + 22);
     S.ideas += (catState==="treasure" ? 4 : 2);
     /* Sprint 4: 宝探しはたまに小銭も見つける */
     if(catState==="treasure" && Math.random() < 0.35){
@@ -36,7 +35,7 @@ function stateTick(now){
       addLog("🗺️ 宝探しで "+fmt(c)+"🪙 を見つけた");
     }
   }
-  if(catState === "think"){ S.ideas += 1 + (S.upgrades.monitor||0); }
+  if(catState === "think"){ S.ideas += 1; }
   // 企画中は「考え中」でアイデアを貯めるのが仕事になる
   if(S.project && S.project.planning && Math.random() < 0.7){
     setState("think", 4000); say("企画を考え中…ひらめき待ちにゃ"); return;
@@ -213,6 +212,7 @@ function staffCheerTick(cheersPerSec){
   produceDP(dp, "l1");
   prodMuted = false;
   staffCheerAcc += dp * clickProdMult();
+  if(delegated("cheer", 3) && !challengeActive("idle")) S.cheerP = (S.cheerP || 0) + cheersPerSec;   /* 段階5: 応援団 Lv3 */
   const now = Date.now();
   if(now - staffCheerShowAt >= 3000 && document.body.classList.contains("strip")){
     staffCheerShowAt = now;
@@ -222,7 +222,7 @@ function staffCheerTick(cheersPerSec){
 }
 
 /* ---------- v2: 応援クリック（コンボ） ---------- */
-let comboN = 0, lastClickAt = 0, ideaFrac = 0, rpFrac = 0;
+let comboN = 0, lastClickAt = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
 function comboMult(){
   return 1 + Math.min(comboCapBonus(), comboN * 0.10);
@@ -269,7 +269,7 @@ function handworkClick(stage){
   const crit = Math.random() < critRate();
   if(crit) S.totals.crits++;
   let moved = 0, ideas = 0;
-  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P は押した回数ぶん（段階2） */
+  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + 1;   /* 応援P は押した回数ぶん（段階2） */
   if(!challengeActive("idle") && S.project && clickBucketTake()){
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
     const m = cheerHelpMult(crit);
@@ -293,12 +293,7 @@ function handworkClick(stage){
   return { moved, ideas, crit };
 }
 /* 連動シナジー（端数は貯めて整数化）。応援クリックと持ち場の手助けで共通 */
-function clickSynergyTick(){
-  ideaFrac += 0.02 * (S.clickUp.synidea||0);
-  if(ideaFrac >= 1){ const n = Math.floor(ideaFrac); ideaFrac -= n; S.ideas += n; }
-  rpFrac += 0.004 * (S.clickUp.synrp||0);
-  if(rpFrac >= 1){ const n = Math.floor(rpFrac); rpFrac -= n; S.rp += n; addLog("研究メモ連動で研究P+"+n); }
-}
+function clickSynergyTick(){}   /* 段階5: ひらめき連動はゲージの溜まり（chargeFever）へ。研究メモ連動は廃止 */
 function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し側 (hitzones) が担う */
   const now = Date.now();
   comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;
@@ -314,7 +309,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
      工程キャップに堰き止めさせる。企画中は全量が仕掛品になる。
      工程中心: さらに溜まった仕掛品を手で運んで出荷する（cheerCarry） */
   /* 応援P は押した回数ぶん貯まる（段階2: sakuri 2026-10-27「秒5回までの制限いらない」。DP の堰は従来どおり） */
-  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);
+  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + 1;
   if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
     prodMuted = true;

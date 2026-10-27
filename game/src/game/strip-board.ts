@@ -123,7 +123,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   /* 詰まりの視覚信号はボードが担う (帯の ⚠ はここが一目で読める形)。
      帰属ラインが決まらない詰まりは第1ラインのボードに寄せる (二重表示にしない) */
   const bnAll = currentBottleneck();
-  const bn = bnAll && (small ? bnAll.line === 2 : bnAll.line !== 2) ? bnAll : null;
+  const bn = bnAll && !small ? bnAll : null;
   /* 支柱と足 (机本体より先に描く: 支柱は机・PC・みゅけの背後に落ちる) */
   sShadow(bcx, G - 0.5, bw * 0.66);
   for(const px of [bx + 9, bx + bw - 12])
@@ -183,7 +183,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(p){
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     /* 第2ウェーブ L: ジャンルピルに市場の流れと IP 指定を足す */
-    const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") + ((p.scale || 1) > 1 ? " ×" + p.scale : "") : "";   /* 仕事の桁が 1 より大きい作品は「×10」などを添える */
+    const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") + ((p.scale || 1) > 1 ? " ×" + p.scale : "") + " ★" + qualityStars(p) : "";   /* 段階5: 品質★ */   /* 仕事の桁が 1 より大きい作品は「×10」などを添える */
     const genreW = genreTxt ? sctx.measureText(genreTxt).width + 6 : 0;
     const slotW = bn ? 15 : genreW;
     const nameLim = ix + iw - 3 - slotW;
@@ -235,7 +235,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
       const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
       sctx.fillStyle = "#d9534f";
-      sctx.fillText(fitMemoText("⚠ " + stName + "が詰まり中" + (bnAll.line ? "（第" + bnAll.line + "ライン）" : ""), rw), ix + iw - 3, rcy);
+      sctx.fillText(fitMemoText("⚠ " + stName + "が詰まり中", rw), ix + iw - 3, rcy);
     } else if(p.feats && p.feats.length){
       const done = Math.min(p.doneFeats || 0, p.feats.length);
       const txt = (done < p.feats.length ? "次の機能：" + p.feats[done] : "仕上げ中") + "（✅ " + done + "/" + p.feats.length + "）";
@@ -290,8 +290,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.save();
     sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";
-    /* 右隣に第2ラインのボードがあれば、その手前で折り返して2段目へ（ボードの間は空いている） */
-    const b2L = S.line2 && S.line2.unlocked ? stripDesk2CX() - STRIP_BOARD.w2 / 2 : Infinity;
+    const b2L = Infinity;   /* 段階5: 第2ラインのボードは廃止 */
     let tx = bx + bw + 1;
     const limit = (b2L > tx ? Math.min(b2L - 2, stripVW - 2) : stripVW - 2) - tx;
     const lines = [];
@@ -334,8 +333,5 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
 }
 function drawStripProjectBoardMain(){
   drawStripProjectBoard(propPlace("board").cx, STRIP_BOARD.w, S.project, stripMeter("dp1", S.projectDP), "board", false);
-}
-function drawStripProjectBoard2(){
-  drawStripProjectBoard(stripDesk2CX(), STRIP_BOARD.w2, S.line2.project, S.line2.projectDP, "board2", true);
 }
 

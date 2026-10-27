@@ -4,7 +4,7 @@
    第2ラインはテスト/ビルド/出荷の処理能力を第1ラインと共有するので、
    ランプとバーは両ライン合算の流れ・在庫で判定する（仕掛品表示も合算）。 */
 function bottleneckStage(){
-  const prod = productionRate() + (S.line2.unlocked ? line2Rate() : 0);
+  const prod = productionRate();
   const stages = [
     { id:"test", name:"テスト", rate: testRate() * bugFactor() },
     { id:"build", name:"ビルド", rate: buildRate() },
@@ -28,14 +28,12 @@ function planFrac(){
 }
 function stageStatus(){
   const bugF = bugFactor();
-  const inflow = productionRate() + (S.line2.unlocked ? line2Rate() : 0);
+  const inflow = productionRate();
   const tEff = testRate() * bugF, bR = buildRate(), sR = shipRate();
-  const wCode = S.wip.code + S.line2.wip.code;
-  const wTested = S.wip.tested + S.line2.wip.tested;
-  const wBuilt = S.wip.built + S.line2.wip.built;
+  const wCode = S.wip.code, wTested = S.wip.tested, wBuilt = S.wip.built;
   /* バーの容量 = 下流が約2分で捌ける量（最低60DP）。満杯=飽和の目安 */
   const capCode = Math.max(60, tEff * 2), capTested = Math.max(60, bR * 2), capBuilt = Math.max(60, sR * 2);
-  const planning = !!((S.project && S.project.planning) || (S.line2.project && S.line2.project.planning));
+  const planning = !!(S.project && S.project.planning);
   let codeLamp = "green";
   if(wCode >= capCode && tEff < inflow) codeLamp = "red";
   else if(inflow <= 0.01) codeLamp = "yellow";
@@ -56,19 +54,6 @@ function stageStatus(){
     { id:"ship",  name:"出荷",   lamp: shipLamp,  frac: S.project ? Math.min(1, S.projectDP / S.project.totalDP) : 0 }
   ];
 }
-/* Sprint 4: 詰まりが「どちらのライン」のものか (C2-P1-5)。
-   企画中が片方だけならそのライン。仕掛品の山が片方に偏ってもそのライン。
-   判定できない（両ライン拮抗・第2ラインなし）ときは null（無理に言わない） */
-function bottleneckLine(){
-  if(!S.line2.unlocked) return null;
-  const p1 = !!(S.project && S.project.planning), p2 = !!(S.line2.project && S.line2.project.planning);
-  if(p1 !== p2) return p1 ? 1 : 2;
-  const sum = w => w.code + w.test + w.build;
-  const t1 = sum(S.wip), t2 = sum(S.line2.wip);
-  if(t1 >= 60 && t1 > t2 * 1.5) return 1;
-  if(t2 >= 60 && t2 > t1 * 1.5) return 2;
-  return null;
-}
 /* いま一番の詰まり（チップ表示用）。なければ null */
 function currentBottleneck(){
   if(S.bugStock > 8 && bugFactor() <= 0.85)
@@ -76,10 +61,8 @@ function currentBottleneck(){
       text: "テストがバグで詰まり中（バグ在庫 " + Math.floor(S.bugStock) + "匹）" };
   const b = bottleneckStage();
   if(b.isBn){
-    const line = bottleneckLine();
-    return { stage: b.worst.id, reason:"rate", line,
-      text: b.worst.name + "がボトルネック（" + Math.floor(b.worst.rate) + " DP/分）" +
-        (line ? "（主に第" + line + "ライン）" : "") };
+    return { stage: b.worst.id, reason:"rate",
+      text: b.worst.name + "がボトルネック（" + Math.floor(b.worst.rate) + " DP/分）" };
   }
   return null;
 }
@@ -90,15 +73,14 @@ function bottleneckFix(){
   const upFree = id => { const d = UPGRADE_DEFS.find(u => u.id === id); return d && (S.upgrades[id] || 0) < d.max; };
   if(bn.stage === "test"){
     if(upFree("tester")) return { tab:"factory", fix:"up:tester" };
-    if(upFree("duck")) return { tab:"factory", fix:"up:duck" };
     return { tab:"staff", fix:"hire:test" };
   }
   if(bn.stage === "build"){
     if(upFree("ci")) return { tab:"factory", fix:"up:ci" };
-    if(upFree("pack")) return { tab:"factory", fix:"up:pack" };
     return { tab:"staff", fix:"hire:prog" };
   }
   if(bn.stage === "ship"){
+    if(upFree("pack")) return { tab:"factory", fix:"up:pack" };
     if(upFree("bot")) return { tab:"factory", fix:"up:bot" };
     return { tab:"staff", fix:"hire:carry" };
   }
@@ -225,11 +207,6 @@ function renderPanel(){
       (lastSayText || "おはよ、続きやるね。").replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span></div>";
     h += "<div id='combo-info'></div>";
     h += "<button id='bn-chip' type='button' onclick='gotoBottleneckFix()'></button>";
-    /* 段階4: 経営方針のプリセットは廃止（sakuri 2026-10-27）。旧セーブで選んでいた方針は売却まで効くので、その旨だけ出す */
-    if(S.policy){
-      const pol = POLICIES.find(x => x.id === S.policy);
-      h += "<div class='note'>" + pol.icon + " 経営方針（旧）：<b>" + pol.name + "</b>（" + pol.desc + "）。この会社を売却するまで効きます。次の会社からは各タブの強化で自由に組めます</div>";
-    }
     h += incomeBreakdownHTML();
     /* 2026-10-25 (sakuri 指示): ボタン列は廃止。「名前を呼ぶ」「プロジェクトを眺める」は
        フレーバー専用なので削除し、「おやつ」は帯のおやつ箱 (prop_snackbox) へ移設した */
@@ -270,7 +247,6 @@ function renderPanel(){
         "<span class='vchip'>📈 進捗 <b>" + fmt(S.projectDP) + " / " + fmt(p.totalDP) + " DP</b></span>" +
         "<span class='vchip'>🐛 バグ在庫 <b>" + fmt(S.bugStock) + "</b></span>" +
         "<span class='vchip'>🔍 QA <b>" + qaRate().toFixed(1) + "/分</b></span>" +
-        (bottleneckLine() ? "<span class='vchip'>⚠ 詰まりは第" + bottleneckLine() + "ライン</span>" : "") +
         "</div>";
       h += "</div>";
       /* 拡張ウェーブ G': デスマーチ出荷（DP 70%以上で出現）と納期の表示 */
@@ -284,6 +260,9 @@ function renderPanel(){
             (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
             "</div>";
         }
+        /* 段階5: 品質★（企画・モジュール・ブランドをまとめた値段の目盛り） */
+        h += "<div class='chiprow'><span class='vchip' title='値段 ×1.5 ごとに星1つ'>品質 <b>" + starText(qualityStars(p)) + "</b> 値段 ×" + qualityMult(p).toFixed(2) +
+          "（企画 ×" + planPriceMult(p).toFixed(2) + (p.modules ? "・モジュール ×" + modulePriceMult(p).toFixed(2) : "") + "・ブランド ×" + brandMult().toFixed(2) + "）</span></div>";
         /* 企画を練る: アイデアを使って価格とバグを良くする（進捗 50% まで）。
            使ったアイデアのぶん、オーバークロックの溜まりが遅くなる（蓄えとの天秤） */
         if(canPlan(p, S.projectDP) || planLv(p) > 0){
@@ -326,16 +305,6 @@ function renderPanel(){
         "<div class='meter conc'><i id='conc-bar' style='width:100%'></i></div>" +
         "<div id='proj-label' style='margin-top:8px;font-size:12px;color:var(--sub)'>現在のプロジェクト進捗</div>" +
         "<div class='meter' id='proj-meter'><i id='proj-bar' style='width:0%'></i></div>";
-    }
-    if(S.line2.unlocked && S.line2.project){
-      const q = S.line2.project;
-      const qp = Math.min(100, Math.round(S.line2.projectDP / q.totalDP * 100));
-      h += "<div class='staffcard' style='margin-top:8px'><div class='sc-img'>🏭</div><div class='sc-main'>" +
-        "<div class='sc-top'><span class='nm'>第2ライン『" + esc(q.name) + "』</span>" +
-        "<span class='tagchip'>" + esc(q.genreName) + "</span>" +
-        "<span class='tagchip'>特化: " + (S.line2.genre ? (GENRES.find(g=>g.id===S.line2.genre)||{}).name : "なし") + "</span></div>" +
-        "<div class='meter' style='margin-top:5px'><i style='width:" + qp + "%'></i></div></div>" +
-        "<span class='sc-pct'>" + qp + "%</span></div>";
     }
     /* 低頻度は折りたたみへ: あそびかた (初回向けの説明) と日報ログ (振り返り) */
     h += foldSec("howto", false, "❓ あそびかた", "",
@@ -411,6 +380,14 @@ function renderPanel(){
         "<span class='lampbar'><i style='width:" + Math.round(lv / DEPT_MAX_LV * 100) + "%'></i></span>" +
         "<div class='rs'>" + total[2] + "</div>" +
         "<div class='rs'>所属 " + n + "人 ・ ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : "→" + (deptMult(role) + 0.15).toFixed(2)) + "</div>" +
+        /* 段階5: 部署の節目（Lv3・6・10）で任せられる仕事。済んだものは ✓、次の1つは Lv つきで */
+        (() => {
+          const dl = delegateList(role), done = dl.filter(x => lv >= x[0]), nx = dl.find(x => lv < x[0]);
+          const short = t => t.split("（")[0];
+          return "<div class='rs dl' title='" + esc(dl.map(x => "Lv" + x[0] + ": " + x[1]).join("\n")) + "'>" +
+            done.map(x => "✓ " + short(x[1])).join(" ・ ") + (done.length && !chief ? "（部長がいない）" : "") +
+            (nx ? (done.length ? "<br>" : "") + "Lv" + nx[0] + ": " + short(nx[1]) : "") + "</div>";
+        })() +
         (locked ? "<div class='rs'>社格「" + rankName(CHEER_STAFF_RANK) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ")) +
@@ -495,7 +472,7 @@ function renderPanel(){
       const d = Math.round(S.debt || 0), b = Math.round(S.brand || 0);
       h += "<div class='statgrid'>" +
         statBlock("技術的負債", d, "生産効率 ×" + debtEff().toFixed(2)) +
-        statBlock("ブランド力", b, "単価 ×" + brandMult().toFixed(2)) +
+        statBlock("ブランド力", b, "品質★の値段 ×" + brandMult().toFixed(2)) +
         "</div>" +
         "<div class='note'>バグを抱えたまま出荷すると負債が積みます（総務が少しずつ返済）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます</div>";
       /* 拡張ウェーブ G': バグ外注（金で買うリリーフバルブ） */
@@ -519,9 +496,9 @@ function renderPanel(){
         "<div class='rs'>" + sub + "</div></div>";
       h += "<div class='ratestrip'>" +
         cell(stgs[0], fmt(S.ideas), "💡 在庫", "着工 S2・M5・L10") +
-        cell(stgs[1], productionRate().toFixed(1), "DP/分", "仕掛品 " + fmt(S.wip.code + S.line2.wip.code) + " DP") +
-        cell(stgs[2], testRate().toFixed(0), "DP/分", "QA " + qaRate().toFixed(1) + " バグ/分 ・ 仕掛品 " + fmt(S.wip.tested + S.line2.wip.tested)) +
-        cell(stgs[3], buildRate().toFixed(0), "DP/分", "仕掛品 " + fmt(S.wip.built + S.line2.wip.built) + " DP") +
+        cell(stgs[1], productionRate().toFixed(1), "DP/分", "仕掛品 " + fmt(S.wip.code) + " DP") +
+        cell(stgs[2], testRate().toFixed(0), "DP/分", "QA " + qaRate().toFixed(1) + " バグ/分 ・ 仕掛品 " + fmt(S.wip.tested)) +
+        cell(stgs[3], buildRate().toFixed(0), "DP/分", "仕掛品 " + fmt(S.wip.built) + " DP") +
         cell(stgs[4], shipRate().toFixed(0), "DP/分", S.project ? "現プロジェクト " + Math.min(100, Math.round(S.projectDP / S.project.totalDP * 100)) + "%" : "") +
         "</div>";
     }
@@ -532,28 +509,10 @@ function renderPanel(){
     } else {
       h += "<div class='ok' style='margin-top:5px'>✅ ラインは順調です（生産 "+bn.prod.toFixed(1)+" DP/分）</div>";
     }
-    if(tutLocked(TUT_STAGE.LINE2, S.line2.unlocked || !!S.research.res_line2)){
-      /* チュートリアル導線: 第2ライン区画は Stage 6 (研究で設計完了) まで
-         シルエット。条件は「研究の前提」と「建設費」の2本バーで絵で示す */
-      h += secLockHTML("🏭", "第2ライン",
-        [["🔬", S.research.res_line2 ? 5 : Math.min(5, Math.floor(S.rp)), 5, "研究『第2ラインの設計』（5🔬）"],
-         ["🪙", Math.floor(S.coins), BAL.line2BuildCost, "建設費"]],
-        "研究で設計できたら、ここに建てられるにゃ");
-    } else if(!S.research.res_line2){
-      h += "<div class='note' style='margin-top:6px'>🏭 第2ラインは研究『第2ラインの設計』で解放（並行開発・処理能力は第1ラインと共有）</div>";
-    } else if(!S.line2.unlocked){
-      h += "<div class='item buy slim'><div><span class='sock sm'>🏭</span><span class='nm'>第2ライン</span><div class='ds'>ジャンル特化の並行開発（報酬は通常の70%）</div></div>"+
-        buyBtn("line2", BAL.line2BuildCost, "coins", "buyLine2()", false, "建設 ") + "</div>";
-    } else {
-      h += "<div class='item slim'><div class='sc-top' style='margin-bottom:5px'><span class='sock sm'>🏭</span><span class='nm'>第2ライン</span>"+
-        "<span class='tagchip'>稼働中</span>"+
-        "<small>"+(S.line2.project ? "『"+S.line2.project.name+"』 "+fmt(S.line2.projectDP)+"/"+fmt(S.line2.project.totalDP)+"DP ・ " : "")+"特化は次の作品から適用</small></div>"+
-        "<div class='btn-row' style='margin-top:0'><button onclick='setLine2Genre(null)' "+(S.line2.genre===null?"class='primary'":"")+">指定なし</button>";
-      for(const g of unlockedGenres()){
-        h += "<button onclick='setLine2Genre(\""+g.id+"\")' "+(S.line2.genre===g.id?"class='primary'":"")+">"+g.name+"</button>";
-      }
-      h += "</div></div>";
-    }
+    /* 段階5: 第2ラインは廃止。開発部 Lv3 の並行開発で作る手が増える（テスト以降は共有） */
+    h += "<div class='note' style='margin-top:6px'>🏭 並行開発: " + (delegated("prog", 3)
+      ? "稼働中（開発部の実装 ×" + parallelDevMult().toFixed(1) + "。テスト以降の工程は共有なので、下流が詰まりやすくなります）"
+      : "開発部を Lv3 にすると、開発部の実装が +50%（部長＝開発部の猫が1匹以上いること）") + "</div>";
     h += "<h3 style='margin-top:12px'>⬆️ 工程アップグレード</h3>";
     h += engineRowsHTML("line");   /* 段階4: 本社ラインの強化の列（作品の売上） */
     /* 工程の区切り見出しは廃し、工程名は各カードのチップで示す (1グリッド化) */
@@ -576,7 +535,7 @@ function renderPanel(){
       const bdef = UPGRADE_DEFS.find(u => u.id === "bot");
       const blv = S.upgrades.bot || 0, bcost = upgradeCost(bdef, blv), bmaxed = blv >= bdef.max;
       h += "<div class='item buy slim' data-fix='up:bot'><div><span class='nm'>"+bdef.name+"</span> <span class='lvbadge'>Lv"+blv+"</span> <span class='tagchip'>"+bdef.stage+"</span>"+
-        "<div class='ds'>"+bdef.desc+"</div></div>"+
+        "<div class='ds'>"+bdef.desc+milestoneNote(bdef, blv)+"</div></div>"+
         (bmaxed ? "<span class='tagchip'>MAX</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")"))+"</div>";
     }
     const pv = prestigePreview();
@@ -750,7 +709,7 @@ function renderPanel(){
     h += "<div class='shelfgrid'>";
     for(const w of S.shelf){
       h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+esc(w.name)+"』</span></div>"+
-        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.line2?"<span class='tagchip'>🏭 第2ライン</span>":"")+"</div>"+
+        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.q?"<span class='tagchip'>"+starText(w.q)+"</span>":"")+"</div>"+
         (w.highlight ? "<div class='wc-hl'>✨ "+esc(w.highlight)+"</div>" : "")+
         "<div class='wc-stats'>"+esc(w.date)+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
     }
@@ -807,29 +766,23 @@ function renderPanel(){
         buyBtn("res:"+def.id, def.cost, "rp", "buyResearch(\""+def.id+"\")", locked)+"</div>";
     }
     if(resCards) h += "<div class='buygrid'>"+resCards+"</div>";
-    else h += "<div class='note' style='font-size:12px'>🎓 残りの研究はありません（反復研究だけが残っています）</div>";
-    const anyRep = REPEAT_RESEARCHES.some(d => repLv(d.id) > 0);
-    if(!tier1Done() && !anyRep){
-      /* チュートリアル導線: 反復研究はティア1制覇までシルエット
-         (条件はティア1の完了バーで絵で示す) */
-      const t1 = RESEARCH_DEFS.filter(d => !d.tier);
-      const doneN = t1.filter(d => S.research[d.id]).length;
-      h += secLockHTML("🔁", REPEAT_RESEARCH.name,
-        [["🔬", doneN, t1.length, "ティア1研究の完了"]],
-        "ひととおり研究が終わると、磨き上げができるにゃ");
-    } else {
-      /* 工程別の反復研究。いま詰まっている工程の行に「詰まり中」を付ける */
-      const bn = bottleneckStage();
-      const bnStage = bn.isBn ? bn.worst.id : "impl";
-      let rep = "";
-      for(const d of REPEAT_RESEARCHES){
-        const lv = repLv(d.id);
-        rep += "<div class='item buy slim' data-fix='res:"+d.id+"'><div><span class='sock sm'>🔁</span><span class='nm'>"+d.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
-          (d.stage === bnStage ? " <span class='tagchip'>⚠ 詰まり中</span>" : "")+
-          "<div class='ds'>"+d.desc+"（現在 +"+(lv*5)+"%）</div></div>"+
-          buyBtn("res:"+d.id, repeatResearchCost(lv), "rp", "buyResearch(\""+d.id+"\")", false, "研究 ")+"</div>";
+    else h += "<div class='note' style='font-size:12px'>🎓 この会社の研究はすべて済みました。残りの研究P は売却のときジャンル知見になります</div>";
+    /* 段階5: ジャンル知見（会社を売っても残る）。いまの Lv と、売却したら増える分 */
+    {
+      const pv = knowPreview();
+      let rows = "";
+      for(const g of GENRES){
+        const pts = (S.genreKnow && S.genreKnow[g.id]) || 0, add = (pv.find(x => x.g === g.id) || { add: 0 }).add;
+        if(!(pts > 0) && !(add > 0)) continue;
+        const lv = knowLvFor(pts), nextPts = Math.pow(lv + 1, 2), lv2 = knowLvFor(pts + add);
+        rows += "<div class='item slim'><div><span class='nm'>" + g.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" +
+          (lv2 > lv ? " <span class='tagchip'>売却で Lv" + lv2 + "</span>" : "") +
+          "<div class='ds'>" + g.name + "の作品の値段 +" + (lv * 10) + "% ・ 知見 " + pts.toFixed(1) + " / 次の Lv まで " + nextPts +
+          (add > 0 ? " ・ 売却で +" + add.toFixed(1) : "") + "</div></div></div>";
       }
-      h += "<div class='buygrid'>"+rep+"</div>";
+      h += "<h3 style='margin-top:12px'>📚 ジャンル知見（会社を売っても残る）</h3>" +
+        "<div class='note'>売却のとき、残っている研究P がこの会社で出した作品のジャンルへ本数の割合で入ります。知見 Lv ごとにそのジャンルの値段 +10%</div>" +
+        (rows ? "<div class='buygrid'>" + rows + "</div>" : "<div class='note' style='font-size:12px'>まだ知見はありません。作品を出して研究P を残したまま売却すると貯まります</div>");
     }
     if(resDone) h += foldSec("resdone", false, "✅ 完了した研究", resDoneN+" 件", "<div class='feats'>"+resDone+"</div>");
   }

@@ -1,7 +1,7 @@
 /* ---------- 可視生産フロー: 供給と発火 ----------
    tick から毎秒、実フローの増分だけを受ける薄い層。量子を超えた分だけ
    移動アニメを発火し、残りはアキュムレータに残す (保存則が壊れない) */
-function flowFeedTick(d1, d2, u1, u2){
+function flowFeedTick(d1, u1){
   if(IS_VIEWER) return;   /* viewer はシミュレーションも演出供給も持たない */
   flowTierTick();
   flowStaggerN = 0;
@@ -10,11 +10,10 @@ function flowFeedTick(d1, d2, u1, u2){
      (§1.4 — 企画中はアイデアのモートが担当する)。バッファ自体は正直に溜まる */
   let codeFeed = 0;
   if(!(S.project && S.project.planning)) codeFeed += Math.max(0, d1);
-  if(!(S.line2.project && S.line2.project.planning)) codeFeed += Math.max(0, d2);
   flowFeedStage("code", codeFeed, q);
-  flowFeedStage("test", Math.max(0, (u1.test || 0) + (u2.test || 0)), q);
-  flowFeedStage("build", Math.max(0, (u1.build || 0) + (u2.build || 0)), q);
-  flowFeedStage("ship", Math.max(0, (u1.ship || 0) + (u2.ship || 0)), q);
+  flowFeedStage("test", Math.max(0, u1.test || 0), q);
+  flowFeedStage("build", Math.max(0, u1.build || 0), q);
+  flowFeedStage("ship", Math.max(0, u1.ship || 0), q);
 }
 function flowFeedStage(stage, amount, q){
   if(amount <= 0) return;
@@ -84,11 +83,11 @@ function tryDispatchShipCarrier(){
 function spawnFeatNote(line){
   if(IS_VIEWER || stripFlow.length >= 10) return;
   const G = STRIP_GROUND;
-  const small = line === 2;
-  const p = small ? S.line2.project : S.project;
+  const small = false;   /* 段階5: 第2ラインの小型ボードは廃止 */
+  const p = S.project;
   if(!p) return;
-  const bcx = small ? stripDesk2CX() : stripDeskCX();
-  const bw = small ? STRIP_BOARD.w2 : STRIP_BOARD.w;
+  const bcx = stripDeskCX();
+  const bw = STRIP_BOARD.w;
   const bx = Math.round(bcx - bw / 2);
   const slot = Math.max(0, (p.doneFeats || 1) - 1);
   /* 着地点: 小型ボードは上枠の付箋列、リーダーボードは進捗バー上のその機能の節目 */
