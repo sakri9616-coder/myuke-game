@@ -195,6 +195,7 @@ interface StripHitRects {
   staff: any[];
   bugs: any[];
   piles: any[];
+  stations: any[];
   [name: string]: any;
 }
 
