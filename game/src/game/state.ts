@@ -178,7 +178,8 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
   if(feverActive()) gain *= FEVER.clickMult;   /* F再設計: 発動中のクリックは ×3（旧 ×20 は Argon の警告で置換） */
   /* F再設計: バケツを通ったクリックだけが DP を生む（反応・コンボは無条件）。
      流入は案B 読み替え: 直接進捗は 20%、残り 80% は第1工程へ流して
-     工程キャップに堰き止めさせる。企画中は全量が仕掛品になる */
+     工程キャップに堰き止めさせる。企画中は全量が仕掛品になる。
+     工程中心: さらに溜まった仕掛品を手で運んで出荷する（cheerCarry） */
   if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
     prodMuted = true;
@@ -186,12 +187,14 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
     if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
     prodMuted = false;
     if(S.project && !S.project.planning){
-      const direct = gain * CLINK.directShare * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+      const direct = gain * CLINK.directShare * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
       S.runDP += direct;
       S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
       creditProject(direct);
+      /* 工程中心: 溜まった仕掛品を手で運んで出荷する（クリック威力 × carryMult ぶん） */
+      const carried = S.project ? cheerCarry(gain * CLINK.carryMult * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult()) : 0;
       progressPulseUntil = Date.now() + 500;
-      addFloater(bx, by - 22, "+" + direct.toFixed(1) + "DP すすんだ！", "#e8873a");
+      addFloater(bx, by - 22, "+" + (direct + carried).toFixed(1) + "DP すすんだ！" + (carried > 0 ? "（📦 手で運んだ）" : ""), "#e8873a");
     }
     if(crit){
       addFloater(bx, by - 12, "CRITICAL! +" + gain.toFixed(0) + "DP", "#d9534f");

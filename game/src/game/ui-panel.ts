@@ -252,6 +252,13 @@ function renderPanel(){
             (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
             "</div>";
         }
+        /* 企画を練る: 余ったアイデアで価格とバグを良くする（進捗 50% まで） */
+        if(canPlan(p, S.projectDP) || planLv(p) > 0){
+          h += "<div style='margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap'>" +
+            (planLv(p) > 0 ? "<span class='vchip'>💡 企画Lv" + planLv(p) + "（価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * planLv(p)) + "%）</span>" : "") +
+            (canPlan(p, S.projectDP) ? "<button onclick='planProject(\"l1\")'" + (S.ideas < planCost(p) ? " disabled" : "") + ">💡 企画を練る（アイデア " + fmt(planCost(p)) + "・価格 +15%・バグ -15%）</button>" : "") +
+            "</div>";
+        }
         /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
         if((p.size === "M" || p.size === "L") && !p.planning){
           h += "<div style='margin-top:7px'>" + (p.ip
