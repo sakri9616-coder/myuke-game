@@ -43,29 +43,52 @@ function pileSlotPos(cx, idx, boxKind){
   }
   return { x: cx + (col === 0 ? -5.9 : 5.9), yb: STRIP_GROUND - 3.5 - row * 7.6 };
 }
+/* 2026-10-27（v2.12.1）: 詰まった工程は手作業で押し切れる（sakuri「ボトルネック箇所は、ゴリ押し（クリック）でも
+   解消できるようにしよう。工業的に手動から自動化の流れとして正しい」）。
+   詰まっている山（赤い山・いまの律速工程の手前の山）をクリックすると、みゅけの前足がその工程を手で進める
+   （handworkClick）。山の上では肉球の合図 icon_tap が上下し、作業中は工程ごとの手作業の絵が動く。
+   山の左の三角コーンを押すと、従来どおり設備・人を買う対策パネルが開く（手動 → 自動化） */
+const PILE_HANDWORK_ART = { code: "test", test: "build", build: "ship" };   /* 山 → その山を処理する工程の絵 */
+function pileJammed(m, stage){
+  if(m[stage].red) return true;
+  const bn = currentBottleneck();
+  if(!bn || bn.reason !== "rate") return false;
+  const input = { test: "code", build: "test", ship: "build" }[bn.stage];
+  return input === stage && m[stage].n > 0;
+}
+function drawPileHandwork(stage, cx, cone){
+  const G = STRIP_GROUND;
+  const topY = Math.min(G - 8, pileTopY(stage) - 1);
+  const hw = handworkFx && handworkFx.stage === stage && stripNow - handworkFx.at < 450 ? handworkFx : null;
+  if(hw) sDrawSprite("fx_handwork_" + PILE_HANDWORK_ART[stage] + "_" + (stripNow - hw.at < 220 ? 1 : 0), cx, topY + 2, 1);
+  else sDrawSprite("icon_tap_" + (blinkOn(40, 20) ? 0 : 1), cx, topY - 2, 1);
+  stripHitRects.piles.push({ x: cx - 15, y: Math.min(G - 18, topY - 12), w: 30, h: G - Math.min(G - 18, topY - 12), stage });
+  stripHitRects.piles.push({ x: cone - 6, y: G - 11, w: 12, h: 11, stage, cone: true });
+}
 function drawStripPiles(){
   const G = STRIP_GROUND, m = pileModel();
   /* --- B: QA トレイ (机と研究机の間) --- */
   const bx = stripQAX();
   /* 2026-10-27: トレイ・台・カードは絵。詰まりは赤線ではなく信号柱 (strip-visible.ts) と
      山の左に置く三角コーンで見せる */
+  const jam = { code: pileJammed(m, "code"), test: pileJammed(m, "test"), build: pileJammed(m, "build") };
   sDrawSprite("prop_qa_tray", bx, G, 1);
-  if(m.code.red) sDrawSprite("prop_jam_cone", bx - 21, G, 1);
+  if(jam.code) sDrawSprite("prop_jam_cone", bx - 21, G, 1);
   for(let i = 0; i < m.code.n; i++){
     const p = pileSlotPos(bx, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, false, i * 0.37);
   }
   /* バグ滞留は山の上ではなく、帯の地面を這う在庫バグとして描く (strip-bugs.ts) */
-  if(m.code.red) stripHitRects.piles.push({ x: bx - 15, y: Math.min(G - 12, pileTopY("code") - 6), w: 30, h: G - Math.min(G - 12, pileTopY("code") - 6), stage: "code" });
+  if(jam.code) drawPileHandwork("code", bx, bx - 21);
   /* --- C: ビルド置き場 (サーバ予定地の足元。木箱台) --- */
   const cxp = stripBuildX();
   sDrawSprite("prop_build_stand", cxp, G, 1);
-  if(m.test.red) sDrawSprite("prop_jam_cone", cxp - 21, G, 1);
+  if(jam.test) sDrawSprite("prop_jam_cone", cxp - 21, G, 1);
   for(let i = 0; i < m.test.n; i++){
     const p = pileSlotPos(cxp, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, true, i * 0.53);
   }
-  if(m.test.red) stripHitRects.piles.push({ x: cxp - 14, y: Math.min(G - 12, pileTopY("test") - 6), w: 28, h: G - Math.min(G - 12, pileTopY("test") - 6), stage: "test" });
+  if(jam.test) drawPileHandwork("test", cxp, cxp - 21);
   /* --- D: 出荷スタック (箱の積み場 + 「出荷」札) --- */
   const dx = stripShipX();
   /* 2026-10-26: prop_ship は Codex 描き直し (48×48・「出荷」の文字も絵の側)。
@@ -77,7 +100,7 @@ function drawStripPiles(){
     if(legacyGrade() >= 2 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
     else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, 1);
   }
-  if(m.build.red) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
+  if(jam.build) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
   for(let i = 0; i < m.build.n; i++){
     const p = pileSlotPos(dx, i, true);
     sDrawSprite("icon_box", p.x, p.yb, 0.78);
@@ -91,7 +114,7 @@ function drawStripPiles(){
       if(frame % 6 < 3) sDrawNine("fx_shelf_glow", p.x - 7, p.yb - 15.6, 14, 11.4, 3, 3);
     }
   }
-  if(m.build.red) stripHitRects.piles.push({ x: dx - 16, y: Math.min(G - 12, pileTopY("build") - 6), w: 32, h: G - Math.min(G - 12, pileTopY("build") - 6), stage: "build" });
+  if(jam.build) drawPileHandwork("build", dx, dx - 32);
 }
 /* 第2ラインのミニフロー: 第2机の天面左端に小さい山2つ (実装/テスト済み) */
 function drawStripLine2Piles(){

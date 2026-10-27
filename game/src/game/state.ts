@@ -169,6 +169,33 @@ function updateComboUI(){
       "DP（連続でコンボ、たまにクリティカル×10）";
   }
 }
+/* 詰まった工程の手作業（v2.12.1）。詰まっている山をクリックすると、その山を次の工程へ手で進める。
+   量 = 応援の威力 × コンボ × HANDWORK_MULT（運ぶ ×3 より強いが、その山の工程にしか効かない）。
+   クリックの堰（秒5回のバケツ）・コンボ・応援P・オーバークロックの溜まりは応援クリックと共通 */
+const HANDWORK_MULT = 5;
+let handworkFx: { stage: string; at: number } | null = null;   /* 帯の手作業の絵（揮発） */
+function handworkClick(stage){
+  const now = Date.now();
+  comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;
+  lastClickAt = now;
+  S.totals.clicks++;
+  handworkFx = { stage, at: now };
+  let moved = 0;
+  if(!challengeActive("idle") && S.project && !S.project.planning && clickBucketTake()){
+    if(!feverActive()) chargeFever(FEVER.chargePerClick);
+    S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);
+    const amt = clickBaseDP() * comboMult() * HANDWORK_MULT * clickProdMult() * (feverActive() ? FEVER.clickMult : 1);
+    const w = S.wip;
+    if(stage === "code"){ moved = Math.min(amt, w.code); w.code -= moved; w.tested += moved; }
+    else if(stage === "test"){ moved = Math.min(amt, w.tested); w.tested -= moved; w.built += moved; }
+    else if(stage === "build"){ moved = Math.min(amt, w.built); w.built -= moved; creditProject(moved); }
+    if(moved > 0){ S.totals.handwork = (S.totals.handwork || 0) + moved; progressPulseUntil = now + 500; }
+  }
+  SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 });
+  updateComboUI();
+  checkStamps();
+  return moved;
+}
 function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し側 (hitzones) が担う */
   const now = Date.now();
   comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;

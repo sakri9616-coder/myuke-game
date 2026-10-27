@@ -32,6 +32,7 @@ interface Project {
   activeSec: number;
   modules?: ProjectModule[];
   ip?: boolean;
+  flowPaid?: number;   // 作りながら入金済みのコイン（v2.12.1〜。リリース時に差し引く）
   planLv?: number;   // 企画を練った回数（0〜3）
   planMeetSec?: number;   // v2.9.1〜v2.9.2 の企画会議の残り秒（v2.9.3 で廃止。旧セーブに残っていても読まない）
   scale?: number;    // 仕事の桁（作品の規模と報酬の倍率・1/2/5/10…。旧セーブは無し＝1）
@@ -89,7 +90,7 @@ interface ShelfEntry {
   [k: string]: any;
 }
 
-interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number }
+interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number }   // ships・scale は v2.12.1〜（出荷の本数で回るロイヤリティ）
 
 interface Line2State {
   unlocked: boolean;
@@ -120,7 +121,7 @@ interface Settings {
   reduceMotion?: boolean;   /* 帯の点滅を控える (OS の視差効果を減らす設定でも有効になる) */
 }
 
-interface Trend { boom: string; slump: string; nextBoom: string | null; nextSlump: string | null; cycleSec: number; announceAt: number }
+interface Trend { boom: string; slump: string; nextBoom: string | null; nextSlump: string | null; cycleSec: number; ships?: number; announceAt: number }   // cycleSec は v2.12.1 から使わない（出荷の本数 ships で回る）
 
 interface GameState {
   coins: number; ideas: number; packages: number; bugStock: number; rp: number; dust: number; prestiges: number;
@@ -133,7 +134,7 @@ interface GameState {
   depts: Record<string, number>; bigDeal: WorkRequest | null; reqGenrePref: string | null; salesRot: number; reqHoldUntil: number;
   subs: Subsidiary[]; subSeq: number;
   fever: { gauge: number; [k: string]: any };
-  debt: number; brand: number; vendorReadyAt: number;
+  debt: number; brand: number; vendorReadyAt: number; vendorUses?: number;   // vendorReadyAt は v2.12.1 から使わない（続け頼みの割増 vendorUses に置き換え）
   shelf: ShelfEntry[]; recentNames: string[];
   staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number; policy: string | null;
   wip: StageWip;

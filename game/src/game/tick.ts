@@ -131,12 +131,11 @@ function tick(){
   /* 拡張ウェーブ G: 総務（ケア）が技術的負債を少しずつ返す（部署Lv は staffSums 経由で効く） */
   if(S.debt > 0 && ss.careW > 0) S.debt = Math.max(0, S.debt - ss.careW * 0.9 / 60);
   checkChallenge();   /* 第2ウェーブ K: 目標の充足は毎秒見る（Lv到達・累計コイン） */
-  /* 第2ウェーブ L: 常駐秒を積み、トレンドの周期と IP のロイヤリティを回す */
+  /* 第2ウェーブ L: 常駐秒を積む */
   S.residentSec = (S.residentSec || 0) + 1;
   ensureTrend();
-  S.trend.cycleSec = (S.trend.cycleSec || 0) + 1;
-  if(S.trend.cycleSec >= TREND_CYCLE_SEC) rotateTrend();
-  tickIPs();
+  /* トレンドと IP のロイヤリティは v2.12.1 から出荷の本数で回る（recordRelease → onShipCycles） */
+  tickCoinFlow();   /* 🪙/秒 の表示値 */
   // 集中力
   if(coding){
     let drain = (100 / (25*60)) * (1 - 0.08*Math.min(5,(S.upgrades.chair||0)));

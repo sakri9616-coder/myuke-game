@@ -296,7 +296,7 @@ function doPrestige(){
    特典による持ち越しは呼び出し側がこの後に上書きする */
 function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
-  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
+  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0; S.vendorUses = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
   S.research = {};
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
@@ -507,11 +507,16 @@ function checkChallenge(){
 }
 
 /* ---------- 第2ウェーブ L: 市場トレンド＋自社IP ----------
-   トレンドは常駐時間で回る市場の流れ（2時間周期）: ブームのジャンルは
+   トレンドは出荷の本数で回る市場の流れ（10本ごと。v2.12.1 までは常駐2時間）: ブームのジャンルは
    価格 ×1.5、不況は ×0.7。同じジャンルのブームは連続しない。開発の
    ジャンル選びはプレイヤーの方針 (devGenrePref) で重みづけし、
    依頼の自動獲得では 希望 ＞ トレンド ＞ 得意 の順に効く */
-const TREND_CYCLE_SEC = 7200;
+const TREND_CYCLE_SHIPS = 10;   /* 2026-10-27（v2.12.1）: 常駐2時間ごと → 出荷10本ごと（速く作るほど流れも速く回る） */
+function trendOnShip(){
+  ensureTrend();
+  S.trend.ships = (S.trend.ships || 0) + 1;
+  if(S.trend.ships >= TREND_CYCLE_SHIPS){ rotateTrend(); S.trend.ships = 0; }
+}
 function trendPool(){ const u = unlockedGenres(); return (u.length ? u : GENRES).map(g => g.id); }
 function drawNextTrend(){
   const t = S.trend;
@@ -549,8 +554,8 @@ function rotateTrend(){
 }
 function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel(); }
 /* 自社IP: M/L の作品をパネルで指定し、バグ0で出荷すると成立する。
-   即時に価格の30%、その後は価格の IP_ROYALTY_PER_MIN/分 のロイヤリティが
-   12時間ごとに半減しながら48時間入る（生涯で約 ×2.3）。
+   即時に価格の30%、その後は出荷1本ごとに価格の IP_ROYALTY_PER_SHIP のロイヤリティが
+   IP_HALF_SHIPS 本ごとに半減しながら IP_LIFE_SHIPS 本ぶん入る（生涯で約 ×2.3。v2.12.1 までは常駐時間で入っていた）。
    2026-10-27 作り直し（sakuri「手動で操作する意味がない。バグがないときのボーナス程度」）:
    旧仕様は指定しても損がなく、指定できるなら常に指定するだけだった。いまは賭けにした。
    ・IP 作品は作り込みが要る: 指定した瞬間に作品の規模が ×IP_SIZE_MULT（値段の元は据え置き）
@@ -558,7 +563,7 @@ function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel()
    ・成立した IP は会社の資産で、EXIT で消える（売却が近いなら狙わない）
    バグを0にして出荷できる見込み（QA の余力・帯のバグを手で叩く労働）と、売却までの残り時間を
    読んで狙うかを決める。損益分岐の成立率は sim の Wave L に出す */
-const IP_SIZE_MULT = 1.5, IP_FAIL_MULT = 0.8, IP_ROYALTY_PER_MIN = 0.0015;
+const IP_SIZE_MULT = 1.5, IP_FAIL_MULT = 0.8;
 function canDesignateIP(p, dp){ return !!p && !p.ip && !p.planning && (p.size === "M" || p.size === "L") && dp < p.totalDP * 0.5 && (S.ips || []).length < 3; }
 function designateIP(which){
   const l2 = which === "l2";
@@ -586,7 +591,7 @@ function settleIP(p, basePrice, work, ipOk){
     return;
   }
   if(!Array.isArray(S.ips)) S.ips = [];
-  S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: basePrice, bornSec: S.residentSec || 0, frac: 0 });
+  S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: basePrice, bornSec: S.residentSec || 0, frac: 0, ships: 0, scale: p.scale || 1 });
   if(work) work.ip = true;
   addLog("🏷 『"+p.name+"』が自社IPになった！ 即時は売却額の30%だけ受け取り、残りはロイヤリティで入るにゃ");
   say("『"+p.name+"』、自社IPになったにゃ！");
@@ -594,31 +599,35 @@ function settleIP(p, basePrice, work, ipOk){
 function ipConvertible(p){
   return !!p.ip && Math.floor(S.bugStock) <= 0 && (S.ips || []).length < 3;
 }
-function tickIPs(){
+/* 2026-10-27（v2.12.1）: ロイヤリティは常駐時間ではなく「その後の出荷」で入る（sakuri「時間がプレイヤーの
+   介入不可能な完全なボトルネックになる設計をすべて見直せ」）。成立後の出荷1本ごとに
+   価格 × IP_ROYALTY_PER_SHIP、IP_HALF_SHIPS 本ごとに半減、IP_LIFE_SHIPS 本で終わる（生涯 ×2.33 は従来と同じ）。
+   いまの仕事の桁に追従する（桁が上がった会社では IP の稼ぎも同じだけ上がる）。速く作るほど早く回収できる */
+const IP_ROYALTY_PER_SHIP = 0.18, IP_HALF_SHIPS = 6, IP_LIFE_SHIPS = 24;
+function ipRoyaltyOnShip(){
   if(!S.ips || !S.ips.length) return;
-  const nowSec = S.residentSec || 0;
-  let changed = false;
+  let paid = 0;
   for(const ip of S.ips.slice()){
-    const ageH = (nowSec - (ip.bornSec || 0)) / 3600;
-    if(ageH >= 48){
+    const n = ip.ships || 0;
+    if(n >= IP_LIFE_SHIPS){
       S.ips.splice(S.ips.indexOf(ip), 1);
-      addLog("🏷 自社IP『"+ip.name+"』はロイヤリティ期間を終えたにゃ（48時間）");
-      changed = true;
+      addLog("🏷 自社IP『"+ip.name+"』はロイヤリティ期間を終えたにゃ（出荷 "+IP_LIFE_SHIPS+" 本ぶん）");
       continue;
     }
-    const decay = Math.pow(0.5, Math.floor(ageH / 12));
-    ip.frac = (ip.frac || 0) + ip.price * IP_ROYALTY_PER_MIN * decay / 60;
-    if(ip.frac >= 1){
-      const pay = Math.floor(ip.frac);
-      ip.frac -= pay;
-      S.coins += pay; S.totals.coinsEarned += pay;
-      if(Math.random() < 0.25 && document.body.classList.contains("strip"))
-        addStripFloater(stripShelfCX(), STRIP_GROUND - 70, "💰 ロイヤリティ", "#c9962e");
-      changed = true;
-    }
+    const decay = Math.pow(0.5, Math.floor(n / IP_HALF_SHIPS));
+    const follow = Math.max(1, workScale() / (ip.scale || 1));
+    ip.frac = (ip.frac || 0) + ip.price * IP_ROYALTY_PER_SHIP * decay * follow;
+    ip.ships = n + 1;
+    const pay = Math.floor(ip.frac);
+    if(pay > 0){ ip.frac -= pay; S.coins += pay; S.totals.coinsEarned += pay; paid += pay; }
   }
-  if(changed) save();
+  if(paid > 0){
+    addLog("💰 自社IPのロイヤリティ +" + fmt(paid) + "🪙");
+    if(document.body.classList.contains("strip"))
+      addStripFloater(stripShelfCX(), STRIP_GROUND - 70, "💰 ロイヤリティ +" + fmt(paid), "#c9962e");
+  }
 }
+function ipShipsLeft(ip){ return Math.max(0, IP_LIFE_SHIPS - (ip.ships || 0)); }
 /* 実績ボードの工程系: 詰まり→解消 と 全工程グリーン は「その瞬間」の事実なので、
    1秒ティックで見てフラグに残す（checkStamps はクリックごとにも呼ばれるので重い判定は置かない） */
 let stampBnSeen = false;

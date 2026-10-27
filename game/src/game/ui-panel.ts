@@ -454,7 +454,7 @@ function renderPanel(){
         [["🪙", Math.floor(S.totals.coinsEarned), 5000, "累計コイン"]],
         "もっと稼げるようになったら、みんなにご褒美をあげられるにゃ");
     } else {
-      h += foldSec("treats", false, "🎁 ご褒美（みんなへ）", "価格は収入と購入回数で上昇", treatHTML);
+      h += foldSec("treats", false, "🎁 ご褒美（みんなへ）", "価格は収入と、効果中の重ね買いで上昇", treatHTML);
     }
   }
   if(currentTab === "factory"){
@@ -470,11 +470,10 @@ function renderPanel(){
         "<div class='note'>バグを抱えたまま出荷すると負債が積みます（総務が少しずつ返済）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます</div>";
       /* 拡張ウェーブ G': バグ外注（金で買うリリーフバルブ） */
       const vc = vendorCost();
-      const vLeft = Math.max(0, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000));
       h += "<div style='margin:7px 0'><button onclick='outsourceBugs()' " +
-        (vLeft > 0 || (vc.bugs <= 0 && vc.debtCut <= 0) || S.coins < vc.coins ? "disabled" : "") +
+        ((vc.bugs <= 0 && vc.debtCut <= 0) || S.coins < vc.coins ? "disabled" : "") +
         ">" + (vc.bugs <= 0 && vc.debtCut <= 0 ? "🧳 バグ外注（片付けるバグも負債もないにゃ）" : "🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙") + "</button>" +
-        (vLeft > 0 ? " <span class='note'>ベンダー対応中… あと約 " + vLeft + " 分</span>" : "") + "</div>";
+        (vc.uses > 0 ? " <span class='note'>続け頼みで ×" + Math.pow(VENDOR_REPEAT_MULT, vc.uses).toFixed(2).replace(/\.?0+$/, "") + "（次のリリースで元の値段に戻る）</span>" : "") + "</div>";
     }
     /* IA: 信号機図とレート表を1本の帯に統合 (図が主役・数字は大きく)。
        Strip Canon §c.7: 信号機は工場パネルの図に一本化（stageStatus の合算判定）。
@@ -663,14 +662,14 @@ function renderPanel(){
       const gName = id => { const g = GENRES.find(x => x.id === id); return g ? g.name : "？"; };
       let trBody = kv("📈 ブーム（価格 ×1.5）", gName(t.boom)) +
         kv("📉 不況（価格 ×0.7）", gName(t.slump)) +
-        kv("次の入れ替えまで", "あと約 " + Math.max(1, Math.ceil((TREND_CYCLE_SEC - (t.cycleSec || 0)) / 60)) + " 分（常駐時間）");
+        kv("次の入れ替えまで", "あと " + Math.max(1, TREND_CYCLE_SHIPS - (t.ships || 0)) + " 本（出荷）");
       if(hasLegacyTech("forecast")) trBody += kv("🔮 トレンド予報（次の流れ）", "📈 " + gName(t.nextBoom) + " ／ 📉 " + gName(t.nextSlump));
       trBody += "<div class='stagehead'>開発ジャンルの方針（重みづけ・固定にはならない）</div><div>" +
         "<button onclick='setDevGenrePref(null)'" + (!S.devGenrePref ? " class='primary'" : "") + ">おまかせ</button> " +
         GENRES.map(g => "<button onclick='setDevGenrePref(\"" + g.id + "\")'" + (S.devGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button>").join(" ") + "</div>";
       if((S.ips || []).length){
         trBody += "<div class='stagehead'>🏷 自社IP（" + S.ips.length + " / 3）</div>" + S.ips.map(ip =>
-          kv("『" + esc(ip.name) + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
+          kv("『" + esc(ip.name) + "』", "ロイヤリティ あと出荷 " + ipShipsLeft(ip) + " 本ぶん")).join("");
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }

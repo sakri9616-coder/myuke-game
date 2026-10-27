@@ -20,19 +20,27 @@ function workScaleFor(rate){
 }
 /* いまの仕事の桁（進行中の作品の桁。イベント報酬もこれに合わせる） */
 function workScale(){ return (S.project && S.project.scale) || 1; }
-function drawSizeByTime(scale = 1){
-  const rate = effThroughput() / scale;
-  const weighted = ["XS","S","S","M","M","L"];
-  const ok = weighted.filter(s => { const m = BAL.sizes[s] / rate; return m >= 40 && m <= 180; });
-  if(S.bigDrawStreak >= 1){
-    S.bigDrawStreak = 0;
-    return ok.includes("S") ? "S" : (ok[0] || "XS");
-  }
-  let size;
-  if(ok.length) size = ok[Math.floor(Math.random()*ok.length)];
-  else size = ["XS","S","M","L"].reduce((a, c) =>
-    Math.abs(BAL.sizes[c] / rate - 90) < Math.abs(BAL.sizes[a] / rate - 90) ? c : a);
-  S.bigDrawStreak = (BAL.sizes[size] / rate > 150) ? S.bigDrawStreak + 1 : 0;
+/* 作品の大きさの抽選（v2.12.1・sakuri「時間がプレイヤーの介入不可能な完全なボトルネックになる設計をすべて見直せ」）。
+   旧: いまの速さで 40〜180 分かかるサイズだけを引いた（速くなった分を作品が大きくなって吸い取り、
+   リリースの間隔が縮まらなかった）。いまは社格で引ける大きさを決める。速くなればリリースの間隔もそのまま縮む。
+   桁（×1/2/5/10…）は従来どおり workScaleFor が決め、報酬も同じ桁で付く。
+   大きい作品（L）の直後は L を引かない（リズムのため。L しか無い社格では続けて L）。
+   表を XS/S 寄りにすると、1本ごとに固定で付く研究P・アイデア・ブランドと小さい作品の高い DP 単価で
+   30 日の星屑が 5 倍に膨らんだ（sim）。旧方式と同じ M 中心にして、速さの差だけがリリース間隔に出るようにした */
+const SIZE_TABLE_BY_RANK = [
+  ["S","M"],               /* インディー（M だけだと秒5クリック20分の実測が目標ぎりぎり 103〜118%。S を混ぜて 148%） */
+  ["M","M","L"],           /* 零細 */
+  ["M","L"],               /* 中小 */
+  ["M","L","L"],           /* 中堅 */
+  ["L"],                   /* 準大手 */
+  ["L"]                    /* 大企業 */
+];
+function drawSizeByRank(){
+  const lv = Math.max(1, Math.min(SIZE_TABLE_BY_RANK.length, S.studioLv || 1));
+  let pool = SIZE_TABLE_BY_RANK[lv - 1];
+  if(S.bigDrawStreak >= 1 && pool.some(x => x !== "L")) pool = pool.filter(x => x !== "L");
+  const size = pool[Math.floor(Math.random() * pool.length)];
+  S.bigDrawStreak = size === "L" ? 1 : 0;
   return size;
 }
 /* ---------- 企画を練る（2026-10-27・工程中心化 → 同日 アイデアの蓄えと天秤に作り直し）----------
@@ -143,7 +151,7 @@ function genProject(sizeOverride, genreId?, scaleRate?){   /* scaleRate: 桁を�
   const genre = genreId ? GENRES.find(g=>g.id===genreId) : pickDevGenre(gs);
   const subj = SUBJECTS[Math.floor(Math.random()*SUBJECTS.length)];
   const scale = sizeOverride === "TUT" ? 1 : workScaleFor(scaleRate || effThroughput());
-  const size = sizeOverride || drawSizeByTime(scaleRate ? 1 : scale);   /* 第2ラインの規模の抽選は従来どおり第1ラインの速さで */
+  const size = sizeOverride || drawSizeByRank();
   const featPool = genre.feats.slice();
   const nFeat = 3 + Math.floor(Math.random()*3);
   const feats = [];

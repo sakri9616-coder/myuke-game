@@ -249,21 +249,24 @@ function doDeathMarch(){
 /* ---------- 拡張ウェーブ G': バグ外注（sakuri 案） ----------
    バグ在庫と負債が積んだときの、金で買うリリーフバルブ。射程は承認どおり
    「バグ在庫の全消し＋負債 −40%」、費用は少々重く（バグ ×30 ＋ 負債 ×15）、
-   クールダウン 10 分。総務のケア（人で返す）との二択が経営判断になる */
+   総務のケア（人で返す）との二択が経営判断になる。
+   v2.12.1: 10 分のクールダウン（介入できない待ち）をやめ、次のリリースまでに続けて頼むほど
+   ×VENDOR_REPEAT_MULT ずつ高くする（リリースで元に戻る） */
+const VENDOR_REPEAT_MULT = 1.5;
 function vendorCost(){
   const bugs = Math.floor(S.bugStock);
   const debtCut = Math.floor((S.debt || 0) * 0.4);
-  return { bugs, debtCut, coins: bugs * 30 + Math.floor(S.debt || 0) * 15 };
+  const uses = S.vendorUses || 0;
+  return { bugs, debtCut, uses, coins: Math.ceil((bugs * 30 + Math.floor(S.debt || 0) * 15) * Math.pow(VENDOR_REPEAT_MULT, uses)) };
 }
 function outsourceBugsCore(){
   const c = vendorCost();
-  if(Date.now() < (S.vendorReadyAt || 0)){ say("ベンダーさんは前の仕事中だにゃ。あと " + Math.max(1, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000)) + " 分待ってね"); return; }
   if(c.bugs <= 0 && c.debtCut <= 0){ say("いまは外注するものがないにゃ（バグも負債もきれいだよ）"); return; }
   if(S.coins < c.coins){ say("コインが足りないにゃ（必要 " + fmt(c.coins) + "🪙）"); return; }
   S.coins -= c.coins;
   S.bugStock = 0;
   S.debt = Math.max(0, (S.debt || 0) - c.debtCut);
-  S.vendorReadyAt = Date.now() + 10 * 60000;
+  S.vendorUses = (S.vendorUses || 0) + 1;   /* 次のリリースまで、続けて頼むほど高くなる */
   addLog("🧳 外注ベンダーに依頼: バグ " + c.bugs + " 匹を一掃・技術的負債 -" + c.debtCut + "（-" + fmt(c.coins) + "🪙）");
   say("ベンダーさんがバグを全部持って帰ったにゃ！ すっきりしたね");
   spawnStripVendor();
@@ -411,6 +414,7 @@ function creditProject(a){
   const p = S.project;
   if(!p || p.planning) return;
   S.projectDP += a;
+  payFlow(p, Math.min(a, Math.max(0, p.totalDP - (S.projectDP - a))), false);
   const featThreshold = p.totalDP / (p.feats.length + 1);
   while(p.doneFeats < p.feats.length && S.projectDP >= featThreshold * (p.doneFeats + 1)){
     p.doneFeats++;
@@ -430,6 +434,7 @@ function creditProject2(a){
   const L = S.line2, p = L.project;
   if(!p || p.planning) return;
   L.projectDP += a;
+  payFlow(p, Math.min(a, Math.max(0, p.totalDP - (L.projectDP - a))), true);
   const featThreshold = p.totalDP / (p.feats.length + 1);
   while(p.doneFeats < p.feats.length && L.projectDP >= featThreshold * (p.doneFeats + 1)){
     p.doneFeats++;
@@ -472,6 +477,9 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
   S.coins += coins; S.totals.coinsEarned += coins;
   S.rp += rp;
   S.totals.releases++; S.today.releases++;
+  S.vendorUses = 0;    /* v2.12.1: バグ外注の続け頼みの割増はリリースで戻る */
+  ipRoyaltyOnShip();   /* v2.12.1: 既存の自社IPのロイヤリティとトレンドは出荷の本数で回る（この作品の IP 成立はこの後） */
+  trendOnShip();
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
   applyShipQuality(p);
   const entry = {
@@ -485,13 +493,34 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
   entry.highlight = makeHighlight(p, devMin, naps);
   S.shelf.unshift(entry);
 }
+/* ---------- 自動収益を毎秒の流れに（2026-10-27・目標像仕様書「秒ごとに上がっていく収益を眺める」）----------
+   作品の値段のうち FLOW_SHARE は、出荷工程を通った DP に比例して作りながら入金する（帯に 🪙/秒）。
+   残りはリリースの瞬間にボーナスの山として入る。1作品で受け取る合計は従来と同じ
+   （依頼ボーナス・IP の扱いもリリース側で従来どおり計算し、入金済みの分を差し引く）。
+   IP ねらいの作品は賭けなので流れでは払わない（成否はリリースで決まる） */
+const FLOW_SHARE = 0.6;
+function basePriceCoins(p, line2){
+  let c = BAL.coinBase[p.size] * (p.scale || 1) * (line2 ? BAL.line2CoinRate : 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * (line2 ? 1 : modulePriceMult(p)) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre);   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  if(p.genre === "game" && S.research.res_game2) c *= 1.3;   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30%） */
+  return c;
+}
+let coinFlowFrac = 0, coinFlowSecAcc = 0, coinFlowEMA = 0;   /* 端数・この1秒の流入・🪙/秒 の平滑値（表示用） */
+function payFlow(p, a, line2){
+  if(!p || p.ip || a <= 0 || !(p.totalDP > 0)) return;
+  const c = basePriceCoins(p, line2) * FLOW_SHARE * a / p.totalDP;
+  p.flowPaid = (p.flowPaid || 0) + c;
+  coinFlowSecAcc += c;
+  coinFlowFrac += c;
+  if(coinFlowFrac >= 1){ const n = Math.floor(coinFlowFrac); coinFlowFrac -= n; S.coins += n; S.totals.coinsEarned += n; }
+}
+/* 1秒ティックから呼ぶ: 🪙/秒 の表示値を更新 */
+function tickCoinFlow(){ coinFlowEMA = coinFlowEMA * 0.8 + coinFlowSecAcc * 0.2; coinFlowSecAcc = 0; }
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  let coins = Math.round(basePriceCoins(p, false));
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
-  /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
-  if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
+  /* Sprint 4: ティア2研究のジャンル深化（AI=研究P+1。ゲームのコイン+30% は basePriceCoins） */
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   const ipBase = coins;   /* 第2ウェーブ L: ロイヤリティの元本 = 依頼ボーナスを含まない通常価格 */
   let requestBonus = "";
@@ -526,9 +555,14 @@ function releaseProject(){
   const ipOk = ipConvertible(p);
   if(ipOk) coins = Math.round(coins * 0.3);
   else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);   /* IP 狙いの空振り: 作り込みが中途半端 */
+  const flowed = Math.round(p.flowPaid || 0);   /* 作りながら入金済みの分（帳簿の合計は coins のまま） */
+  const bonusNow = Math.max(0, coins - flowed);
   recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
-  addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙 / +"+rp+"🔬 "+requestBonus);
+  S.coins += bonusNow - coins;   /* recordRelease が全額を足すので、入金済みの分を戻す */
+  S.totals.coinsEarned += bonusNow - coins;
+  coins = bonusNow;
+  addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed > 0 ? "（作りながら +"+fmt(flowed)+"🪙 入金済み）" : "")+" / +"+rp+"🔬 "+requestBonus);
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   say("『"+p.name+"』リリースできたにゃ〜！ +"+coins+"コイン");
@@ -544,18 +578,21 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * BAL.line2CoinRate * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
+  let coins = Math.round(basePriceCoins(p, true));
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
-  if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
   const ipOk2 = ipConvertible(p);
   if(ipOk2) coins = Math.round(coins * 0.3);   /* 第2ウェーブ L: 第2ラインも即時は30% */
   else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);
+  const flowed2 = Math.round(p.flowPaid || 0);
+  const bonus2 = Math.max(0, coins - flowed2);
   recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
   S.flags.line2Released = true;
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
-  addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙 / +"+rp+"🔬");
+  S.coins += bonus2 - coins; S.totals.coinsEarned += bonus2 - coins;
+  coins = bonus2;
+  addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed2 > 0 ? "（作りながら +"+fmt(flowed2)+"🪙 入金済み）" : "")+" / +"+rp+"🔬");
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   SoundKit.play("releaseFanfare");

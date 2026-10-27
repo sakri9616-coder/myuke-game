@@ -100,14 +100,20 @@ function buyDept(role){
   save(); renderPanel();
 }
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------
-   価格 = base × (1 + 総収入/25000) × 1.5^(その日の購入回数)。
-   稼ぐほど高くなるので、終盤でも「余り続ける」ことがない設計 */
+   価格 = base × (1 + 総収入/25000) × 1.5^(効果中に重ねている数)。
+   稼ぐほど高くなるので、終盤でも「余り続ける」ことがない設計。
+   v2.12.1: 「その日の購入回数（壁時計の日付で戻る）」をやめ、効果が残っている間の重ね買いだけ高くする */
+const TREAT_BLOCK_MS = 30 * 60000;
+function treatStack(def){
+  const until = def.id === "treat_snack" ? (S.buffs && S.buffs.prodUntil) : (S.buffs && S.buffs.clickUntil);
+  return Math.max(0, Math.ceil(((until || 0) - Date.now()) / TREAT_BLOCK_MS));
+}
 const TREAT_DEFS = [
   { id:"treat_snack", name:"🎁 高級おやつ",   base:150, desc:"集中力 +30、その後30分 生産 +15%" },
   { id:"treat_toy",   name:"🎁 高級おもちゃ", base:200, desc:"集中力 +10、その後30分 クリック効率 +10%" }
 ];
 function treatCost(def){
-  return Math.ceil(def.base * (1 + S.totals.coinsEarned / 25000) * Math.pow(1.5, S.today.treats || 0));
+  return Math.ceil(def.base * (1 + S.totals.coinsEarned / 25000) * Math.pow(1.5, treatStack(def)));
 }
 function buyTreat(id){
   const def = TREAT_DEFS.find(t => t.id === id);
@@ -120,11 +126,11 @@ function buyTreat(id){
   const now = Date.now();
   if(id === "treat_snack"){
     S.concentration = Math.min(100, S.concentration + 30);
-    S.buffs.prodUntil = Math.max(S.buffs.prodUntil || 0, now) + 30 * 60000;
+    S.buffs.prodUntil = Math.max(S.buffs.prodUntil || 0, now) + TREAT_BLOCK_MS;
     say("高級おやつ！ しあわせ〜（30分 生産+15%）");
   } else {
     S.concentration = Math.min(100, S.concentration + 10);
-    S.buffs.clickUntil = Math.max(S.buffs.clickUntil || 0, now) + 30 * 60000;
+    S.buffs.clickUntil = Math.max(S.buffs.clickUntil || 0, now) + TREAT_BLOCK_MS;
     say("新しいおもちゃ！ わくわく（30分 クリック+10%）");
   }
   SoundKit.play("purchase");

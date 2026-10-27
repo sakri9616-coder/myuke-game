@@ -41,12 +41,11 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
     /* 秒 cps 回、帯のみゅけを応援クリック（実プレイヤーと同じ cheerClick の入口） */
     setInterval(() => { cheerClick(400, 150); noteInput(); }, Math.round(1000 / cps));
     if(buy === "none") return;
-    /* 買い方: ゲーム自身の詰まりの助言（bottleneckFix）を最優先。助言の品が買えないうちは、
+    /* 買い方（コイン）: ゲーム自身の詰まりの助言（bottleneckFix）を最優先。助言の品が買えないうちは、
        その 1/4 以下の安い物だけ先に買う。助言が無いときは一番安い物を買う。研究は買えたら買う */
     const costOf = key => {
       const [kind, id] = key.split(":");
       if(kind === "up"){ const d = UPGRADE_DEFS.find(u => u.id === id); const lv = S.upgrades[id] || 0; return d && lv < d.max ? upgradeCost(d, lv) : Infinity; }
-      if(kind === "click"){ const d = CLICK_DEFS.find(u => u.id === id); const lv = S.clickUp[id] || 0; return d && lv < d.max ? clickCost(d, lv) : Infinity; }
       if(kind === "hire") return S.staff.length < staffCap() ? hireCost(id) : Infinity;
       if(kind === "studio") return S.studioLv < STAFF_CAPS.length ? studioCost(S.studioLv) : Infinity;
       return Infinity;
@@ -54,7 +53,7 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
     const doBuy = key => {
       const [kind, id] = key.split(":");
       const before = S.coins;
-      if(kind === "up") buyUpgrade(id); else if(kind === "click") buyClickUp(id);
+      if(kind === "up") buyUpgrade(id);
       else if(kind === "hire") hireStaff(id); else if(kind === "studio") buyStudio();
       if(S.coins < before) w.__probe.buys.push([Math.round(S.totals.playSec), key, Math.round(before - S.coins)]);
       return S.coins < before;
@@ -62,7 +61,6 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
     setInterval(() => {
       for(let guard = 0; guard < 20; guard++){
         const cands = UPGRADE_DEFS.map(d => "up:" + d.id)
-          .concat(["click:paw", "click:glove", "click:uchiwa", "click:cheer"])
           .concat(["hire:prog", "hire:test", "hire:carry"])
           .concat(S.staff.length >= staffCap() ? ["studio:"] : []);
         const fx = (typeof bottleneckFix === "function") ? bottleneckFix() : null;
@@ -77,6 +75,15 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
           if(best && bc <= S.coins && (fixCost === Infinity || bc <= fixCost / 4)) pick = best;
         }
         if(!pick || !doBuy(pick)) break;
+      }
+      /* 応援強化は応援P（クリックで貯まる別の財布）で買う: 肉球とグローブを安い方から */
+      for(let guard = 0; guard < 20; guard++){
+        const ids = ["paw", "glove", "uchiwa"].filter(id => { const d = CLICK_DEFS.find(u => u.id === id); return d && (S.clickUp[id] || 0) < d.max; });
+        if(!ids.length) break;
+        const cost = id => clickCost(CLICK_DEFS.find(u => u.id === id), S.clickUp[id] || 0);
+        const id = ids.sort((a, b) => cost(a) - cost(b))[0];
+        if((S.cheerP || 0) < cost(id)) break;
+        buyClickUp(id); w.__probe.buys.push([Math.round(S.totals.playSec), "click:" + id, cost(id)]);
       }
       for(const r of RESEARCH_DEFS){
         if(!S.research[r.id] && (!r.requires || S.research[r.requires]) && S.rp >= r.cost) buyResearch(r.id);

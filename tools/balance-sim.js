@@ -129,6 +129,8 @@ let SUB_SHARE = +(process.env.SUB_SHARE || 0);
 let POLICY = process.env.POLICY || null;
 const polMass = () => POLICY === "mass" ? 1.1 : 1;
 const LINK_RATE = (() => { const m = GAME_SRC.match(/linkRate: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.linkRate を抽出できない"); return +m[1]; })();
+const FLOW_SHARE = (() => { const m = GAME_SRC.match(/const FLOW_SHARE = ([\d.]+)/); if(!m) throw new Error("balance-sim: FLOW_SHARE を抽出できない"); return +m[1]; })();
+const SIZE_TABLE = extractLiteral("SIZE_TABLE_BY_RANK");
 const PLAN_PRICE_STEP = (() => { const m = GAME_SRC.match(/PLAN_PRICE_STEP = ([\d.]+)/); if(!m) throw new Error("balance-sim: PLAN_PRICE_STEP を抽出できない"); return +m[1]; })();
 const CARRY_MULT = (() => { const m = GAME_SRC.match(/carryMult: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.carryMult を抽出できない"); return +m[1]; })();
 const PLAYER = { minutesPerDay: 180, keysPerHour: 2400, cursorPxPerHour: 90000, requestMatchRate: 0.4,
@@ -237,26 +239,35 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     const e = Math.floor(Math.log10(x)), m = x / Math.pow(10, e); return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * Math.pow(10, e); };
   const line2RateSim = () => { const R = rates(); return (BAL.line2BaseRate + 0.8 * R.ss.progW) * dpMult(up) * dustMult() * (res.res_eff2 ? 1.5 : 1); };
   function drawProject(scaleRate){
-    // 所要時間ベース抽選（game の drawSizeByTime と同じ）: 実効スループットで 40分〜3時間
+    // 桁は実効スループットで決める（game の workScaleFor）。大きさは社格の表（v2.12.1 まで所要時間 40分〜3時間で抽選）
     const R = rates();
     const boost = profile === "idle" ? 0 : Math.min((PLAYER.keysPerHour/60)/BAL.keysPerDP + (PLAYER.cursorPxPerHour/60)/BAL.cursorPxPerDP, BAL.boostCapPerMin);
     const cf = Math.min(0.96, PLAYER.codingFrac + 0.005*(up.chair||0) + 0.01*R.ss.careW);
     const prodSide = ((BAL.basePerMin + boost) * cf + R.bot + R.ss.prog) * dpMult(up) * dustMult() * firstBoost();
     const thr = Math.max(1, Math.min(prodSide, R.test, R.build, R.ship));
     const scale = workScaleFor(scaleRate || thr);
-    const rate = scaleRate ? thr : thr / scale;   /* 第2ラインの規模の抽選は第1ラインの速さで（game と同じ） */
-    const weighted = ["XS","S","S","M","M","L"];
-    const ok = weighted.filter(x => { const m = BAL.sizes[x]/rate; return m >= 40 && m <= 180; });
-    let size;
-    if(bigStreak >= 1){ bigStreak = 0; size = ok.includes("S") ? "S" : (ok[0] || "XS"); }
-    else if(ok.length) size = ok[Math.floor(rnd()*ok.length)];
-    else size = ["XS","S","M","L"].reduce((a,c) => Math.abs(BAL.sizes[c]/rate-90) < Math.abs(BAL.sizes[a]/rate-90) ? c : a);
-    if(bigStreak === 0 && BAL.sizes[size]/rate > 150) bigStreak = 1; else if(BAL.sizes[size]/rate <= 150) bigStreak = 0;
+    /* v2.12.1: 大きさは社格の表で引く（game の drawSizeByRank）。L の直後は L を引かない */
+    let pool = SIZE_TABLE[Math.max(1, Math.min(SIZE_TABLE.length, studioLv)) - 1];
+    if(bigStreak >= 1 && pool.some(x => x !== "L")) pool = pool.filter(x => x !== "L");
+    const size = pool[Math.floor(rnd() * pool.length)];
+    bigStreak = size === "L" ? 1 : 0;
     return settle({ size, total: BAL.sizes[size] * scale, scale, ideaCost: IDEA_COST[size]||0, planning: false });
   }
-  function release(sz, isLine2, plv, scale){
+  function basePrice(sz, isLine2, plv, scale){
+    return BAL.coinBase[sz] * (scale || 1) * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*ue(up, "ci")) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02)   /* Wave G: ブランド価格倍率 */
+      * (profile === "black" ? 2 : 1);
+  }
+  /* v2.12.1: 値段の FLOW_SHARE は出荷 DP に比例して作りながら入る（game の payFlow）。リリースでは入金済みを差し引く */
+  function flowStep(p, dp, isLine2){
+    const tgt = Math.min(dp, p.total), d = tgt - (p.flowDP || 0);
+    if(d <= 0) return;
+    const f = basePrice(p.size, isLine2, p.planLv, p.scale) * FLOW_SHARE * d / p.total;
+    p.flowDP = tgt; p.flowed = (p.flowed || 0) + f;
+    coins += f; coinsEarned += f; dayCoins += f; runCoins += f;
+  }
+  function release(sz, isLine2, plv, scale, flowed){
     scale = scale || 1;
-    let c = BAL.coinBase[sz] * scale * (isLine2 ? BAL.line2CoinRate : 1) * (1 + 0.10*ue(up, "ci")) * Math.pow(dustMult(), BAL.dustPriceExp) * (1 + PLAN_PRICE_STEP * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率 */
+    let c = basePrice(sz, isLine2, plv, scale);
     let r = Math.round(BAL.rpBase[sz] * Math.sqrt(scale));   /* game と同じ（研究Pは桁の平方根） */
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -266,8 +277,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       c += Math.round(c * rate * 0.9); r += 1; reqDone++;
     }
     else if(!isLine2 && rnd() < PLAYER.requestMatchRate){ c += Math.round(c * 0.6); r += 1; reqDone++; }
-    if(profile === "black") c = Math.round(c * 2);
-    coins += Math.round(c); coinsEarned += Math.round(c); dayCoins += Math.round(c); runCoins += Math.round(c); rp += r; ideas += 2;
+    c = Math.max(0, Math.round(c) - Math.round(flowed || 0));
+    coins += c; coinsEarned += c; dayCoins += c; runCoins += c; rp += r; ideas += 2;
     totalReleasesEver++;
     /* Wave G: ブランド増減は実機どおり出荷時のバグ在庫で決まる
        （0 → +3 / 〜3 → +1 / 10〜 → −3 / その他 0。feat 全達成の +4 は未モデル） */
@@ -390,17 +401,19 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       rp += ss.rp;
       /* Sprint 4: ティア1全完了後の研究員は第二の仕事でアイデアも生む (game と同じ ×0.6) */
       if(ss.rp > 0 && RESEARCH.filter(r => !r.requires).every(r => res[r.id])) ideas += ss.rp * 0.6;
+      flowStep(project, projDP, false);
+      if(line2 && project2) flowStep(project2, proj2DP, true);
       // --- リリース判定 ---
       while(projDP >= project.total){
         projDP -= project.total;
-        project = release(project.size, false, project.planLv, project.scale);
+        project = release(project.size, false, project.planLv, project.scale, project.flowed);
         dayReleases++;
         if(milestones.firstReleaseMin === null) milestones.firstReleaseMin = min + 1;
       }
       if(line2 && project2){
         while(proj2DP >= project2.total){
           proj2DP -= project2.total;
-          project2 = release(project2.size, true, 0, project2.scale);
+          project2 = release(project2.size, true, 0, project2.scale, project2.flowed);
           dayReleases++;
         }
       }
@@ -967,26 +980,28 @@ console.log("== Wave K: チャレンジ周回 ==");
 }
 
 /* == 第2ウェーブ L: IP の生涯価値と価格スタックの天井（解析） ==
-   IP: 即時 30% + ロイヤリティ 価格の 0.1%/分 × 48時間（12時間ごとに半減）。
-   1ブロック12時間 = 720分 → 0.72 倍分が 1 + 1/2 + 1/4 + 1/8 の重みで入る。
+   IP: 即時 30% + ロイヤリティ 成立後の出荷1本ごとに価格の 18%（6本ごとに半減・24本で終わる。v2.12.1 まで常駐48時間）。
    価格スタック: ブランド上限 ×10（brand 450・game 側 brandMult）×
    モジュール最大（品質上限 1.5 → 係数 1.4 の3乗 / AI 基盤あり 1.75 → 1.5 の3乗）
    × トレンド ×1.5。仕様書のゲート ≤45 は AI 基盤（J）以前の見積もり */
 console.log("\n== Wave L: 自社IP の生涯価値・価格スタック ==");
 {
   const num = k => { const m = GAME_SRC.match(new RegExp(k + " = ([\\d.]+)")); if(!m) throw new Error("balance-sim: " + k + " を抽出できない"); return +m[1]; };
-  const IPS = num("IP_SIZE_MULT"), IPF = num("IP_FAIL_MULT"), IPR = num("IP_ROYALTY_PER_MIN");
-  const ipLife = 0.3 + IPR * 720 * (1 + 0.5 + 0.25 + 0.125);
-  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ " + (ipLife - 0.3).toFixed(2) + "。元本は依頼ボーナスを含まない通常価格）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
+  const IPS = num("IP_SIZE_MULT"), IPF = num("IP_FAIL_MULT"), IPR = num("IP_ROYALTY_PER_SHIP"), IPH = num("IP_HALF_SHIPS"), IPN = num("IP_LIFE_SHIPS");
+  /* v2.12.1: ロイヤリティは常駐時間ではなく、成立後の出荷1本ごとに入る（IPH 本ごとに半減、IPN 本で終わる） */
+  const partialShips = n => 0.3 + IPR * Array.from({ length: Math.ceil(IPN / IPH) }, (_, k) => Math.max(0, Math.min(IPH, n - IPH * k)) * Math.pow(0.5, k)).reduce((a, b) => a + b, 0);
+  const ipLife = partialShips(IPN);
+  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ " + (ipLife - 0.3).toFixed(2) + "。元本は依頼ボーナスを含まない通常価格・いまの仕事の桁に追従）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
   /* IP ねらいの損得（2026-10-27 作り直し）: 規模 ×IPS の作り込みで、成功（バグ0出荷）なら生涯 ipLife、
      空振りなら価格 ×IPF。DP あたりの価値を通常作 = 1 として、成立率 q の期待値が 1 を超える境目を出す。
-     ロイヤリティは常駐48時間で入り切る前提（その前に EXIT すると残りは消える）。
-     ゲート: 境目の成立率が 35〜75%（いつも得でもいつも損でもなく、バグを0にできる見込みで判断が分かれる） */
+     ロイヤリティは成立後の出荷 IPN 本で入り切る前提（その前に EXIT すると残りは消える）。
+     ゲート: 境目の成立率が 35〜75%（いつも得でもいつも損でもなく、バグを0にできる見込みで判断が分かれる）・
+     成立後 IPH 本以内に売却するなら成立しても損（売却が近い会社では狙わない） */
   const okV = ipLife / IPS, ngV = IPF / IPS, qBE = (1 - ngV) / (okV - ngV);
-  const partial = h => (0.3 + IPR * 60 * [0, 1, 2, 3].reduce((a, k) => a + Math.max(0, Math.min(12, h - 12 * k)) * Math.pow(0.5, k), 0)) / IPS;
+  const partial = n => partialShips(n) / IPS;
   console.log("IP ねらいの損得（DP あたり・通常作 = 1）: 成立 " + okV.toFixed(2) + " / 空振り " + ngV.toFixed(2) + " → 損益分岐の成立率 " + (qBE * 100).toFixed(0) + "%" +
-    "・成立しても売却までの常駐が 6時間なら " + partial(6).toFixed(2) + "・12時間 " + partial(12).toFixed(2) + "・24時間 " + partial(24).toFixed(2));
-  console.log("IP ねらいゲート（損益分岐の成立率 35〜75%・常駐12時間で売却なら成立しても損）: " + (qBE >= 0.35 && qBE <= 0.75 && partial(12) < 1 ? "PASS" : "FAIL"));
+    "・成立しても売却までの出荷が " + (IPH / 2) + "本なら " + partial(IPH / 2).toFixed(2) + "・" + IPH + "本 " + partial(IPH).toFixed(2) + "・" + (IPH * 2) + "本 " + partial(IPH * 2).toFixed(2));
+  console.log("IP ねらいゲート（損益分岐の成立率 35〜75%・成立後 " + IPH + " 本以内に売却なら成立しても損）: " + (qBE >= 0.35 && qBE <= 0.75 && partial(IPH) < 1 ? "PASS" : "FAIL"));
   const stackBase = 10 * Math.pow(0.8 + 0.4 * 1.5, 3) * 1.5;
   const stackAI = 10 * Math.pow(0.8 + 0.4 * 1.75, 3) * 1.5;
   console.log("価格スタックの理論天井: 通常 ×" + stackBase.toFixed(1) + "（ゲート 45 以内）/ AI 開発基盤あり ×" + stackAI.toFixed(1) +
