@@ -18,13 +18,15 @@ let stripPkgGlowUntil = 0; /* パッケージ節目の完成箱グロー */
 let lastPackagesSeen = -1, lastRpIntSeen = -1, lastIdeasSeen = -1;
 let lastShipDispatchAt = 0;
 /* 工程置き場の地理: 発生 A 机 0.30W → B QAトレイ → C ビルド置き場 → D 出荷スタック */
-function stripQAX(){ return Math.round(stripVW * 0.405); }
-function stripBuildX(){ return Math.round(stripVW * 0.53); }
+/* 2026-10-27: 工程の持ち場のブース（テスト室・ビルド室）が机まわりの物（オーバークロックの筒・サーバーラック）に
+   隠れないよう、空いていた帯の右側へ移した（旧 0.405 / 0.53、出荷 0.80、第2ライン机 0.63）。トロフィー台は出荷場の右へ */
+function stripQAX(){ return Math.round(stripVW * 0.70); }
+function stripBuildX(){ return Math.round(stripVW * 0.78); }
 function stripShipX(){
   if(layoutEdit.dragId === "ship" && layoutEdit.dragCand) return layoutEdit.dragCand.cx;
   const e = propEntry("ship");
   if(e && e.on === "ground" && typeof e.x === "number") return Math.round(e.x * stripVW);
-  return Math.round(stripVW * 0.80);
+  return Math.round(stripVW * 0.87);
 }
 function flowTier(){ return flowTierCur; }
 function flowQuantum(){ return FLOW_Q_BY_TIER[flowTierCur]; }
@@ -149,7 +151,7 @@ function stripIsDeskState(){ return ["code","code_slow","think","debug","nap"].i
 /* v2.4.0: 家具配置はユーザーがドラッグで変更できる (帯の「✥ 並べ替え」)。
    位置は帯幅に対する比率で S.layout に保存し、未設定なら下の既定ゾーンを使う。
    Strip Canon ゾーン制 (R7) は「既定配置」として存続する */
-const LAYOUT_DEFAULTS = { shelf: 0.12, easel: 0.20, desk: 0.30, research: 0.47, rack: 0.55, desk2: 0.63, trophy: 0.75 };
+const LAYOUT_DEFAULTS = { shelf: 0.12, easel: 0.20, desk: 0.30, research: 0.47, rack: 0.55, desk2: 0.615, trophy: 0.93 };
 function layoutFrac(id){
   const v = (typeof S !== "undefined" && S.layout) ? S.layout[id] : undefined;
   return (typeof v === "number" && isFinite(v) && v >= 0.02 && v <= 0.98) ? v : LAYOUT_DEFAULTS[id];

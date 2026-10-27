@@ -232,7 +232,7 @@ function drawStripEasel(){
   sDrawSprite("prop_easel", ex, G, 1);   /* A字の脚と横木。ポスターを立てかける */
   sDrawSprite("prop_wall_1", ex, G - 10, 0.9);   /* 横木 (原寸 row 17) に立てかける */
 }
-/* トロフィー台（ゾーン E 0.75W, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
+/* トロフィー台（ゾーン E 0.93W・2026-10-27 に出荷場の右へ, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
 function drawStripTrophy(){
   const G = STRIP_GROUND, tx = stripTrophyCX();
   sShadow(tx, G - 0.5, 22);
