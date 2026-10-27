@@ -21,9 +21,19 @@ let stripFrame: any = null;
 let stripFrameStats = { presented: 0, skipped: 0 };
 function makeStripFrameCtx(real){
   if(!real || typeof CanvasRenderingContext2D === "undefined" || !(real instanceof CanvasRenderingContext2D)) return real;
-  const shadowCv = document.createElement("canvas");
-  shadowCv.width = 1; shadowCv.height = 1;
-  const shadow: any = shadowCv.getContext("2d");
+  /* 影の context は描かれない canvas なので、Chromium は状態変更 (setTransform など) の記録を
+     いつまでも捨てずに溜め続ける。記録の器は倍々で広がり、そのたびに中身を写すので、起動から
+     数分たつと 1 回の描画が 0.2〜1.4 秒止まるようになっていた (器が倍になるごとに止まる時間も倍)。
+     reset() や getImageData でも捨てられないため、SHADOW_RENEW フレームごとに新しい 1×1 に
+     取り替え、そのフレームの開始状態を写して続ける (古い canvas は GC が記録ごと回収する) */
+  const SHADOW_RENEW = 300;
+  const newShadow = () => {
+    const cv = document.createElement("canvas");
+    cv.width = 1; cv.height = 1;
+    return cv.getContext("2d");
+  };
+  let shadow: any = newShadow();
+  let shadowAge = 0;
   const P = CanvasRenderingContext2D.prototype;
   const props = [];
   const fr: any = {
@@ -122,6 +132,16 @@ function makeStripFrameCtx(real){
     const m = shadow.getTransform();
     s.push(m.a, m.b, m.c, m.d, m.e, m.f);
     if(shadow.getLineDash) for(const v of shadow.getLineDash()) s.push(v);
+    if(++shadowAge >= SHADOW_RENEW){
+      /* フレームの境目なので save/restore は釣り合っている。開始状態だけ写せば同じ影になる */
+      shadowAge = 0;
+      const sh: any = newShadow();
+      for(let k = 0; k < props.length; k++){ try{ sh[props[k]] = s[k]; }catch(e){} }
+      const j = props.length;
+      sh.setTransform(s[j], s[j + 1], s[j + 2], s[j + 3], s[j + 4], s[j + 5]);
+      if(sh.setLineDash) sh.setLineDash(s.slice(j + 6));
+      shadow = sh;
+    }
   };
   fr.end = () => {
     fr.open = false;
