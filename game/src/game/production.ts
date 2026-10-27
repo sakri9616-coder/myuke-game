@@ -306,7 +306,7 @@ function feverPassive(){ return feverActive() ? 1 : 1 + FEVER.passiveMax * ((S.f
    ・フィーバーのクリック倍率は ×20 → ×3（×20 は無上限の貫通構造に
      乗ると連打ツールで爆発する、という Argon の警告による置換。
      承認仕様の字面との差分として報告に明記する）                    */
-const CLINK = { linkRate: 0.05, bucketMax: 15, bucketPerSec: 5, bucketPerSecFever: 8, directShare: 0.2 };
+const CLINK = { linkRate: 0.05, bucketMax: 15, bucketPerSec: 5, bucketPerSecFever: 8, directShare: 0.2, carryMult: 3 };   /* carryMult: 1クリックで手で運べる仕掛品 = 威力 × 3 */
 let clickBucket = CLINK.bucketMax, clickBucketAt = Date.now();
 let autoProdEMA = 0;        /* 自動生産レート (DP/秒) の指数移動平均 */
 let autoProdSecAcc = 0;     /* 直近1秒の自動生産の積算（tick で EMA へ） */
@@ -375,21 +375,23 @@ function produceDP(amount, target){
     say("バグが出たにゃ。あたしが勝手に叩くから大丈夫だよ");
   }
 }
-/* 工程中心（2026-10-27）: 応援は詰まっている工程を手伝う。後工程が律速なら、
-   その工程の手前に溜まった仕掛品を次へ送る（出荷が律速なら出荷して進捗に計上）。
-   送れた量と工程名を返す。実装が律速（後工程に余裕がある）なら moved 0 を返し、呼び出し側が
-   従来どおり生産に回す。以前は応援が全量実装に入り、後工程の前に積まれるだけだった */
-function cheerAssist(amount){
-  const none = { moved: 0, name: "" };
-  if(!S.project || S.project.planning || amount <= 0) return none;
-  const b = bottleneckStage();
-  if(!b.isBn) return none;
+/* 工程中心（2026-10-27）: 応援は「みゅけが手で運ぶ」。溜まった仕掛品を下流から
+   （ビルド済み → テスト済み → 実装済みの順に）手で出荷まで運び、その場で進捗に計上する。
+   運べた量（DP）を返す。仕掛品が無ければ 0。新しい DP は生まないので星屑の元（runDP）には
+   数えない。v2.7.0 までは応援の8割が実装に積まれるだけで、後工程が詰まっていると
+   いくらクリックしても進捗ゲージが動かなかった */
+function cheerCarry(amount){
+  if(!S.project || S.project.planning || amount <= 0) return 0;
   const w = S.wip;
-  let moved = 0;
-  if(b.worst.id === "test"){ moved = Math.min(amount, w.code); w.code -= moved; w.tested += moved; }
-  else if(b.worst.id === "build"){ moved = Math.min(amount, w.tested); w.tested -= moved; w.built += moved; }
-  else { moved = Math.min(amount, w.built); w.built -= moved; if(moved > 0) creditProject(moved); }
-  return { moved, name: b.worst.name };
+  let left = amount;
+  for(const k of ["built", "tested", "code"]){
+    const take = Math.min(left, w[k]);
+    w[k] -= take; left -= take;
+    if(left <= 0) break;
+  }
+  const moved = amount - left;
+  if(moved > 0) creditProject(moved);
+  return moved;
 }
 /* 工程処理: caps = {test, build, ship}（この tick で使える DP 量）。使った分を返す */
 function processPipe(wip, caps, bugF, creditFn){

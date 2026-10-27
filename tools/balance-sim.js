@@ -9,7 +9,7 @@
      子ねこボットとプログラマ猫は状態によらず常時生産する。
    - 生産はすべて produceDP() を通る = dpMult（実装の倍率: キーボード・IDE）× dustMult が掛かる。
      工程中心（2026-10-27）: 後工程は 素の能力＋担当スタッフ＋設備 × 会社全体の倍率 × 反復研究。
-     応援の8割は律速の後工程の手伝い（仕掛品を次へ送る）に使い、余りを生産に回す。
+     応援は溜まった仕掛品を手で運んで出荷する（cheerCarry）。
      第2ラインは line2Rate() 自体に倍率が含まれ、さらに produceDP でも掛かる
      （出荷版の実装どおり二重適用を再現している）。
    - 工程: 生産 → 仕掛品 → テスト(bugFで減速) → ビルド → 出荷。各工程レート/分で処理し、
@@ -118,6 +118,7 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
    一人遊び約1.5回/分 (+2) → 約 4.2/分。リリース +2、お世話係の差し入れは微量 */
 const IDEA_COST = { TUT:0, XS:0, S:2, M:5, L:10 };
 const IDEA_PER_MIN = 4.2;
+const CARRY_MULT = (() => { const m = GAME_SRC.match(/carryMult: ([\d.]+)/); if(!m) throw new Error("balance-sim: CLINK.carryMult を抽出できない"); return +m[1]; })();
 const PLAYER = { minutesPerDay: 180, keysPerHour: 2400, cursorPxPerHour: 90000, requestMatchRate: 0.4,
                  clickSessions: [30, 90, 150], clickSessionMin: 3, clicksPerMin: 40,
                  codingFrac: 0.93,
@@ -287,17 +288,15 @@ function simulate(days, active, reqMode, prestigeAt, profile){
          仕掛品へ（この sim 自身の工程キャップで堰き止められる） */
       const debtF = profile === "black" ? 1 / (1 + simDebt / 50) : 1;   /* 実機 produceDP の debtEff と同じ形 */
       const prodF = mlt * fb * resMultV * feverF * debtF;
-      /* 工程中心（game の cheerAssist と同じ）: 応援の8割はまず律速の後工程の手伝いに使い
-         （手前の仕掛品を次へ送る。出荷律速なら進捗へ）、余りを生産に回す。律速は直前の分の判定 */
-      let assist = 0;
-      if(clickRaw > 0 && !project.planning && bnStage !== "impl"){
-        const want = clickRaw * 0.8 * prodF;
-        if(bnStage === "test"){ assist = Math.min(want, wip.code); wip.code -= assist; wip.tested += assist; }
-        else if(bnStage === "build"){ assist = Math.min(want, wip.tested); wip.tested -= assist; wip.built += assist; }
-        else { assist = Math.min(want, wip.built); wip.built -= assist; projDP += assist; }
-        runDP += assist;
+      /* 工程中心（game の cheerCarry と同じ）: 応援は溜まった仕掛品を下流から手で運んで出荷する
+         （威力 × carryMult ぶん。新しい DP は生まないので runDP には数えない）。生産側は従来どおり */
+      if(clickRaw > 0 && !project.planning){
+        let left = clickRaw * CARRY_MULT * prodF;
+        const want = left;
+        for(const k of ["built", "tested", "code"]){ const t = Math.min(left, wip[k]); wip[k] -= t; left -= t; }
+        projDP += want - left;
       }
-      const clickProd = Math.max(0, clickRaw * 0.8 - assist / prodF);
+      const clickProd = clickRaw * 0.8;
       const produced = (raw + clickProd) * prodF;
       wip.code += produced; runDP += produced;
       /* 応援クリック由来の分はバグ混入 ×inputBugRate（game の produceDP と同じ） */
