@@ -576,6 +576,17 @@ function tickIPs(){
   }
   if(changed) save();
 }
+/* 実績ボードの工程系: 詰まり→解消 と 全工程グリーン は「その瞬間」の事実なので、
+   1秒ティックで見てフラグに残す（checkStamps はクリックごとにも呼ばれるので重い判定は置かない） */
+let stampBnSeen = false;
+function trackLineStamps(){
+  if(!S.flags.bnCleared){
+    if(currentBottleneck()) stampBnSeen = true;
+    else if(stampBnSeen) S.flags.bnCleared = true;
+  }
+  if(!S.flags.allGreen && S.project && stageStatus().every(st => st.lamp === "green")) S.flags.allGreen = true;
+  checkStamps();
+}
 function checkStamps(){
   for(const st of STAMP_DEFS){
     if(!S.stamps[st.id] && st.test(S)){

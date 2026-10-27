@@ -47,6 +47,7 @@ function tick(){
   if(S.project && !S.project.planning) S.project.activeSec = (S.project.activeSec || 0) + 1;
   if(S.line2.project && !S.line2.project.planning) S.line2.project.activeSec = (S.line2.project.activeSec || 0) + 1;
   stateTick(now);
+  trackLineStamps();
   eventTick(now);
   if(comboN > 0 && now - lastClickAt > 2500){ comboN = 0; updateComboUI(); }
   const coding = ["code","code_slow","think","debug"].includes(catState);
