@@ -329,7 +329,7 @@ function clickBucketTake(){
 function chargeFever(amount){
   if(feverActive() || !S.fever) return;
   const before = S.fever.gauge || 0;
-  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1));   /* 第2ウェーブ I: 星あかりで充填 +15% */
+  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1) * ideaChargeMult());   /* 第2ウェーブ I: 星あかりで充填 +15% ／ アイデアの蓄えで速まる（企画を練ると減る） */
   if(before < 100 && S.fever.gauge >= 100 && !IS_VIEWER){
     say("⚡ オーバークロック準備完了にゃ！ 机脇のゲージをクリックで発動できるよ");
     addLog("⚡ オーバークロックのゲージが満タンになった");
@@ -379,11 +379,6 @@ function produceDP(amount, target){
     S.tut.seen.first_bug = true;
     say("バグが出たにゃ。あたしが勝手に叩くから大丈夫だよ");
   }
-}
-/* 企画会議中に止まった自動の実装ぶんを、星屑の元（runDP）にだけ数える（仕掛品には積まない）。
-   会議も開発の仕事なので、練ったせいで会社の価値が減ることはない */
-function creditMeetDP(amount){
-  S.runDP += amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
 }
 /* 工程中心（2026-10-27）: 応援は「みゅけが手で運ぶ」。溜まった仕掛品を下流から
    （ビルド済み → テスト済み → 実装済みの順に）手で出荷まで運び、その場で進捗に計上する。

@@ -33,7 +33,7 @@ interface Project {
   modules?: ProjectModule[];
   ip?: boolean;
   planLv?: number;   // 企画を練った回数（0〜3）
-  planMeetSec?: number;   // 企画会議の残り秒（この間そのラインの自動の実装が止まる。旧セーブは無し＝0）
+  planMeetSec?: number;   // v2.9.1〜v2.9.2 の企画会議の残り秒（v2.9.3 で廃止。旧セーブに残っていても読まない）
   scale?: number;    // 仕事の桁（作品の規模と報酬の倍率・1/2/5/10…。旧セーブは無し＝1）
   deathMarch?: boolean;
   [k: string]: any;
