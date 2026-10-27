@@ -357,7 +357,13 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       /* 帯の山を見て潰す近似: アクティブなプレイヤーは滞留を積極的に潰す
          （上限 6/分）、パッシブはたまのチラ見（上限 1/分）。ブランド帯域の
          判定はこのドレイン後の在庫で実機に倣う */
-      if(bugStock > 3) bugStock = Math.max(0, bugStock - Math.min(bugStock - 3, active ? 6 : 1));
+      if(bugStock > 3){
+        /* 在庫バグを手で潰した報酬（2026-10-27・帯に常時出るバグ）: 1匹ずつ BAL.stockBugCoin × 仕事の桁 */
+        const sq = Math.floor(Math.min(bugStock - 3, active ? 6 : 1));
+        bugStock = Math.max(0, bugStock - Math.min(bugStock - 3, active ? 6 : 1));
+        const sqCoins = sq * BAL.stockBugCoin * (project.scale || 1);
+        coins += sqCoins; coinsEarned += sqCoins; dayCoins += sqCoins;
+      }
       if(bugStock > milestones.maxBugStock) milestones.maxBugStock = bugStock;
       rp += ss.rp;
       /* Sprint 4: ティア1全完了後の研究員は第二の仕事でアイデアも生む (game と同じ ×0.6) */

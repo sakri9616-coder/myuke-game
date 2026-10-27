@@ -273,6 +273,7 @@ function stripUpdate(dt){
       if(bg.sf > 0.97){ bg.sf = 0.97; bg.svf = -Math.abs(bg.svf || 0.02); }
     }
   }
+  stripBugsUpdate();   /* 在庫バグ: 匹数に合わせた絵の数と這う刻み */
   flowVisualUpdate(dt);   /* 可視生産フロー: 移動物の進行と節目ウォッチャー */
   stripAmbientUpdate(dt);   /* Sprint 3: 雑談と訪問猫 */
 }
@@ -325,14 +326,6 @@ function flowVisualUpdate(dt){
     }
     lastIdeasSeen = ideasInt;
   } else if(ideasInt < lastIdeasSeen) lastIdeasSeen = ideasInt;
-  /* バグ滞留: 表示匹数が減った瞬間に潰れ残像を1つ出す (QA/debug と同期) */
-  const bugN = Math.min(8, Math.floor(S.bugStock));
-  if(lastBugShown < 0) lastBugShown = bugN;
-  else if(bugN < lastBugShown){
-    const top = pileTopY("code");
-    stripBugSquash = { at: stripNow, x: stripQAX() + ((lastBugShown % 3) - 1) * 6, y: top - 2 };
-    lastBugShown = bugN;
-  } else if(bugN > lastBugShown) lastBugShown = bugN;
 }
 /* 山の天面 y (バグ・着地位置の計算用)。pileModel と同じ段数規則 */
 function pileTopY(which){

@@ -15,8 +15,7 @@ let stripCoins = [];       /* リリース時のコイン噴水 (P3) */
 let stripGitLog = [], stripGitLog2 = [];   /* モニタの git ログ行 (直近3コミット) */
 let stripBoardPulseAt = 0, stripBoardPulseAt2 = 0;   /* 付箋到着時のボード金パルス */
 let stripPkgGlowUntil = 0; /* パッケージ節目の完成箱グロー */
-let lastPackagesSeen = -1, lastRpIntSeen = -1, lastIdeasSeen = -1, lastBugShown = -1;
-let stripBugSquash = null; /* バグが潰れた瞬間の残像 {at, x, y} */
+let lastPackagesSeen = -1, lastRpIntSeen = -1, lastIdeasSeen = -1;
 let lastShipDispatchAt = 0;
 /* 工程置き場の地理: 発生 A 机 0.30W → B QAトレイ → C ビルド置き場 → D 出荷スタック */
 function stripQAX(){ return Math.round(stripVW * 0.405); }

@@ -36,6 +36,7 @@ function computeHitZones(){
   push(R.duck, 6);
   push(R.fish, 6);
   for(const br of (R.bugs || [])) push(br, 4);
+  for(const br of (R.stockBugs || [])) push(br, 3);
   for(const sr of R.staff) push(sr, 8);
   push(R.miyuke, 10);
   push(R.bubble, 4);
@@ -129,6 +130,8 @@ if(stripCv){
         }
       }
     }
+    /* 在庫バグ (常に帯を這う) も手で潰せる */
+    if(stripStockBugClick(ux, uy)){ renderHeader(); return; }
     /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
     if(stripHitRects.shelf){
       const sr = stripHitRects.shelf;

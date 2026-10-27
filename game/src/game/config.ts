@@ -18,7 +18,8 @@ const BAL = {
   coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
   rpBase:    { TUT:1,   XS:1,   S:1,   M:2,    L:4 },
   bugPerDP: 0.012,          // DPあたりのバグ混入
-  inputBugRate: 0.3,        // 応援クリック・入力ブースト由来の DP のバグ混入倍率
+  inputBugRate: 0.3,
+  stockBugCoin: 4,          // 在庫バグを手で潰した報酬（×仕事の桁×√潰した匹数）        // 応援クリック・入力ブースト由来の DP のバグ混入倍率
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
   prestigeDPPerDust: 8000,  // 星屑1個ぶんのDP（第2ウェーブ I: 12,000→8,000 で EXIT を小刻み化）

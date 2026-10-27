@@ -1,0 +1,170 @@
+/* ---------- 在庫バグを帯に出す (2026-10-27) ----------
+   sakuri「バグは大量発生イベントでないときにも画面に出して、手動でも潰せるように」
+   「一万匹のプレイも想定」「自動的にパッチが当たってバグが撃破される演出も」。
+   在庫バグ (S.bugStock) を帯の地面に常に這わせ、クリックで潰せる。
+   - 描く枚数は匹数によらず最大 20 枚: 12 匹までは1匹ずつ、それを超えたら1匹描きは
+     8 匹に留め、残りを「群れ」の絵で描く。群れの数は匹数の桁で増える (13匹で数個、
+     1万匹で 12 個)。1 つの群れが表す匹数は 残り ÷ 群れの数
+   - 動きは BUG_STEP_MS ごとの刻みで進める (毎フレーム動かさない)。刻みの間のフレームは
+     命令列が同じになり、描画の軽量化 (strip-frame.ts の同一フレーム省略) が効き続ける
+   - QA・みゅけのデバッグで減ったぶんは「パッチ」が落ちて貼り付き、煙で消える
+     (演出は同時 4 つまで・間隔を空けて出す。1万匹が一気に減っても演出は増えない)
+   - 絵は research/BUG_SWARM_ART_ORDER.md の発注品。届いていない絵は、既存の icon_bug /
+     fx_spark_2 を並べて代わりにする (新しい絵をコードで描かない) */
+const BUG_INDIV_MAX = 12;        /* これ以下は全部1匹ずつ描く */
+const BUG_INDIV_WITH_SWARM = 8;  /* 群れがいるときの1匹描きの数 */
+const BUG_SWARM_MAX = 12;
+const BUG_STEP_MS = 220;         /* 這う刻み。1刻みで 2px 進む (≒9px/秒) */
+const BUG_FX_MAX = 4;
+const BUG_HIT = { one: [16, 13], s: [28, 15], l: [46, 22] };
+let stripBugVis = [];            /* {kind:"one"|"s"|"l", x, tx, dir, ph, n} */
+let stripBugFx = [];             /* {kind:"patch"|"splat", x, at} */
+let stripBugStepAt = 0, stripBugStepN = 0;
+let stripBugShown = -1;          /* 前回見た Math.floor(S.bugStock) */
+let stripBugManual = 0;          /* 手で潰したぶん (自動の減少と区別する) */
+let stripBugFxNextAt = 0;
+/* 匹数 → 描く物の組み立て。純関数 (smoke から検算できる) */
+function bugVisModel(n){
+  n = Math.max(0, Math.floor(n || 0));
+  if(n <= BUG_INDIV_MAX) return { indiv: n, swarms: 0, share: 0, big: false };
+  const rest = n - BUG_INDIV_WITH_SWARM;
+  const swarms = Math.min(BUG_SWARM_MAX, 1 + Math.floor(Math.log10(rest) * 3));
+  const share = rest / swarms;
+  return { indiv: BUG_INDIV_WITH_SWARM, swarms, share, big: share >= 20 };
+}
+/* 群れ1つを叩いたときに潰れる匹数: 群れは約3回で消える (桁が増えても手数は同じ) */
+function bugSwarmChunk(share){ return Math.max(1, Math.ceil(share / 3)); }
+/* 手で潰した報酬 (コイン)。仕事の桁 (workScale) に連動し、群れをまとめて潰したときは
+   匹数の平方根ぶん厚くする (1匹 ×1・100匹 ×10・1万匹 ×100)。匹数自体も生産に比例して
+   増えるので、平方根で抑えて報酬の二重インフレを避ける */
+function stockBugReward(squashed){
+  return Math.max(1, Math.round(BAL.stockBugCoin * workScale() * Math.sqrt(Math.max(1, squashed))));
+}
+/* 在庫バグの見た目の範囲: QA トレイの周りから、匹数の桁に応じて帯の端まで広がる */
+function stripBugSpan(n){
+  const half = Math.min(stripVW / 2, 40 + 30 * Math.log2(1 + n));
+  const c = stripQAX();
+  return { lo: Math.max(12, c - half), hi: Math.min(stripVW - 12, c + half) };
+}
+function stripBugPickX(sp){ return Math.round(sp.lo + Math.random() * (sp.hi - sp.lo)); }
+/* 帯側 (stripUpdate から毎フレーム): 匹数の変化を見て、絵の数を合わせ、刻みで動かす */
+function stripBugsUpdate(){
+  const n = Math.max(0, Math.floor(S.bugStock || 0));
+  if(stripBugShown < 0) stripBugShown = n;
+  if(n < stripBugShown){
+    /* 減ったぶんのうち手で潰した以外は自動 (QA・デバッグ) — パッチの演出 */
+    const auto = (stripBugShown - n) - stripBugManual;
+    if(auto > 0) stripBugAutoFx();
+  }
+  stripBugShown = n; stripBugManual = 0;
+  const m = bugVisModel(n), sp = stripBugSpan(n);
+  const want = [];
+  for(let i = 0; i < m.indiv; i++) want.push("one");
+  for(let i = 0; i < m.swarms; i++) want.push(m.big && i % 2 === 0 ? "l" : "s");
+  /* 余った絵は後ろから消す (自動で減った時は消える場所に演出が出る)。足りない絵は QA トレイから出てくる */
+  while(stripBugVis.length > want.length) stripBugVis.pop();
+  for(let i = 0; i < want.length; i++){
+    const v = stripBugVis[i];
+    if(!v){
+      const x0 = want[i] === "one" ? stripQAX() : stripBugPickX(sp);
+      stripBugVis.push({ kind: want[i], x: x0, tx: stripBugPickX(sp), dir: 1, ph: Math.floor(Math.random() * 4), n: 1 });
+    } else v.kind = want[i];
+    stripBugVis[i].n = want[i] === "one" ? 1 : m.share;
+  }
+  /* 刻み: 1匹は目的地へ 2px ずつ這い、着いたら時々次の目的地を選ぶ。群れはその場でうごめく */
+  if(stripNow - stripBugStepAt < BUG_STEP_MS) return;
+  stripBugStepAt = stripNow; stripBugStepN++;
+  for(const v of stripBugVis){
+    if(v.tx < sp.lo || v.tx > sp.hi) v.tx = stripBugPickX(sp);
+    const d = v.tx - v.x;
+    if(v.kind === "one"){
+      if(Math.abs(d) >= 2){ v.dir = d > 0 ? 1 : -1; v.x += v.dir * 2; v.ph++; }
+      else if(Math.random() < 0.06) v.tx = stripBugPickX(sp);
+    } else {
+      if(Math.abs(d) >= 1 && stripBugStepN % 3 === 0){ v.dir = d > 0 ? 1 : -1; v.x += v.dir; }
+      if((stripBugStepN + v.ph) % 3 === 0) v.ph++;
+      if(Math.random() < 0.01) v.tx = stripBugPickX(sp);
+    }
+  }
+}
+/* 自動で減ったときのパッチ。最寄りの1匹描き (無ければ群れ) の位置に落とす */
+function stripBugAutoFx(){
+  if(stripNow < stripBugFxNextAt || stripBugFx.length >= BUG_FX_MAX) return;
+  stripBugFxNextAt = stripNow + 350;
+  const v = stripBugVis[stripBugVis.length - 1];
+  const x = v ? v.x : stripQAX();
+  stripBugFx.push({ kind: "patch", x, at: stripNow });
+}
+function stripBugSprite(kind, ph){
+  const nm = kind === "one" ? "icon_bug_s_" : kind === "l" ? "icon_bug_swarm_l_" : "icon_bug_swarm_s_";
+  const f = nm + (ph % 2);
+  return hasSprite(f) ? f : null;
+}
+/* 届いていない群れの絵の代わり: 既存の icon_bug を小さく寄せて並べる */
+const BUG_FALLBACK_CLUSTER = {
+  s: [[-6, 0], [5, 0], [0, -4], [-1, 1]],
+  l: [[-14, 0], [-5, 0], [5, 0], [14, 0], [-9, -5], [1, -6], [10, -5], [-3, -10], [6, -10]]
+};
+function drawStripStockBugs(){
+  const G = STRIP_GROUND;
+  stripHitRects.stockBugs = [];
+  /* 群れを奥、1匹描きを手前に描く (クリックの当たりも手前が優先: 記録順の後ろから調べる) */
+  for(let j = 0; j < stripBugVis.length; j++){
+    const i = (j + BUG_INDIV_WITH_SWARM) % stripBugVis.length;
+    const v = stripBugVis[i];
+    const nm = stripBugSprite(v.kind, v.ph);
+    if(nm) sDrawSprite(nm, v.x, G, 1, v.dir < 0);
+    else if(v.kind === "one") sDrawSprite("icon_bug", v.x, G + 3, 0.5, v.dir < 0);
+    else for(const o of BUG_FALLBACK_CLUSTER[v.kind]) sDrawSprite("icon_bug", v.x + o[0] + ((v.ph + o[0]) % 2), G + 3 + o[1], 0.45);
+    const hs = BUG_HIT[v.kind];
+    stripHitRects.stockBugs.push({ x: v.x - hs[0] / 2, y: G - hs[1], w: hs[0], h: hs[1], idx: i });
+  }
+  /* 演出: パッチ (落下 260ms → 貼り付き 160ms → 煙 2コマ 300ms) / 手で潰した跡 (240ms → 煙) */
+  for(let i = stripBugFx.length - 1; i >= 0; i--){
+    const fx = stripBugFx[i], t = stripNow - fx.at;
+    const fall = fx.kind === "patch" ? 260 : 0, stick = fx.kind === "patch" ? 160 : 240;
+    if(t >= fall + stick + 300){ stripBugFx.splice(i, 1); continue; }
+    if(t < fall){
+      const y = G - 40 + Math.round(t / fall * 34);
+      if(!sDrawSprite("fx_patch", fx.x, y + 6, 1)) sDrawSprite("fx_spark_2", fx.x, y, 1);
+    } else if(t < fall + stick){
+      if(fx.kind === "patch") sDrawSprite("fx_patch", fx.x, G - 2, 1);
+      else if(!sDrawSprite("fx_bug_splat", fx.x, G, 1)) sDrawSprite("icon_bug", fx.x, G + 3, 0.5);
+    } else {
+      const f = t < fall + stick + 150 ? 0 : 1;
+      if(!sDrawSprite("fx_bug_poof_" + f, fx.x, G, 1)) sDrawSprite("fx_spark_2", fx.x, G - 4 - f * 3, 1);
+    }
+  }
+}
+/* 帯のクリック: 当たった在庫バグを潰す。当たれば true */
+function stripStockBugClick(ux, uy){
+  const R = stripHitRects.stockBugs || [];
+  for(let k = R.length - 1; k >= 0; k--){
+    const r = R[k];
+    if(ux < r.x - 3 || ux > r.x + r.w + 3 || uy < r.y - 3 || uy > r.y + r.h + 3) continue;
+    const v = stripBugVis[r.idx];
+    if(!v) continue;
+    squashStockBug(v.kind === "one" ? 1 : bugSwarmChunk(v.n), v.x);
+    return true;
+  }
+  return false;
+}
+/* 手で在庫バグを潰す (労働の対価: コイン + オーバークロックの充填。減ったバグはテストの
+   詰まり・出荷時の負債・IP 化の条件にそのまま効く) */
+function squashStockBug(count, x){
+  const have = Math.floor(S.bugStock || 0);
+  const k = Math.min(have, Math.max(1, Math.floor(count)));
+  if(k <= 0) return 0;
+  S.bugStock = Math.max(0, S.bugStock - k);
+  stripBugManual += k;
+  S.totals.bugsSquashed += k; S.today.bugs += k;
+  const coins = stockBugReward(k);
+  S.coins += coins; S.totals.coinsEarned += coins;
+  chargeFever(FEVER.chargePerClick);
+  SoundKit.play("bugSquash");
+  stripBugFx.push({ kind: "splat", x, at: stripNow || Date.now() });
+  if(stripBugFx.length > BUG_FX_MAX * 2) stripBugFx.shift();
+  addStripFloater(x, STRIP_GROUND - 18, (k > 1 ? "🐛×" + fmt(k) + " " : "") + "+" + fmt(coins) + "🪙", "#5aa469");
+  checkStamps();
+  return k;
+}
