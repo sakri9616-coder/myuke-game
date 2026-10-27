@@ -196,7 +196,6 @@ function duckSprite(){
    スロット座標は帯レンダラ側の stripShelfSlots() が持つ（棚板の実測位置）。
    並ぶ数は min(総リリース数≒ S.shelf.length, 枠数)。最新作はリリース直後
    しばらく金枠で光る（shelfGlowFrame はリリース時にセットされる） */
-const SHELF_BOX_COLS = ["#e8873a","#5aa469","#4a90c2","#c25a7a","#8a6fc9","#d9b23a","#4fb3a9","#a05a3a"];
 let shelfGlowFrame = -1;
 /* ---------- ストリップモード描画（デスクトップ下部の帯に直接住む） ----------
    仮想空間は高さ 120 単位・幅は画面アスペクト可変。地面は下端 -4。

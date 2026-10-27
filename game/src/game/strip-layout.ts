@@ -25,7 +25,7 @@ function layoutSurfaces(){
     { id: "desk2",    cx: stripDesk2CX(),    y: G - 33, w: 128, reserved: [[-22, 22]], on: !!S.line2.unlocked },
     { id: "shelf",    cx: stripShelfCX(),    y: G - 42, w: 104 },
     /* 研究机: 左の本の山と中央の開いた本が予約。植木の定位置は右の空き */
-    { id: "research", cx: stripResearchCX(), y: G - 14, w: 88,  reserved: [[-34, -13], [-9, 9]], on: hasResearcher() },
+    { id: "research", cx: stripResearchCX(), y: G - 12, w: 68,  reserved: [[-30, -12], [-7, 14]], on: hasResearcher() },   /* prop_research_desk の天板 (原寸 row 16)・本の山・開いた本 */
     { id: "trophy",   cx: stripTrophyCX(),   y: G - 22, w: 30,  on: !!S.stamps.prestige1 },
   ];
   return list.filter(s => s.on !== false);
@@ -44,7 +44,7 @@ function propDefaultPlace(id){
     case "megaphone": return { cx: stripDeskCX() - 76, baseY: G + 1 };
     case "snack": return { cx: stripDeskCX() + 72, baseY: G };
     case "coffee": return { cx: stripDeskCX() + 47, baseY: G - 0.5 };
-    case "plant": return { cx: stripResearchCX() + 22, baseY: G - 14 };
+    case "plant": return { cx: stripResearchCX() + 22, baseY: G - 12 };
     case "ship": return { cx: Math.round(stripVW * 0.80), baseY: G };
     /* 既定ではボード左下に吊る2行の札 (並べ替えで掴む矩形がそこに重なるように) */
     case "memo": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 4 + 75, baseY: STRIP_BOARD.top + STRIP_BOARD.hMain + 18 };
@@ -166,8 +166,11 @@ function hasResearcher(){ return S.staff.some(st => st.role === "research"); }
 /* クラスタ足元の薄いラグ (R1/R9): 家具クラスタの下だけに敷く最淡色の帯。
    帯全幅の土帯・背景帯は禁止 (R1)。地面の表現はこれと接地影だけ */
 function sRug(cx, w){
-  sR(cx - w / 2, STRIP_GROUND - 1, w, 4, "#7a5c3314");
-  sR(cx - w / 2, STRIP_GROUND + 2.4, w, 0.8, "#7a5c3324");
+  /* 2026-10-27 第2次発注: ラグの絵 (prop_rug_3) を薄く敷く。透明度だけコード側 */
+  sctx.save();
+  sctx.globalAlpha = 0.14;
+  sDrawNine("prop_rug_3", cx - w / 2, STRIP_GROUND - 1.5, w, 5, 4, 0);
+  sctx.restore();
 }
 function stripResize(){
   if(!stripCv) return;
@@ -186,11 +189,11 @@ window.__miyukeOnModeChange = function(mode){
   stripResize();
   if(mode === "strip") publishHitZones(true);
 };
-function sR(x, y, w, h, c){ sctx.fillStyle = c; sctx.fillRect(x, y, w, h); }
 function sShadow(cx, cy, w){
+  /* R4: 全接地物で同一様式。影の絵 (fx_shadow_3) を横に伸ばし、透明度だけコード側 */
   sctx.save();
-  sctx.globalAlpha = 0.20; sctx.fillStyle = "#322319";   /* R4: 全接地物で同一様式 */
-  sctx.beginPath(); sctx.ellipse(cx, cy, w / 2, 2.6, 0, 0, Math.PI * 2); sctx.fill();
+  sctx.globalAlpha = 0.28;
+  sDrawNine("fx_shadow_3", cx - w / 2, cy - 2.5, w, 5, 4, 0);
   sctx.restore();
 }
 /* ストリップ用スプライト描画（下端中央アンカー、flip は歩行者用）。
@@ -246,6 +249,36 @@ function sDrawSpriteStretchV(name, gx, gy, h, cap){
   sctx.restore();
   return true;
 }
+/* 伸び縮みする枠の絵 (第2次発注 §2): 左上 (x, y)・大きさ (w, h) の箱に、角 kx×ky を
+   原寸のまま残し、辺と中央を最近傍で引き伸ばして貼る。_9 は kx,ky とも、_3 は ky=0、
+   _3v は kx=0。形も色も絵のまま (コードは切り分けて並べるだけ) */
+function sDrawNine(name, x, y, w, h, kx, ky, kyb?){
+  const cv = spriteCache[name];
+  if(!cv) return false;
+  const kb = typeof kyb === "number" ? kyb : ky;   /* 下端だけ別の幅 (支柱の足など) */
+  const m = typeof sctx.getTransform === "function" ? sctx.getTransform() : null;
+  const a = m ? m.a : 1, d = m ? m.d : 1, e = m ? m.e : 0, f = m ? m.f : 0;
+  const X = (v) => Math.round(v * a + e), Y = (v) => Math.round(v * d + f);
+  const sx = [0, kx, cv.width - kx, cv.width], sy = [0, ky, cv.height - kb, cv.height];
+  const dx = [X(x), X(x + kx), X(x + w - kx), X(x + w)], dy = [Y(y), Y(y + ky), Y(y + h - kb), Y(y + h)];
+  sctx.save();
+  sctx.imageSmoothingEnabled = false;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  for(let j = 0; j < 3; j++) for(let i = 0; i < 3; i++){
+    const sw = sx[i + 1] - sx[i], sh = sy[j + 1] - sy[j], dw = dx[i + 1] - dx[i], dh = dy[j + 1] - dy[j];
+    if(sw > 0 && sh > 0 && dw > 0 && dh > 0) sctx.drawImage(cv, sx[i], sy[j], sw, sh, dx[i], dy[j], dw, dh);
+  }
+  sctx.restore();
+  return true;
+}
+/* 左上 (x, y) に原寸 (または w×h に引き伸ばし) で貼る。画面の中身・札の中の小物用 */
+function sDrawTL(name, x, y, w?, h?){
+  const cv = spriteCache[name];
+  if(!cv) return false;
+  return sDrawNine(name, x, y, w || cv.width, h || cv.height, 0, 0);
+}
+/* 作品の色番号 (0〜7)。icon_project_* / ui_pill_*_9 / prop_shelf_box_* の番号 */
+function projectColorIdx(p){ return ((p && typeof p.icon === "number" ? p.icon : 0) % 8 + 8) % 8; }
 /* みゅけを描きつつ、表示矩形をヒットゾーン用に記録する */
 function sDrawMiyuke(name, gx, gy, scale, flip?){
   name = catSprite(name);   /* アニメ対象（idle/snack/think/debug等）は現在フレームに差し替え */
@@ -272,34 +305,13 @@ function sDrawMiyukeWalking(gx, gy){
   const frameName = animFrameAt("miyuke_walk", miyukeStrip.walkClock || 0);
   return sDrawMiyuke(frameName, gx, gy, SPRITE_SCALES.strip.miyuke, miyukeStrip.dir > 0);
 }
-function sDrawStaffFallback(coat, gx, gy){
-  const cc = (typeof COAT_COLORS !== "undefined" && COAT_COLORS[coat]) || { body:"#fff5e6", face:"#fff5e6", sub:"#dfcdb7" };
-  sR(gx - 13, gy - 15, 26, 12, cc.body);
-  sR(gx + 1, gy - 26, 15, 13, cc.face);
-  sR(gx + 2, gy - 30, 4, 5, cc.face); sR(gx + 11, gy - 30, 4, 5, cc.sub);
-  sR(gx - 17, gy - 9, 5, 3, cc.sub);
-  sR(gx - 9, gy - 3, 5, 3, cc.body); sR(gx + 6, gy - 3, 5, 3, cc.body);
-}
 /* 帯を横切る猫（訪問猫・配達猫・ベンダー・箱運び）: 毛柄の walk ANIMS を接地同期で描く */
 function sDrawStripWalker(v, G){
   sShadow(v.x, G - 0.5, 50);
-  if(!sDrawSprite(animFrameAt("staff_" + v.coat + "_walk", v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0))
-    sDrawStaffFallback(v.coat, v.x, G);
+  sDrawSprite(animFrameAt("staff_" + v.coat + "_walk", v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0);
 }
-/* デスクのPC: prop_pc スプライトが来たら差し替わる。無ければ手続き描画 */
-function drawStripPC(cx, gy){
-  if(sDrawSprite("prop_pc", cx, gy, 1)) return;
-  sR(cx - 11, gy - 27, 22, 18, "#445464");
-  sR(cx - 9, gy - 25, 18, 14, "#2e4a3e");
-  for(let i = 0; i < 3; i++){
-    const wdt = 5 + ((frame * 2 + i * 7) % 11);
-    sR(cx - 7, gy - 23 + i * 4, wdt, 1.6, "#7be495");
-  }
-  sR(cx - 1.5, gy - 9, 3, 3, "#66707c");
-  sR(cx - 7, gy - 6, 14, 1.8, "#66707c");
-  sR(cx - 14, gy - 3, 28, 3, "#55606c");
-  sR(cx - 13, gy - 2.4, 26, 1, "#aebfc4");
-}
+/* デスクのPC (prop_pc) */
+function drawStripPC(cx, gy){ sDrawSprite("prop_pc", cx, gy, 1); }
 /* Sprint 4: PCモニタの中に実プロジェクトを見せる（ダイジェティック進捗）。
    画面下部に進捗バー＋次の節目の目盛り、左上に作品アイコン色の小箱。
    prop_pc スプライト／手続き描画どちらのモニタにも重ねて描く */
@@ -312,10 +324,15 @@ function drawStripGitLog(log, x, yTop, w){
     if(!e) break;
     const y = yTop + i * 2.7;
     const slide = i === 0 ? Math.max(0, 7 - (Date.now() - e.at) / 45) : 0;
-    const ox = x + slide;
-    sR(ox, y, 1.8, 1.8, i === 0 ? "#7be495" : "#5f7268");
-    sR(ox + 2.8, y + 0.2, Math.min(w - 3, 4 + e.seed * 8), 1.4, i === 0 ? "#9fb4a8" : "#5f7268");
-    if(e.seed > 0.6) sR(ox + 2.8, y + 0.2, 2.2, 1.4, "#f49a45");
+    /* 行の絵: 新着は明るい行 (screen_gitlog_new)、古い行は長さ4種 (幅 10/14/18/22) から
+       seed と面の幅で選ぶ */
+    let nm = "screen_gitlog_new";
+    if(i > 0){
+      let k = Math.min(3, Math.floor(e.seed * 4));
+      while(k > 0 && 10 + k * 4 > w) k--;
+      nm = "screen_gitlog_" + k;
+    }
+    sDrawTL(nm, x + slide, y);
   }
 }
 function drawStripPCScreen(cx, gy){
@@ -327,18 +344,16 @@ function drawStripPCScreen(cx, gy){
 function drawStripProgressScreen(ix, iy, bx, by, bw){
   const p = S.project;
   if(!p) return;
-  const col = SHELF_BOX_COLS[(typeof p.icon === "number" ? p.icon : 0) % SHELF_BOX_COLS.length];
-  sR(ix, iy, 4, 4, col);
-  sR(ix, iy + 2, 4, 1, "#00000033");
-  sR(bx, by, bw, 3, "#101d16");
+  sDrawTL("icon_project_mini_" + projectColorIdx(p), ix - 0.5, iy - 0.5);
+  sDrawNine("ui_minibar_track_3", bx, by, bw, 3, 2, 0);
   if(p.planning){
-    if(blinkOn(12, 7)) sR(bx + 1, by + 1, 3, 1, "#ffd94d");   /* 企画中は点滅 */
+    if(blinkOn(12, 7)) sDrawNine("ui_minibar_fill_yellow_3", bx + 1, by, 4, 2, 1, 0);   /* 企画中は点滅 */
   } else {
     const frac = Math.max(0, Math.min(1, S.projectDP / p.totalDP));
-    if(frac > 0) sR(bx, by, Math.max(1, bw * frac), 3, "#7be495");
+    if(frac > 0) sDrawNine("ui_minibar_fill_3", bx, by, Math.max(2, bw * frac), 2, 1, 0);
     const ft = 1 / (p.feats.length + 1);
     const nextM = ft * ((p.doneFeats || 0) + 1);
-    if(nextM < 1) sR(bx + Math.round(bw * nextM), by, 1, 3, "#fff3b0");
+    if(nextM < 1) sDrawTL("ui_minibar_tick", bx + Math.round(bw * nextM), by);
   }
   drawStripGitLog(stripGitLog, bx, by - 5.5, bw - 2);
 }

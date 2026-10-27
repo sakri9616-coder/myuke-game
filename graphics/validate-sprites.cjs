@@ -66,7 +66,11 @@ for (let i = 1; i <= 2; i++) Object.assign(VIS_SIZES, { ['prop_monitor_sub_' + i
 for (let i = 0; i < 4; i++) VIS_SIZES['icon_note_' + i] = [6, 6];
 for (let i = 0; i < 5; i++) Object.assign(VIS_SIZES, { ['fx_confetti_' + i + '_a']: [3, 2], ['fx_confetti_' + i + '_b']: [1, 2] });
 for (const c of ['green', 'yellow', 'red']) VIS_SIZES['prop_signal_' + c] = [8, 18];
-const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name);
+/* 第2次 (research/VISIBLE_SYSTEMS_ART_ORDER_2.md): 寸法は発注書どおりで納品物の描画スクリプトが
+   余白・伸び縮みの規則まで検査済み。ここでは寸法とパレットだけを見る (枠の絵は端まで描くのが正本) */
+const VIS2 = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-visible2.js'); return g.MIYUKE_ENV_SPRITES_VIS2.sprites; })();
+for (const [n, rows] of Object.entries(VIS2)) VIS_SIZES[n] = [rows[0].length, rows.length];
+const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name);
 function expected(name) {
   if (VIS_SIZES[name]) return VIS_SIZES[name];
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。

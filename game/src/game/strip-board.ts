@@ -16,13 +16,25 @@ const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108, hMain: 44 };
 function mainBoardBar(bx){
   return { x: bx + 4, y: STRIP_BOARD.top + 19.5, w: STRIP_BOARD.w - 8, h: 7.5 };
 }
+/* 進捗バー (溝 ui_bar_track_3 → 中身 ui_bar_fill_<色>_3 → 節目の目盛り ui_bar_tick)。
+   (x, y, w, h) は中身の入る面。溝の絵は1単位外側の縁まで含む */
+function drawBoardBar(x, y, w, h, frac, tone, ticks){
+  sDrawNine("ui_bar_track_3", x - 1, y - 1, w + 2, h + 2, 3, 0);
+  if(frac > 0) sDrawNine("ui_bar_fill_" + tone + "_3", x, y, Math.max(4, w * frac), h, 2, 0);
+  for(const t of ticks) sDrawTL("ui_bar_tick", x + Math.round(w * t) - 0.5, y, 1.5, h);
+}
+/* 木の縁の札 (社格・集中力 = ui_tab_9、コイン = ui_tab_gold_9) */
+function drawBoardTab(x, y, w, gold?){ sDrawNine(gold ? "ui_tab_gold_9" : "ui_tab_9", x, y, w, 12, 3, 3); }
+/* 吊りメモ札の地 (ui_memo_9。大型案件の間は金の札 ui_memo_gold_9 と交互に明滅 = 色＋動きの二経路) */
+function drawMemoFace(x, y, w, h){
+  const gold = !!S.bigDeal && blinkOn(50, 25);
+  sDrawNine(gold ? "ui_memo_gold_9" : "ui_memo_9", x, y, w, h, 4, 4);
+  sDrawTL("icon_pin", x + 4.5, y - 1.5);
+}
 /* ボードの吊りメモ札（幅150）。はみ出す文は … で切る */
 function drawStripMemoTag(mx0, my0, memoTxt, width?){
   const mw = width || 150;
-  const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅（色＋動きの二経路） */
-  sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
-  sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#fff5e6");
-  sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
+  drawMemoFace(mx0, my0, mw, 16);
   sctx.save();
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
@@ -43,12 +55,9 @@ function fitMemoText(mt, maxW){
 /* ボードの左下に吊る2行のメモ札 (幅 w)。1行目に入らない分を2行目へ送り、
    2行目もはみ出すなら末尾の括弧書きを残して詰める */
 function drawStripMemoTag2(mx0, my0, memoTxt, w){
-  const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅 */
   const h = 24;
-  sR(mx0 + 10, my0 - 3, 2, 3, "#604B40"); sR(mx0 + w - 12, my0 - 3, 2, 3, "#604B40");
-  sR(mx0, my0, w, h, memoGold ? "#d9a41a" : "#8a6a44");
-  sR(mx0 + 1.5, my0 + 1.5, w - 3, h - 3, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#fff5e6");
-  sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
+  sDrawTL("icon_cord", mx0 + 10, my0 - 4); sDrawTL("icon_cord", mx0 + w - 12, my0 - 4);   /* ボードから吊る紐 */
+  drawMemoFace(mx0, my0, w, h);
   sctx.save();
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
@@ -77,19 +86,17 @@ function drawStripBoardSideTabs(bx, top){
   let tx = bx - tw - 1, ty = top + 1;
   if(tx < 1){ tx = bx + STRIP_BOARD.w + 1; ty = top + 15; }
   /* コイン (真鍮の札) */
-  sR(tx, ty, tw, 12, "#8a6a44");
-  sR(tx + 1, ty + 1, tw - 2, 10, "#d9b23a");
+  drawBoardTab(tx, ty, tw, true);
   sctx.fillStyle = "#4a3b2c";
   sctx.fillText(coinTxt, tx + 5, ty + 6.3);
   /* 集中力 */
   const cy = ty + 14;
-  sR(tx, cy, tw, 12, "#8a6a44");
-  sR(tx + 1, cy + 1, tw - 2, 10, "#fff5e6");
+  drawBoardTab(tx, cy, tw);
   sctx.fillText("🧠", tx + 4, cy + 6.3);
   const mx = tx + 4 + brainW + 3;
   const conc = Math.max(0, Math.min(100, S.concentration)) / 100;
-  sR(mx, cy + 3.5, meterW, 5, "#604B40");
-  if(conc > 0) sR(mx + 1, cy + 4.5, Math.max(1, (meterW - 2) * conc), 3, "#5aa4c2");
+  sDrawNine("ui_meter_track_3", mx, cy + 3.5, meterW, 5, 2, 0);
+  if(conc > 0) sDrawNine("ui_meter_fill_3", mx + 1, cy + 4.5, Math.max(2, (meterW - 2) * conc), 3, 1, 0);
   sctx.fillText(prodTxt, mx + meterW + 4, cy + 6.3);
   sctx.restore();
 }
@@ -117,26 +124,18 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   const bn = bnAll && (small ? bnAll.line === 2 : bnAll.line !== 2) ? bnAll : null;
   /* 支柱と足 (机本体より先に描く: 支柱は机・PC・みゅけの背後に落ちる) */
   sShadow(bcx, G - 0.5, bw * 0.66);
-  for(const px of [bx + 9, bx + bw - 12]){
-    sR(px, top + bh - 2, 3, G - (top + bh - 2), "#8a6a44");
-    sR(px - 1.5, G - 2, 6, 2, "#8a6a44");
-  }
+  for(const px of [bx + 9, bx + bw - 12])
+    sDrawNine("ui_board_post_3v", px - 1.5, top + bh - 2, 6, G - (top + bh - 2), 0, 3, 4);
   /* ボード面: tier 0 は木枠 + 紙面。tier>=1 のメインはワイドカンバン面
      (prop_kanban_wide 204×64・全面クリアに生地の行を描く)。小型ボードは木枠 */
   const ix = bx + 2.5, iy = top + 2.5, iw = bw - 5, ih = bh - 5;
   const wideFace = !small && officeTier(S) >= 1 && sDrawSpriteStretchV("prop_kanban_wide", bcx, top + bh, bh, 4);
-  if(!wideFace){
-    sR(bx, top, bw, bh, "#8a6a44");
-    sR(bx, top, bw, 1.6, "#cfa06a");
-    sR(ix, iy, iw, ih, "#fff5e6");
-  }
+  if(!wideFace) sDrawNine("ui_board_9", bx, top, bw, bh, 6, 6);
   /* リリース直後は金枠で脈打つ (棚の最新作グローと同じ言語) */
   const noteLandAt = small ? stripBoardPulseAt2 : stripBoardPulseAt;
   if(((!small && lastReleaseInfo && Date.now() - lastReleaseInfo.at < 6000) ||
-      stripNow - noteLandAt < 650) && frame % 6 < 3){
-    sR(bx - 1, top - 1, bw + 2, 1.4, "#ffd94d"); sR(bx - 1, top + bh - 0.4, bw + 2, 1.4, "#ffd94d");
-    sR(bx - 1, top - 1, 1.4, bh + 2, "#ffd94d"); sR(bx + bw - 0.4, top - 1, 1.4, bh + 2, "#ffd94d");
-  }
+      stripNow - noteLandAt < 650) && frame % 6 < 3)
+    sDrawNine("ui_board_glow_9", bx - 2, top - 2, bw + 4, bh + 4, 4, 4);
   /* 小型ボード (第2ライン) は従来の姿: 完成 feat の付箋が上枠にピン留めされる */
   if(small && p && !m.planning && p.doneFeats > 0){
     const nFeats = p.feats ? p.feats.length : 0;
@@ -146,11 +145,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     }
   }
   /* 作品アイコン (棚に載る箱と同色 = 「この色の箱が増える」の予告編) */
-  const col = p ? SHELF_BOX_COLS[(typeof p.icon === "number" ? p.icon : 0) % SHELF_BOX_COLS.length] : "#9a8f85";
-  if(!m.planning || blinkOn(12, 7)){   /* 企画中はモニタと同じ点滅 */
-    sR(ix + 1.5, iy + 1.5, 12, 12, col);
-    sR(ix + 1.5, iy + 4.5, 12, 1.2, "#00000033");
-  }
+  const ci = projectColorIdx(p);
+  if(p && (!m.planning || blinkOn(12, 7)))   /* 企画中はモニタと同じ点滅 */
+    sDrawTL("icon_project_" + ci, ix + 1.5, iy + 1.5);
   if(small){
     /* ===== 小型ボード (第2ライン): % + 太バーだけの従来形 ===== */
     sctx.save();
@@ -159,20 +156,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.fillStyle = bn ? "#d9534f" : "#4a3b2c";
     sctx.fillText(m.planning ? "💡" : (!m.has ? "—" : Math.round(m.frac * 100) + "%"), ix + 16.5, iy + 8);
     sctx.restore();
-    if(bn){
-      sR(ix + iw - 13.5, iy + 1, 11, 11, "#e2543e");
-      sctx.save();
-      sctx.font = "700 8px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-      sctx.textAlign = "center"; sctx.textBaseline = "middle"; sctx.fillStyle = "#fff5e6";
-      sctx.fillText("⚠", ix + iw - 8, iy + 6.8);
-      sctx.restore();
-    }
+    if(bn) sDrawTL("icon_warn_plate", ix + iw - 13.5, iy + 1);
     const sBarY = iy + ih - 9.5;
-    sR(ix + 0.7, sBarY - 0.8, iw - 1.4 + 1.6, 9.1, "#604B40");
-    sR(ix + 1.5, sBarY, iw - 3, 7.5, "#101d16");
-    if(m.frac > 0)
-      sR(ix + 1.5, sBarY, Math.max(1, (iw - 3) * m.frac), 7.5, bn ? "#e2543e" : (m.planning ? "#ffd94d" : "#7be495"));
-    for(const t of m.ticks) sR(ix + 1.5 + Math.round((iw - 3) * t), sBarY, 1.2, 7.5, "#fff3b0");
+    drawBoardBar(ix + 1.5, sBarY, iw - 3, 7.5, m.frac, bn ? "red" : (m.planning ? "yellow" : "green"), m.ticks);
     stripHitRects[key] = { x: bx, y: top, w: bw, h: bh };
     return;
   }
@@ -210,14 +196,10 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     }
     sctx.fillText(nm, nx, iy + 8.5);
     if(bn){
-      sR(ix + iw - 13.5, iy + 2, 11, 11, "#e2543e");
-      sctx.font = "700 9.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-      sctx.textAlign = "center"; sctx.fillStyle = "#fff5e6";
-      sctx.fillText("⚠", ix + iw - 8, iy + 8);
-      sctx.textAlign = "left";
+      sDrawTL("icon_warn_plate", ix + iw - 13.5, iy + 2);
     } else if(genreW){
       const gx = ix + iw - 3 - genreW;
-      sR(gx, iy + 2.5, genreW, 11.5, col);
+      sDrawNine("ui_pill_" + ci + "_9", gx, iy + 2.5, genreW, 11.5, 3, 3);
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.fillStyle = "#fff5e6"; sctx.textAlign = "center";
       sctx.fillText(genreTxt, gx + genreW / 2, iy + 8.3);
@@ -226,11 +208,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   }
   /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */
   const bar = mainBoardBar(bx);
-  sR(bar.x - 0.8, bar.y - 0.8, bar.w + 1.6, bar.h + 1.6, "#604B40");
-  sR(bar.x, bar.y, bar.w, bar.h, "#101d16");
-  if(m.frac > 0)
-    sR(bar.x, bar.y, Math.max(1, bar.w * m.frac), bar.h, bn ? "#e2543e" : (m.planning ? "#ffd94d" : "#7be495"));
-  for(const t of m.ticks) sR(bar.x + Math.round(bar.w * t), bar.y, 1.2, bar.h, "#fff3b0");
+  drawBoardBar(bar.x, bar.y, bar.w, bar.h, m.frac, bn ? "red" : (m.planning ? "yellow" : "green"), m.ticks);
   /* r3: 進捗の実数 (旧表示「現在 / 必要 DP」を残す) + 機能の進み具合。
      企画中は着工までの案内、詰まり中は右側が詰まりの工程名になる */
   const rcy = iy + 32.5;
@@ -273,8 +251,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     p.modules.forEach((md, i) => {
       const cxp = bx + bw + 4, cyp = top + 14 + i * 13;
       const done = moduleComplete(md);
-      sR(cxp, cyp, cw, 11, blink ? "#e2543e" : (done ? "#58a64a" : "#2d2d2d"));
-      sR(cxp, cyp, cw, 1, done ? "#3d7a34" : "#454545");
+      sDrawNine("ui_chip_" + (blink ? "alert" : done ? "done" : "todo") + "_9", cxp, cyp, cw, 11, 3, 3);
       sctx.fillStyle = "#f5efe2";
       const label = md.name + " " + (md.out ? "外注" : done ? "★" + moduleQuality(md).toFixed(1) : Math.min(100, Math.floor(md.inv / md.need * 100)) + "%");
       sctx.fillText(label, cxp + cw / 2, cyp + 5.8);
@@ -307,8 +284,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     let tx = bx + bw + 1;
     if(tx + tw > stripVW - 2) tx = bx - tw - 1;
     if(tx >= 1){
-      sR(tx, top + 1, tw, 12, "#8a6a44");
-      sR(tx + 1, top + 2, tw - 2, 10, "#fff5e6");
+      drawBoardTab(tx, top + 1, tw);
       sctx.fillStyle = "#4a3b2c";
       sctx.fillText(rankTxt, tx + 5, top + 7);
     }
@@ -324,8 +300,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     if(S.staff.length < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins) && blinkOn(50, 30)){
       /* 雇用可能の合図: 電話の右上に付く小さな金バッジ (上下の帯状ラインは
          ホバーの輪と紛れるため v2.4.7 で廃止) */
-      sR(phonePl.cx + 7.5, phonePl.baseY - 27.5, 4.4, 4.4, "#ffd94d");
-      sR(phonePl.cx + 9.1, phonePl.baseY - 26.6, 1.2, 2.6, "#4a3b2c");
+      sDrawSprite("icon_badge_hire", phonePl.cx + 9.7, phonePl.baseY - 22.5, 1);
     }
   }
   const memoDet = stripMemoText();
