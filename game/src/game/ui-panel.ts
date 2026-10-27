@@ -262,10 +262,11 @@ function renderPanel(){
             "</div>";
         }
         /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
-        if((p.size === "M" || p.size === "L") && !p.planning){
+        if(p.ip || canDesignateIP(p, S.projectDP)){
+          const bugsNow = Math.floor(S.bugStock);
           h += "<div style='margin-top:7px'>" + (p.ip
-            ? "<span class='vchip'>🏷 自社IPねらい（バグ0で出荷すると成立）</span>"
-            : "<button onclick='designateIP(\"l1\")'>🏷 自社IPにする（バグ0出荷で成立・即時30%＋ロイヤリティ）</button>") + "</div>";
+            ? "<span class='vchip'>🏷 自社IPねらい：出荷時のバグ <b>" + bugsNow + "</b> 匹" + (bugsNow > 0 ? "（0にしないと価格 ×" + IP_FAIL_MULT + "）" : "（成立ライン）") + "</span>"
+            : "<button onclick='designateIP(\"l1\")' title='バグを0にして出荷できる見込みがあり、しばらく売却しないなら得。バグが残ると損、IPは売却で消える'>🏷 自社IPを狙う（規模 ×" + IP_SIZE_MULT + "・バグ0出荷で生涯 約×2.3／バグが残ると価格 ×" + IP_FAIL_MULT + "）</button>") + "</div>";
         }
         /* Wave H: モジュール（L 作品のみ） */
         if(p.modules){

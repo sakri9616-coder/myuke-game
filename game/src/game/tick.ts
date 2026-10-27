@@ -71,6 +71,8 @@ function tick(){
   if(ss.prog > 0 && !meet1) produceDP(ss.prog/60, "l1");
   // 第2ラインの生産
   if(S.line2.unlocked && S.line2.project && !meet2) produceDP(line2BaseRate()/60, "l2");
+  if(meet1) creditMeetDP(((coding ? BAL.basePerMin : 0) + ((S.upgrades.bot||0) > 0 ? botRate() : 0) + ss.prog) / 60);
+  if(meet2 && S.line2.unlocked) creditMeetDP(line2BaseRate() / 60);
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
   if(S.subs && S.subs.length){
     let subCoin = 0, subDP = 0;

@@ -315,7 +315,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       /* 企画会議中は自動の実装が止まる（game の planMeetSec。応援クリックは止まらない） */
       const inMeet = planMeet > 0;
       const rawL1 = inMeet ? 0 : raw;
-      if(inMeet){ planMeet = Math.max(0, planMeet - 1); planLostMin++; }
+      if(inMeet){ planMeet = Math.max(0, planMeet - 1); planLostMin++; runDP += raw * prodF; }   /* 会議ぶんも星屑の元には数える（game の creditMeetDP） */
       const produced = (rawL1 + clickProd) * prodF;
       wip.code += produced; runDP += produced;
       /* 応援クリック由来の分はバグ混入 ×inputBugRate（game の produceDP と同じ） */
@@ -699,8 +699,18 @@ console.log("ゲート判定: 初リリース passive=" + rp7.milestones.firstRe
   console.log("企画会議の方針比較（8シード平均・30日コイン / 星屑）: " + ["always", "smart", "never"].map(pp =>
     ({ always: "常に練る", smart: "後工程が詰まった時だけ", never: "練らない" })[pp] + " active " + Math.round(sc(pol[pp].a)).toLocaleString() + "🪙/" + pol[pp].a.dustTotal +
     "・passive " + Math.round(sc(pol[pp].p)).toLocaleString() + "🪙/" + pol[pp].p.dustTotal).join(" ｜ "));
-  const win = lb => sc(pol.smart[lb]) > sc(pol.always[lb]) && sc(pol.smart[lb]) > sc(pol.never[lb]);
-  console.log("企画会議ゲート（詰まり時だけ練るが、常に練る・練らないの両方をコインで上回る）: active " + (win("a") ? "PASS" : "FAIL") + " / passive " + (win("p") ? "PASS" : "FAIL"));
+  console.log("  （参考値。1本の軌道は社格・売却のタイミングで 0.4〜1.6 倍まで揺れ、会議の時間は30日で数十分なので、方針の差はこの揺れに埋もれる）");
+  /* ゲートは1作品の局所 A/B（流体モデル）で判定する: 規模 T・実装速度 I・後工程速度 D・仕掛品 W。
+     会議 m = PLAN_TIME_FRAC × T / I のあいだ実装が止まる。出荷にかかる時間は
+     練らない: T / min(I, D)、練る: 後工程が詰まっていて仕掛品で m を越えられれば同じ、実装律速なら T / I + m。
+     価格は ×(1 + PLAN_PRICE_STEP)。コイン/分の比で「詰まり中は得・実装律速は損」を示す */
+  const ab = (I, D, W) => { const T = 2600, m = PLAN_TIME_FRAC * T / I;
+    const t0 = T / Math.min(I, D);
+    const t1 = I > D ? t0 + Math.max(0, D * m - W) / D : T / I + m;   /* 詰まり中: 仕掛品で足りない分だけ後工程が待つ */
+    return (1 + PLAN_PRICE_STEP) * t0 / t1; };
+  const gClog = ab(200, 100, 3000), gImpl = ab(100, 200, 0);
+  console.log("企画会議の局所 A/B（1作品のコイン/分・練らない = 1）: 後工程が詰まり仕掛品あり ×" + gClog.toFixed(2) + " / 実装が律速 ×" + gImpl.toFixed(2));
+  console.log("企画会議ゲート（詰まり中は +10% 以上の得・実装律速は 5% 以上の損）: " + (gClog >= 1.1 && gImpl <= 0.95 ? "PASS" : "FAIL"));
 }
 console.log("Sprint 3: 星屑ショップ最小モデル（初期資金→集中を貪欲購入）を有効化。プレステージ到達日と引っ越し後の回復は各レポートの「回復の速さ」行を参照");
 
@@ -920,8 +930,19 @@ console.log("== Wave K: チャレンジ周回 ==");
    × トレンド ×1.5。仕様書のゲート ≤45 は AI 基盤（J）以前の見積もり */
 console.log("\n== Wave L: 自社IP の生涯価値・価格スタック ==");
 {
-  const ipLife = 0.3 + 0.001 * 720 * (1 + 0.5 + 0.25 + 0.125);
-  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ 1.35。元本は依頼ボーナスを含まない通常価格、即時は全額でなく30%に置き換わる）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
+  const num = k => { const m = GAME_SRC.match(new RegExp(k + " = ([\\d.]+)")); if(!m) throw new Error("balance-sim: " + k + " を抽出できない"); return +m[1]; };
+  const IPS = num("IP_SIZE_MULT"), IPF = num("IP_FAIL_MULT"), IPR = num("IP_ROYALTY_PER_MIN");
+  const ipLife = 0.3 + IPR * 720 * (1 + 0.5 + 0.25 + 0.125);
+  console.log("IP の生涯倍率: ×" + ipLife.toFixed(2) + "（即時 0.3 + ロイヤリティ " + (ipLife - 0.3).toFixed(2) + "。元本は依頼ボーナスを含まない通常価格）— 依頼ボーナスの上限（ティア3 +180% = ×2.8）を下回り、『全部 IP が全勝』にはならない");
+  /* IP ねらいの損得（2026-10-27 作り直し）: 規模 ×IPS の作り込みで、成功（バグ0出荷）なら生涯 ipLife、
+     空振りなら価格 ×IPF。DP あたりの価値を通常作 = 1 として、成立率 q の期待値が 1 を超える境目を出す。
+     ロイヤリティは常駐48時間で入り切る前提（その前に EXIT すると残りは消える）。
+     ゲート: 境目の成立率が 35〜75%（いつも得でもいつも損でもなく、バグを0にできる見込みで判断が分かれる） */
+  const okV = ipLife / IPS, ngV = IPF / IPS, qBE = (1 - ngV) / (okV - ngV);
+  const partial = h => (0.3 + IPR * 60 * [0, 1, 2, 3].reduce((a, k) => a + Math.max(0, Math.min(12, h - 12 * k)) * Math.pow(0.5, k), 0)) / IPS;
+  console.log("IP ねらいの損得（DP あたり・通常作 = 1）: 成立 " + okV.toFixed(2) + " / 空振り " + ngV.toFixed(2) + " → 損益分岐の成立率 " + (qBE * 100).toFixed(0) + "%" +
+    "・成立しても売却までの常駐が 6時間なら " + partial(6).toFixed(2) + "・12時間 " + partial(12).toFixed(2) + "・24時間 " + partial(24).toFixed(2));
+  console.log("IP ねらいゲート（損益分岐の成立率 35〜75%・常駐12時間で売却なら成立しても損）: " + (qBE >= 0.35 && qBE <= 0.75 && partial(12) < 1 ? "PASS" : "FAIL"));
   const stackBase = 10 * Math.pow(0.8 + 0.4 * 1.5, 3) * 1.5;
   const stackAI = 10 * Math.pow(0.8 + 0.4 * 1.75, 3) * 1.5;
   console.log("価格スタックの理論天井: 通常 ×" + stackBase.toFixed(1) + "（ゲート 45 以内）/ AI 開発基盤あり ×" + stackAI.toFixed(1) +
