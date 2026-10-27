@@ -116,11 +116,11 @@ function addFloater(x, y, text, color){
 function catchFish(bx, by){
   fishEvent = null;
   nextFishAt = Date.now() + (150000 + Math.random()*120000) * fishIntervalMul();   /* Sprint 4: 幸運のヒレ */
-  const coins = Math.round(80 * dustMult());   // Sprint 1: セッション中のイベント収入を厚く
+  const coins = Math.round(80 * dustMult() * workScale());   /* 仕事の桁ぶん報酬も伸びる */   // Sprint 1: セッション中のイベント収入を厚く
   S.rp += 2; S.coins += coins; S.totals.coinsEarned += coins;
   S.totals.goldFish++;
   SoundKit.play("fishCatch");
-  addFloater(bx, by - 10, "🐟 +2🔬 +" + coins + "🪙", "#d9a41a");
+  addFloater(bx, by - 10, "🐟 +2🔬 +" + fmt(coins) + "🪙", "#d9a41a");
   say("金のひらめきフィッシュ、捕まえたにゃ！！ 研究P+2");
   addLog("🐟 金のひらめきフィッシュを捕まえた（研究P+2 / +"+coins+"🪙）");
   checkStamps(); save();
@@ -129,7 +129,8 @@ function catchFish(bx, by){
 function splatBug(i, bx, by){
   bugEvent.bugs.splice(i, 1);
   SoundKit.play("bugSquash");
-  S.coins += 6; S.totals.coinsEarned += 6;
+  const squash = 6 * workScale();   /* 仕事の桁ぶん報酬も伸びる */
+  S.coins += squash; S.totals.coinsEarned += squash;
   S.totals.bugsSquashed++; S.today.bugs++; S.totals.eventBugs++;
   if(feverActive()){
     /* F: フィーバー中のバグ潰しはボーナス DP（応援クリック2回ぶん・入力由来として扱う） */
@@ -139,13 +140,14 @@ function splatBug(i, bx, by){
     prodMuted = false;
     addFloater(bx, by - 16, "+" + dp.toFixed(0) + "DP", "#e2543e");
   }
-  addFloater(bx, by - 8, "+6🪙", "#5aa469");
+  addFloater(bx, by - 8, "+" + fmt(squash) + "🪙", "#5aa469");
   if(bugEvent.bugs.length === 0){
-    S.coins += 20; S.totals.coinsEarned += 20;
+    const sweep = 20 * workScale();
+    S.coins += sweep; S.totals.coinsEarned += sweep;
     bugEvent = null;
     nextBugAt = Date.now() + 180000 + Math.random()*150000;
-    say("バグ全滅！ボーナス+20コインにゃ");
-    addLog("🐛 バグ大量発生を全て叩いた（ボーナス+20🪙）");
+    say("バグ全滅！ボーナス+" + fmt(sweep) + "コインにゃ");
+    addLog("🐛 バグ大量発生を全て叩いた（ボーナス+" + fmt(sweep) + "🪙）");
   }
   checkStamps(); save();
 }
@@ -161,9 +163,9 @@ function updateComboUI(){
   if(!el) return;
   if(comboN >= 2){
     el.textContent = "👆 応援コンボ ×" + comboMult().toFixed(1) + "（" + comboN + "連続） 1クリック +" +
-      (clickBaseDP() * comboMult()).toFixed(1) + "DP";
+      fmtClickDP(clickShownDP() * comboMult()) + "DP";
   } else {
-    el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + clickBaseDP().toFixed(1) +
+    el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + fmtClickDP(clickShownDP()) +
       "DP（連続でコンボ、たまにクリティカル×10）";
   }
 }
@@ -187,12 +189,12 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
     if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
     prodMuted = false;
     if(S.project && !S.project.planning){
-      const direct = gain * CLINK.directShare * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult();
+      const direct = gain * CLINK.directShare * clickProdMult();
       S.runDP += direct;
       S.totals.lines += direct * 1.05; S.today.lines += direct * 1.05;
       creditProject(direct);
       /* 工程中心: 溜まった仕掛品を手で運んで出荷する（クリック威力 × carryMult ぶん） */
-      const carried = S.project ? cheerCarry(gain * CLINK.carryMult * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult()) : 0;
+      const carried = S.project ? cheerCarry(gain * CLINK.carryMult * clickProdMult()) : 0;
       progressPulseUntil = Date.now() + 500;
       addFloater(bx, by - 22, "+" + (direct + carried).toFixed(1) + "DP すすんだ！" + (carried > 0 ? "（📦 手で運んだ）" : ""), "#e8873a");
     }

@@ -181,7 +181,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(p){
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     /* 第2ウェーブ L: ジャンルピルに市場の流れと IP 指定を足す */
-    const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") : "";
+    const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") + ((p.scale || 1) > 1 ? " ×" + p.scale : "") : "";   /* 仕事の桁が 1 より大きい作品は「×10」などを添える */
     const genreW = genreTxt ? sctx.measureText(genreTxt).width + 6 : 0;
     const slotW = bn ? 15 : genreW;
     const nameLim = ix + iw - 3 - slotW;

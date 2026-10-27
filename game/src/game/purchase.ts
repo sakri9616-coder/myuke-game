@@ -121,7 +121,7 @@ function buyLine2(){
   S.coins -= BAL.line2BuildCost;
   SoundKit.play("purchase");
   S.line2.unlocked = true;
-  S.line2.project = settleProject(genProject(null, S.line2.genre));
+  S.line2.project = settleProject(genProject(null, S.line2.genre, line2Rate()));
   S.line2.projectDP = 0; S.line2.commitMark = 0;
   addLog("🏭 第2ラインが完成！『"+S.line2.project.name+"』の並行開発が始まった（-"+BAL.line2BuildCost+"🪙）");
   say("第2ライン完成にゃ！ 2つの作品を同時に作れるよ");
