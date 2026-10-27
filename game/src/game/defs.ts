@@ -182,17 +182,22 @@ function genCatName(){
    v2.1 再調整: 威力の伸びとコンボ上限を抑え、強化後も倍率が暴れないようにした）。
    コンボ: 連続クリックで倍率 +0.10/回（上限は基本 +1.75倍、うちわで伸びる）。
    クリティカル: 基本5%（旗で +1%/Lv）で ×10。 */
+/* 応援強化は応援P（クリックで貯まる、みゅけ自身の腕前）で買う。コインの使い道（設備）と
+   取り合わないので「労働を主役にするほど伸びる」別の成長曲線になる。肉球とグローブは
+   上限100・節目（設備と同じ MILESTONE_LVS）つきで、売却しても腕前として残る（持株化で畳む）。
+   肉球 = 自動生産との連動率（会社の桁に追従する終盤の伸び）、グローブ = 素の威力（序盤の伸び） */
 const CLICK_DEFS = [
-  { id:"paw",    name:"肉球トレーニング", base:80,  max:10, desc:"クリック威力 +0.06/Lv" },
-  { id:"glove",  name:"高級グローブ",     base:300, max:10, desc:"クリック威力 +0.18/Lv" },
+  { id:"paw",    name:"肉球トレーニング", base:40,  max:100, grow:1.12, ms:true, desc:"自動生産との連動 +25%/Lv" },
+  { id:"glove",  name:"高級グローブ",     base:60,  max:100, grow:1.12, ms:true, desc:"クリック威力 +0.18/Lv" },
   { id:"uchiwa", name:"応援うちわ",       base:200, max:8,  desc:"コンボ上限 +0.25倍/Lv" },
   { id:"cheer",  name:"応援団の旗",       base:500, max:5,  desc:"クリティカル率 +1%/Lv" },
   { id:"synidea",name:"ひらめき連動",     base:350, max:5,  desc:"クリックでアイデア +0.02/Lv（端数は貯まる）" },
   { id:"synrp",  name:"研究メモ連動",     base:800, max:5,  desc:"クリックで研究P +0.004/Lv（端数は貯まる）" }
 ];
-function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）
+function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
+function clickLinkMult(){ return 1 + 0.25 * upEff(S.clickUp, "paw"); }
 function clickPower(){
-  const base = 0.25 + 0.06*(S.clickUp.paw||0) + 0.18*(S.clickUp.glove||0);
+  const base = 0.25 + 0.18*upEff(S.clickUp, "glove");
   return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ */
 }
 function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.uchiwa||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0

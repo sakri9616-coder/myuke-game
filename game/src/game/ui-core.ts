@@ -56,11 +56,11 @@ function incomeRatePerMin(cur){
 const affordPrev = {};    /* key -> "far"|"almost"|"afford"（遷移検知用） */
 const affordPulseAt = {}; /* key -> 買えるようになった時刻 */
 function affordInfo(key, cost, cur){
-  const have = cur === "rp" ? S.rp : cur === "dust" ? S.dust : S.coins;
+  const have = cur === "rp" ? S.rp : cur === "dust" ? S.dust : cur === "cheerP" ? (S.cheerP || 0) : S.coins;
   const afford = have >= cost;
   const deficit = Math.max(0, Math.ceil(cost - have));
   let st = afford ? "afford" : "far";
-  if(!afford && cur !== "dust"){
+  if(!afford && cur !== "dust" && cur !== "cheerP"){
     const rate = incomeRatePerMin(cur);
     if(rate > 0 && deficit <= rate * 2) st = "almost";
   }
@@ -80,7 +80,7 @@ function affordInfo(key, cost, cur){
 /* 購入ボタンの共通生成: 価格＋（あと少しなら）不足分ヒント＋到達パルス */
 function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
   const a = affordInfo(key, cost, cur);
-  const unit = cur === "rp" ? "🔬" : cur === "dust" ? "⭐" : "🪙";
+  const unit = cur === "rp" ? "🔬" : cur === "dust" ? "⭐" : cur === "cheerP" ? "応援P" : "🪙";
   /* メニュー刷新 P1: 価格は金の価格タグとして分離表示 (MENU_REDESIGN_SPEC §4.5) */
   let label = (prefix ? "<span class='buy-act'>" + prefix + "</span>" : "") +
     "<span class='pricetag'>" + fmt(cost) + unit + "</span>";

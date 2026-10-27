@@ -135,7 +135,7 @@ interface GameState {
   fever: { gauge: number; [k: string]: any };
   debt: number; brand: number; vendorReadyAt: number;
   shelf: ShelfEntry[]; recentNames: string[];
-  staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>;
+  staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number;
   wip: StageWip;
   line2: Line2State;
   today: DayStats;

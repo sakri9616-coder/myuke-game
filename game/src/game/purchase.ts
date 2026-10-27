@@ -112,10 +112,10 @@ function buyClickUp(id){
   const lv = S.clickUp[id]||0;
   if(lv >= def.max){ say("もう最大レベルにゃ"); return; }
   const cost = clickCost(def, lv);
-  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
-  S.coins -= cost; S.clickUp[id] = lv + 1;
+  if((S.cheerP || 0) < cost){ say("応援Pが足りないにゃ… クリックで応援すると貯まるよ"); return; }
+  S.cheerP -= cost; S.clickUp[id] = lv + 1;
   SoundKit.play("purchase");
-  addLog("応援強化: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + "🪙）");
+  addLog("応援強化: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + " 応援P）");
   say(def.name+"を強化したにゃ！ 応援がもっと届くよ");
   announceMilestone(def, lv + 1);
   updateComboUI();

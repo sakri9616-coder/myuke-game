@@ -104,11 +104,12 @@ function staffSums(staff){
 }
 /* クリック（game と同一。Sprint 3: 星屑特典「集中ブースト」で威力 ×1.1） */
 const CLICK_DEFS = [
-  { id:"paw", base:80, max:10 }, { id:"glove", base:300, max:10 }, { id:"uchiwa", base:200, max:8 },
+  { id:"paw", base:40, max:100, grow:1.12 }, { id:"glove", base:60, max:100, grow:1.12 }, { id:"uchiwa", base:200, max:8 },
   { id:"cheer", base:500, max:5 }, { id:"synidea", base:350, max:5 }, { id:"synrp", base:800, max:5 }
 ];
-const clickCost = (def, lv) => Math.ceil(def.base * Math.pow(1.30, lv));   // Sprint 1: 1.55→1.30
-const clickPower = (cu, focus) => (0.25 + 0.06*(cu.paw||0) + 0.18*(cu.glove||0)) * (focus ? 1.1 : 1);
+const clickCost = (def, lv) => Math.ceil(def.base * Math.pow(def.grow || 1.30, lv));   // Sprint 1: 1.55→1.30 ／ 応援P 払いの肉球・グローブは 1.12
+const clickPower = (cu, focus) => (0.25 + 0.18*ue(cu, "glove")) * (focus ? 1.1 : 1);
+const clickLinkMult = cu => 1 + 0.25 * ue(cu, "paw");   /* game の clickLinkMult（肉球 = 自動生産との連動率） */
 const comboCapBonus = cu => 2.0 + 0.25*(cu.uchiwa||0);
 const critRate = cu => 0.08 + 0.01*(cu.cheer||0);
 
@@ -145,7 +146,7 @@ function sessionClickDPperMin(cu, focus, autoPostPerMin, dm){
   for(let i = 0; i < clicks; i++) sum += 1 + Math.min(capB, (i + 1) * 0.10);
   const avgMult = sum / clicks;
   const critF = 1 + critRate(cu) * 9;   // クリティカル ×10 の期待値係数
-  const base = clickPower(cu, focus) / Math.sqrt(dm || 1) + (autoPostPerMin || 0) / 60 * LINK_RATE;   /* 素の威力は星屑倍率を平方根でだけ受ける（game の clickBaseDP） */
+  const base = clickPower(cu, focus) / Math.sqrt(dm || 1) + (autoPostPerMin || 0) / 60 * LINK_RATE * clickLinkMult(cu);   /* 素の威力は星屑倍率を平方根でだけ受ける（game の clickBaseDP） */
   return PLAYER.clicksPerMin * base * avgMult * critF;
 }
 
@@ -156,6 +157,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   const capOf = () => profile === "minority" ? 6 : STAFF_CAPS[studioLv - 1];
   const bugPerDP = BAL.bugPerDP * (profile === "black" ? 3 : 1);
   const up = {}, res = {}, cu = {};
+  let cheerP = 0;   /* 応援P（game の S.cheerP）: DP が付くクリック1回につき1。応援強化はこれで買い、売却では残る */
   let staff = [], studioLv = 1;
   let coins = 0, rp = 0, dust = 0, dustTotal = 0, runDP = 0, bugStock = 0;
   let brand = 0;   /* Wave G: ブランド力（品質出荷で蓄積・価格に複利・EXIT で清算） */
@@ -285,6 +287,13 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       let clickRaw = 0;
       if(inSession){
         clickRaw = sessionClickDPperMin(cu, perks.focus, raw, dustMult());   /* 連動分は倍率前の自動生産（game の clickBaseDP と同じ。倍率の二重掛けをしない） */
+        cheerP += PLAYER.clicksPerMin;
+        for(;;){   /* 応援強化はコインと別の財布なので、貯まったら安い順に買う */
+          let bd = null, bc = Infinity;
+          for(const def of CLICK_DEFS){ const lv = cu[def.id]||0; if(lv < def.max){ const c = clickCost(def, lv); if(c < bc){ bc = c; bd = def; } } }
+          if(!bd || cheerP < bc) break;
+          cheerP -= bc; cu[bd.id] = (cu[bd.id]||0) + 1;
+        }
         ideas += 0.02 * (cu.synidea||0) * PLAYER.clicksPerMin;   // ひらめき連動
         rp += 0.004 * (cu.synrp||0) * PLAYER.clicksPerMin;   // 研究メモ連動
         if(PLAYER.clickSessions.includes(min)){              // セッション開始分にイベント期待値を加算
@@ -499,12 +508,6 @@ function simulate(days, active, reqMode, prestigeAt, profile){
             }
             if(rolePick) consider("hire", rolePick, roleCost);
           }
-          if(active){
-            for(const def of CLICK_DEFS){
-              const lv = cu[def.id]||0;
-              if(lv < def.max) consider("clickup", def.id, clickCost(def, lv));
-            }
-          }
           for(const st of staff){
             if(st.lv < STAFF_POLICY_MAX_LV && coins >= trainCost(st) * 2.5) consider("train", null, trainCost(st), st);
           }
@@ -588,7 +591,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       project = settle({ size:"S", total: BAL.sizes.S, ideaCost: IDEA_COST.S, planning: false }); projDP = 0;
       for(const k of Object.keys(up)) delete up[k];
       for(const k of Object.keys(res)) delete res[k];
-      for(const k of Object.keys(cu)) delete cu[k];
+      /* 応援強化はみゅけの腕前なので売却では残す（game の resetCompanyRun と同じ） */
       staff = []; studioLv = 1; line2 = false; project2 = null;
       wip = { code:0, tested:0, built:0 }; wip2 = { code:0, tested:0, built:0 };
     }

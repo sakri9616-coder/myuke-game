@@ -685,13 +685,14 @@ function renderPanel(){
       /* 押せない理由をボタン自体に書く (ゲージが満タンになると押せる) */
       if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
-    h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
+    h += "<h3 style='margin-top:12px'>応援強化（所持 応援P "+fmt(S.cheerP || 0)+"）</h3>";
+    h += "<div class='note'>応援P はクリックで応援するたびに 1 貯まります（秒5回まで）。コインとは別の財布で、売却しても腕前として残ります</div>";
     h += "<div class='buygrid'>";
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
         "<div class='ds'>"+def.desc+milestoneNote(def, lv)+"</div></div>"+
-        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "coins", "buyClickUp(\""+def.id+"\")"))+"</div>";
+        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")"))+"</div>";
     }
     h += "</div>";
     const clickLog = kv("通算クリック", fmt(S.totals.clicks) + " 回") +
@@ -948,7 +949,7 @@ function updateTabBadges(){
     if(ss.count < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins)) want.staff = 1;
     if(RESEARCH_DEFS.some(d => !S.research[d.id] && d.cost <= S.rp)) want.research = 1;
     if(UPGRADE_DEFS.some(d => (S.upgrades[d.id]||0) < d.max && upgradeCost(d, S.upgrades[d.id]||0) <= S.coins)) want.factory = 1;
-    if(CLICK_DEFS.some(d => (S.clickUp[d.id]||0) < d.max && clickCost(d, S.clickUp[d.id]||0) <= S.coins)) want.click = 1;
+    if(CLICK_DEFS.some(d => (S.clickUp[d.id]||0) < d.max && clickCost(d, S.clickUp[d.id]||0) <= (S.cheerP || 0))) want.click = 1;
     for(const b of tabsEl.children){
       const id = (b as HTMLElement).dataset && (b as HTMLElement).dataset.tab;
       let bd = null;

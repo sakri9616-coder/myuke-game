@@ -171,9 +171,9 @@ function prestigePreview(){
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
   const gain = dustGainFromDP(S.runDP) + subGain;
   const total = dustTotal();
-  const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン", "応援強化"];
+  const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン"];
   if(subGain > 0) resets.push("子会社");
-  const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典"];
+  const keeps = ["作品棚", "日報", "実績", "星屑と購入済み特典", "応援強化と応援P（みゅけの腕前）"];
   if(hasPerk("veteran") && S.staff.length){
     const vet = S.staff.slice().sort((a,b) => b.lv - a.lv)[0];
     resets.splice(resets.indexOf("スタッフ"), 1);
@@ -276,9 +276,9 @@ function resetCompanyRun(){
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
   S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却・持株化で消える */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
-  /* v2: スタッフ・スタジオ・応援強化・ラインもリセット（ジャンル特化の希望だけ残す） */
+  /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
-  S.clickUp = {}; S.studioLv = 1;
+  S.studioLv = 1;   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む） */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };
   S.line2 = { unlocked:false, genre:S.line2.genre, project:null, projectDP:0, commitMark:0, wip:{ code:0, tested:0, built:0 } };
@@ -408,6 +408,7 @@ function doHoldingsCore(){
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
   S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0;
+  S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
   addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目）");
