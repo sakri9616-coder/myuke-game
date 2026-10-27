@@ -43,7 +43,7 @@ function paintUpd(){
       else btn = "<button onclick='updRelaunch()'>再起動して更新を完了する</button>";
       card.innerHTML =
         "<div class='rc-head'><span>🆕 アップデートがあります</span>" +
-        "<button class='rc-close' onclick='updDismiss()'>✕</button></div>" +
+        "<button class='rc-close' onclick='updDismiss()' aria-label='このお知らせを閉じる'>✕</button></div>" +
         "<div>新しいバージョン <b>" + updVerLabel() + "</b> が出ています。" +
         (upd.status === "downloading"
           ? "（" + (upd.total > 0 ? Math.floor(upd.got / upd.total * 100) : 0) + "% ダウンロード済み）"

@@ -324,7 +324,7 @@ function renderStrip(){
   const snackPl = propPlace("snack");
   sDrawSprite(snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", snackPl.cx, snackPl.baseY, 1);
   stripObjArt.snack = { name: snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", gx: snackPl.cx, gy: snackPl.baseY, s: 1 };
-  if(snackReadyNow && frame % 90 < 45){
+  if(snackReadyNow && blinkOn(90, 45)){
     sR(snackPl.cx - 0.6, snackPl.baseY - 26, 1.2, 4, "#ffd94d"); sR(snackPl.cx - 1.8, snackPl.baseY - 24.8, 3.6, 1.2, "#ffd94d");
   }
   stripHitRects.snack = { x: snackPl.cx - 14, y: snackPl.baseY - 25, w: 28, h: 25 };
@@ -350,7 +350,7 @@ function renderStrip(){
     stripHitRects.toolbox = { x: toolPl.cx - 12, y: toolPl.baseY - 24, w: 24, h: 24 };
     if(upd.status === "available" || upd.status === "downloading" || upd.status === "ready"){
       sR(toolPl.cx - 1, toolPl.baseY - 23.5, 2, 5, "#e2543e");
-      if(frame % 50 < 30) sR(toolPl.cx - 1.6, toolPl.baseY - 24.4, 3.2, 1.4, "#ffd94d");
+      if(blinkOn(50, 30)) sR(toolPl.cx - 1.6, toolPl.baseY - 24.4, 3.2, 1.4, "#ffd94d");
     }
   }
   /* F: オーバークロック・ゲージ（机の右脇に立つ縦ゲージ。UI なのでコード描画可）。
@@ -364,9 +364,9 @@ function renderStrip(){
     sR(gx - gw / 2, G - gh, gw, gh, "#fff5e6");
     if(fFrac > 0){
       const fh = Math.max(1.5, gh * Math.min(1, fFrac));
-      sR(gx - gw / 2, G - fh, gw, fh, fActive ? "#e2543e" : (fFrac >= 1 ? (frame % 50 < 30 ? "#ffd94d" : "#f0b429") : "#4a90c2"));
+      sR(gx - gw / 2, G - fh, gw, fh, fActive ? "#e2543e" : (fFrac >= 1 ? (blinkOn(50, 30) ? "#ffd94d" : "#f0b429") : "#4a90c2"));
     }
-    if(fFrac >= 1 && !fActive && frame % 50 < 30){
+    if(fFrac >= 1 && !fActive && blinkOn(50, 30)){
       sctx.save();
       sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
       sctx.fillText("⚡", gx, G - gh - 7);

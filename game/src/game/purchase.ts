@@ -7,7 +7,7 @@ function buyUpgrade(id){
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; S.upgrades[id] = lv + 1;
   SoundKit.play("purchase");
-  addLog("アップグレード: "+def.name+" Lv"+(lv+1)+"（-"+cost+"🪙）");
+  addLog("アップグレード: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + "🪙）");
   say(def.name+"を買ったにゃ！");
   if(id==="bot") say("子ねこボットが仲間になったにゃ！");
   checkStamps(); save(); renderPanel();
@@ -63,7 +63,7 @@ function hireStaff(role){
   }
   S.totals.hired++;
   SoundKit.play("purchase");
-  addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-"+cost+"🪙）");
+  addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
   say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
   checkStamps(); save(); renderPanel();
   tutCheck();
@@ -77,7 +77,7 @@ function trainStaff(id){
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; st.lv++;
   SoundKit.play("purchase");
-  addLog("育成: "+st.name+"（"+STAFF_ROLES[st.role].name+"）が Lv"+st.lv+" になった（-"+cost+"🪙）");
+  addLog("育成: "+st.name+"（"+STAFF_ROLES[st.role].name+"）が Lv"+st.lv+" になった（-" + fmt(cost) + "🪙）");
   say(st.name+"、レベルアップにゃ！");
   save(); renderPanel();
 }
@@ -90,7 +90,7 @@ function buyStudio(){
   S.maxStudioLv = Math.max(S.maxStudioLv || 0, S.studioLv);
   SoundKit.play("purchase");
   /* Phase B・昇格のセレモニー（仕様書2節）: セリフ＋ログの二経路。色だけに頼らない */
-  addLog("🏠 スタジオ拡張！ 社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-"+cost+"🪙）");
+  addLog("🏠 スタジオ拡張！ 社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-" + fmt(cost) + "🪙）");
   say("社格が「"+companyRank()+"」になったにゃ！ スタジオが広くなって、もっと仲間を呼べるよ");
   if(S.studioLv === 5){
     /* Phase D: 準大手で子会社が解放される。帯のボード右端タブにも社格が
@@ -108,7 +108,7 @@ function buyClickUp(id){
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; S.clickUp[id] = lv + 1;
   SoundKit.play("purchase");
-  addLog("応援強化: "+def.name+" Lv"+(lv+1)+"（-"+cost+"🪙）");
+  addLog("応援強化: "+def.name+" Lv"+(lv+1)+"（-" + fmt(cost) + "🪙）");
   say(def.name+"を強化したにゃ！ 応援がもっと届くよ");
   updateComboUI();
   save(); renderPanel();

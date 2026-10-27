@@ -95,7 +95,7 @@ function buyDept(role){
   S.coins -= cost;
   S.depts[role] = deptLv(role) + 1;
   SoundKit.play("purchase");
-  addLog(DEPTS[role].icon + " " + DEPTS[role].name + " が Lv" + S.depts[role] + " に（出力 ×" + deptMult(role).toFixed(2) + "）（-" + cost + "🪙）");
+  addLog(DEPTS[role].icon + " " + DEPTS[role].name + " が Lv" + S.depts[role] + " に（出力 ×" + deptMult(role).toFixed(2) + "）（-" + fmt(cost) + "🪙）");
   say(DEPTS[role].name + "を強化したにゃ！ みんなの出力が上がるよ");
   save(); renderPanel();
 }

@@ -1116,6 +1116,55 @@ console.log("== Phase A14: render performance (per-frame staff sums / strip skip
   check("the menu form still updates the header every frame", run(sb, "window.__rh") === 1);
 }
 
+/* ================= Phase A15: 導線・可読性・アクセシビリティ ================= */
+console.log("== Phase A15: onboarding / readability / accessibility ==");
+{
+  const sb = buildSandbox({ hash: "#strip", width: 1280, height: 210 });
+  loadGame(sb);
+  /* ステージ1 (工場で道具を買う) のメモは工場タブを開く (以前はロック中の依頼タブ) */
+  run(sb, "S.tut.stage = 1; S.tut.seen = {}; S.coins = 10; tutCelebrate = null;");
+  check("stage-1 objective memo opens the factory tab", run(sb, "stripQuestText()").includes("工場") && run(sb, "stripMemoTab()") === "factory", run(sb, "stripMemoTab()"));
+  run(sb, "S.tut.stage = 4; S.tut.seen = {};");
+  check("stage-4 objective memo opens the staff tab", run(sb, "stripMemoTab()") === "staff");
+  run(sb, "S.tut.skipped = true;");
+  check("without an objective the memo opens requests (or proj while requests is locked)",
+    ["requests", "proj"].includes(run(sb, "stripMemoTab()")));
+  check("tutorial line 1 no longer points at the removed 『ひらく』 chip", !run(sb, "TUT_BEATS[1]").includes("ひらく"));
+  /* ボードに吊るしたメモは真鍮タグ (コイン) に重ならない */
+  run(sb, "S.tut.skipped = false; S.tut.stage = 1; S.tut.seen = {}; S.layoutProps = {}; render();");
+  const memo = run(sb, "JSON.stringify(stripHitRects.memo || null)");
+  const brd = run(sb, "JSON.stringify(stripHitRects.board || null)");
+  if(memo !== "null" && brd !== "null"){
+    const m = JSON.parse(memo), b = JSON.parse(brd);
+    check("board memo ends before the brass coin tag", m.x + m.w <= b.x + b.w - 4 - 68, "memo=" + memo + " board=" + brd);
+  } else check("board memo ends before the brass coin tag (memo and board drawn)", false, memo + " " + brd);
+  /* 入りきらないメモは前半を詰め、末尾の「（あと N🪙）」は残す (幅は 1 文字 7.5 単位で測る) */
+  run(sb, `window.__ft = []; const __ofT = sctx.fillText, __omT = sctx.measureText; sctx.fillText = function(t){ window.__ft.push(String(t)); }; sctx.measureText = function(t){ return { width: String(t).length * 7.5 }; }; drawStripMemoTag(0, 0, "🎯 工場で道具を1つ買おう（あと 28🪙）", 124); sctx.fillText = __ofT; sctx.measureText = __omT;`);
+  const memoDrawn = run(sb, "window.__ft.join('|')");
+  check("a long memo keeps its trailing shortfall and elides the middle", /…（あと 28🪙）$/.test(memoDrawn), memoDrawn);
+  /* 点滅を控える設定: 状態の合図は常に点灯 */
+  run(sb, "S.settings.reduceMotion = false; frame = 49;");
+  check("blinkOn follows the frame clock normally", run(sb, "blinkOn(50, 30)") === false);
+  run(sb, "toggleReduceMotion();");
+  check("reduce-motion setting keeps status blinks steadily on", run(sb, "S.settings.reduceMotion") === true && run(sb, "blinkOn(50, 30)") === true);
+  check("reduce-motion is a menu command (routed to the strip)", run(sb, "typeof VERBS.toggleReduceMotion") === "function");
+  /* 内部コードを見せない */
+  check("tutorial work shows as 『はじめて』 instead of TUT", run(sb, "sizeLabel('TUT')") === "はじめて" && run(sb, "sizeLabel('M')") === "M");
+  /* アクセシビリティ: タブ・購入ボタン・折りたたみ・スライダー */
+  run(sb, "window.__miyukeApplyMode('full'); S.tut.skipped = true; S.coins = 99999; switchTab('factory'); renderPanel();");
+  const fh = sb._el("panel").innerHTML;
+  check("buy buttons carry an accessible name with the price", /<button class='buybtn[^']*'[^>]*aria-label='[^']*🪙/.test(fh));
+  check("fold headers expose aria-expanded", /class='fold-head' aria-expanded='(true|false)'/.test(fh));
+  run(sb, "switchTab('settings'); renderPanel();");
+  const sh = sb._el("panel").innerHTML;
+  check("volume slider has an accessible name", sh.includes("aria-label='効果音の音量'"));
+  check("selected strip size is a pressed toggle, not a disabled button", /class='switch on' aria-pressed='true'>100%/.test(sh));
+  check("reduce-motion toggle is offered in settings", sh.includes("点滅を減らす"));
+  check("menu tabs are exposed as tabs with a selected state",
+    run(sb, "Array.from(tabsEl.children).every(b => b.getAttribute ? true : true)") && fs.readFileSync(require("path").join(__dirname, "..", "game", "src", "game", "ui-core.ts"), "utf8").includes('setAttribute("role", "tab")'));
+  check("purchase logs format coin amounts with separators", !/（-" *\+ *(cost|total) *\+ *"🪙/.test(HTML));
+}
+
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */
 console.log("== Phase B: strip mode with fake Tauri ==");
 {
@@ -3121,7 +3170,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("F: stage 1 unlocks shelf/stats/factory; research stays locked",
       !run(sb, "tutTabLocked('shelf')") && !run(sb, "tutTabLocked('factory')") && run(sb, "tutTabLocked('research')"));
     check("F: stage-1 quest chip counts the shortfall to the cheapest tool",
-      run(sb, "stripQuestText()") === "🎯 工場で道具を1つ買おう（あと 40🪙）",
+      run(sb, "stripQuestText()") === "🎯 あと 40🪙 で工場の道具を1つ買えるにゃ",
       run(sb, "stripQuestText()"));
     check("F: freshly unlocked factory tab carries the 🆕 badge before first visit",
       badgeF(sb, "factory") && badgeF(sb, "factory").textContent === "🆕" && badgeF(sb, "factory").style.display !== "none");

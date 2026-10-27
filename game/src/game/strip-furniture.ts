@@ -157,7 +157,7 @@ function drawStripDesk2Screen(dcx, G){
   const bx = dcx - 16, bw = 28;
   sR(bx, G - 48, bw, 3, "#101d16");
   if(q.planning){
-    if(frame % 12 < 7) sR(bx + 1, G - 47, 3, 1, "#ffd94d");
+    if(blinkOn(12, 7)) sR(bx + 1, G - 47, 3, 1, "#ffd94d");
   } else {
     const frac = Math.max(0, Math.min(1, S.line2.projectDP / q.totalDP));
     if(frac > 0) sR(bx, G - 48, Math.max(1, bw * frac), 3, "#7be495");

@@ -113,6 +113,10 @@ function propDrop(id){
   }
   save();
 }
+function toggleReduceMotion(){
+  S.settings.reduceMotion = !S.settings.reduceMotion;
+  save(); renderPanel();
+}
 function toggleSnapLayout(){
   S.settings.snapLayout = !S.settings.snapLayout;
   save(); renderPanel();
@@ -306,7 +310,7 @@ function drawStripProgressScreen(ix, iy, bx, by, bw){
   sR(ix, iy + 2, 4, 1, "#00000033");
   sR(bx, by, bw, 3, "#101d16");
   if(p.planning){
-    if(frame % 12 < 7) sR(bx + 1, by + 1, 3, 1, "#ffd94d");   /* 企画中は点滅 */
+    if(blinkOn(12, 7)) sR(bx + 1, by + 1, 3, 1, "#ffd94d");   /* 企画中は点滅 */
   } else {
     const frac = Math.max(0, Math.min(1, S.projectDP / p.totalDP));
     if(frac > 0) sR(bx, by, Math.max(1, bw * frac), 3, "#7be495");

@@ -114,6 +114,7 @@ interface Settings {
   stripSize: number;
   stripSizeV: number;
   snapLayout?: boolean;
+  reduceMotion?: boolean;   /* 帯の点滅を控える (OS の視差効果を減らす設定でも有効になる) */
 }
 
 interface Trend { boom: string; slump: string; nextBoom: string | null; nextSlump: string | null; cycleSec: number; announceAt: number }

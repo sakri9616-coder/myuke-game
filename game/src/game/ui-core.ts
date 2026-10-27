@@ -8,6 +8,8 @@ const tabsEl = document.getElementById("tabs");
 for(const [id,label] of TABS){
   const btn = document.createElement("button");
   btn.textContent = label; btn.dataset.tab = id;
+  btn.setAttribute("role", "tab");
+  btn.setAttribute("aria-selected", id === currentTab ? "true" : "false");
   const mark = document.createElement("span");
   mark.className = "editor-tabmark"; mark.setAttribute("aria-hidden", "true");
   btn.appendChild(mark);
@@ -16,6 +18,8 @@ for(const [id,label] of TABS){
   tabsEl.appendChild(btn);
 }
 function fmt(n){ return Math.floor(n).toLocaleString("ja-JP"); }
+/* 作品の規模の表示名 (内部コード TUT はプレイヤーに見せない) */
+function sizeLabel(size){ return size === "TUT" ? "はじめて" : size; }
 /* Sprint 2: HUD の数字は実値へイージングで追いつく（線形な即時更新は「機械的で
    死んで見える」ので、増減どちらも少し遅れて滑らかに収束させる） */
 const hudShown = { coins: null, ideas: null, packages: null, bugs: null, rp: null, dust: null };
@@ -84,7 +88,9 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
   let pulseStyle = "";
   if(a.pulse){ cls += " afford-now"; pulseStyle = " style='animation-delay:-" + Math.max(0, Date.now() - (affordPulseAt[key] || 0)) + "ms'"; }
   const dis = (!a.afford || extraDisabled) ? " disabled" : "";
-  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + ">" + label + "</button>";
+  /* 読み上げ名: 価格だけ (「46🪙」) では何のボタンか分からないので、操作と不足分も添える */
+  const aria = (prefix ? prefix.replace(/<[^>]*>/g, "") : "購入") + " " + fmt(cost) + unit + (a.almost ? "（あと " + fmt(a.deficit) + unit + "）" : "");
+  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + " aria-label='" + esc(aria) + "'>" + label + "</button>";
 }
 /* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
 function setTextIfChanged(id, text){

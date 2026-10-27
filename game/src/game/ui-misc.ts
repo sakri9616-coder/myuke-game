@@ -12,7 +12,7 @@ function toggleFold(key, defOpen){
 function foldSec(key, defOpen, title, summary, bodyHTML){
   const open = foldIsOpen(key, defOpen);
   return "<div class='fold" + (open ? "" : " closed") + "' data-fold='" + key + "'>" +
-    "<button type='button' class='fold-head' onclick='toggleFold(\"" + key + "\"," + (defOpen ? 1 : 0) + ")'>" +
+    "<button type='button' class='fold-head' aria-expanded='" + (open ? "true" : "false") + "' onclick='toggleFold(\"" + key + "\"," + (defOpen ? 1 : 0) + ")'>" +
     "<span class='fold-arrow'>" + (open ? "▾" : "▸") + "</span><span>" + title + "</span>" +
     (summary ? "<span class='fold-sum'>" + summary + "</span>" : "") + "</button>" +
     "<div class='fold-body'>" + bodyHTML + "</div></div>";

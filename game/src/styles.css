@@ -780,3 +780,22 @@
   body:not(.strip) .log div{padding:2px 0;}
   body:not(.strip) button{padding:4px 10px;}
   body:not(.strip) .btn-row{gap:6px;margin-top:4px;}
+
+  /* ---------- アクセシビリティ調整 (2026-10-27 監査) ----------
+     ステータスバー: 文字 #D4D4D4 / 背景 #007ACC は 3.04:1 で AA 不合格だった。
+     背景を濃くして 4.8:1（警告色 #FFE3A6 も 5.7:1）にする */
+  body:not(.strip){--ide-status:#005A9E;--ide-badge:#C9524C;}
+  /* .switch の左のチェック枠に文字が重なっていた (汎用ボタンの padding が上書きしていた) */
+  body:not(.strip) .switch{padding-left:30px;}
+  /* 無効なボタンは枠を破線にして、押せるボタンと形でも見分けられるようにする */
+  body:not(.strip) button:disabled{border-style:dashed;}
+  /* 最小サイズ (760x560) でもパネルが画面内に収まるよう、高さを窓に合わせる */
+  body:not(.strip) .panel{max-height:max(320px, calc(100vh - 200px));}
+  /* 狭い窓ではステータスバーの装飾を省き、資源の表示が折り返さないようにする */
+  @media (max-width:900px){
+    body:not(.strip) header::before, body:not(.strip) header::after{display:none;}
+  }
+  /* 視差効果を減らす設定: 購入ボタンのパルスと HUD の点滅を止める */
+  @media (prefers-reduced-motion:reduce){
+    .buybtn.afford-now, .flash, body:not(.strip) .res.bump{animation:none;}
+  }

@@ -36,7 +36,7 @@ const VERBS = {
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
-  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout,
+  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout, toggleReduceMotion: toggleReduceMotion,
   tutSkipGuide: tutSkipGuide, tutResetGuide: tutResetGuide, tutVisitTab: tutVisitTab,
   updCheckManual: updCheckManual, updDownload: updDownload,
   updRelaunch: updRelaunch, updDismiss: updDismiss,
@@ -206,6 +206,10 @@ function makeVerbStub(verb){
       const hp = holdingsPreview();
       if(!hp.can){ showViewerNote("持株化の条件がまだ揃っていないにゃ"); return; }
       if(!confirm("ホールディングス化しますか？\n星団 " + hp.gain + " 個を得ます。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
+    }
+    if(verb === "resetLayout"){
+      /* 手で並べた配置が消えるので確認する (帯側では confirm を出さない) */
+      if(!confirm("家具と小物の並びを初期配置に戻しますか？\n手で動かした配置は消えます")) return;
     }
     if(verb === "outsourceBugs"){
       /* 外注の確認は menu 側で済ませる (帯側では confirm を出さない) */

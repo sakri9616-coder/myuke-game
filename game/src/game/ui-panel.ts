@@ -118,6 +118,7 @@ function paintTabs(){
       const id = (x as HTMLElement).dataset && (x as HTMLElement).dataset.tab;
       const locked = tutTabLocked(id);
       x.className = (id === currentTab ? "on" : "") + (locked ? " locked" : "");
+      x.setAttribute("aria-selected", id === currentTab ? "true" : "false");
       let lk = null;
       for(const c of x.children) if(c.className === "tab-lockic") lk = c;
       if(locked && !lk){
@@ -164,7 +165,7 @@ function renderEditorBreadcrumb(){
   const context = (IS_VIEWER && !viewerSynced) ? "同期中…"
     : tutTabLocked(currentTab) ? "🔒 解放条件"
     : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
-    : currentTab === "research" ? fmt(S.rp) + " RP"
+    : currentTab === "research" ? "研究P " + fmt(S.rp)
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
   if(tabEl.textContent !== label) tabEl.textContent = label;
@@ -218,7 +219,7 @@ function renderPanel(){
                     : "<span class='hero-pct'>" + pct + "<small>%</small></span>") +
         "<span class='hero-name'>『" + esc(p.name) + "』</span>" +
         "<span class='tagchip'>" + esc(p.genreName) + "</span>" +
-        "<span class='tagchip'>" + p.size + " / " + fmt(p.totalDP) + "DP</span>" +
+        "<span class='tagchip'>" + sizeLabel(p.size) + " / " + fmt(p.totalDP) + "DP</span>" +
         (p.desc ? "<span class='note' style='font-size:12px'>" + esc(p.desc) + "</span>" : "") + "</div>";
       h += "<div id='proj-label' style='margin-top:8px;font-size:12px;color:var(--sub)'>現在のプロジェクト進捗</div>" +
         "<div class='meter' id='proj-meter' style='background-size:" + segPct + "% 100%'><i id='proj-bar' style='width:" + pct + "%'></i></div>";
@@ -452,7 +453,7 @@ function renderPanel(){
       const vLeft = Math.max(0, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000));
       h += "<div style='margin:7px 0'><button onclick='outsourceBugs()' " +
         (vLeft > 0 || (vc.bugs <= 0 && vc.debtCut <= 0) || S.coins < vc.coins ? "disabled" : "") +
-        ">🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙</button>" +
+        ">" + (vc.bugs <= 0 && vc.debtCut <= 0 ? "🧳 バグ外注（片付けるバグも負債もないにゃ）" : "🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙") + "</button>" +
         (vLeft > 0 ? " <span class='note'>ベンダー対応中… あと約 " + vLeft + " 分</span>" : "") + "</div>";
     }
     /* IA: 信号機図とレート表を1本の帯に統合 (図が主役・数字は大きく)。
@@ -671,7 +672,8 @@ function renderPanel(){
       h += "<div class='kv'><span>⚡ オーバークロック</span><b>" +
         (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×3）"
              : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります・蓄熱で生産 +" + Math.round(FEVER.passiveMax * g) + "%）")) + "</b></div>";
-      if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">⚡ オーバークロック発動（30秒）</button>";
+      /* 押せない理由をボタン自体に書く (ゲージが満タンになると押せる) */
+      if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
     h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
     h += "<div class='buygrid'>";
@@ -807,7 +809,7 @@ function renderPanel(){
     h += "<div class='item buy slim'><div><span class='sock'>🎵</span><span class='nm'>サウンド</span><div class='ds'>Web Audio 合成の効果音。帯で鳴ります（メニューの開閉には連動しません）</div></div>"+
       "<button class='switch"+(SoundKit.enabled()?" on":"")+"' onclick='toggleSound()'>"+(SoundKit.enabled()?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🎚️</span><span class='nm'>音量</span><div class='ds'>効果音の大きさ</div></div>"+
-      "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' style='width:110px'></div>";
+      "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' aria-label='効果音の音量' style='width:110px'></div>";
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
       "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
@@ -816,7 +818,7 @@ function renderPanel(){
       let sizeBtns = "";
       for(const pct of [70, 85, 100, 115, 130]){
         sizeBtns += "<button onclick='setStripSize(" + (pct / 100) + ")'" +
-          (pct === curPct ? " class='switch on' disabled" : "") + ">" + pct + "%</button>";
+          (pct === curPct ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">" + pct + "%</button>";
       }
       h += "<div class='item buy slim'><div><span class='sock'>🔍</span><span class='nm'>帯の大きさ</span><div class='ds'>帯の高さと、みゅけや家具の表示サイズが変わります</div></div>"+
         "<span style='display:flex;gap:4px'>" + sizeBtns + "</span></div>";
@@ -824,7 +826,9 @@ function renderPanel(){
     h += "<div class='item buy slim'><div><span class='sock'>✥</span><span class='nm'>家具の並び</span><div class='ds'>並べ替えモード中は、帯の家具も小物もドラッグで好きな場所へ動かせます（机や棚の上に重ね置きもできます）</div></div>"+
       "<span style='display:flex;gap:4px'><button onclick='toggleLayoutEdit()'>並べ替えモード</button><button onclick='resetLayout()'>初期配置に戻す</button></span></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🧲</span><span class='nm'>並べ替えのスナップ</span><div class='ds'>ドラッグ中、近くの家具の中心へ弱く吸着します</div></div>"+
-      "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
+      "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()' aria-pressed='"+(S.settings.snapLayout?"true":"false")+"'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
+    h += "<div class='item buy slim'><div><span class='sock'>🌙</span><span class='nm'>点滅を減らす</span><div class='ds'>帯の点滅（企画中・雇える・ゲージ満タンなどの合図）を点けっぱなしにします。OS の「視差効果を減らす」が ON のときも自動で控えます</div></div>"+
+      "<button class='switch"+(S.settings.reduceMotion?" on":"")+"' onclick='toggleReduceMotion()' aria-pressed='"+(S.settings.reduceMotion?"true":"false")+"'>"+(S.settings.reduceMotion?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>⏸️</span><span class='nm'>入力カウントを一時停止</span><div class='ds'>タイピング／カーソルの集計を止めます（基本進捗は続きます）</div></div>"+
       "<button onclick='togglePause()'>"+(S.settings.pauseInput?"再開する":"停止する")+"</button></div>";
     /* Phase 2: OS全体の入力カウント（既定OFF） */
@@ -949,6 +953,7 @@ function updateTabBadges(){
         if(!bd){ bd = document.createElement("span"); b.appendChild(bd); }
         bd.className = "tab-badge";
         bd.textContent = want[id] > 1 ? String(want[id]) : "";
+        bd.setAttribute("aria-label", id === "requests" ? "新しい依頼があります" : "買えるものがあります");   /* 色だけで伝えない */
         bd.style.display = "";
       } else if(bd){ bd.style.display = "none"; }
     }

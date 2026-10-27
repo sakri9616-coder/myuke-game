@@ -57,7 +57,7 @@ function foundSub(genreId){
   S.subs.push(sub);
   normalizeAlloc();
   SoundKit.play("purchase");
-  addLog("🏢 子会社「"+name+"」を設立！（-"+cost+"🪙）得意は"+g.name+"、人員 5 人で発足");
+  addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
   say("子会社「"+name+"」ができたにゃ！ グループ経営のはじまりだね");
   save(); renderPanel();
 }
@@ -67,7 +67,7 @@ function addSubStaff(id, n){
   const total = subHeadCostN(sub, n);
   if(S.coins < total){ say("コインが足りないにゃ…"); return; }
   S.coins -= total; sub.staff += n;
-  addLog("🏢 "+sub.name+" に "+n+" 人を採用（人員 "+sub.staff+" 人）（-"+total+"🪙）");
+  addLog("🏢 "+sub.name+" に "+n+" 人を採用（人員 "+sub.staff+" 人）（-" + fmt(total) + "🪙）");
   save(); renderPanel();
 }
 function scaleSub(id){
@@ -77,7 +77,7 @@ function scaleSub(id){
   const cost = subScaleCost(sub);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; sub.lv++;
-  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-"+cost+"🪙）");
+  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-" + fmt(cost) + "🪙）");
   say(sub.name+"が大きくなったにゃ！");
   save(); renderPanel();
 }

@@ -44,7 +44,7 @@ function freshState(): GameState {
     /* Sprint 2 追加分（旧セーブには無いので load() の既定値マージで補完される）:
        sound は null = 未設定（フル=ON / 帯=OFF の自動）。lastSession は前回セッションの
        あらすじ（おかえりセレモニー用）。lastGiftAt は夢のお土産の最終付与時刻 */
-    settings:{ pauseInput:false, sound:null, soundVol:0.5, inputCount:false, stripSize:1, stripSizeV:2 },
+    settings:{ pauseInput:false, sound:null, soundVol:0.5, inputCount:false, stripSize:1, stripSizeV:2, reduceMotion:false },
     lastSession:null, lastGiftAt:0,
     /* v2.4.0: 家具の並び（帯幅に対する比率 0..1）。空 = 既定配置。
        帯の「✥ 並べ替え」モードでドラッグして変更する */
