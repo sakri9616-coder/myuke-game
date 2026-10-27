@@ -53,7 +53,7 @@ function subReinvest(sub, coins){
 }
 /* 段階4: 子会社の売却益も企業価値から（その子会社の1時間の売上 ÷ 星屑1個ぶんの企業価値）。
    旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
-function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / BAL.valuePerDust); }
+function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / dustValueUnit()); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
 function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit()); }
@@ -436,7 +436,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
    条件は最高到達社格 Lv6＋子会社2社＋EXIT 12回＋時代の通算星屑（段階6）。持株化は EXIT のリセットに
    「第1層（星屑・星屑特典・通算星屑）を畳む」を足したもので、星団とレガシー
    技術・作品棚・実績・最高到達社格・レイアウトは残る。星団の益は時代の
-   通算星屑（eraDust＝星屑を買っても減らない）の桁3つごとに1個・最低1 — 特典を買うことが
+   通算星屑（eraDust＝星屑を買っても減らない）の平方根（÷100 の平方根・最低1） — 特典を買うことが
    星団を減らさない形にしてある */
 const LEGACY_TECHS = [
   { id:"forecast", name:"トレンド予報",       cost:1, desc:"次の市場の流れ（ブームと不況）が先読みできます" },
@@ -450,10 +450,9 @@ function hasLegacyTech(id){ return !!(S.legacyTech && S.legacyTech[id]); }
 /* 段階6: 見た目だけのオフィスグレードは星団で買わず、持株化の回数で開く（星団は力の解放だけに使う）。
    1回目: 棚に金の星・2回目: 金の本社看板・3回目: 金のトロフィー */
 function legacyGrade(){ return Math.min(3, S.holdings || 0); }
-/* 段階6: 持株化までの長さ。EXIT 5回 → 12回（節目をひと通り開いてから）に加えて、この時代の通算星屑 100京個。
-   星屑の倍率が掛け算になってから EXIT の回数は1日目に12回を超える（sim）ので、回数だけでは持株化が早すぎた。
-   通算星屑の桁で測り、放置 1日3時間で約1週間（sim の参考値）にそろえる */
-const HOLD_EXITS = 12, HOLD_ERA_DUST = 1e18;
+/* 段階6: 持株化までの長さ。EXIT 5回 → 12回（節目をひと通り開いてから）に加えて、この時代の通算星屑 1,000個。
+   インフレ修正（星屑1個ぶんの企業価値が倍率に連動）のあとは、放置 1日3時間で通算星屑 約1,000個が約1週間（sim の参考値） */
+const HOLD_EXITS = 12, HOLD_ERA_DUST = 1000;
 function holdingsPreview(){
   const cond = {
     lv6: (S.maxStudioLv || 1) >= 6,
@@ -461,9 +460,9 @@ function holdingsPreview(){
     exits: (S.prestiges || 0) >= HOLD_EXITS,
     era: (S.eraDust || 0) >= HOLD_ERA_DUST
   };
-  /* 星団は通算星屑の桁で（÷20 のままだと 100京個から 5京個の星団が出て、レガシー技術が一度に全部買えた） */
+  /* 星団は通算星屑の平方根で（1,000個で3・4,000個で6。÷20 だとレガシー技術が一度に全部買えた） */
   return { cond, can: cond.lv6 && cond.subs && cond.exits && cond.era,
-           gain: Math.max(1, Math.floor(Math.log10(Math.max(1, S.eraDust || 0)) / 3)) };
+           gain: Math.max(1, Math.floor(Math.sqrt((S.eraDust || 0) / 100))) };
 }
 function buyLegacyTech(id){
   const def = LEGACY_TECHS.find(t => t.id === id);
@@ -523,7 +522,7 @@ function challengeDef(id){ return CHALLENGE_DEFS.find(c => c.id === id) || null;
 function challengeActive(id){ return !!(S.challenge && S.challenge.id === id); }
 function challengeStartable(){
   return !S.challenge && ((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1) &&
-    S.studioLv === startRank() && (S.runPeakValue || 0) < BAL.valuePerDust;
+    S.studioLv === startRank() && (S.runPeakValue || 0) < dustValueUnit();
 }
 function startChallenge(id){
   if(!challengeDef(id) || S.challenge) return;
@@ -543,7 +542,7 @@ function abandonChallenge(){
 function challengeGoalMet(){
   const c = S.challenge;
   if(!c) return false;
-  if(c.id === "black") return (S.runPeakValue || 0) >= BLACK_GOAL_DUST * BAL.valuePerDust;
+  if(c.id === "black") return (S.runPeakValue || 0) >= BLACK_GOAL_DUST * dustValueUnit();
   return S.studioLv >= challengeGoalLv();   /* minority / idle は開始社格 +3 */
 }
 function checkChallenge(){
