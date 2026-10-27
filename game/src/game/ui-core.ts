@@ -61,9 +61,11 @@ function affordInfo(key, cost, cur){
   const prev = affordPrev[key];
   if(prev && prev !== "afford" && st === "afford"){
     affordPulseAt[key] = Date.now();
-    let strip = false;
-    try{ strip = document.body.classList.contains("strip"); }catch(e){}
-    if(!strip) SoundKit.play("purchase");
+    /* メニューが見えている時だけ、控えめな「買えるよ」の音を鳴らす
+       (閉じて隠れているメニューの裏で鳴らさない) */
+    let audible = false;
+    try{ audible = !document.body.classList.contains("strip") && !document.hidden; }catch(e){}
+    if(audible) SoundKit.play("ready");
   }
   affordPrev[key] = st;
   return { afford, deficit, almost: st === "almost",
@@ -78,9 +80,11 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
     "<span class='pricetag'>" + fmt(cost) + unit + "</span>";
   let cls = "buybtn";
   if(a.almost){ label += " <span class='ahint'>あと " + fmt(a.deficit) + unit + "</span>"; cls += " almost"; }
-  if(a.pulse) cls += " afford-now";
+  /* 再描画でボタンが作り直されてもパルスが頭から始まり直さないよう、経過時間ぶん位相をずらす */
+  let pulseStyle = "";
+  if(a.pulse){ cls += " afford-now"; pulseStyle = " style='animation-delay:-" + Math.max(0, Date.now() - (affordPulseAt[key] || 0)) + "ms'"; }
   const dis = (!a.afford || extraDisabled) ? " disabled" : "";
-  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + ">" + label + "</button>";
+  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + ">" + label + "</button>";
 }
 function renderHeader(){
   renderEditorBreadcrumb();

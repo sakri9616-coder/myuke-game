@@ -88,7 +88,9 @@ function dispatchMenuCommand(m){
     }
     bumpRev(); sendSnapshotNow();   /* 実行直後は即時スナップショット (設計 §3.4) */
   };
-  const fn = m && VERBS[m.verb];
+  /* 自前のプロパティだけを許す ("constructor" などの継承プロパティで関数を引かない) */
+  const fn = m && typeof m.verb === "string" && Object.prototype.hasOwnProperty.call(VERBS, m.verb) ? VERBS[m.verb] : null;
+  SoundKit.unlock();   /* メニューでの操作もユーザー操作として扱い、帯の音を鳴らせるようにする */
   if(!fn){ reply(false, null, "unknown verb: " + (m && m.verb)); return; }
   try{
     const r = fn.apply(null, Array.isArray(m.args) ? m.args : []);
@@ -118,6 +120,7 @@ function initOwnerProtocol(){
   on("menu-heartbeat", () => { menuLastBeat = Date.now(); menuAwake = true; });
   on("menu-cmd", (ev) => { dispatchMenuCommand(ev && ev.payload); });
   on("menu-input", (ev) => { feedMenuInput(ev && ev.payload); });
+  on("save-now", () => { save(); });   /* トレイの「終了」直前に Rust が送る (最後の進行を書き残す) */
   on("viewer-trap", (ev) => { try{ console.warn("[miyuke] viewer save-trap:", JSON.stringify(ev && ev.payload)); }catch(e){} });
   /* 2Hz の定期送信。heartbeat が 5 秒途絶えたら menu は消えた/固まったものとして止める */
   setInterval(() => {

@@ -20,6 +20,7 @@
    Phase E: 2ウィンドウ化（owner/viewer 2コンテキスト + 偽イベントバスで
             単一書き手・コマンド一回実行・スナップショット描画を検証）
    Phase A12: セーブのファイル保存（起動時注入の採否 / save_game への書き込み / 読み込み機能）
+   Phase A13: 敵対的なセーブ（XSS の無害化 / 読み込みの原子性 / 壊れた起動時セーブの保護）
    Phase F: チュートリアル導線（段階的開示: 事実ベースのステージ進行 /
             ロックと「所持が勝つ」原則 / ベテラン移行 / スキップと見直し /
             viewer がスナップショットだけで同じロック・🆕 を描くこと） */
@@ -1003,6 +1004,96 @@ console.log("== Phase A12: file-backed save (Rust save_game + startup injection)
     /generate_handler!\[[\s\S]*\bsave_game\b[\s\S]*\]/.test(rs) && rs.includes("window.label() != WIN_STRIP"));
   check("main.rs injects the startup save into the strip window only",
     (rs.match(/save_init_script\(app\.handle\(\)\)/g) || []).length === 1 && rs.includes("__MIYUKE_SAVE__"));
+}
+
+/* ================= Phase A13: セーブ由来の文字列の無害化と読み込みの原子性 ================= */
+console.log("== Phase A13: hostile saves (XSS escaping / atomic load / corrupt startup save) ==");
+{
+  const PAY = "<img src=x onerror=PWN()>";
+  const evil = {
+    coins: 1, ideas: 0,
+    project: { name: "PJ" + PAY, genre: "app", genreName: "G" + PAY, desc: "D" + PAY, size: "S", totalDP: 900,
+               feats: ["F" + PAY], doneFeats: 0, startedAt: 1, bugs: 0, napsAtStart: 0, ideaCost: 0, planning: false, icon: 0, activeSec: 0 },
+    staff: [{ id: "1);PWN_ID();(1", name: "CAT" + PAY, coat: "kuro", role: "prog", lv: 1 }],
+    shelf: [{ name: "SH" + PAY, genreName: "g", size: "S", date: "d", devMin: 1, lines: 1, bugs: 0, naps: 0, icon: 0, highlight: "H" + PAY }],
+    log: [{ tm: "00:00", text: "LOG" + PAY }],
+    subs: [{ id: "2);PWN_ID();(2", name: "SUB" + PAY, genre: "app", staff: 5, lv: 1, alloc: 100 }],
+    studioLv: 5
+  };
+  const sbX = buildSandbox({});
+  loadGame(sbX);
+  check("importing a hostile save succeeds (it is a valid shape)", run(sbX, `importSaveText(${JSON.stringify(JSON.stringify(evil))})`) === true);
+  const panels = ["proj", "staff", "shelf"].map(t => { run(sbX, `switchTab(${JSON.stringify(t)}); renderPanel();`); return sbX._el("panel").innerHTML; }).join("\n");
+  check("no live <img> tag from save strings reaches any panel", !/<img/i.test(panels), (panels.match(/.{0,30}<img.{0,30}/i) || [""])[0]);
+  check("save strings are shown as inert text (full-width brackets)", panels.includes("CAT＜img") && panels.includes("PJ＜img"));
+  check("ids that land in onclick attributes are forced to integers", !/PWN_ID/.test(panels) && run(sbX, "S.staff.every(s => Number.isInteger(s.id)) && S.subs.every(s => Number.isInteger(s.id))"));
+  check("the persisted save keeps no raw '<' from the hostile import", !sbX.localStorage.getItem("miyuke-save-v1").includes("<img"));
+  check("esc() escapes the five HTML-significant characters", run(sbX, "esc(" + JSON.stringify("<a href='x'>&\"</a>") + ")") === "&lt;a href=&#39;x&#39;&gt;&amp;&quot;&lt;/a&gt;");
+  check("sanitizer drops prototype-polluting keys", run(sbX, `JSON.stringify(sanitizeSaveData(JSON.parse('{"__proto__":{"x":1},"a":"<b>"}')))`) === '{"a":"＜b＞"}');
+
+  /* 読み込みの原子性: 途中で壊れたら元の状態に戻る (以前は半端な状態のまま次の自動セーブで上書きしていた) */
+  const sbA = buildSandbox({});
+  loadGame(sbA);
+  run(sbA, "S.coins = 123456; for(let i=0;i<5;i++) S.shelf.push({name:'w'+i}); save();");
+  for(const bad of ['{"coins":5,"staff":[1]}', '{"coins":5,"subs":[null]}', '{"coins":5,"upgrades":null,"log":null,"requests":null}', '[1,2,3]', '"str"']){
+    run(sbA, "S.coins = 123456;");
+    const ok = run(sbA, `importSaveText(${JSON.stringify(bad)})`);
+    let tickErr = null; try { run(sbA, "tick(); renderPanel();"); } catch(e){ tickErr = e.message; }
+    check("bad import " + bad + " either loads cleanly or leaves the game untouched, and tick keeps running",
+      tickErr === null && (ok ? run(sbA, "S.coins") === 5 : run(sbA, "S.coins") === 123456), "ok=" + ok + " coins=" + run(sbA, "S.coins") + " err=" + tickErr);
+  }
+  /* load() が例外を出した場合も元の状態に戻ること (移行処理の中の例外を直接起こす) */
+  run(sbA, "S.coins = 777; var __rc = recoatFor; recoatFor = function(){ throw new Error('boom'); };");
+  const okBoom = run(sbA, `load(${JSON.stringify(JSON.stringify({ coins: 1, staff: [{ id: 1, name: "a", coat: "mike2", role: "prog", lv: 1 }] }))})`);
+  check("an exception inside load() migration rolls S back", okBoom === false && run(sbA, "S.coins") === 777, "ok=" + okBoom + " coins=" + run(sbA, "S.coins"));
+  run(sbA, "recoatFor = __rc;");
+
+  /* 起動時のセーブが壊れていた: 退避して保存を止め、元データを上書きしない */
+  const sbC = buildSandbox({});
+  sbC.localStorage.setItem("miyuke-save-v1", "{ this is not json");
+  loadGame(sbC);
+  check("corrupt startup save blocks saving (original data is not overwritten)",
+    run(sbC, "saveBlocked") === true && sbC.localStorage.getItem("miyuke-save-v1") === "{ this is not json");
+  run(sbC, "save();");
+  check("save() is a no-op while blocked, and the raw save is backed up",
+    sbC.localStorage.getItem("miyuke-save-v1") === "{ this is not json" && sbC.localStorage.getItem("miyuke-save-v1-bad") === "{ this is not json");
+  check("the player is told the save could not be read", run(sbC, "S.log.some(e => e.text.includes('読み込めませんでした'))"));
+  run(sbC, "doResetSave();");
+  check("resetting the save lifts the block and writes a fresh save",
+    run(sbC, "saveBlocked") === false && JSON.parse(sbC.localStorage.getItem("miyuke-save-v1")).project.size === "TUT");
+
+  /* tick が例外を出してもメインループは記録して進む */
+  const sbT = buildSandbox({});
+  loadGame(sbT);
+  const errs = [];
+  const origErr = console.error; console.error = (...a) => errs.push(a.join(" "));
+  run(sbT, "var __t = tick; tick = function(){ throw new Error('tick boom'); };");
+  const before = run(sbT, "S.totals.playSec");
+  sbT._intervals.find(i => i.ms === 1000).fn();
+  console.error = origErr;
+  check("a throwing tick is logged and the 1s loop still advances playSec",
+    run(sbT, "S.totals.playSec") === before + 1 && errs.some(e => e.includes("tick boom")));
+  run(sbT, "tick = __t;");
+
+  /* メニューのコマンドは自前の VERBS だけ (継承プロパティで関数を引かない) */
+  const sent = [];
+  const sbV = buildSandbox({ tauri: { core: { invoke: () => Promise.resolve() },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve(),
+             emitTo: (t, n, p) => { sent.push([n, p]); return Promise.resolve(); } } } });
+  loadGame(sbV);
+  run(sbV, `dispatchMenuCommand({ id: 7, verb: "constructor", args: [] })`);
+  const res = sent.find(x => x[0] === "cmd-result" && x[1] && x[1].id === 7);
+  check("menu command 'constructor' is rejected as an unknown verb", !!res && res[1].ok === false && /unknown verb/.test(res[1].error || ""), JSON.stringify(res && res[1]));
+
+  /* Rust 側の制限 (静的確認) */
+  const rs = fs.readFileSync(GAME_HTML.DESK_DIR + "src-tauri/src/main.rs", "utf8");
+  check("strip-only commands reject other windows (set_strip_scale / set_hit_zones / set_input_counting / save_game)",
+    (rs.match(/window\.label\(\) != WIN_STRIP/g) || []).length >= 4);
+  check("save_game runs off the main thread, serialized, with fsync before rename",
+    rs.includes("#[tauri::command(async)]\nfn save_game") && rs.includes("SAVE_LOCK") && rs.includes("sync_all()"));
+  check("beacon: no CORS allow header, random token, no logging of rejected requests",
+    !rs.includes("Access-Control-Allow-Origin") && rs.includes("RandomState") && !rs.includes("beacon: rejected request"));
+  check("tray quit asks the strip page to save before exiting", rs.includes('emit_to(WIN_STRIP, "save-now"'));
 }
 
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */

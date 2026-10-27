@@ -84,6 +84,7 @@ async function updDownload(){
   upd.status = "downloading"; upd.got = 0; upd.total = 0;
   paintUpd(); if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
   let lastPct = -1;
+  save();   /* Windows ではインストーラ起動でアプリが閉じるので、先に進行を書き残す */
   try{
     await upd.obj.downloadAndInstall((ev) => {
       if(!ev) return;
@@ -105,6 +106,7 @@ async function updDownload(){
   if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
 }
 function updRelaunch(){
+  save();   /* 再起動の前に最後の進行を書き残す */
   try{
     const T = window.__TAURI__;
     if(T && T.process && typeof T.process.relaunch === "function"){

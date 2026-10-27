@@ -88,6 +88,10 @@ fn now_ms() -> u64 {
 static DLOG_PATH: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 fn dlog(msg: &str) {
     let Some(p) = DLOG_PATH.get() else { return };
+    // 常時書くログなので、1MB を超えたら1世代だけ残して作り直す (際限なく育たないように)
+    if fs::metadata(p).map(|m| m.len() > 1_000_000).unwrap_or(false) {
+        let _ = fs::rename(p, p.with_extension("log.1"));
+    }
     let line = format!("{} {}\n", now_ms(), msg);
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(p) {
         let _ = f.write_all(line.as_bytes());
@@ -474,14 +478,22 @@ fn start_beacon(app: &AppHandle) {
         }
     };
     let port = listener.local_addr().map(|a| a.port()).unwrap_or(0);
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let token = format!(
-        "{:x}",
-        nanos ^ ((std::process::id() as u128) << 64) ^ 0x9e3779b97f4a7c15u128
-    );
+    // 起動ごとの合言葉。時刻や PID から推測できないよう、OS の乱数で鍵を作る
+    // std の RandomState (起動ごとに OS 乱数で初期化される SipHash 鍵) を2つ使って 128bit にする
+    let token = {
+        use std::hash::{BuildHasher, Hasher};
+        let word = || {
+            let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+            h.write_u128(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0),
+            );
+            h.finish()
+        };
+        format!("{:016x}{:016x}", word(), word())
+    };
     let _ = BEACON.set((port, token));
     dlog(&format!("beacon: listening on 127.0.0.1:{}", port));
     let app = app.clone();
@@ -508,7 +520,14 @@ fn start_beacon(app: &AppHandle) {
                         match (kv.next(), kv.next()) {
                             (Some("k"), Some(v)) => key = v.to_string(),
                             (Some("c"), Some(v)) => cmd = v.to_string(),
-                            (Some("t"), Some(v)) => tab = Some(v.to_string()),
+                            // タブ名は英数字の短い名前だけを通す (任意の文字列を窓へ渡さない)
+                            (Some("t"), Some(v))
+                                if !v.is_empty()
+                                    && v.len() <= 16
+                                    && v.chars().all(|c| c.is_ascii_alphanumeric()) =>
+                            {
+                                tab = Some(v.to_string())
+                            }
                             _ => {}
                         }
                     }
@@ -529,11 +548,13 @@ fn start_beacon(app: &AppHandle) {
                     });
                     "ok"
                 } else {
-                    dlog("beacon: rejected request");
+                    // 拒否はログに残さない (外から叩かれ続けてもログが育たないように)
                     "ng"
                 };
+                // CORS 許可ヘッダは付けない: ページは応答を読まない (送るだけで実行される)。
+                // 付けると任意の Web ページが応答から beacon の存在を確かめられる
                 let resp = format!(
-                    "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                     body.len(),
                     body
                 );
@@ -635,7 +656,10 @@ fn reset_strip_position_inner(app: &AppHandle) {
 /// 今の位置に固定する (帯が浮いた/沈んだように見えないため)。
 /// ページ側の描画はアスペクト追随なので、高さが変われば全体が拡縮する
 #[tauri::command]
-fn set_strip_scale(app: AppHandle, scale: f64) {
+fn set_strip_scale(app: AppHandle, window: tauri::Window, scale: f64) {
+    if window.label() != WIN_STRIP {
+        return; // 帯の形を変えられるのは帯のページだけ
+    }
     guard("cmd set_strip_scale", move || set_strip_scale_inner(&app, scale));
 }
 
@@ -665,7 +689,11 @@ fn save_init_script(app: &AppHandle) -> String {
 
 /// セーブの書き込み。単一書き手の原則で、帯ウィンドウ (owner) 以外からは受け付けない。
 /// 一時ファイルに書いてから置き換えるので、途中で落ちても前のセーブが残る
-#[tauri::command]
+/// ディスク書き込みはメインスレッドを止めないよう別スレッドで行う (async コマンド)。
+/// 同時に2つ走ると一時ファイルを取り合うので、書き込み全体を Mutex で直列化する
+static SAVE_LOCK: Mutex<()> = Mutex::new(());
+
+#[tauri::command(async)]
 fn save_game(app: AppHandle, window: tauri::Window, data: String) -> Result<(), String> {
     if window.label() != WIN_STRIP {
         return Err("save_game: only the strip window may write the save".into());
@@ -674,12 +702,26 @@ fn save_game(app: AppHandle, window: tauri::Window, data: String) -> Result<(), 
         Ok(v) if v.is_object() => {}
         _ => return Err("save_game: not a JSON object".into()),
     }
-    let path = save_path(&app).ok_or("save_game: no app data dir")?;
+    let result = write_save_file(&app, &data);
+    if let Err(e) = &result {
+        dlog(&format!("save_game: write FAILED: {}", e));
+    }
+    result
+}
+
+fn write_save_file(app: &AppHandle, data: &str) -> Result<(), String> {
+    let _lock = SAVE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let path = save_path(app).ok_or("save_game: no app data dir")?;
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, data.as_bytes()).map_err(|e| e.to_string())?;
+    {
+        // 置き換える前に中身をディスクまで書き切る (停電で空ファイルが残らないように)
+        let mut f = fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        f.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        f.sync_all().map_err(|e| e.to_string())?;
+    }
     fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
 
@@ -745,7 +787,10 @@ fn hide_strip_window(app: AppHandle) {
 
 /// ページからのヒットゾーン受信（ウィンドウ内論理pxの [x,y,w,h] 群）
 #[tauri::command]
-fn set_hit_zones(zones: Vec<[f64; 4]>, state: tauri::State<ShellState>) {
+fn set_hit_zones(window: tauri::Window, zones: Vec<[f64; 4]>, state: tauri::State<ShellState>) {
+    if window.label() != WIN_STRIP {
+        return; // クリック透過の範囲を決められるのは帯のページだけ
+    }
     let mut slot = state.hit_zones.lock().unwrap_or_else(|e| e.into_inner());
     if slot.is_none() {
         dlog(&format!(
@@ -819,7 +864,7 @@ fn hit_loop_tick(app: &AppHandle, tick_no: u64) {
         return;
     };
     let state = app.state::<ShellState>();
-    let hb = state.hit_debug && tick_no % 20 == 0;
+    let hb = state.hit_debug && tick_no.is_multiple_of(20);
     let visible = w.is_visible().unwrap_or(false);
     // 帯が非表示のときは透過させない（ループ側の実作業もしない）。
     // 帯は常時ストリップ形態なので、条件は「帯が見えているか」だけに単純化された
@@ -829,7 +874,7 @@ fn hit_loop_tick(app: &AppHandle, tick_no: u64) {
             let nz = state
                 .hit_zones
                 .lock()
-                .unwrap()
+                .unwrap_or_else(|e| e.into_inner())
                 .as_ref()
                 .map_or(0, |z| z.len());
             set_ignoring(&w, &state, false, lx, ly, nz);
@@ -884,7 +929,8 @@ fn spawn_hit_loop(app: &AppHandle) {
         loop {
             std::thread::sleep(Duration::from_millis(50));
             tick_no += 1;
-            hit_loop_tick(&app, tick_no);
+            // ここで panic するとクリック透過の切替が以後ずっと止まるので、1回分だけ捨てて続ける
+            guard("hit_loop_tick", || hit_loop_tick(&app, tick_no));
         }
     });
 }
@@ -1019,7 +1065,10 @@ fn ensure_input_listener(app: &AppHandle) {
 /// invoke 自体はどのウィンドウからでも届くが、呼ぶのは帯 (owner) のページだけ
 /// というページ側ロールの規律で一元化する（設計 §5.2）
 #[tauri::command]
-fn set_input_counting(enabled: bool, app: AppHandle, state: tauri::State<InputState>) {
+fn set_input_counting(enabled: bool, app: AppHandle, window: tauri::Window, state: tauri::State<InputState>) {
+    if window.label() != WIN_STRIP {
+        return; // OS 全体の入力集計を切り替えられるのは帯のページだけ (設計 §5.2 を Rust 側でも担保)
+    }
     guard("cmd set_input_counting", || set_input_counting_inner(enabled, &app, &state));
 }
 
@@ -1238,13 +1287,19 @@ fn main() {
                         persist(&state);
                     }
                     "quit" => {
-                        dlog("tray quit: persisting, then exit(0)");
+                        dlog("tray quit: persisting, asking the page to save, then exit(0)");
                         let state = app.state::<ShellState>();
                         if let Some(w) = app.get_webview_window(WIN_MENU) {
                             capture_menu_geom(&w, &state);
                         }
                         persist(&state);
-                        app.exit(0);
+                        // 最後の進行 (最大10秒分) を失わないよう、帯のページに保存させてから終える
+                        let _ = app.emit_to(WIN_STRIP, "save-now", ());
+                        let app2 = app.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(Duration::from_millis(600));
+                            app2.exit(0);
+                        });
                     }
                     _ => {}
                     });

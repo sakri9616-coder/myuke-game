@@ -142,6 +142,7 @@ function importSaveFile(input){
 /* 初期化の実体 (確認なし)。コマンド経由では帯がこれを実行し、確認は menu 側で
    済ませてから送られる (帯の帯画面で confirm を出さないため) */
 function doResetSave(){
+  saveBlocked = false;   /* 読めなかったセーブの保護も、初期化の意思表示で解除する */
   localStorage.removeItem(SAVE_KEY);
   S = freshState(); startProject("TUT"); genRequests();
   sessBase = { releases:0, coinsEarned:0, startedAt: Date.now() };

@@ -8,6 +8,10 @@ if(IS_VIEWER){
   initViewer();
 } else {
   hadSave = load();
+  if(saveBlocked){
+    /* 起動時のセーブが壊れていた: 元のデータは残して保存を止め、プレイヤーに知らせる */
+    addLog("⚠️ セーブデータを読み込めませんでした。元のデータは残してあり、この起動中は保存しません（設定タブで読み込み直すか、初期化できます）");
+  }
   initInputCounting();   /* Phase 2: OS全体の入力集計（購読＋保存済み設定の反映。Tauri が無ければ無操作） */
   initUpdater();   /* v2.3.5: 起動時の無言アップデート確認（Tauri のみ・少し遅らせて1回） */
   initOwnerProtocol();   /* 2ウィンドウ化: menu との同期 (Tauri の owner のみ実働) */
@@ -27,11 +31,15 @@ if(IS_VIEWER){
 }
 renderHeader(); renderPanel(); updateComboUI();
 if(!IS_VIEWER){
-  setInterval(()=>{ tick(); S.totals.playSec += 1; bumpRev(); }, 1000);
+  setInterval(()=>{
+    /* tick の途中で例外が出ても記録して次の秒へ進む (黙って毎秒止まり続けないように) */
+    try{ tick(); }catch(e){ console.error("[miyuke] tick で例外", e); }
+    S.totals.playSec += 1; bumpRev();
+  }, 1000);
   setInterval(save, 10000);
   window.addEventListener("beforeunload", save);
 }
 setInterval(()=>{ renderPanel(); }, 5000);   /* 全ロール共通の安全網 (viewer は同期表示のまま) */
 /* 既存セーブでは寝たまま始まる（挨拶は起床時に tick が言う）。新規は従来どおり。
    viewer は挨拶しない (セリフの所有は帯。menu の吹き出しは live.say で届く) */
-if(!IS_VIEWER) say(hadSave ? "すぅ…すぅ…" : "はじめまして、みゅけだにゃ。小さい工場もよろしくね。");
+if(!IS_VIEWER) say(saveBlocked ? "セーブが読めなかったにゃ…元のデータは残してあるよ。設定タブを見てね" : hadSave ? "すぅ…すぅ…" : "はじめまして、みゅけだにゃ。小さい工場もよろしくね。");

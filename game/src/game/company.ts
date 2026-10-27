@@ -222,13 +222,13 @@ function execSelectHTML(){
     "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:4px'>";
   for(const c of cands){
     const sel = pendingExecPick === undefined ? c === cands[0] : pendingExecPick === c.id;
-    hh += "<button onclick='pickExec(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">🎗 " + c.name + "（" + roleName(c.role) + "）</button>";
+    hh += "<button onclick='pickExec(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">🎗 " + esc(c.name) + "（" + roleName(c.role) + "）</button>";
   }
   hh += "<button onclick='pickExec(null)'" + (pendingExecPick === null ? " class='primary'" : "") + ">引き継がない</button></div>";
   if((S.executives || []).length >= 3 && pendingExecPick !== null){
     hh += "<div style='font-size:12px;margin-top:5px'>役員は満席です。入れ替える相手を選んでください（選ばなければ候補は記録に卒業します）</div>" +
       "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
-    S.executives.forEach((e, i) => { hh += "<button onclick='pickSwap(" + i + ")'" + (pendingExecSwap === i ? " class='primary'" : "") + ">" + e.name + " と入替</button>"; });
+    S.executives.forEach((e, i) => { hh += "<button onclick='pickSwap(" + i + ")'" + (pendingExecSwap === i ? " class='primary'" : "") + ">" + esc(e.name) + " と入替</button>"; });
     hh += "<button onclick='pickSwap(-1)'" + (pendingExecSwap === undefined || pendingExecSwap === -1 ? " class='primary'" : "") + ">入れ替えない</button></div>";
   }
   if(hasPerk("veteran")){
@@ -238,7 +238,7 @@ function execSelectHTML(){
         "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
       for(const c of rest){
         const sel = pendingVetPick === undefined ? c === rest[0] : pendingVetPick === c.id;
-        hh += "<button onclick='pickVet(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">" + c.name + "（Lv" + c.lv + "・" + roleName(c.role) + "）</button>";
+        hh += "<button onclick='pickVet(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">" + esc(c.name) + "（Lv" + c.lv + "・" + roleName(c.role) + "）</button>";
       }
       hh += "</div>";
     }

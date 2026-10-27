@@ -214,10 +214,10 @@ function renderPanel(){
       h += "<div class='hero-top'>" +
         (p.planning ? "<span class='hero-pct'>💡</span>"
                     : "<span class='hero-pct'>" + pct + "<small>%</small></span>") +
-        "<span class='hero-name'>『" + p.name + "』</span>" +
-        "<span class='tagchip'>" + p.genreName + "</span>" +
+        "<span class='hero-name'>『" + esc(p.name) + "』</span>" +
+        "<span class='tagchip'>" + esc(p.genreName) + "</span>" +
         "<span class='tagchip'>" + p.size + " / " + fmt(p.totalDP) + "DP</span>" +
-        (p.desc ? "<span class='note' style='font-size:12px'>" + p.desc + "</span>" : "") + "</div>";
+        (p.desc ? "<span class='note' style='font-size:12px'>" + esc(p.desc) + "</span>" : "") + "</div>";
       h += "<div id='proj-label' style='margin-top:8px;font-size:12px;color:var(--sub)'>現在のプロジェクト進捗</div>" +
         "<div class='meter' id='proj-meter' style='background-size:" + segPct + "% 100%'><i id='proj-bar' style='width:" + pct + "%'></i></div>";
       if(p.planning) h += "<div class='bn' style='margin-top:7px'>💡 企画中： アイデア あと " + Math.max(0,(p.ideaCost||0)-Math.floor(S.ideas)) +
@@ -263,7 +263,7 @@ function renderPanel(){
             const q = moduleQuality(m), done = moduleComplete(m);
             const pct = Math.min(150, Math.round(m.inv / m.need * 100));
             h += "<div style='display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px'>" +
-              "<span style='min-width:96px'>" + (done ? "✅" : "🧩") + " " + m.name + "</span>" +
+              "<span style='min-width:96px'>" + (done ? "✅" : "🧩") + " " + esc(m.name) + "</span>" +
               (m.out ? "<span class='tag'>外注・品質 0.8</span>"
                      : "<span style='flex:1;background:#1a1a1a;border:1px solid var(--line);height:8px'><span style='display:block;height:100%;width:" + Math.min(100, pct / 1.5) + "%;background:" + (done ? "#58a64a" : "#4a90c2") + "'></span></span>" +
                        "<span style='min-width:86px'>投資 " + pct + "%・品質 " + q.toFixed(2) + "</span>" +
@@ -286,8 +286,8 @@ function renderPanel(){
       const q = S.line2.project;
       const qp = Math.min(100, Math.round(S.line2.projectDP / q.totalDP * 100));
       h += "<div class='staffcard' style='margin-top:8px'><div class='sc-img'>🏭</div><div class='sc-main'>" +
-        "<div class='sc-top'><span class='nm'>第2ライン『" + q.name + "』</span>" +
-        "<span class='tagchip'>" + q.genreName + "</span>" +
+        "<div class='sc-top'><span class='nm'>第2ライン『" + esc(q.name) + "』</span>" +
+        "<span class='tagchip'>" + esc(q.genreName) + "</span>" +
         "<span class='tagchip'>特化: " + (S.line2.genre ? (GENRES.find(g=>g.id===S.line2.genre)||{}).name : "なし") + "</span></div>" +
         "<div class='meter' style='margin-top:5px'><i style='width:" + qp + "%'></i></div></div>" +
         "<span class='sc-pct'>" + qp + "%</span></div>";
@@ -297,7 +297,7 @@ function renderPanel(){
       "<div class='note' style='font-size:12px'>みゅけはデスクトップ下部の帯に住んでいます。帯のみゅけをクリックで「応援クリック」（進捗バースト＋コンボ）や反応が楽しめます。" +
       "設定で「OS入力カウント」を ON にすると、あなたのタイピングやカーソル移動が開発ブーストになります（数えるのは回数と距離だけ）。金色の魚やバグの群れが帯に出たらクリックで捕まえよう（逃がしてもペナルティなし）。</div>");
     let logHTML = "<div class='log'>";
-    for(const e of S.log.slice(0,18)) logHTML += "<div><span class='tm'>" + e.tm + "</span> " + e.text + "</div>";
+    for(const e of S.log.slice(0,18)) logHTML += "<div><span class='tm'>" + esc(e.tm) + "</span> " + esc(e.text) + "</div>";
     logHTML += "</div>";
     h += foldSec("log", false, "📓 日報ログ", S.log.length ? "全 " + S.log.length + " 件" : "", logHTML);
   }
@@ -337,7 +337,7 @@ function renderPanel(){
       const tc = trainCost(st), maxed = st.lv >= STAFF_MAX_LV;
       h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
         "<div class='sc-main'><div class='sc-top'><span class='sock sm'>" + (ROLE_ICONS[st.role]||"🐱") + "</span>" +
-        "<span class='nm'>" + st.name + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
+        "<span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
         (deptChief(st.role) === st ? "<span class='tagchip'>⭐部長</span>" : "") +
         "<small>" + COAT_NAMES[st.coat] + "・" + def.name + "</small></div>" +
         "<div class='sc-eff'>" + eff + "</div></div>" +
@@ -361,7 +361,7 @@ function renderPanel(){
         const maxed = lv >= DEPT_MAX_LV;
         deptHTML += "<div class='item buy slim'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
           " <span class='tagchip'>Lv" + lv + "</span> <span class='tagchip'>在籍 " + n + "人</span>" +
-          (chief ? " <span class='tagchip'>⭐部長 " + chief.name + " Lv" + chief.lv + "</span>" : "") +
+          (chief ? " <span class='tagchip'>⭐部長 " + esc(chief.name) + " Lv" + chief.lv + "</span>" : "") +
           "<div class='ds'>所属全員の出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → 強化で ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
           (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")")) + "</div>";
       }
@@ -376,7 +376,7 @@ function renderPanel(){
       for(const sub of (S.subs || [])){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
-        subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + sub.name + "</span>" +
+        subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
           " <span class='tagchip'>得意: " + gname + "</span> <span class='tagchip'>規模Lv" + sub.lv + "</span> <span class='tagchip'>人員 " + sub.staff + "人</span>" +
           "<div class='ds'>売上 +" + r.coins.toFixed(1) + "🪙/分 ・ 生産 +" + r.dp.toFixed(1) + " DP/分 ・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + subFocus(sub).toFixed(2) + "）" +
@@ -461,7 +461,7 @@ function renderPanel(){
       const stgs = stageStatus();
       const lampCol = l => l === "red" ? "#d9534f" : l === "yellow" ? "#e8b93a" : "#5aa469";
       const cell = (s, val, unit, sub) =>
-        "<div class='ratecell pipe-" + s.lamp + "'><div class='rh'><span class='lampdot' style='background:" + lampCol(s.lamp) + "'></span>" + s.name + "</div>" +
+        "<div class='ratecell pipe-" + s.lamp + "'><div class='rh'><span class='lampdot' style='background:" + lampCol(s.lamp) + "'></span>" + esc(s.name) + "</div>" +
         "<div class='rv'>" + val + " <small>" + unit + "</small></div>" +
         "<span class='lampbar'><i class='" + (s.lamp === "red" ? "bnbar" : "") + "' style='width:" + Math.round(Math.min(1, s.frac || 0) * 100) + "%'></i></span>" +
         "<div class='rs'>" + sub + "</div></div>";
@@ -563,7 +563,7 @@ function renderPanel(){
         "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
         prestigeBtn + "</div>"+
-        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
+        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.map(esc).join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
       h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
@@ -572,7 +572,7 @@ function renderPanel(){
         (pv.subGain > 0 ? kv("うち子会社ぶん", "星屑 +"+pv.subGain+" 個（グループEXIT: 子会社も売却）") : "") +
         kv("EXIT回数", S.prestiges+" 回") +
         kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
-        "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.join("・")+"</div>" +
+        "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.map(esc).join("・")+"</div>" +
         "<div style='margin:7px 0'>"+prestigeBtn+"</div>" +
         "<div class='stagehead'>⭐ 星屑ショップ（所持 "+fmt(S.dust)+")</div>" + dustBody;
       h += foldSec("prestige", false, "🏢 EXIT（事業売却） ・ ⭐ 星屑ショップ", "星屑 +"+pv.gain+" 個ぶん", preBody);
@@ -647,7 +647,7 @@ function renderPanel(){
         GENRES.map(g => "<button onclick='setDevGenrePref(\"" + g.id + "\")'" + (S.devGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button>").join(" ") + "</div>";
       if((S.ips || []).length){
         trBody += "<div class='stagehead'>🏷 自社IP（" + S.ips.length + " / 3）</div>" + S.ips.map(ip =>
-          kv("『" + ip.name + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
+          kv("『" + esc(ip.name) + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }
@@ -692,10 +692,10 @@ function renderPanel(){
     /* IA: 作品は背表紙カードのグリッドで (1行リストの縦伸びを解消) */
     h += "<div class='shelfgrid'>";
     for(const w of S.shelf){
-      h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+w.name+"』</span></div>"+
-        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+w.genreName+"</span><span class='tagchip'>"+w.size+"</span>"+(w.line2?"<span class='tagchip'>🏭 第2ライン</span>":"")+"</div>"+
-        (w.highlight ? "<div class='wc-hl'>✨ "+w.highlight+"</div>" : "")+
-        "<div class='wc-stats'>"+w.date+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
+      h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+esc(w.name)+"』</span></div>"+
+        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.line2?"<span class='tagchip'>🏭 第2ライン</span>":"")+"</div>"+
+        (w.highlight ? "<div class='wc-hl'>✨ "+esc(w.highlight)+"</div>" : "")+
+        "<div class='wc-stats'>"+esc(w.date)+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
     }
     h += "</div>";
   }
@@ -704,15 +704,15 @@ function renderPanel(){
       (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "。大型案件とティア3には<b>納期</b>があります（過ぎるとボーナス消滅）</div>";
     if(S.bigDeal){
       const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
-      h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + bd.client + "</span>" +
-        "<div class='ds'>「" + bd.genreName + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
+      h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + esc(bd.client) + "</span>" +
+        "<div class='ds'>「" + esc(bd.genreName) + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
         "<span><button class='primary' onclick='acceptBigDeal()' " + (S.activeRequest ? "disabled" : "") + ">受ける</button> " +
         "<button onclick='declineBigDeal()'>見送る</button></span></div></div>";
     }
     if(S.activeRequest){
       const r = S.activeRequest;
-      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + r.client + "</span>" +
-        "<div class='ds'>次の作品（" + r.genreName + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
+      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + esc(r.client) + "</span>" +
+        "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
         (r.repName ? " ・ 担当: " + r.repName : "") +
@@ -720,7 +720,7 @@ function renderPanel(){
         "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";
     }
     S.requests.forEach((r,i)=>{
-      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + r.client + "</span><div class='ds'>" + r.text + "</div></div>" +
+      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + esc(r.client) + "</span><div class='ds'>" + esc(r.text) + "</div></div>" +
         "<button onclick='acceptRequest(" + i + ")' " + (S.activeRequest && S.activeRequest.big ? "disabled" : "") + ">受ける</button></div>";
     });
     if(!S.requests.length && !S.activeRequest) h += "<button onclick='genRequests();save();renderPanel()'>依頼を探す</button>";
@@ -788,7 +788,7 @@ function renderPanel(){
         const pr = st.prog(S);
         progTxt = "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
       }
-      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+st.name+(got?"<br><small>"+got+"</small>":progTxt)+"</span>";
+      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
     }
     const totalsHTML = kv("タイピング", fmt(T.keys)+" 回") + kv("カーソル移動", (T.cursorPx/3779/1000).toFixed(2)+" km") +
       kv("コード", fmt(T.lines)+" 行") + kv("叩いたバグ", fmt(T.bugsSquashed)+" 匹") +
