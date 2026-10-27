@@ -167,7 +167,9 @@ function sRug(cx, w){
 function stripResize(){
   if(!stripCv) return;
   const w = window.innerWidth || 960, h = window.innerHeight || 210;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  /* 上限 3: 225〜300% の画面でも帯の canvas が窓より小さくならない
+     (2 で頭打ちにすると CSS 側で不均一に拡大されてドットがぼやけていた) */
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
   const pw = Math.max(320, Math.round(w * dpr)), ph = Math.max(80, Math.round(h * dpr));
   if(stripCv.width !== pw) stripCv.width = pw;
   if(stripCv.height !== ph) stripCv.height = ph;
@@ -186,13 +188,28 @@ function sShadow(cx, cy, w){
   sctx.beginPath(); sctx.ellipse(cx, cy, w / 2, 2.6, 0, 0, Math.PI * 2); sctx.fill();
   sctx.restore();
 }
-/* ストリップ用スプライト描画（下端中央アンカー、flip は歩行者用） */
+/* ストリップ用スプライト描画（下端中央アンカー、flip は歩行者用）。
+   帯の倍率 (stripScale) は 1.225 や 1.53 のような半端な値なので、仮想座標で丸めてから
+   拡大すると、ドット1つが 2px だったり 3px だったりして、歩くたびに絵が波打っていた。
+   拡大・平行移動だけの変換なら、デバイス画素の上で位置と大きさを丸めて描く
+   (ホバーの縁取り drawHoverSpriteHalo と同じ方式。大きさの差は最大 0.5px) */
 function sDrawSprite(name, gx, gy, scale, flip?){
   const cv = spriteCache[name];
   if(!cv) return false;
   scale = scale || 1;
   const w = cv.width * scale, h = cv.height * scale;
   sctx.imageSmoothingEnabled = false;
+  const m = typeof sctx.getTransform === "function" ? sctx.getTransform() : null;
+  if(m && m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0){
+    const dw = Math.max(1, Math.round(w * m.a)), dh = Math.max(1, Math.round(h * m.d));
+    const ddx = Math.round(gx * m.a + m.e - dw / 2), ddy = Math.round(gy * m.d + m.f) - dh;
+    sctx.save();
+    if(flip) sctx.setTransform(-1, 0, 0, 1, ddx + dw, ddy);
+    else sctx.setTransform(1, 0, 0, 1, ddx, ddy);
+    sctx.drawImage(cv, 0, 0, dw, dh);
+    sctx.restore();
+    return true;
+  }
   const dx = Math.round(gx - w / 2), dy = Math.round(gy - h);
   if(flip){
     sctx.save();
