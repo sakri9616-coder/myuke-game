@@ -798,7 +798,7 @@ console.log("== Phase A7: sakuri art batch 3 (think/debug anims + new bug) ==");
     run(sb, "Object.keys(window.MIYUKE_SPRITES.palette).length") === 163 &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#F1BF41')") &&
     run(sb, "Object.values(window.MIYUKE_SPRITES.palette).includes('#211711')"));
-  check("game version is v2.6.0", run(sb, "GAME_VERSION") === "v2.6.0");
+  check("game version is v2.6.1", run(sb, "GAME_VERSION") === "v2.6.1");
   check("ANIMS.miyuke_think has 4 frames x 300ms and loops",
     run(sb, "ANIMS.miyuke_think && ANIMS.miyuke_think.frames.length") === 4 &&
     JSON.stringify(run(sb, "ANIMS.miyuke_think.durations")) === "[300,300,300,300]" &&
@@ -2675,7 +2675,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
   /* --- 設定ファイル側の整合（実ファイルを読む） --- */
   const DESK = GAME_HTML.DESK_DIR;
   const conf = JSON.parse(fs.readFileSync(DESK + "src-tauri/tauri.conf.json", "utf8"));
-  check("tauri version is 2.6.0", conf.version === "2.6.0", "got " + conf.version);
+  check("tauri version is 2.6.1", conf.version === "2.6.1", "got " + conf.version);
   check("GAME_VERSION label matches tauri version",
     HTML.includes("const GAME_VERSION = \"v" + conf.version + "\""));
   check("createUpdaterArtifacts enabled", conf.bundle && conf.bundle.createUpdaterArtifacts === true);
@@ -2688,7 +2688,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     JSON.stringify(conf.plugins.updater.endpoints));
   check("bundle identifier unchanged (save location stable)", conf.identifier === "jp.muse.miyuke");
   const cargo = fs.readFileSync(DESK + "src-tauri/Cargo.toml", "utf8");
-  check("Cargo.toml version is 2.6.0", /^version = "2\.6\.0"$/m.test(cargo));
+  check("Cargo.toml version is 2.6.1", /^version = "2\.6\.1"$/m.test(cargo));
   check("Cargo.toml has updater + process plugins",
     cargo.includes("tauri-plugin-updater") && cargo.includes("tauri-plugin-process"));
   const mainRs = fs.readFileSync(DESK + "src-tauri/src/main.rs", "utf8");
@@ -2712,7 +2712,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
       html.includes("アップデート") && html.includes("利用できません"));
     check("browser: strip update chip is removed (Stage 3: toolbox ribbon instead)",
       !HTML.includes('id="strip-upd"') && !HTML.includes('id="strip-hud"'));
-    check("browser: GAME_VERSION is v2.6.0", run(sb, "GAME_VERSION") === "v2.6.0");
+    check("no updater: GAME_VERSION is v2.6.1", run(sb, "GAME_VERSION") === "v2.6.1");
   }
 
   /* --- 偽 Updater: 新版あり → チップ/カード表示 → DL → 再起動導線 --- */
