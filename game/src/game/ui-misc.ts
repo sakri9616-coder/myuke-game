@@ -41,42 +41,6 @@ function staffPortrait(coat){
   if(url) return "<img src='" + url + "' alt='" + (COAT_NAMES[coat] || "") + "'>";
   return "<span class='coatdot big' style='background:" + ((COAT_COLORS[coat] || {}).body || "#ccc") + "'></span>";
 }
-/* 実績ボード: 段（工程・設備・会社・みゅけ）ごとにカードを並べる。
-   絵は既存スプライトをそのまま使い、未取得は CSS でシルエットにする（新たに描かない） */
-function stampProg(st){
-  if(!st.prog) return null;
-  const pr = st.prog(S);
-  return [Math.max(0, Math.min(pr[0], pr[1])), pr[1]];
-}
-function trophyCardHTML(st){
-  const got = S.stamps[st.id];
-  const url = st.icon ? spriteURL(st.icon) : "";
-  /* 絵の大きさをそろえる: 小さい 16px アイコンは整数倍で拡大（ドット絵を崩さない） */
-  const cv = spriteCache[st.icon], k = cv ? Math.max(1, Math.floor(52 / Math.max(cv.width, cv.height))) : 1;
-  const art = url ? "<img src='" + url + "' alt=''" + (cv ? " width='" + cv.width * k + "' height='" + cv.height * k + "'" : "") + ">" : "<span class='tc-emoji'>" + (got ? "🏅" : "🔒") + "</span>";
-  let sub = got ? "<div class='tc-sub'>" + esc(String(got)) + "</div>" : "<div class='tc-sub'>" + esc(st.hint || "") + "</div>";
-  const pr = got ? null : stampProg(st);
-  if(pr) sub += "<div class='meter'><i style='width:" + Math.floor(pr[0] / pr[1] * 100) + "%'></i></div><div class='tc-sub'>" + fmt(pr[0]) + " / " + fmt(pr[1]) + "</div>";
-  return "<div class='tcard " + (got ? "got" : "lock") + "' title='" + esc(st.hint || "") + "'><div class='tc-art'>" + art + "</div>" +
-    "<div class='tc-nm'>" + (got ? "" : "🔒 ") + esc(st.name) + "</div>" + sub + "</div>";
-}
-function trophyBoardHTML(){
-  const all = STAMP_DEFS, got = all.filter(st => S.stamps[st.id]).length;
-  let h = "<h3>🏅 実績ボード</h3>" + condBarsHTML([["🏅", got, all.length, "集めた実績"]]);
-  /* もうすぐ取れそうなもの（進捗のある未取得を近い順に3つ） */
-  const near = all.filter(st => !S.stamps[st.id] && st.prog)
-    .map(st => ({ st, f: (p => p[0] / p[1])(stampProg(st)) })).filter(x => x.f > 0)
-    .sort((a, b) => b.f - a.f).slice(0, 3);
-  if(near.length) h += "<h3 style='margin-top:12px'>🎯 もうすぐ</h3><div class='tboard'>" + near.map(x => trophyCardHTML(x.st)).join("") + "</div>";
-  for(const c of STAMP_CATS){
-    const list = all.filter(st => st.cat === c.id);
-    if(!list.length) continue;
-    const n = list.filter(st => S.stamps[st.id]).length;
-    h += "<h3 style='margin-top:12px'>" + c.icon + " " + c.name + " <span class='lvbadge'>" + n + " / " + list.length + "</span></h3>" +
-      "<div class='tboard'>" + list.map(trophyCardHTML).join("") + "</div>";
-  }
-  return h;
-}
 function kv(k,v){ return "<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>"; }
 function togglePause(){ S.settings.pauseInput = !S.settings.pauseInput; save(); renderPanel(); }
 /* Sprint 2: サウンド設定。トグルは現在の実効状態を反転して明示保存する

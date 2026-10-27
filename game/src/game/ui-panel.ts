@@ -791,10 +791,16 @@ function renderPanel(){
       statBlock("📝 コミット", fmt(t.commits), "回") +
       statBlock("🎉 リリース", fmt(t.releases), "作品") +
       "</div>";
-    {
-      const got = STAMP_DEFS.filter(st => S.stamps[st.id]).length;
-      h += "<div class='item buy slim'><div><span class='sock'>🏅</span><span class='nm'>実績</span> <span class='lvbadge'>" + got + " / " + STAMP_DEFS.length + "</span>" +
-        "<div class='ds'>集めた実績は実績ボードに並びます</div></div><button onclick='switchTab(\"trophy\")'>ボードを見る</button></div>";
+    h += "<h3 style='margin-top:12px'>🏅 実績スタンプ</h3>";
+    for(const st of STAMP_DEFS){
+      const got = S.stamps[st.id];
+      /* Sprint 4: 未取得スタンプにも進捗 (現在値/目標) を出す (C2-P2-7) */
+      let progTxt = "";
+      if(!got && st.prog){
+        const pr = st.prog(S);
+        progTxt = "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
+      }
+      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
     }
     const totalsHTML = kv("タイピング", fmt(T.keys)+" 回") + kv("カーソル移動", (T.cursorPx/3779/1000).toFixed(2)+" km") +
       kv("コード", fmt(T.lines)+" 行") + kv("叩いたバグ", fmt(T.bugsSquashed)+" 匹") +
@@ -804,7 +810,6 @@ function renderPanel(){
       kv("一緒にいた時間", Math.round(T.playSec/60)+" 分");
     h += foldSec("totals", false, "📈 通算の記録", "リリース "+fmt(T.releases)+" 作品 ・ "+Math.round(T.playSec/60)+" 分", totalsHTML);
   }
-  if(currentTab === "trophy") h += trophyBoardHTML();
   if(currentTab === "settings"){
     h += "<h3>⚙️ 設定</h3>";
     /* IA: プライバシーの約束は1行に圧縮して常設 (信頼情報なので畳まない) */
