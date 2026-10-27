@@ -35,17 +35,31 @@ function drawSizeByTime(scale = 1){
   S.bigDrawStreak = (BAL.sizes[size] / rate > 150) ? S.bigDrawStreak + 1 : 0;
   return size;
 }
-/* ---------- 企画を練る（2026-10-27・工程中心化）----------
-   余ったアイデアを、進行中の作品の企画に注ぎ込む。企画Lv 1つにつき
-   作品の価格 +15%・その作品のバグ混入 -15%（仕様が固まるほどテストが楽になる）。
-   最大 Lv3、練れるのは進捗が半分に届くまで。費用は作品の大きさに比例し、
-   Lv が上がるほど重い（totalDP/20 × 次のLv）。どの作品に練り込むかを選ぶのが判断になる */
+/* ---------- 企画を練る（2026-10-27・工程中心化 → 同日 企画会議に作り直し）----------
+   進行中の作品の企画を練り直す。企画Lv 1つにつき作品の価格 +20%（PLAN_PRICE_STEP）・その作品のバグ混入 -15%
+   （仕様が固まるほどテストが楽になる）。最大 Lv3、練れるのは進捗が半分に届くまで。
+   代価は「企画会議」: 練っている間（この作品の実装時間の PLAN_TIME_FRAC ぶん）は、そのラインの
+   自動の実装が止まる（応援クリックと後工程は止まらない）。
+   ・実装が律速のときに練ると、出荷がそのぶん遅れて割に合わない
+   ・後工程が詰まって仕掛品が溜まっているときに練ると、後工程は溜まった分で回り続けるので丸得
+   どちらかを帯の工程ランプと仕掛品の山で読んで決めるのが遊びになる（sakuri「押さないメリットが
+   ないため作業でしかない」への対応。旧仕様はアイデアが常に余るので、押さない理由がなかった）。
+   アイデアの費用は従来どおり（totalDP/20 × 次のLv。桁は掛けない） */
 const PLAN_MAX = 3;
+const PLAN_TIME_FRAC = 0.2;   /* 会議の長さ = この作品の実装時間 × 0.2。実装律速で練ると損、後工程の詰まり中に練ると得になる大きさ（sim の方針比較） */
+const PLAN_PRICE_STEP = 0.2;   /* 企画Lv 1つの価格の上がり幅 */
 function planLv(p){ return (p && p.planLv) || 0; }
 function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
-function planPriceMult(p){ return 1 + 0.15 * planLv(p); }
+function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
-function canPlan(p, dp){ return !!p && p.size !== "TUT" && planLv(p) < PLAN_MAX && dp < p.totalDP * 0.5; }
+function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && !inPlanMeet(p) && planLv(p) < PLAN_MAX && dp < p.totalDP * 0.5; }
+function inPlanMeet(p){ return !!p && (p.planMeetSec || 0) > 0; }
+/* 会議の長さ（秒）: いまの実装速度でこの作品を作り切る時間の PLAN_TIME_FRAC。30秒〜20分 */
+function planMeetDurSec(p, l2){
+  const rate = Math.max(1, l2 ? line2Rate() : productionRate());
+  return Math.round(Math.min(1200, Math.max(30, PLAN_TIME_FRAC * p.totalDP / rate * 60)));
+}
+function fmtMinSec(sec){ const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return m + ":" + (s < 10 ? "0" : "") + s; }
 function planProject(which){
   const l2 = which === "l2";
   const p = l2 ? S.line2.project : S.project;
@@ -55,8 +69,11 @@ function planProject(which){
   if(S.ideas < cost){ say("アイデアが足りないにゃ（あと " + Math.ceil(cost - S.ideas) + " 個）"); return; }
   S.ideas -= cost;
   p.planLv = planLv(p) + 1;
-  addLog("💡 『" + p.name + "』の企画を練った（企画Lv" + p.planLv + "・価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "）");
-  say("企画を練ったにゃ！ いい作品になりそう");
+  const dur = planMeetDurSec(p, l2);
+  p.planMeetSec = dur;
+  addLog("💡 『" + p.name + "』の企画会議（企画Lv" + p.planLv + "・価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * p.planLv) + "%）。" + fmtMinSec(dur) + " のあいだ実装を止めて練る（アイデア-" + cost + "）");
+  if(!l2){ setState("think", 4000); }
+  say("企画会議にゃ！ " + fmtMinSec(dur) + " だけ実装を止めて、じっくり練るよ");
   save(); renderPanel();
 }
 /* プロジェクトの着工可否を決める: アイデアが足りれば消費して着工、
