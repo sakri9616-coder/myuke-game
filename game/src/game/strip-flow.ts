@@ -92,11 +92,12 @@ function spawnFeatNote(line){
   const bw = small ? STRIP_BOARD.w2 : STRIP_BOARD.w;
   const bx = Math.round(bcx - bw / 2);
   const slot = Math.max(0, (p.doneFeats || 1) - 1);
-  /* 着地点: 小型ボードは上枠の付箋列、リーダーボードは完成した feat チップそのもの */
+  /* 着地点: 小型ボードは上枠の付箋列、リーダーボードは進捗バー上のその機能の節目 */
   let tx1 = bx + 20.5 + slot * 6.5, ty1 = STRIP_BOARD.top + 5;
-  if(!small){
-    const chips = featChipRects(p, bx + 2.5, STRIP_BOARD.w - 5);
-    if(chips[slot]){ tx1 = chips[slot].x + chips[slot].w / 2 - 2.5; ty1 = STRIP_BOARD.top + 40; }
+  if(!small && p.feats && p.feats.length){
+    const bar = mainBoardBar(bx);
+    tx1 = bar.x + Math.round(bar.w * (slot + 1) / (p.feats.length + 1)) - 2.5;
+    ty1 = bar.y - 1;
   }
   stripFlow.push({ kind: "note", line,
     col: FLOW_CARD_COLS[slot % FLOW_CARD_COLS.length],

@@ -9,7 +9,13 @@
    支柱は細い標識柱で、棚の柵柱と同じ視覚重量級。歩行者・みゅけ・吹き出しは
    常にボードより手前に描かれる (R2)。中身の算数はメニューのヒーローカードと
    同一: frac = projectDP/totalDP、% は floor、目盛りは k/(feats+1) の節目位置 */
-const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108 };
+/* hMain: メインボードの高さ。机に座ったみゅけの耳 (y≒48) より上で収まる 44 にして、
+   ボードの文字が彼女の頭や椅子の背に隠れないようにする (2026-10-27 整理。旧 64) */
+const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108, hMain: 44 };
+/* メインボードの進捗バーの位置 (描画と付箋アニメの着地点で共有) */
+function mainBoardBar(bx){
+  return { x: bx + 4, y: STRIP_BOARD.top + 19.5, w: STRIP_BOARD.w - 8, h: 7.5 };
+}
 /* ボードの吊りメモ札（幅150）。はみ出す文は … で切る */
 function drawStripMemoTag(mx0, my0, memoTxt, width?){
   const mw = width || 150;
@@ -20,19 +26,19 @@ function drawStripMemoTag(mx0, my0, memoTxt, width?){
   sctx.save();
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
-  let mt = memoTxt;
-  if(sctx.measureText(mt).width > mw - 10){
-    /* 末尾の「（あと 28🪙）」のような括弧書きは、目的の達成に要る数字なので残し、
-       前半を … で詰める */
-    const open = mt.lastIndexOf("（");
-    const tail = (open > 0 && mt.endsWith("）")) ? mt.slice(open) : "";
-    let head = tail ? mt.slice(0, open) : mt;
-    while(head.length > 1 && sctx.measureText(head + "…" + tail).width > mw - 13) head = head.slice(0, -1);
-    mt = head + "…" + tail;
-  }
-  sctx.fillText(mt, mx0 + 5, my0 + 8.4);
+  sctx.fillText(fitMemoText(memoTxt, mw - 10), mx0 + 5, my0 + 8.4);
   sctx.restore();
   stripHitRects.memo = { x: mx0, y: my0, w: mw, h: 16 };
+}
+/* メモ文を幅 maxW に収める (現在の sctx.font で測る)。末尾の「（あと 28🪙）」のような
+   括弧書きは、目的の達成に要る数字なので残し、前半を … で詰める */
+function fitMemoText(mt, maxW){
+  if(sctx.measureText(mt).width <= maxW) return mt;
+  const open = mt.lastIndexOf("（");
+  const tail = (open > 0 && mt.endsWith("）")) ? mt.slice(open) : "";
+  let head = tail ? mt.slice(0, open) : mt;
+  while(head.length > 1 && sctx.measureText(head + "…" + tail).width > maxW - 3) head = head.slice(0, -1);
+  return head + "…" + tail;
 }
 function projectBoardModel(p, dp){
   if(!p) return { has: false, frac: 0, pct: -1, ticks: [], planning: false };
@@ -47,35 +53,9 @@ function projectBoardModel(p, dp){
   for(let k = 1; k <= n; k++) ticks.push(k / (n + 1));
   return { has: true, frac, pct: Math.floor(frac * 100), ticks, planning: false };
 }
-/* リーダーボードの feat チップ配置 (描画と付箋アニメの着地点で共有)。
-   帯のメインボード = プロジェクトボード × メニューのヒーローカードの統合
-   (2026-10-25 sakuri: 同じ機能はリーダーボード状の1枚にまとめる) */
-function featChipRects(p, ix, iw){
-  if(!p || !p.feats || !p.feats.length) return [];
-  sctx.save();
-  sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  let maxLen = Math.max(...p.feats.map(f => f.length));
-  const build = () => p.feats.map((f, k) => {
-    let nm = f;
-    if(nm.length > maxLen) nm = nm.slice(0, maxLen) + "…";
-    const label = (k < p.doneFeats ? "✅ " : "⬜ ") + nm;
-    return { label, w: sctx.measureText(label).width + 9, done: k < p.doneFeats };
-  });
-  let chips = build();
-  let total = chips.reduce((a, c) => a + c.w, 0) + (chips.length - 1) * 3;
-  while(total > iw - 3 && maxLen > 2){
-    maxLen--;
-    chips = build();
-    total = chips.reduce((a, c) => a + c.w, 0) + (chips.length - 1) * 3;
-  }
-  let x = ix + 1.5;
-  for(const c of chips){ c.x = x; x += c.w + 3; }
-  sctx.restore();
-  return chips;
-}
 function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   const G = STRIP_GROUND, top = STRIP_BOARD.top;
-  const bh = small ? STRIP_BOARD.h : 64;   /* メインはリーダーボード (204×64) */
+  const bh = small ? STRIP_BOARD.h : STRIP_BOARD.hMain;
   const bx = Math.round(bcx - bw / 2);
   const m = projectBoardModel(p, dp);
   /* 詰まりの視覚信号はボードが担う (帯の ⚠ はここが一目で読める形)。
@@ -91,7 +71,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   /* ボード面: tier 0 は木枠 + 紙面。tier>=1 のメインはワイドカンバン面
      (prop_kanban_wide 204×64・全面クリアに生地の行を描く)。小型ボードは木枠 */
   const ix = bx + 2.5, iy = top + 2.5, iw = bw - 5, ih = bh - 5;
-  const wideFace = !small && officeTier(S) >= 1 && sDrawSprite("prop_kanban_wide", bcx, top + bh, 1);
+  const wideFace = !small && officeTier(S) >= 1 && sDrawSpriteStretchV("prop_kanban_wide", bcx, top + bh, bh, 4);
   if(!wideFace){
     sR(bx, top, bw, bh, "#8a6a44");
     sR(bx, top, bw, 1.6, "#cfa06a");
@@ -144,28 +124,30 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     stripHitRects[key] = { x: bx, y: top, w: bw, h: bh };
     return;
   }
-  /* ===== リーダーボード (メイン): ヒーローカードの全行をボードの面に ===== */
+  /* ===== リーダーボード (メイン) =====
+     2026-10-27 整理 (sakuri:「情報量がごちゃごちゃ」): 帯から一目で読むべきものだけを
+     3行に残し、細部はメニューのヒーローカード (クリックで開く) に任せる。
+       r1: 進捗 % (主役の数字は1つだけ) + 『作品名』 + ジャンル (詰まり時は ⚠)
+       r2: 太い進捗バー (節目の目盛り付き)
+       r3: 左 = いま気にすること1つ / 右 = 集中力メーター + コイン
+     ボードから外したもの: 説明文・DP 実数・規模ピル・機能チップ列・生産 +N%・QA・
+     バグ在庫 (どれもメニューに同じ表示がある)。吊りメモとコイン札はボードの中へ */
   sctx.save();
   sctx.textAlign = "left"; sctx.textBaseline = "middle";
-  /* r1: 大 % + 『作品名』 + 右端にジャンル/規模ピル (詰まり時は ⚠ プレート) */
+  /* r1: 大 % + 『作品名』 + 右端にジャンルピル (詰まり時は ⚠ プレート) */
   sctx.font = "700 19px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.fillStyle = bn ? "#d9534f" : "#4a3b2c";
   const pctTxt = m.planning ? "💡" : (!m.has ? "—" : Math.round(m.frac * 100) + "%");
-  sctx.fillText(pctTxt, ix + 16.5, iy + 9);
+  sctx.fillText(pctTxt, ix + 16.5, iy + 8.5);
   const pctW = sctx.measureText(pctTxt).width;
   if(p){
-    /* 右端スロット: ピル2つ (幅を測って名前の上限を決める) */
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    /* 規模だけを出す (必要 DP は2行目の「現在 / 必要 DP」と重複していて、作品名が
-       1〜2文字まで削られていた) */
-    const sizeTxt = sizeLabel(p.size);
-    const sizeW = sctx.measureText(sizeTxt).width + 6;
     /* 第2ウェーブ L: ジャンルピルに市場の流れと IP 指定を足す */
     const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") : "";
     const genreW = genreTxt ? sctx.measureText(genreTxt).width + 6 : 0;
-    const slotW = bn ? 15 : sizeW + (genreW ? genreW + 3 : 0);
+    const slotW = bn ? 15 : genreW;
     const nameLim = ix + iw - 3 - slotW;
-    let nx = ix + 16.5 + pctW + 5;
+    const nx = ix + 16.5 + pctW + 5;
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
     let nm = "『" + p.name + "』";
@@ -174,98 +156,73 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       while(cut.length > 1 && nx + sctx.measureText("『" + cut + "…』").width > nameLim) cut = cut.slice(0, -1);
       nm = "『" + cut + "…』";
     }
-    sctx.fillText(nm, nx, iy + 9);
+    sctx.fillText(nm, nx, iy + 8.5);
     if(bn){
-      sR(ix + iw - 13.5, iy + 1, 11, 11, "#e2543e");
+      sR(ix + iw - 13.5, iy + 2, 11, 11, "#e2543e");
       sctx.font = "700 9.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.textAlign = "center"; sctx.fillStyle = "#fff5e6";
-      sctx.fillText("⚠", ix + iw - 8, iy + 7);
+      sctx.fillText("⚠", ix + iw - 8, iy + 8);
       sctx.textAlign = "left";
-    } else {
-      let px2 = ix + iw - 3 - sizeW;
-      sR(px2, iy + 3, sizeW, 11.5, "#e8dcc4");
+    } else if(genreW){
+      const gx = ix + iw - 3 - genreW;
+      sR(gx, iy + 2.5, genreW, 11.5, col);
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-      sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "center";
-      sctx.fillText(sizeTxt, px2 + sizeW / 2, iy + 8.8);
-      if(genreW){
-        px2 -= genreW + 3;
-        sR(px2, iy + 3, genreW, 11.5, col);
-        sctx.fillStyle = "#fff5e6";
-        sctx.fillText(genreTxt, px2 + genreW / 2, iy + 8.8);
-      }
-      sctx.textAlign = "left";
-    }
-    /* r2: 説明文 (企画中は着工までの案内) */
-    sctx.font = "7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    sctx.fillStyle = "#8a6a44";
-    let r2 = "";
-    if(m.planning) r2 = "💡 企画中： アイデア あと " + Math.max(0, (p.ideaCost || 0) - Math.floor(S.ideas)) + " 個で着工（必要 " + (p.ideaCost || 0) + " 個）";
-    else if(p.desc) r2 = p.desc;
-    /* r2 右端: 進捗 DP 実数 + 生産 +N% (集中力 redesign の表示移設先。r5 中央は
-       机のみゅけの頭に隠れるため、説明行の空いた右へ置く — DP 実数と同じ前例。
-       企画中は生産が発生しないため DP 実数と同じ !planning ゲートに載せる) */
-    const dpTxt = !m.planning ? "📈 " + fmt(Math.floor(dp)) + " / " + fmt(p.totalDP) + " DP" : "";
-    const prodTxt = !m.planning ? "生産 +" + Math.round((concProdMult() - 1) * 100) + "%" : "";
-    if(r2){
-      let lim = iw - 6;
-      if(!m.planning) lim -= sctx.measureText(dpTxt).width + 7 + sctx.measureText(prodTxt).width + 7;
-      if(sctx.measureText(r2).width > lim){   /* 切ったことが分かるよう … を付ける */
-        while(r2.length > 1 && sctx.measureText(r2 + "…").width > lim) r2 = r2.slice(0, -1);
-        r2 += "…";
-      }
-      sctx.fillText(r2, ix + 2, iy + 20.5);
-    }
-    if(!m.planning){
-      sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-      sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "right";
-      sctx.fillText(prodTxt, ix + iw - 3 - sctx.measureText(dpTxt).width - 7, iy + 20.5);
-      sctx.fillText(dpTxt, ix + iw - 3, iy + 20.5);
+      sctx.fillStyle = "#fff5e6"; sctx.textAlign = "center";
+      sctx.fillText(genreTxt, gx + genreW / 2, iy + 8.3);
       sctx.textAlign = "left";
     }
   }
-  /* r3: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */
-  const barX = ix + 1.5, barW = iw - 3, barY = iy + 26.5, barH = 7.5;
-  sR(barX - 0.8, barY - 0.8, barW + 1.6, barH + 1.6, "#604B40");
-  sR(barX, barY, barW, barH, "#101d16");
+  /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */
+  const bar = mainBoardBar(bx);
+  sR(bar.x - 0.8, bar.y - 0.8, bar.w + 1.6, bar.h + 1.6, "#604B40");
+  sR(bar.x, bar.y, bar.w, bar.h, "#101d16");
   if(m.frac > 0)
-    sR(barX, barY, Math.max(1, barW * m.frac), barH, bn ? "#e2543e" : (m.planning ? "#ffd94d" : "#7be495"));
-  for(const t of m.ticks) sR(barX + Math.round(barW * t), barY, 1.2, barH, "#fff3b0");
-  /* r4: feat チップ列 (ヒーローの featchip そのまま: ✅/⬜ + 名前) */
-  if(p && !m.planning && p.feats && p.feats.length){
-    const chips = featChipRects(p, ix, iw);
-    sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    sctx.textAlign = "center";
-    for(const c of chips){
-      sR(c.x, iy + 37.5, c.w, 10.5, c.done ? "#7be495" : "#f3e7cd");
-      sR(c.x, iy + 37.5, c.w, 1, c.done ? "#4da868" : "#d8c9ae");
-      sctx.fillStyle = "#4a3b2c";
-      sctx.fillText(c.label, c.x + c.w / 2, iy + 42.8);
-    }
-    sctx.textAlign = "left";
-  }
-  /* r5: 集中力 + 進捗DP + QA + バグ在庫 (ヒーローの concrow / chiprow) */
+    sR(bar.x, bar.y, Math.max(1, bar.w * m.frac), bar.h, bn ? "#e2543e" : (m.planning ? "#ffd94d" : "#7be495"));
+  for(const t of m.ticks) sR(bar.x + Math.round(bar.w * t), bar.y, 1.2, bar.h, "#fff3b0");
+  /* r3 右から: コイン札 → 集中力メーター (数字ではなく残量で見せる) */
+  const ry = iy + 27, rh = 11, rcy = ry + rh / 2 + 0.3;
+  sctx.font = "700 8px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  const coinTxt = "🪙 " + fmt(Math.floor(S.coins));
+  const coinW = Math.max(36, sctx.measureText(coinTxt).width + 9);
+  const coinX = ix + iw - 1.5 - coinW;
+  sR(coinX, ry, coinW, rh, "#8a6a44");
+  sR(coinX + 1, ry + 1, coinW - 2, rh - 2, "#d9b23a");
+  sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "center";
+  sctx.fillText(coinTxt, coinX + coinW / 2, rcy);
+  sctx.textAlign = "left";
+  const concW = 18, concX = coinX - 4 - concW;
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  const ry = iy + 52.5;
-  const conc = Math.round(S.concentration);
-  sctx.fillStyle = "#4a3b2c";
-  sctx.fillText("🧠 集中力", ix + 2, ry);
-  const cbX = ix + 2 + sctx.measureText("🧠 集中力").width + 3;
-  sR(cbX, ry - 2.7, 30, 5.4, "#604B40");
-  sR(cbX + 1, ry - 1.6, 28 * Math.max(0, Math.min(100, conc)) / 100, 3.2, "#5aa4c2");
-  sctx.fillText(conc + "%", cbX + 33, ry);
-  let mx = cbX + 33 + sctx.measureText(conc + "%").width + 7;
-  if(p && !m.planning && bn){
-    sctx.fillStyle = "#d9534f";
-    sctx.fillText("⚠ 詰まりは第" + bnAll.line + "ライン", mx, ry);
-  }
-  if(p && !m.planning){
-    sctx.textAlign = "right";
-    const bugTxt = "🐛 " + fmt(Math.floor(S.bugStock));
-    sctx.fillStyle = S.bugStock > 0 ? "#d9534f" : "#4a3b2c";
-    sctx.fillText(bugTxt, ix + iw - 3, ry);
+  const brainW = sctx.measureText("🧠").width;
+  sctx.fillText("🧠", concX - brainW - 1.5, rcy);
+  const conc = Math.max(0, Math.min(100, S.concentration)) / 100;
+  sR(concX, ry + 3, concW, 5, "#604B40");
+  if(conc > 0) sR(concX + 1, ry + 4, Math.max(1, (concW - 2) * conc), 3, "#5aa4c2");
+  /* r3 左: いま気にすること1つ (企画中の案内 > メモ > 詰まり > 次の機能) */
+  const lx = ix + 1.5, lw = concX - brainW - 5 - lx;
+  const memoTxt = stripMemoText();
+  const memoHere = memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo";
+  if(p && m.planning){
+    sctx.fillStyle = "#8a6a44";
+    sctx.fillText(fitMemoText("💡 アイデア あと " + Math.max(0, (p.ideaCost || 0) - Math.floor(S.ideas)) + " 個で着工", lw), lx, rcy);
+  } else if(memoHere){
+    /* 吊りメモはボードの中の付箋に (クリック先・大型案件の金色の明滅は従来どおり) */
+    const memoGold = !!S.bigDeal;
+    sR(lx, ry, lw, rh, memoGold ? "#d9a41a" : "#d8c9ae");
+    sR(lx + 1, ry + 1, lw - 2, rh - 2, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#f3e7cd");
+    sR(lx + 3, ry + 3.5, 3, 3, "#e2543e");
     sctx.fillStyle = "#4a3b2c";
-    sctx.fillText("🔍 QA " + qaRate().toFixed(1) + "/分", ix + iw - 3 - sctx.measureText(bugTxt).width - 7, ry);
-    sctx.textAlign = "left";
+    sctx.fillText(fitMemoText(memoTxt, lw - 10), lx + 8, rcy);
+    stripHitRects.memo = { x: lx, y: ry, w: lw, h: rh };
+  } else if(p && bn){
+    sctx.fillStyle = "#d9534f";
+    sctx.fillText("⚠ 第" + bnAll.line + "ラインが詰まり中", lx, rcy);
+  } else if(p && p.feats && p.feats.length){
+    const done = Math.min(p.doneFeats || 0, p.feats.length);
+    const txt = done < p.feats.length
+      ? "▸ 次の機能：" + p.feats[done] + "（" + done + "/" + p.feats.length + "）"
+      : "▸ 仕上げ中（" + done + "/" + p.feats.length + "）";
+    sctx.fillStyle = "#8a6a44";
+    sctx.fillText(fitMemoText(txt, lw), lx, rcy);
   }
   sctx.restore();
   /* Wave H: モジュールチップ列（ボード右側に吊るす縦タグ — ボード下は
@@ -315,9 +272,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     }
     sctx.restore();
   }
-  /* Stage 3: ボードに付く小物 — 電話 (スタッフ) と真鍮タグ (コイン残高・表示のみ)。
+  /* Stage 3: ボードに付く小物 — 電話 (スタッフ)。コイン残高はボード r3 の札に移した。
      Phase E: 電話は独立した配置項目 (propPlace)。既定ではボード左端についてくるが、
-     ドラッグで切り離せば机や棚の上にも載る。吊りメモは下のブロックで同様に解決 */
+     ドラッグで切り離せば机や棚の上にも載る。メモは切り離した時だけ下のブロックで描く */
   const phonePl = propPlace("phone");
   if(!tutTabLocked("staff") && sDrawSprite("prop_phone", phonePl.cx, phonePl.baseY, 1)){
     stripObjArt.phone = { name: "prop_phone", gx: phonePl.cx, gy: phonePl.baseY, s: 1 };
@@ -329,29 +286,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sR(phonePl.cx + 9.1, phonePl.baseY - 26.6, 1.2, 2.6, "#4a3b2c");
     }
   }
-  const memoTxt = stripMemoText();
-  if(memoTxt && (propEntry("memo") || layoutEdit.dragId === "memo")){
+  const memoDet = stripMemoText();
+  if(memoDet && (propEntry("memo") || layoutEdit.dragId === "memo")){
     /* Phase E: メモを掴んで切り離した姿 — ボードから独立し、地面に立つ札になる */
     const memoPl = propPlace("memo");
-    drawStripMemoTag(memoPl.cx - 75, memoPl.baseY - 16, memoTxt);
-  }
-  if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo"){
-    /* ボードに吊るす時は、右下の真鍮タグ (コイン残高) に重ならない幅にする
-       (以前は末尾 22 単位がタグの下に隠れ、「あと ○🪙」が読めなかった) */
-    const tagX0 = bx + bw - 4 - 68, mw = tagX0 - (bx + 4) - 4;
-    sR(bx + 14, top + bh - 1, 2, 3, "#604B40"); sR(bx + 4 + mw - 14, top + bh - 1, 2, 3, "#604B40");
-    drawStripMemoTag(bx + 4, top + bh + 2, memoTxt, mw);
-  }
-  {
-    const tw = 68, tx0 = bx + bw - 4 - tw, ty0 = top + bh + 2;
-    sR(bx + bw - 18, top + bh - 1, 2, 3, "#604B40");
-    sR(tx0, ty0, tw, 16, "#8a6a44");
-    sR(tx0 + 1.5, ty0 + 1.5, tw - 3, 13, "#d9b23a");
-    sctx.save();
-    sctx.font = "700 8.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    sctx.textAlign = "center"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
-    sctx.fillText("🪙 " + fmt(Math.floor(S.coins)), tx0 + tw / 2, ty0 + 8.4);
-    sctx.restore();
+    drawStripMemoTag(memoPl.cx - 75, memoPl.baseY - 16, memoDet);
   }
   stripHitRects[key] = { x: bx, y: top, w: bw, h: bh };
 }

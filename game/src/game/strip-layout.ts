@@ -7,7 +7,7 @@
    ボードと出荷スポットは地面クラスのみ（ボードは幅204で台に載らない、
    出荷は運び屋の行き先が宙に浮かないため） */
 const PROP_DEFS = {
-  board:     { label: "進捗ボード",   w: 204, h: 64, cls: "ground" },
+  board:     { label: "進捗ボード",   w: 204, h: 44, cls: "ground" },   /* h = STRIP_BOARD.hMain (strip-board.ts はこの後に読まれるので数値で持つ) */
   memo:      { label: "つりメモ",     w: 150, h: 16, cls: "ground" },
   phone:     { label: "電話",         w: 24,  h: 24, cls: "small" },
   toolbox:   { label: "工具箱",       w: 24,  h: 24, cls: "small" },
@@ -46,7 +46,8 @@ function propDefaultPlace(id){
     case "coffee": return { cx: stripDeskCX() + 47, baseY: G - 0.5 };
     case "plant": return { cx: stripResearchCX() + 22, baseY: G - 14 };
     case "ship": return { cx: Math.round(stripVW * 0.80), baseY: G };
-    case "memo": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 4 + 75, baseY: STRIP_BOARD.top + 82 };
+    /* 既定ではボード r3 の付箋 (並べ替えで掴む矩形がそこに重なるように) */
+    case "memo": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 4 + 75, baseY: STRIP_BOARD.top + 42 };
   }
   return { cx: stripDeskCX(), baseY: G };
 }
@@ -231,6 +232,26 @@ function sDrawSprite(name, gx, gy, scale, flip?){
   } else {
     sctx.drawImage(cv, dx, dy, w, h);
   }
+  return true;
+}
+/* 縦に伸縮して描く (上下 cap 行の枠はそのまま、中央の行だけを高さ h に合わせる)。
+   中央が一様な看板の地 (prop_kanban_wide) を、原寸と違う高さのボードに使うため */
+function sDrawSpriteStretchV(name, gx, gy, h, cap){
+  const cv = spriteCache[name];
+  if(!cv) return false;
+  const m = typeof sctx.getTransform === "function" ? sctx.getTransform() : null;
+  if(!m || m.b !== 0 || m.c !== 0 || h === cv.height || cv.height <= cap * 2) return sDrawSprite(name, gx, gy, 1);
+  const top = gy - h, x0 = gx - cv.width / 2;
+  const X = (v) => Math.round(v * m.a + m.e), Y = (v) => Math.round(v * m.d + m.f);
+  const dx = X(x0), dw = X(x0 + cv.width) - dx;
+  const y0 = Y(top), y1 = Y(top + cap), y2 = Y(gy - cap), y3 = Y(gy);
+  sctx.save();
+  sctx.imageSmoothingEnabled = false;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.drawImage(cv, 0, 0, cv.width, cap, dx, y0, dw, y1 - y0);
+  sctx.drawImage(cv, 0, cap, cv.width, cv.height - cap * 2, dx, y1, dw, y2 - y1);
+  sctx.drawImage(cv, 0, cv.height - cap, cv.width, cap, dx, y2, dw, y3 - y2);
+  sctx.restore();
   return true;
 }
 /* みゅけを描きつつ、表示矩形をヒットゾーン用に記録する */

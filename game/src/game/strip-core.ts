@@ -222,7 +222,7 @@ function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "board", "board2", "memo", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
+  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
   for(const k of ["bugs", "piles", "staff"]){
     const arr = R[k] || [];
