@@ -209,8 +209,9 @@ const CLICK_DEFS = [
 ];
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
 function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")) * (policyIs("craft") ? 3 : 1); }   /* 経営方針「職人気質」 */
+const CLICK_POWER_BASE = 0.25;   /* てぶくろ Lv0 の威力（持ち場の手助けで「威力の倍率」を測る基準） */
 function clickPower(){
-  const base = 0.25 + 0.18*upEff(S.clickUp, "glove");
+  const base = CLICK_POWER_BASE + 0.18*upEff(S.clickUp, "glove");
   return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ */
 }
 function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.uchiwa||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0

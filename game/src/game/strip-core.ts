@@ -214,7 +214,7 @@ let lastReleasesSeen = -1;
 /* ヒットゾーン式クリック透過用: renderStrip が毎フレーム、見えているものの
    矩形を仮想座標で記録する。publishHitZones が CSS px に変換して Rust へ送り、
    ゾーン外のクリックはデスクトップへ素通しになる（帯の下のアイコンが押せる） */
-let stripHitRects: StripHitRects = { desk: null, miyuke: null, staff: [], duck: null, bubble: null, fish: null, bugs: [], shelf: null, board: null, board2: null, piles: [] };
+let stripHitRects: StripHitRects = { desk: null, miyuke: null, staff: [], duck: null, bubble: null, fish: null, bugs: [], shelf: null, board: null, board2: null, piles: [], stations: [] };
 /* v2.4.6: ホバー中の論理座標 (なければ null) と、黄色枠を出す対象の解決。
    クリック判定と同じ優先順位で、最初に当たった操作可能オブジェクトを返す */
 let stripHover = null;
@@ -222,7 +222,12 @@ function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
+  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "shelf"])
+    if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
+  /* 工程の持ち場はラック・研究机より先（クリックの判定順と同じ。みゅけ本人は除く） */
+  const stI = (R.stations || []).findIndex(r => inR(r));
+  if(stI >= 0 && !inR(R.miyuke)) return { r: R.stations[stI], key: "stations", idx: stI };
+  for(const k of ["phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "miyuke", "desk", "duck"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
   for(const k of ["bugs", "stockBugs", "piles", "staff"]){
     const arr = R[k] || [];

@@ -76,7 +76,10 @@ for (const [n, rows] of Object.entries(BUGS)) VIS_SIZES[n] = [rows[0].length, ro
 /* 詰まった工程の手作業 (research/HANDWORK_ART_ORDER.md): 余白・接地は納品物の描画スクリプトが検査済み。ここでは寸法とパレット */
 const HANDWORK = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-handwork.js'); return g.MIYUKE_ENV_SPRITES_HANDWORK.sprites; })();
 for (const [n, rows] of Object.entries(HANDWORK)) VIS_SIZES[n] = [rows[0].length, rows.length];
-const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name) || Object.hasOwn(BUGS, name) || Object.hasOwn(HANDWORK, name);
+/* 工程の持ち場のブースと手作業 (research/STATION_ART_ORDER.md): 接地・パレットは納品物の描画スクリプトが検査済み。ここでは寸法とパレット */
+const STATION = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-station.js'); return g.MIYUKE_ENV_SPRITES_STATION.sprites; })();
+for (const [n, rows] of Object.entries(STATION)) VIS_SIZES[n] = [rows[0].length, rows.length];
+const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name) || Object.hasOwn(BUGS, name) || Object.hasOwn(HANDWORK, name) || Object.hasOwn(STATION, name);
 function expected(name) {
   if (VIS_SIZES[name]) return VIS_SIZES[name];
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。

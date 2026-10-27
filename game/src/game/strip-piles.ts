@@ -43,27 +43,47 @@ function pileSlotPos(cx, idx, boxKind){
   }
   return { x: cx + (col === 0 ? -5.9 : 5.9), yb: STRIP_GROUND - 3.5 - row * 7.6 };
 }
-/* 2026-10-27（v2.12.1）: 詰まった工程は手作業で押し切れる（sakuri「ボトルネック箇所は、ゴリ押し（クリック）でも
-   解消できるようにしよう。工業的に手動から自動化の流れとして正しい」）。
-   詰まっている山（赤い山・いまの律速工程の手前の山）をクリックすると、みゅけの前足がその工程を手で進める
-   （handworkClick）。山の上では肉球の合図 icon_tap が上下し、作業中は工程ごとの手作業の絵が動く。
-   山の左の三角コーンを押すと、従来どおり設備・人を買う対策パネルが開く（手動 → 自動化） */
-const PILE_HANDWORK_ART = { code: "test", test: "build", build: "ship" };   /* 山 → その山を処理する工程の絵 */
-function pileJammed(m, stage){
-  if(m[stage].red) return true;
-  const bn = currentBottleneck();
-  if(!bn || bn.reason !== "rate") return false;
-  const input = { test: "code", build: "test", ship: "build" }[bn.stage];
-  return input === stage && m[stage].n > 0;
+/* 工程の持ち場（2026-10-27、sakuri の訂正で v2.12.1 の「詰まった山を押す」から作り直し）。
+   企画＝会議室・テスト＝テスト室・ビルド＝ビルド室・出荷＝出荷場のブース（prop_station_*、背景の仕切り壁と道具）を
+   地面に立て、ブースをクリックするとみゅけがその工程を手で進める（handworkClick）。実装の持ち場はみゅけの机。
+   ブースはいつでも押せる。いま詰まっている工程のブースの上では肉球の合図 icon_tap が上下し、手助け中は工程ごとの
+   手作業の絵 fx_handwork_<工程> が動く。詰まった山の左の三角コーンは従来どおり対策パネル（設備・人 = 手動 → 自動化）。
+   ブースの絵が届く前は、今ある台（付箋ボード・QA トレイ・木箱台・出荷台）が持ち場の見た目を担う（コードで代用しない） */
+const STATION_PILE = { test: "code", build: "test", ship: "build" };   /* 持ち場 → 手前に積まれる入力の山 */
+const STATION_BOX = { plan: { w: 48, h: 44 }, test: { w: 48, h: 44 }, build: { w: 48, h: 44 }, ship: { w: 64, h: 48 } };
+function stationCX(stage){
+  if(stage === "plan") return backlogX();
+  if(stage === "test") return stripQAX();
+  if(stage === "build") return stripBuildX();
+  return stripShipX() + 2;
 }
-function drawPileHandwork(stage, cx, cone){
+function stationNeedsHelp(m, stage){
+  if(stage === "plan") return !!(S.project && S.project.planning);
+  const pile = STATION_PILE[stage];
+  if(m[pile].red && m[pile].n > 0) return true;
+  const bn = currentBottleneck();
+  return !!bn && bn.stage === stage && m[pile].n > 0;
+}
+/* ブース本体（家具層のいちばん奥）。絵が無ければ描かない */
+function drawStripStationBooths(){
   const G = STRIP_GROUND;
-  const topY = Math.min(G - 8, pileTopY(stage) - 1);
-  const hw = handworkFx && handworkFx.stage === stage && stripNow - handworkFx.at < 450 ? handworkFx : null;
-  if(hw) sDrawSprite("fx_handwork_" + PILE_HANDWORK_ART[stage] + "_" + (stripNow - hw.at < 220 ? 1 : 0), cx, topY + 2, 1);
-  else sDrawSprite("icon_tap_" + (blinkOn(40, 20) ? 0 : 1), cx, topY - 2, 1);
-  stripHitRects.piles.push({ x: cx - 15, y: Math.min(G - 18, topY - 12), w: 30, h: G - Math.min(G - 18, topY - 12), stage });
-  stripHitRects.piles.push({ x: cone - 6, y: G - 11, w: 12, h: 11, stage, cone: true });
+  for(const st of HANDWORK_STAGES){
+    const nm = "prop_station_" + st;
+    if(hasSprite(nm)) sDrawSprite(nm, stationCX(st), G, 1);
+  }
+}
+/* 手作業の絵・押せる合図・当たり判定（山と信号柱を描いた後） */
+function drawStripStationHelp(m){
+  const G = STRIP_GROUND;
+  for(const st of HANDWORK_STAGES){
+    const cx = stationCX(st), box = STATION_BOX[st];
+    const topY = st === "plan" ? G - 30 : Math.min(G - 8, pileTopY(STATION_PILE[st]) - 1);
+    const hw = handworkFx && handworkFx.stage === st && stripNow - handworkFx.at < 450 ? handworkFx : null;
+    const fxNm = hw ? "fx_handwork_" + st + "_" + (stripNow - hw.at < 220 ? 1 : 0) : null;
+    if(fxNm && hasSprite(fxNm)) sDrawSprite(fxNm, cx, topY + 2, 1);
+    else if(!hw && stationNeedsHelp(m, st)) sDrawSprite("icon_tap_" + (blinkOn(40, 20) ? 0 : 1), cx, topY - 2, 1);
+    stripHitRects.stations.push({ x: cx - box.w / 2, y: G - box.h, w: box.w, h: box.h, stage: st });
+  }
 }
 function drawStripPiles(){
   const G = STRIP_GROUND, m = pileModel();
@@ -71,7 +91,7 @@ function drawStripPiles(){
   const bx = stripQAX();
   /* 2026-10-27: トレイ・台・カードは絵。詰まりは赤線ではなく信号柱 (strip-visible.ts) と
      山の左に置く三角コーンで見せる */
-  const jam = { code: pileJammed(m, "code"), test: pileJammed(m, "test"), build: pileJammed(m, "build") };
+  const jam = { code: stationNeedsHelp(m, "test"), test: stationNeedsHelp(m, "build"), build: stationNeedsHelp(m, "ship") };
   sDrawSprite("prop_qa_tray", bx, G, 1);
   if(jam.code) sDrawSprite("prop_jam_cone", bx - 21, G, 1);
   for(let i = 0; i < m.code.n; i++){
@@ -79,7 +99,7 @@ function drawStripPiles(){
     drawFlowCard(p.x, p.yb - 3.25, 1, false, i * 0.37);
   }
   /* バグ滞留は山の上ではなく、帯の地面を這う在庫バグとして描く (strip-bugs.ts) */
-  if(jam.code) drawPileHandwork("code", bx, bx - 21);
+  if(jam.code) stripHitRects.piles.push({ x: bx - 27, y: G - 11, w: 12, h: 11, cone: true });
   /* --- C: ビルド置き場 (サーバ予定地の足元。木箱台) --- */
   const cxp = stripBuildX();
   sDrawSprite("prop_build_stand", cxp, G, 1);
@@ -88,7 +108,7 @@ function drawStripPiles(){
     const p = pileSlotPos(cxp, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, true, i * 0.53);
   }
-  if(jam.test) drawPileHandwork("test", cxp, cxp - 21);
+  if(jam.test) stripHitRects.piles.push({ x: cxp - 27, y: G - 11, w: 12, h: 11, cone: true });
   /* --- D: 出荷スタック (箱の積み場 + 「出荷」札) --- */
   const dx = stripShipX();
   /* 2026-10-26: prop_ship は Codex 描き直し (48×48・「出荷」の文字も絵の側)。
@@ -114,7 +134,7 @@ function drawStripPiles(){
       if(frame % 6 < 3) sDrawNine("fx_shelf_glow", p.x - 7, p.yb - 15.6, 14, 11.4, 3, 3);
     }
   }
-  if(jam.build) drawPileHandwork("build", dx, dx - 32);
+  if(jam.build) stripHitRects.piles.push({ x: dx - 38, y: G - 11, w: 12, h: 11, cone: true });
 }
 /* 第2ラインのミニフロー: 第2机の天面左端に小さい山2つ (実装/テスト済み) */
 function drawStripLine2Piles(){
@@ -212,7 +232,7 @@ function drawStripEasel(){
   sDrawSprite("prop_easel", ex, G, 1);   /* A字の脚と横木。ポスターを立てかける */
   sDrawSprite("prop_wall_1", ex, G - 10, 0.9);   /* 横木 (原寸 row 17) に立てかける */
 }
-/* トロフィー台（ゾーン E 0.75W, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
+/* トロフィー台（ゾーン E 0.93W・2026-10-27 に出荷場の右へ, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
 function drawStripTrophy(){
   const G = STRIP_GROUND, tx = stripTrophyCX();
   sShadow(tx, G - 0.5, 22);
@@ -248,7 +268,7 @@ function renderStrip(){
   stripHitRects.miyuke = null; stripHitRects.staff = [];
   stripHitRects.duck = null; stripHitRects.bubble = null;
   stripHitRects.fish = null; stripHitRects.bugs = []; stripHitRects.stockBugs = []; stripHitRects.shelf = null;
-  stripHitRects.board = null; stripHitRects.board2 = null; stripHitRects.piles = [];
+  stripHitRects.board = null; stripHitRects.board2 = null; stripHitRects.piles = []; stripHitRects.stations = [];
   stripHitRects.snack = null;
   stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
   stripHitRects.calendar = null; stripHitRects.memo = null; stripHitRects.phone = null;
@@ -265,6 +285,7 @@ function renderStrip(){
   /* --- 家具レイヤー (R3 の固定順: ラグ・影 → 背面物 → 家具本体) ---
      地面は「線」であって「面」にしない (R1): 全幅の地面帯は敷かず、
      ラグは各家具クラスタの下だけ。歩行者はこの後に描くので常に家具の手前 (R2) */
+  drawStripStationBooths();                         /* 工程の持ち場のブース (会議室・テスト室・ビルド室・出荷場)。いちばん奥 */
   drawStripShelf();                                 /* B: 作品棚＋柵 (②背面物+③) */
   if(hasResearcher()) drawStripResearchStation();   /* C: 研究机 */
   if(S.line2.unlocked) drawStripDesk2();            /* D: 第2ライン机 */
@@ -388,6 +409,7 @@ function renderStrip(){
   drawStripPiles();
   drawStripLine2Piles();
   drawStripStationSignals();   /* 工程ごとの信号柱 (緑/黄/赤) */
+  drawStripStationHelp(pileModel());   /* 持ち場の手作業の絵・押せる合図・当たり判定 */
   drawStripFlowItems();
   updateStripBots(dt);
   drawStripBots();             /* 子ねこボット (Lv の台数だけ運搬) */
