@@ -123,8 +123,7 @@ if(stripCv){
       for(let i = 0; i < bugEvent.bugs.length; i++){
         const bp = stripBugXY(bugEvent.bugs[i]);
         if(Math.hypot(ux - bp.x, uy - bp.y) <= 13){
-          splatBug(i, bp.x, bp.y);
-          addStripFloater(bp.x, bp.y - 12, "+" + fmt(6 * workScale()) + "🪙", "#5aa469");
+          splatBug(i, bp.x, bp.y);   /* 報酬の浮き文字は splatBug が出す */
           renderHeader();
           return;
         }
@@ -215,7 +214,7 @@ if(stripCv){
     }
     const crit = cheerClick(ux, uy, part);
     addStripSpark(ux, uy, crit);
-    if(!crit) addStripFloater(ux, uy - 9, "+" + fmtClickDP(clickShownDP() * comboMult()) + "DP");
+    if(!crit){ if(document.body.classList.contains("strip")) addStripFloaterSum(ux, uy - 9, "click", clickShownDP() * comboMult() * heatMult() * fishClickMult(), v => "+" + fmtClickDP(v) + "DP"); }
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
       if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); say("ん。…悪くないにゃ"); }

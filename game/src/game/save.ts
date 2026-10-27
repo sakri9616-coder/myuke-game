@@ -17,7 +17,7 @@ let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリ�
 function bumpRev(){ snapRev++; }
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.13.0";   /* 表示ラベルの単一の出所 (v2.13.0: 作品棚の毎秒売上・自社IP のシリーズ化。再設計の段階1。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.14.0";   /* 表示ラベルの単一の出所 (v2.14.0: 応援の熱・魚の種類・応援係。再設計の段階2。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -27,7 +27,7 @@ function freshState(): GameState {
     upgrades:{}, research:{}, stamps:{},
     project:null, projectDP:0, commitMark:0,
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
-    depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
+    depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1, cheer:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
     subs: [], subSeq: 0,
     fever: { gauge: 0 },
     debt: 0, brand: 0, vendorReadyAt: 0,

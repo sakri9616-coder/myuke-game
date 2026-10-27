@@ -64,6 +64,7 @@ function tick(){
   // 子ねこボットとプログラマ猫は状態によらず働く
   if((S.upgrades.bot||0) > 0) produceDP(botRate()/60, "l1");
   if(ss.prog > 0) produceDP(ss.prog/60, "l1");
+  if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
   // 第2ラインの生産
   if(S.line2.unlocked && S.line2.project) produceDP(line2BaseRate()/60, "l2");
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
@@ -135,6 +136,7 @@ function tick(){
   ensureTrend();
   /* トレンドは v2.12.1 から出荷の本数で回る（recordRelease → trendOnShip） */
   tickCatalog();    /* 再設計 段階1: 作品棚とシリーズの毎秒売上 */
+  tickHeat();       /* 再設計 段階2: 応援の熱 */
   tickCoinFlow();   /* 🪙/秒 の表示値 */
   // 集中力
   if(coding){
@@ -149,7 +151,10 @@ function tick(){
     tickBoostCounter = 0;
     let boost = keysAcc / BAL.keysPerDP + cursorAcc / BAL.cursorPxPerDP + clicksAcc / BAL.clicksPerDP;
     keysAcc = 0; cursorAcc = 0; clicksAcc = 0;
-    boost = boostGate(boost);
+    /* 再設計 段階2: 実作業は自動生産に連動する（打鍵1回の重みも1分の上限も、自動生産が BAL.boostLinkRef DP/分を
+       超えた分だけ比例して伸びる）。固定の 120 DP/分のままだと会社が育つほど実作業が無意味になっていた（理念書3） */
+    const boostLink = Math.max(1, autoProdEMA * 60 / Math.max(1e-9, clickProdMult()) / BAL.boostLinkRef);   /* 倍率は produceDP が掛けるので割り戻す（応援の連動分と同じ） */
+    boost = boostGate(boost * boostLink, boostLink);
     if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
     prodMuted = true;   /* F再設計: ブーストは入力由来（自動生産に数えず、発動倍率も二重に掛けない） */
     if(boost > 0.01 && coding) produceDP(boost, "l1");

@@ -227,6 +227,12 @@ function stripUpdate(dt){
         if(wk.x < rcx - 46){ wk.x = rcx - 46; wk.dir = 1; }
         if(wk.x > rcx + 46){ wk.x = rcx + 46; wk.dir = -1; }
       }
+      /* 再設計 段階2: 応援係はみゅけのそばが持ち場 */
+      if(st.role === "cheer" && miyukeStrip.x > 0){
+        const mx = miyukeStrip.x;
+        if(wk.x < mx - 60){ wk.x = mx - 60; wk.dir = 1; }
+        if(wk.x > mx + 60){ wk.x = mx + 60; wk.dir = -1; }
+      }
       /* Phase C: 大型案件の担当はメモ（机クラスタ）のそばで待つ */
       if(S.bigDeal && S.bigDeal.repId === st.id){
         const mcx = stripDeskCX();

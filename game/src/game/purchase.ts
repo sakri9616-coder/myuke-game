@@ -55,6 +55,7 @@ function buyResearch(id){
 function hireStaff(role){
   const def = STAFF_ROLES[role];
   if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。スタジオ拡張してね"); return; }
+  if(roleLocked(role)){ say(def.name + "は社格「" + rankName(CHEER_STAFF_RANK) + "」から雇えるにゃ"); return; }
   const cost = hireCost(role);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost;

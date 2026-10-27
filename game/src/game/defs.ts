@@ -30,8 +30,13 @@ const STAFF_ROLES = {
   carry:   { name:"運搬係",       stage:"出荷",   base:150, out:8,    unit:"DP/分",   desc:"出荷速度 +8 DP/分" },
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
   care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" },
-  sales:   { name:"営業",         stage:"営業",   base:230, out:0,    unit:"",        desc:"依頼を自動で取ってくる（Lvが高いほど良い依頼）" }
+  sales:   { name:"営業",         stage:"営業",   base:230, out:0,    unit:"",        desc:"依頼を自動で取ってくる（Lvが高いほど良い依頼）" },
+  /* 再設計 段階2（sakuri 承認済み）: 中盤から応援の一部を任せられる。あなたの応援とは別枠で、必ず上乗せになる
+     （応援係はコンボ・会心・応援の熱・応援P を持たない。それはみゅけと遊ぶあなたの腕前） */
+  cheer:   { name:"応援係",       stage:"応援",   base:400, out:0.5,  unit:"回/秒",   desc:"みゅけの横で応援する（0.5回/秒）。あなたの応援は別枠で上乗せ" }
 };
+const CHEER_STAFF_RANK = 3;   /* 応援係を雇える社格（中小）。序盤の応援はあなたの手で */
+function roleLocked(role){ return role === "cheer" && (S.studioLv || 1) < CHEER_STAFF_RANK; }
 const STAFF_CAPS = [3, 6, 10, 16, 24, 36];  // スタジオLv1..6 の雇用上限（レーンB Phase B・社格ラダー）
 const STAFF_MAX_LV = 10;
 /* 社格ラダー（Phase B）: スタジオLvをそのまま社格として扱う。新システムは増やさない。
@@ -75,10 +80,11 @@ const DEPTS = {
   carry:   { name:"運用部", icon:"📦" },
   research:{ name:"研究部", icon:"🔬" },
   care:    { name:"総務部", icon:"💛" },
-  sales:   { name:"営業部", icon:"💼" }
+  sales:   { name:"営業部", icon:"💼" },
+  cheer:   { name:"応援団", icon:"📣" }
 };
 const DEPT_MAX_LV = 10;
-function freshDepts(){ return { prog:1, test:1, carry:1, research:1, care:1, sales:1 }; }
+function freshDepts(){ return { prog:1, test:1, carry:1, research:1, care:1, sales:1, cheer:1 }; }
 function deptLv(role){ return (S.depts && S.depts[role]) || 1; }
 function deptMult(role){ return 1 + 0.15 * (deptLv(role) - 1); }
 function deptCost(role){ return Math.ceil(300 * Math.pow(2, deptLv(role) - 1)); }
@@ -159,7 +165,7 @@ function staffSums(){
   return staffSumsFrameCache || (staffSumsFrameCache = computeStaffSums());
 }
 function computeStaffSums(){
-  const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, count:0, byRole:{} };
+  const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, cheer:0, count:0, byRole:{} };
   for(const st of S.staff){
     const m = staffOutMult(st) * deptMult(st.role), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み / Phase C: 部署Lv 倍率 */
     s.byRole[st.role] = (s.byRole[st.role]||0) + 1;
@@ -168,6 +174,7 @@ function computeStaffSums(){
     if(st.role === "carry"){ s.ship += def.out * m; }
     if(st.role === "research"){ s.rp += def.out * m; }
     if(st.role === "care"){ s.careW += m; }
+    if(st.role === "cheer"){ s.cheer += def.out * m; }
     s.count++;
   }
   return s;

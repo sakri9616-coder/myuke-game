@@ -217,6 +217,15 @@ console.log("== 5. prestige ==");
     sold >= 70 && sold <= 90 && run(sb, "S.catalog.length") === 0);
 }
 
+{
+  /* 再設計 段階2: 1分押し続けると応援の熱が1段上がり、クリックが強くなる */
+  const sb = buildSandbox();
+  loadGame(sb);
+  const before = run(sb, "heatMult()");
+  run(sb, "lastClickAt = Date.now(); for(let i = 0; i < 60; i++){ heatClicksThisSec = 1; tickHeat(); }");
+  check("a minute of steady cheering heats up the clicks", before === 1 && run(sb, "heatLv()") === 1 && run(sb, "heatMult()") > 1);
+}
+
 /* ================= 6. リリースの設定 ================= */
 console.log("== 6. release config ==");
 {

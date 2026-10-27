@@ -326,7 +326,7 @@ function renderPanel(){
   }
   if(currentTab === "staff"){
     const ss = staffSums();
-    const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪", sales:"💼" };  /* メニュー刷新 P1: 行アイコンソケット用 */
+    const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪", sales:"💼", cheer:"📣" };  /* メニュー刷新 P1: 行アイコンソケット用 */
     h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・"+companyRank()+" Lv"+S.studioLv+"）</h3>";
     /* 第2ウェーブ M: 役員は頭数外の常駐メンバー。オーラの内訳を見せる */
     if((S.executives || []).length){
@@ -436,8 +436,8 @@ function renderPanel(){
       const def = STAFF_ROLES[role], cost = hireCost(role), n = ss.byRole[role]||0;
       hireHTML += "<div class='item buy slim' data-fix='hire:"+role+"'><div><span class='sock'>"+(ROLE_ICONS[role]||"🐱")+"</span><span class='nm'>"+def.name+"</span>"+
         " <span class='tagchip'>"+def.stage+"</span> <span class='tagchip'>在籍 "+n+"人</span>"+
-        "<div class='ds'>"+def.desc+"</div></div>"+
-        buyBtn("hire:"+role, cost, "coins", "hireStaff(\""+role+"\")", ss.count>=staffCap())+"</div>";
+        "<div class='ds'>"+def.desc+(roleLocked(role) ? "（社格「" + rankName(CHEER_STAFF_RANK) + "」から）" : "")+"</div></div>"+
+        buyBtn("hire:"+role, cost, "coins", "hireStaff(\""+role+"\")", ss.count>=staffCap() || roleLocked(role))+"</div>";
     }
     h += foldSec("hire", S.staff.length === 0, "🧲 雇用する", "あと "+Math.max(0, staffCap()-ss.count)+" 人まで", hireHTML);
     /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
@@ -695,7 +695,7 @@ function renderPanel(){
       if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
     h += "<h3 style='margin-top:12px'>応援強化（所持 応援P "+fmt(S.cheerP || 0)+"）</h3>";
-    h += "<div class='note'>応援P はクリックで応援するたびに 1 貯まります（秒5回まで）。コインとは別の財布で、売却しても腕前として残ります</div>";
+    h += "<div class='note'>応援P はクリックで応援するたびに 1 貯まります。コインとは別の財布で、売却しても腕前として残ります</div>";
     h += "<div class='buygrid'>";
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
