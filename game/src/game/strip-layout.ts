@@ -186,6 +186,14 @@ window.__miyukeOnModeChange = function(mode){
   if(mode === "strip") publishHitZones(true);
 };
 function sR(x, y, w, h, c){ sctx.fillStyle = c; sctx.fillRect(x, y, w, h); }
+/* sR のデバイス画素丸め版。帯の倍率は整数とは限らないので、仮想座標のままだと
+   粒の縁がにじむ。演出の粒（キラキラ・紙吹雪）はこれで硬い縁のドットにする */
+function sPx(x, y, w, h, c){
+  const k = stripScale;
+  const dx = Math.round(x * k), dy = Math.round(y * k);
+  sctx.fillStyle = c;
+  sctx.fillRect(dx / k, dy / k, Math.max(1, Math.round(w * k)) / k, Math.max(1, Math.round(h * k)) / k);
+}
 function sShadow(cx, cy, w){
   sctx.save();
   sctx.globalAlpha = 0.20; sctx.fillStyle = "#322319";   /* R4: 全接地物で同一様式 */
@@ -337,10 +345,13 @@ function drawStripZ(x, y){
   sctx.restore();
 }
 function addStripFloater(x, y, text, color?){
-  stripFloaters.push({ x, y, text, color: color || "#e8873a", born: Date.now() });
+  /* 連打で同じ場所に重なって読めなくならないよう、出たばかりの近い文字の上に積む */
+  const now = Date.now();
+  const stacked = stripFloaters.filter(f => now - f.born < 350 && Math.abs(f.x - x) < 16 && Math.abs(f.y - y) < 20).length;
+  stripFloaters.push({ x, y: y - Math.min(3, stacked) * 11, text, color: color || "#e8873a", born: now });
   if(stripFloaters.length > 12) stripFloaters.shift();
 }
-function addStripSpark(x, y){
-  stripSparks.push({ x, y, born: Date.now() });
+function addStripSpark(x, y, big?){
+  stripSparks.push({ x, y, born: Date.now(), big: !!big, seed: Math.random() * Math.PI });
   if(stripSparks.length > 10) stripSparks.shift();
 }

@@ -201,7 +201,7 @@ if(stripCv){
       clickTimes = [];
     }
     const crit = cheerClick(ux, uy, part);
-    addStripSpark(ux, uy);
+    addStripSpark(ux, uy, crit);
     if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){

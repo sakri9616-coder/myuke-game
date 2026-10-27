@@ -586,41 +586,10 @@ function renderStrip(){
     stripHitRects.duck = { x: dx - dsz[0] / 2, y: dgy - dsz[1], w: dsz[0], h: dsz[1] };
   }
   /* --- フローターとクリックのキラキラ --- */
-  for(const sp of stripSparks){
-    const age = (now - sp.born) / 1000;
-    if(age > 0.4) continue;
-    sctx.save();
-    sctx.globalAlpha = 1 - age / 0.4;
-    sR(sp.x - 5, sp.y - 5 - age * 6, 2, 2, "#ffd94d");
-    sR(sp.x + 3, sp.y - 3 - age * 6, 2, 2, "#e8873a");
-    sR(sp.x - 1, sp.y - 8 - age * 9, 2, 2, "#ffffff");
-    sctx.restore();
-  }
-  stripSparks = stripSparks.filter(sp => now - sp.born <= 400);
-  sctx.save();
-  sctx.font = "700 10px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  sctx.textAlign = "center";
-  for(const f of stripFloaters){
-    const age = (now - f.born) / 1000;
-    if(age > 1.4) continue;
-    sctx.globalAlpha = Math.max(0, 1 - age / 1.4);
-    sctx.fillStyle = f.color;
-    sctx.fillText(f.text, f.x, f.y - age * 11);
-  }
-  sctx.restore();
-  stripFloaters = stripFloaters.filter(f => now - f.born <= 1400);
+  drawStripSparks(now);
+  drawStripFloaters(now);
   /* --- リリースの紙吹雪（帯） --- */
-  for(const p of stripConfetti){
-    const age = (now - p.born) / 1000;
-    if(age > 2.2) continue;
-    p.vy += 30 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
-    sctx.save();
-    sctx.translate(p.x, p.y); sctx.rotate(p.rot);
-    sctx.globalAlpha = Math.max(0, 1 - age / 2.2);
-    sctx.fillStyle = p.col; sctx.fillRect(-1.6, -1.1, 3.2, 2.2);
-    sctx.restore();
-  }
-  stripConfetti = stripConfetti.filter(p => now - p.born <= 2200 && p.y < STRIP_H + 6);
+  drawStripConfetti(now, dt);
   /* --- リリースのコイン噴水 (可視生産 P3): 棚から湧いて右下 HUD へ吸い込まれる --- */
   if(stripCoins.length){
     const tx = stripVW - 34, ty = STRIP_H - 14;
@@ -651,4 +620,87 @@ function renderStrip(){
   drawLayoutEditOverlay();
   /* --- セリフ吹き出し（頭上・約4秒で消える） --- */
   drawStripBubble(stripMiyukeX(), G - 82);
+}
+/* ---------- 演出の粒（キラキラ・浮き文字・紙吹雪） ----------
+   どれもデバイス画素に丸めた四角 (sPx) で描き、ドット絵と同じ硬い縁にそろえる */
+/* クリックのキラキラ: 中心の十字が一瞬光り、粒が放射状に減速しながら散る。
+   big (CRITICAL) は粒が多く、遠くまで、少し長く */
+const SPARK_COLS = ["#ffffff", "#ffd94d", "#e8873a"];
+function drawStripSparks(now){
+  for(const sp of stripSparks){
+    const life = sp.big ? 0.55 : 0.4;
+    const t = (now - sp.born) / 1000 / life;
+    if(t > 1) continue;
+    const n = sp.big ? 10 : 6, reach = sp.big ? 15 : 9;
+    const ease = 1 - (1 - t) * (1 - t) * (1 - t);
+    if(t < 0.3){   /* 中心の十字 */
+      const arm = (sp.big ? 4 : 3) * (1 - t / 0.3);
+      sPx(sp.x - 1, sp.y - 1 - arm, 2, 2 + arm * 2, "#ffffff");
+      sPx(sp.x - 1 - arm, sp.y - 1, 2 + arm * 2, 2, "#ffffff");
+    }
+    for(let i = 0; i < n; i++){
+      const a = (i / n) * Math.PI * 2 + (sp.seed || 0);
+      const r = reach * ease * (i % 2 ? 0.7 : 1);
+      const col = SPARK_COLS[Math.min(2, Math.floor(t * 3 + (i % 2) * 0.5))];
+      const sz = t > 0.6 ? 1 : 2;
+      sPx(sp.x + Math.cos(a) * r - sz / 2, sp.y + Math.sin(a) * r - sz / 2 + t * 3, sz, sz, col);
+    }
+  }
+  stripSparks = stripSparks.filter(sp => now - sp.born <= (sp.big ? 550 : 400));
+}
+/* 浮き文字: ポンと膨らんで出て、減速しながら昇り、後半だけ消えていく。
+   帯は透明で下はユーザーの壁紙なので、濃い縁取りでどの背景でも読めるようにする */
+function drawStripFloaters(now){
+  sctx.save();
+  sctx.font = "700 10px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  sctx.textAlign = "center";
+  sctx.lineJoin = "round";
+  sctx.lineWidth = 2.6;
+  sctx.strokeStyle = "#2b201acc";
+  for(const f of stripFloaters){
+    const age = (now - f.born) / 1000;
+    if(age > 1.4) continue;
+    const t = age / 1.4;
+    const rise = 14 * (1 - (1 - t) * (1 - t));
+    const pop = age < 0.09 ? 0.6 + age / 0.09 * 0.6 : age < 0.18 ? 1.2 - (age - 0.09) / 0.09 * 0.2 : 1;
+    sctx.globalAlpha = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+    sctx.save();
+    sctx.translate(f.x, f.y - rise);
+    if(pop !== 1) sctx.scale(pop, pop);
+    sctx.strokeText(f.text, 0, 0);
+    sctx.fillStyle = f.color;
+    sctx.fillText(f.text, 0, 0);
+    sctx.restore();
+  }
+  sctx.restore();
+  stripFloaters = stripFloaters.filter(f => now - f.born <= 1400);
+}
+/* 紙吹雪: 回転描画をやめ、横幅を cos で伸縮させて「紙が裏返る」ひらひらに。
+   空気抵抗で横流れが落ち着き、落下は終端速度で頭打ちになって左右に揺れる。
+   裏面は少し暗くして、ドットのまま立体感を出す */
+const CONFETTI_BACK = {};
+function confettiBack(col){
+  if(!CONFETTI_BACK[col]){
+    const v = parseInt(col.slice(1), 16);
+    const d = (c) => Math.round(c * 0.72);
+    CONFETTI_BACK[col] = "rgb(" + d(v >> 16) + "," + d((v >> 8) & 255) + "," + d(v & 255) + ")";
+  }
+  return CONFETTI_BACK[col];
+}
+function drawStripConfetti(now, dt){
+  for(const p of stripConfetti){
+    const age = (now - p.born) / 1000;
+    if(age > 2.2) continue;
+    p.vy = Math.min(22, p.vy + 30 * dt);
+    p.vx *= Math.max(0, 1 - 1.2 * dt);
+    p.rot += p.vr * dt;
+    p.x += (p.vx + Math.sin(p.rot * 0.7) * 6) * dt; p.y += p.vy * dt;
+    const c = Math.cos(p.rot);
+    const w = Math.max(1, Math.round(Math.abs(c) * 3));
+    sctx.save();
+    sctx.globalAlpha = age < 1.6 ? 1 : Math.max(0, 1 - (age - 1.6) / 0.6);
+    sPx(p.x - w / 2, p.y - 1, w, 2, c >= 0 ? p.col : confettiBack(p.col));
+    sctx.restore();
+  }
+  stripConfetti = stripConfetti.filter(p => now - p.born <= 2200 && p.y < STRIP_H + 6);
 }
