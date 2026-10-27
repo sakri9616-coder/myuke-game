@@ -187,7 +187,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
   /* 工程中心の計測: いまの律速工程（30分ごとの多数決）と、その切り替わり回数 */
   let bnStage = "impl", bnVotes = { impl:0, test:0, build:0, ship:0 }, bnBlock = null, bnSwitches = 0;
   const bnTime = { impl:0, test:0, build:0, ship:0 };
-  let staffShare7 = null, shareSum = 0, shareN = 0;
+  let staffShare7 = null, shareSum = 0, shareN = 0, planBuys = 0;
 
   /* Sprint 3: 倍率は通算獲得で決まる。game の dustMult と同じく dustMultSoftcap 超は平方根 */
   const dustMult = () => { const c = BAL.dustMultSoftcap, d = dustTotal; return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c)); };
@@ -231,8 +231,8 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     if(bigStreak === 0 && BAL.sizes[size]/rate > 150) bigStreak = 1; else if(BAL.sizes[size]/rate <= 150) bigStreak = 0;
     return settle({ size, total: BAL.sizes[size], ideaCost: IDEA_COST[size]||0, planning: false });
   }
-  function release(sz, isLine2){
-    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * Math.sqrt(dustMult()) * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率。星屑は単価には平方根で効く (出荷数でも伸びるため。game と同じ) */
+  function release(sz, isLine2, plv){
+    let c = BAL.coinBase[sz] * (isLine2 ? BAL.line2CoinRate : 1) * Math.sqrt(dustMult()) * (1 + 0.15 * (plv || 0))   /* 企画Lv（game の planPriceMult） */ * (1 + brand * 0.02);   /* Wave G: ブランド価格倍率。星屑は単価には平方根で効く (出荷数でも伸びるため。game と同じ) */
     let r = BAL.rpBase[sz];
     if(!isLine2 && reqMode === "auto"){
       /* Phase C・自動獲得: 枠は常時埋まり全リリースが依頼達成。ボーナス率は
@@ -301,13 +301,18 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       const produced = (raw + clickProd) * prodF;
       wip.code += produced; runDP += produced;
       /* 応援クリック由来の分はバグ混入 ×inputBugRate（game の produceDP と同じ） */
-      bugStock += (raw + clickProd * BAL.inputBugRate) * prodF * bugPerDP;
+      bugStock += (raw + clickProd * BAL.inputBugRate) * prodF * bugPerDP * (1 - 0.15 * (project.planLv || 0));   /* 企画Lv（game の planBugMult） */
       // 応援クリックの20%だけが工程をバイパスして直接進捗へ（企画中は全量が仕掛品行き）
       if(clickRaw > 0){
         if(project.planning){ const ex = clickRaw * mlt * fb * resMultV * feverF; wip.code += ex; runDP += ex; bugStock += ex * bugPerDP * BAL.inputBugRate; }
         else { const direct = clickRaw * 0.2 * mlt * fb * resMultV * feverF; projDP += direct; runDP += direct; }
       }
       ideas += IDEA_PER_MIN + 0.3 * ss.careW;
+      /* 企画を練る（game の planProject）: 着工中の作品が半分に届く前に、足りれば練る */
+      if(project.size !== "TUT" && !project.planning && (project.planLv || 0) < 3 && projDP < project.total * 0.5){
+        const pc = Math.ceil(project.total / 20) * ((project.planLv || 0) + 1);
+        if(ideas >= pc + (project.ideaCost || 0)){ ideas -= pc; project.planLv = (project.planLv || 0) + 1; planBuys++; }
+      }
       // 企画中: アイデアが貯まったら着工
       for(const pr of [project, project2]){
         if(pr && pr.planning && ideas >= pr.ideaCost){ ideas -= pr.ideaCost; pr.planning = false; }
@@ -351,7 +356,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
       // --- リリース判定 ---
       while(projDP >= project.total){
         projDP -= project.total;
-        project = release(project.size, false);
+        project = release(project.size, false, project.planLv);
         dayReleases++;
         if(milestones.firstReleaseMin === null) milestones.firstReleaseMin = min + 1;
       }
@@ -559,7 +564,7 @@ function simulate(days, active, reqMode, prestigeAt, profile){
     }
   }
   if(runCoins > milestones.maxRunCoins) milestones.maxRunCoins = runCoins;
-  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7 };
+  return { milestones, releasesByDay, totalReleasesEver, dust, dustTotal, snapshot7, rep, repMax, econ, reqDone, bnSwitches, bnTime, staffShare7, planBuys };
 }
 
 const sum = (arr, n) => arr.slice(0, n).reduce((a,b)=>a+b, 0);
@@ -589,6 +594,7 @@ function report(label, r){
   { const T = Object.values(r.bnTime).reduce((a, b) => a + b, 0) || 1;
     console.log("律速工程の時間比: 実装 " + (r.bnTime.impl / T * 100).toFixed(0) + "% / テスト " + (r.bnTime.test / T * 100).toFixed(0) + "% / ビルド " +
       (r.bnTime.build / T * 100).toFixed(0) + "% / 出荷 " + (r.bnTime.ship / T * 100).toFixed(0) + "%・切り替わり " + r.bnSwitches + " 回（30分単位）");
+    console.log("企画を練った回数（30日）: " + r.planBuys + " 回 / リリース " + r.totalReleasesEver + " 作品");
     console.log("工程能力のうちスタッフと設備が生む割合（7日目以降の日末平均）: " + (r.staffShare7 * 100).toFixed(0) + "%"); }
   if(r.snapshot7){
     console.log("7日目時点: スタッフ " + r.snapshot7.staff + "人 / スタジオLv" + r.snapshot7.studioLv +

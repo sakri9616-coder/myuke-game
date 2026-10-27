@@ -351,9 +351,9 @@ function produceDP(amount, target){
   const aBase = amount * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
-  /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
+  /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
   const proj = target === "l2" ? S.line2.project : S.project;
-  const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
+  const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * planBugMult(proj) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
     (fromInput ? BAL.inputBugRate : 1);   /* 応援・入力で増えた分はバグが出にくい（頑張るほど詰まる逆転を防ぐ） */
   if(target === "l2"){ S.line2.wip.code += a; if(S.line2.project) S.line2.project.bugs += aBase * BAL.bugPerDP * bugMul; }
   else {
@@ -481,7 +481,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * dustPriceMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  let coins = Math.round(BAL.coinBase[p.size] * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -536,7 +536,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * dustPriceMult() * brandMult() * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
+  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
