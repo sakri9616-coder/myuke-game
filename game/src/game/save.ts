@@ -9,7 +9,6 @@ const ROLE = (function(){
   return r === "viewer" ? "viewer" : "owner";   /* 既定は帯 (Tauri の無い検証環境も owner) */
 })();
 const IS_VIEWER = ROLE === "viewer";
-const RUNS_SIM = !IS_VIEWER;   /* owner だけが tick/save/load を持つ */
 window.__MIYUKE_ROLE__ = ROLE;
 let menuAwake = false;   /* owner の認識: menu が生きているか (heartbeat 5秒以内) */
 let menuLastBeat = 0;    /* owner が最後に menu の heartbeat を受けた時刻 */

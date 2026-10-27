@@ -98,7 +98,7 @@ function dispatchMenuCommand(m){
       r.then(v => reply(true, cmdPayload(v)),
              e => reply(false, null, String((e && e.message) || e)));
     } else reply(true, cmdPayload(r));
-  }catch(e){ reply(false, null, String((e && e.message) || e)); }
+  }catch(e){ reply(false, null, String((e instanceof Error && e.message) || e)); }
 }
 /* menu 内の入力 (キー回数・カーソル距離だけ) を帯のブースト材料へ合流させる。
    ゲート (一時停止 / OS集計との二重計数防止) は帯が一元管理する (設計 §3.5) */

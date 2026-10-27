@@ -21,6 +21,7 @@
             単一書き手・コマンド一回実行・スナップショット描画を検証）
    Phase A12: セーブのファイル保存（起動時注入の採否 / save_game への書き込み / 読み込み機能）
    Phase A13: 敵対的なセーブ（XSS の無害化 / 読み込みの原子性 / 壊れた起動時セーブの保護）
+   Phase A14〜A16: 描画性能 / 導線・アクセシビリティ / セーブ移行とメニューコマンドの取り決め
    Phase F: チュートリアル導線（段階的開示: 事実ベースのステージ進行 /
             ロックと「所持が勝つ」原則 / ベテラン移行 / スキップと見直し /
             viewer がスナップショットだけで同じロック・🆕 を描くこと） */
@@ -1163,6 +1164,67 @@ console.log("== Phase A15: onboarding / readability / accessibility ==");
   check("menu tabs are exposed as tabs with a selected state",
     run(sb, "Array.from(tabsEl.children).every(b => b.getAttribute ? true : true)") && fs.readFileSync(require("path").join(__dirname, "..", "game", "src", "game", "ui-core.ts"), "utf8").includes('setAttribute("role", "tab")'));
   check("purchase logs format coin amounts with separators", !/（-" *\+ *(cost|total) *\+ *"🪙/.test(HTML));
+}
+
+/* ================= Phase A16: セーブ移行と メニューコマンドの取り決め ================= */
+console.log("== Phase A16: save migration details / startup choice / menu command contract ==");
+{
+  /* 日付が変わったセーブは「今日」の集計だけ0に戻し、通算は残す */
+  const sbD = buildSandbox({});
+  sbD.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 1, today: { date: "2000-1-1", keys: 99, releases: 5 }, totals: { releases: 7, keys: 500 } }));
+  loadGame(sbD);
+  check("day rollover resets today's counters but keeps totals",
+    run(sbD, "S.today.keys") === 0 && run(sbD, "S.today.releases") === 0 && run(sbD, "S.today.date === todayKey()") &&
+    run(sbD, "S.totals.releases") === 7 && run(sbD, "S.totals.keys") === 500);
+
+  /* 旧セーブや壊れかけの値の補正 */
+  const sbM = buildSandbox({});
+  sbM.localStorage.setItem("miyuke-save-v1", JSON.stringify({
+    coins: 1, challenge: {}, trend: {}, devGenrePref: 5, depts: { prog: 0, test: "x" },
+    staff: [{ id: 1, name: "s", coat: "kuro", role: "sales", lv: 1 }],
+    line2: { unlocked: true, project: { name: "p", genre: "app", size: "S", totalDP: 900, feats: ["a"], doneFeats: 0 } }
+  }));
+  loadGame(sbM);
+  check("load: malformed challenge / trend / devGenrePref become null",
+    run(sbM, "S.challenge") === null && run(sbM, "S.trend === null || !!S.trend.boom") && run(sbM, "S.devGenrePref") === null);
+  check("load: department levels below 1 or non-numeric become 1", run(sbM, "S.depts.prog") === 1 && run(sbM, "S.depts.test") === 1);
+  check("load: a sales cat without a genre gets one", typeof run(sbM, "S.staff[0].genre") === "string");
+  check("load: a line-2 project without planning gets planning:false and ideaCost:0",
+    run(sbM, "S.line2.project.planning") === false && run(sbM, "S.line2.project.ideaCost") === 0);
+
+  /* 起動時の選択: 壊れた方ではなく読める方を使う */
+  const good = JSON.stringify({ coins: 4242, lastTick: 10 });
+  const sbF = buildSandbox({});
+  sbF.__MIYUKE_SAVE__ = "{broken";
+  sbF.localStorage.setItem("miyuke-save-v1", good);
+  loadGame(sbF);
+  check("startup: corrupt file + valid localStorage loads the localStorage save", run(sbF, "S.coins") === 4242 && run(sbF, "saveBlocked") === false);
+  const sbL = buildSandbox({});
+  sbL.__MIYUKE_SAVE__ = good;
+  sbL.localStorage.setItem("miyuke-save-v1", "{broken");
+  loadGame(sbL);
+  check("startup: valid file + corrupt localStorage loads the file save", run(sbL, "S.coins") === 4242 && run(sbL, "saveBlocked") === false);
+
+  /* メニューコマンドの返事の取り決め */
+  const results = [];
+  const sbC = buildSandbox({ tauri: { core: { invoke: () => Promise.resolve() },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve(),
+             emitTo: (t, n, p) => { if(n === "cmd-result") results.push(p); return Promise.resolve(); } } } });
+  loadGame(sbC);
+  const last = () => results[results.length - 1];
+  run(sbC, `dispatchMenuCommand({ id: 1, verb: "noSuchVerb", args: [] })`);
+  check("unknown verb replies ok:false with an error", last().id === 1 && last().ok === false && /unknown verb/.test(last().error));
+  run(sbC, `VERBS.__throwy = function(){ throw new Error("kaboom"); }; dispatchMenuCommand({ id: 2, verb: "__throwy", args: [] })`);
+  check("a throwing verb replies ok:false with its message", last().id === 2 && last().ok === false && last().error === "kaboom");
+  run(sbC, "S.coins = 31337; save();");
+  run(sbC, `dispatchMenuCommand({ id: 3, verb: "exportSave", args: [] })`);
+  check("exportSave replies with the save text", last().id === 3 && last().ok === true && JSON.parse(last().payload.text).coins === 31337);
+  run(sbC, `dispatchMenuCommand({ id: 4, verb: "importSaveText", args: ["[not a save"] })`);
+  check("importSaveText with bad input replies value:false and keeps the game", last().id === 4 && last().payload && last().payload.value === false && run(sbC, "S.coins") === 31337);
+  run(sbC, `dispatchMenuCommand({ id: 5, verb: "resetSave", args: [] })`);
+  check("resetSave via command starts fresh (TUT project, requests generated, tutorial stage 0) and saves",
+    last().id === 5 && last().ok === true && run(sbC, "S.project.size") === "TUT" && run(sbC, "S.requests.length") > 0 &&
+    run(sbC, "S.tut.stage") === 0 && JSON.parse(sbC.localStorage.getItem("miyuke-save-v1")).coins === 0);
 }
 
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */

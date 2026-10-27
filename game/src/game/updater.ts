@@ -116,12 +116,6 @@ function updRelaunch(){
   }catch(e){}
 }
 function updDismiss(){ upd.dismissed = true; paintUpd(); }
-/* 帯チップから: 管理画面の設定タブを開く（openShelfPanel と同じ open_menu 経路） */
-function updOpenSettings(){
-  if(IS_VIEWER){ switchTab("settings"); return; }
-  if(!document.body.classList.contains("strip")){ switchTab("settings"); return; }
-  tauriCmd("open_menu", { tab: "settings" });
-}
 /* 起動時: 少し待ってから無言で確認する（Updater が無ければ無操作）。
    次回リリース分: 起動時1回だけでは、起動中に公開された更新を再起動まで検出できない
    (sakuri 実機報告: 動いたり動かなかったり)。30分ごとに無言で再確認する。
