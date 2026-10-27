@@ -46,7 +46,6 @@ function perkLv(id){
   const v = S.dustPerks && S.dustPerks[id];
   return typeof v === "number" ? v : (v ? 1 : 0);
 }
-function perkProdMult(){ return 1 + 0.02 * perkLv("starcharm"); }   /* 星のチャーム: 生産 +2%/Lv */
 /* レーンA・集中力 redesign: 集中力は生産倍率そのものになる。100% で +35%、
    50% で +17.5%、0% でも ×1.0 を割らない＝罰でなく伸び。アニメ速度の
    concentrationFactor() とは別物（あちらは再生速度、こちらは生産量）。 */
@@ -56,7 +55,7 @@ function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
 function extraMult(){ return extraMultBase(); }
-function extraMultBase(){ return perkProdMult() * buffProdMult() * fishProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
+function extraMultBase(){ return buffProdMult() * fishProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
 /* 倍率: 全DP（強化）× 会社全体（星屑・特典・技術遺産・チャレンジ報酬）× やる気MAX × 反復研究（工程ごと）。
    全DP と会社全体は実装と全工程に同じだけ効くので、強化はどれを買っても目に見えて速くなり、
    どこが詰まるかは設備の速度と担当スタッフ（足し算）で決まる */
@@ -495,7 +494,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps){
    IP ねらいの作品は賭けなので流れでは払わない（成否はリリースで決まる） */
 const FLOW_SHARE = 0.6;
 /* 段階4: 本社ラインの強化の列「直販ルート」。作品そのものの売上だけを伸ばし、作品棚の元本（ipBase）には入れない */
-function directMult(){ return 1 + 0.1 * engineLv("direct"); }
+function directMult(){ return (1 + 0.1 * engineLv("direct")) * branchMult("b_line"); }   /* 段階6: 星屑の枝「星の工房」 */
 function basePriceCoins(p){
   let c = BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * qualityMult(p) * knowMult(p.genre) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre);   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   if(p.genre === "game" && S.research.res_game2) c *= 1.3;   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30%） */
@@ -531,7 +530,9 @@ const CAT = { life: 5, tauMin: 30, decay: 0.4, max: 4, seriesPerMin: 0.04 };
 /* 段階4: 「棚を広げる」で本数と減衰、「販促キャンペーン」で売上（棚の記録 r は素の値、倍率は catalogRate で掛ける） */
 function catalogMax(){ return CAT.max + 2 * (S.upgrades.shelfx || 0); }
 function catalogTauSec(){ return CAT.tauMin * 60 * (1 + 0.1 * (S.upgrades.shelfx || 0)); }
-function catalogMult(){ return 1 + 0.1 * engineLv("promo"); }
+function catalogMult(){ return (1 + 0.1 * engineLv("promo")) * branchMult("b_catalog"); }   /* 段階6: 星屑の枝「星の棚」 */
+/* 依頼達成ボーナスの倍率: 目利き × 星屑の枝「星の名刺」× シリーズの相乗（段階6） */
+function requestBonusMult(){ return (1 + 0.1 * engineLv("scout")) * branchMult("b_sales") * seriesReqMult(); }
 function catalogAdd(p, price){
   if(!Array.isArray(S.catalog)) S.catalog = [];
   for(const e of S.catalog) e.r *= CAT.decay;   /* 新作に客が移る（リリースが速いほど1本の生涯売上は小さい） */
@@ -607,7 +608,7 @@ function releaseProject(){
     /* Phase C: ボーナス率は依頼のティアで決まる（手動受注は従来どおり +60%）。
        要求サイズ未満の作品で達成した場合は半額（満額条件の明示） */
     const rq = S.activeRequest;
-    let rate = (typeof rq.bonus === "number" ? rq.bonus : 0.6) * (1 + 0.1 * engineLv("scout"));   /* 段階4: 営業の列「目利き」 */
+    let rate = (typeof rq.bonus === "number" ? rq.bonus : 0.6) * requestBonusMult();   /* 段階4: 営業の列「目利き」 */
     let shortNote = "";
     if(rq.reqSize && SIZE_ORDER.indexOf(p.size) < SIZE_ORDER.indexOf(rq.reqSize)){
       rate = rate / 2;

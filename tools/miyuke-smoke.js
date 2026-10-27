@@ -233,6 +233,20 @@ console.log("== 5. prestige ==");
     run(sb, "computeStaffSums().prog") > before * 1.4 && run(sb, "S.staff[0].lv") === 2 && !run(sb, "'line2' in S"));
 }
 {
+  /* 再設計 段階6: EXIT の節目（3回目で零細から創業）と、星屑の枝（列の投資で効きが伸びる）、子会社の配当と再投資 */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.prestiges = 2; S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  const rank = run(sb, "S.studioLv");
+  run(sb, "S.dust = 100; buyDustPerk('b_line');");
+  const m0 = run(sb, "directMult()");
+  run(sb, "S.upgrades.direct = 20;");
+  const m1 = run(sb, "directMult() / (1 + 0.1 * engineLv('direct'))");
+  run(sb, "S.studioLv = 5; S.coins = 1e12; foundSub('app'); S.subs[0].div = 0; const l0 = S.subs[0].staff + S.subs[0].lv; S.coins = 0; for(let i = 0; i < 400; i++) tick(); globalThis.__subGrow = S.subs[0].staff + S.subs[0].lv - l0;");
+  check("exit milestones, stardust branches and subsidiary reinvestment work",
+    rank === 2 && Math.abs(m0 - 1.15) < 1e-9 && Math.abs(m1 - 1.3) < 1e-9 && run(sb, "__subGrow") > 0 && !run(sb, "'starcharm' in S.dustPerks"));
+}
+{
   /* 再設計 段階1: 出した作品は棚で毎秒売れ続け、棚は会社と一緒に売却で消える */
   const sb = buildSandbox();
   loadGame(sb);

@@ -60,6 +60,7 @@ interface Subsidiary {
   staff: number;
   lv: number;
   alloc: number;
+  div?: number; reinv?: number;   /* 段階6: 配当率（%）と再投資の端数 */
 }
 
 interface WorkRequest {
@@ -141,7 +142,7 @@ interface GameState {
   layoutProps: Record<string, any>;
   dustPerks: Record<string, boolean | number>; dustTotal: number;
   legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number;
-  challenge: { id: string; startCoins: number } | null; challengeRewards: Record<string, boolean>;
+  challenge: { id: string; startLv: number } | null; challengeRewards: Record<string, boolean>;
   trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];
   genreKnow: Record<string, number>;   /* 段階5: ジャンル知見（永続） */

@@ -218,10 +218,11 @@ function autoAcquireRequest(){
 function maybeAutoAcquire(){ if(autoAcquireRequest()) renderPanel(); }
 /* 大型案件（終盤）: 依頼の完了ごとに抽選で「受注待ち」が届く。受けるか
    見送るかはプレイヤーの判断（ペナルティなし・期限30分） */
+function bigDealChance(){ return Math.min(0.5, 0.1 * (1 + 0.1 * engineLv("scout"))); }   /* 段階6: 目利きで届きやすくなる（上限 50%） */
 function maybeSpawnBigDeal(){
   if(S.bigDeal || S.studioLv < 4) return;
   const reps = salesReps();
-  if(!reps.length || Math.random() > 0.10) return;
+  if(!reps.length || Math.random() > bigDealChance()) return;
   let rep = reps[0];
   for(const r of reps) if(r.lv > rep.lv) rep = r;
   const pool = unlockedGenres();
