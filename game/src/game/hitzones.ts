@@ -137,7 +137,13 @@ if(stripCv){
         return;
       }
     }
-    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12) */
+    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12)。
+       ボードの中に貼ったメモ付箋は、ボードより先にメモの行き先を開く */
+    const mr = stripHitRects.memo;
+    if(mr && ux >= mr.x && ux <= mr.x + mr.w && uy >= mr.y && uy <= mr.y + mr.h){
+      openTabPanel(stripMemoTab());
+      return;
+    }
     for(const bkey of ["board", "board2"]){
       const br = stripHitRects[bkey];
       if(br && ux >= br.x && ux <= br.x + br.w && uy >= br.y && uy <= br.y + br.h){
@@ -201,7 +207,7 @@ if(stripCv){
       clickTimes = [];
     }
     const crit = cheerClick(ux, uy, part);
-    addStripSpark(ux, uy);
+    addStripSpark(ux, uy, crit);
     if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){

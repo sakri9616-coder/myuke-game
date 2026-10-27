@@ -31,7 +31,6 @@ function flowFeedStage(stage, amount, q){
     flowFiredDP[stage] += q * b;
   }
 }
-const FLOW_CARD_COLS = ["#7be495", "#6fa8dc", "#f49a45", "#c586c0"];
 function fireFlowItem(stage, bundle){
   const G = STRIP_GROUND, cx = stripDeskCX();
   const delay = (flowStaggerN++) * 0.15;
@@ -92,14 +91,14 @@ function spawnFeatNote(line){
   const bw = small ? STRIP_BOARD.w2 : STRIP_BOARD.w;
   const bx = Math.round(bcx - bw / 2);
   const slot = Math.max(0, (p.doneFeats || 1) - 1);
-  /* 着地点: 小型ボードは上枠の付箋列、リーダーボードは完成した feat チップそのもの */
+  /* 着地点: 小型ボードは上枠の付箋列、リーダーボードは進捗バー上のその機能の節目 */
   let tx1 = bx + 20.5 + slot * 6.5, ty1 = STRIP_BOARD.top + 5;
-  if(!small){
-    const chips = featChipRects(p, bx + 2.5, STRIP_BOARD.w - 5);
-    if(chips[slot]){ tx1 = chips[slot].x + chips[slot].w / 2 - 2.5; ty1 = STRIP_BOARD.top + 40; }
+  if(!small && p.feats && p.feats.length){
+    const bar = mainBoardBar(bx);
+    tx1 = bar.x + Math.round(bar.w * (slot + 1) / (p.feats.length + 1)) - 2.5;
+    ty1 = bar.y - 1;
   }
-  stripFlow.push({ kind: "note", line,
-    col: FLOW_CARD_COLS[slot % FLOW_CARD_COLS.length],
+  stripFlow.push({ kind: "note", line, ni: slot % 4,
     x0: bcx + 4, y0: G - 32,
     x1: tx1, y1: ty1,
     age: 0, dur: 0.6, arc: 24 });

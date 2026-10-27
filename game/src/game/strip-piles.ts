@@ -23,22 +23,13 @@ function pileModel(){
     } : null
   };
 }
-/* カード1枚 (白紙 + シンタタックス色の短線2本。モニタ画面と同色セット)。
+/* カード1枚 (icon_card / テスト済みは icon_card_ok)。
    bundle は束ね表示: 後ろにずらした影カードで厚みを付ける (§3.2) */
-function drawFlowCard(x, y, bundle, tickMark, seed){
+function drawFlowCard(x, y, bundle, tickMark, _seed?){
   const layers = bundle >= 4 ? 2 : bundle >= 2 ? 1 : 0;
-  const cols = FLOW_CARD_COLS;
-  const c1 = cols[Math.floor((seed || 0) * 4) % 4], c2 = cols[(Math.floor((seed || 0) * 4) + 1) % 4];
-  for(let l = layers; l >= 0; l--){
-    const ox = x - l * 1.3, oy = y - l * 1.3;
-    sR(ox - 5.6, oy - 3.8, 11.2, 7.6, "#604B40");
-    sR(ox - 5, oy - 3.25, 10, 6.5, "#fff5e6");
-    if(l === 0){
-      sR(ox - 3.8, oy - 1.7, 6.4, 1.1, c1);
-      sR(ox - 3.8, oy + 0.5, 4.4, 1.1, c2);
-      if(tickMark){ sR(ox + 2.9, oy - 3.25, 2.1, 2.1, "#7be495"); sR(ox + 3.4, oy - 2.7, 1.1, 1.1, "#fff5e6"); }
-    }
-  }
+  const cardNm = tickMark ? "icon_card_ok" : "icon_card";
+  /* カードの絵 (12×8、下端中央アンカー)。束は後ろにずらして重ねる */
+  for(let l = layers; l >= 0; l--) sDrawSprite(cardNm, x - l * 1.3, y + 4 - l * 1.3, 1);
 }
 /* 山の格子: 横2列×段。idx は下段から。カード系 (B/C) と箱系 (D) で寸法が違う */
 function pileSlotPos(cx, idx, boxKind){
@@ -57,8 +48,10 @@ function drawStripPiles(){
   const G = STRIP_GROUND, m = pileModel();
   /* --- B: QA トレイ (机と研究机の間) --- */
   const bx = stripQAX();
-  sR(bx - 14, G - 3, 28, 3, "#445464"); sR(bx - 14, G - 3, 28, 1, "#66707c");
-  if(m.code.red) sR(bx - 14, G - 3.6, 28, 1.1, "#e2543e");
+  /* 2026-10-27: トレイ・台・カードは絵。詰まりは赤線ではなく信号柱 (strip-visible.ts) と
+     山の左に置く三角コーンで見せる */
+  sDrawSprite("prop_qa_tray", bx, G, 1);
+  if(m.code.red) sDrawSprite("prop_jam_cone", bx - 21, G, 1);
   for(let i = 0; i < m.code.n; i++){
     const p = pileSlotPos(bx, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, false, i * 0.37);
@@ -69,21 +62,20 @@ function drawStripPiles(){
     for(let i = 0; i < m.bugs; i++){
       const jx = Math.sin((frame + i * 7) * 0.35) * 1.2;
       const gx = bx - 8 + (i % 4) * 5.4 + jx, gy = topY - 1.5 - Math.floor(i / 4) * 4.5;
-      if(!sDrawSprite("icon_bug", gx, gy + 4, 0.32)) sR(gx - 2, gy - 2, 4.5, 3.5, "#3a3230");
+      sDrawSprite("icon_bug", gx, gy + 4, 0.32);
     }
   }
   if(stripBugSquash && stripNow - stripBugSquash.at < 300){
     const sa = 1 - (stripNow - stripBugSquash.at) / 300;
     sctx.save(); sctx.globalAlpha = sa;
-    if(!sDrawSprite("icon_bug", stripBugSquash.x, stripBugSquash.y + 5, 0.32))
-      sR(stripBugSquash.x - 2, stripBugSquash.y - 1, 4.5, 2, "#3a3230");
+    sDrawSprite("icon_bug", stripBugSquash.x, stripBugSquash.y + 5, 0.32);
     sctx.restore();
   }
   if(m.code.red) stripHitRects.piles.push({ x: bx - 15, y: Math.min(G - 12, pileTopY("code") - 6), w: 30, h: G - Math.min(G - 12, pileTopY("code") - 6), stage: "code" });
   /* --- C: ビルド置き場 (サーバ予定地の足元。木箱台) --- */
   const cxp = stripBuildX();
-  sR(cxp - 13, G - 4, 26, 4, "#8a6a44"); sR(cxp - 13, G - 4, 26, 1.2, "#b08954");
-  if(m.test.red) sR(cxp - 13, G - 4.6, 26, 1.1, "#e2543e");
+  sDrawSprite("prop_build_stand", cxp, G, 1);
+  if(m.test.red) sDrawSprite("prop_jam_cone", cxp - 21, G, 1);
   for(let i = 0; i < m.test.n; i++){
     const p = pileSlotPos(cxp, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, true, i * 0.53);
@@ -100,7 +92,7 @@ function drawStripPiles(){
     if(legacyGrade() >= 2 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
     else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, 1);
   }
-  if(m.build.red) sR(dx - 20, G - 16.6, 44, 1.1, "#e2543e");
+  if(m.build.red) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
   for(let i = 0; i < m.build.n; i++){
     const p = pileSlotPos(dx, i, true);
     sDrawSprite("icon_box", p.x, p.yb, 0.78);
@@ -111,10 +103,7 @@ function drawStripPiles(){
     const p = gi === 4 ? { x: dx, yb: G + 3.2 - 2 * 9.2 } : pileSlotPos(dx, gi, true);
     if(gi < 5){
       sDrawSprite("icon_box", p.x, p.yb, 0.78);
-      if(frame % 6 < 3){
-        sR(p.x - 7, p.yb - 15.6, 14, 1.2, "#ffd94d"); sR(p.x - 7, p.yb - 5.4, 14, 1.2, "#ffd94d");
-        sR(p.x - 7, p.yb - 15.6, 1.2, 10.2, "#ffd94d"); sR(p.x + 5.8, p.yb - 15.6, 1.2, 10.2, "#ffd94d");
-      }
+      if(frame % 6 < 3) sDrawNine("fx_shelf_glow", p.x - 7, p.yb - 15.6, 14, 11.4, 3, 3);
     }
   }
   if(m.build.red) stripHitRects.piles.push({ x: dx - 16, y: Math.min(G - 12, pileTopY("build") - 6), w: 32, h: G - Math.min(G - 12, pileTopY("build") - 6), stage: "build" });
@@ -129,12 +118,7 @@ function drawStripLine2Piles(){
   const topY = spriteSize("prop_desk2") ? G - 33 : G - 16;
   const dcx = stripDesk2CX();
   const mini = (cxOff, n, tickMark) => {
-    for(let i = 0; i < n; i++){
-      const yb = topY - i * 5;
-      sR(dcx + cxOff - 4, yb - 4.5, 8, 4.5, "#604B40");
-      sR(dcx + cxOff - 3.6, yb - 4.1, 7.2, 3.7, "#fff5e6");
-      if(tickMark) sR(dcx + cxOff + 1.6, yb - 4.1, 1.8, 1.8, "#7be495");
-    }
+    for(let i = 0; i < n; i++) sDrawSprite(tickMark ? "icon_card_ok" : "icon_card", dcx + cxOff, topY - i * 4, 1);
   };
   mini(-38, m.l2.codeN, false);
   mini(34, m.l2.testN, true);
@@ -158,13 +142,11 @@ function drawStripFlowItems(){
       sDrawSprite("icon_box", x, G - 1, 0.85);
       sctx.restore();
     } else if(it.kind === "note"){
-      sR(x - 2.5, y - 2.5, 5, 5, it.col || "#ffd94d");
-      sR(x - 2.5, y - 2.5, 5, 1.2, "#00000022");
+      sDrawSprite("icon_note_" + ((it.ni || 0) % 4), x, y + 6, 2);
     } else if(it.kind === "mote"){
       y = it.y0 - t * 15;
       sctx.save(); sctx.globalAlpha = 1 - t;
-      sR(x - 1.6, y - 1.6, 3.2, 3.2, it.col || "#c586c0");
-      sR(x - 0.5, y - 0.5, 1, 1, "#ffffff");
+      sDrawSprite("icon_mote", x, y + 6, 2);
       sctx.restore();
     } else if(it.kind === "idea"){
       sctx.save();
@@ -188,8 +170,17 @@ function openBottleneckFixPanel(){
    その手前に描かれるため「ラックの足元に仕掛品が積まれる」自然な奥行きになる。
    装飾のみ: ヒット矩形は持たない (クリック透過を維持) */
 function drawStripServerRack(){
-  if(officeTier(S) < 2 || !(S.upgrades.ci > 0)) return;
   const G = STRIP_GROUND, rx = stripRackCX();
+  /* 2026-10-27: CI の段で 小型サーバ → ラック → ラック2台 (strip-visible.ts) */
+  if(ciSmallServer()){
+    sDrawSprite("prop_ci_1", rx, G, 1);
+    stripObjArt.rack = { name: "prop_ci_1", gx: rx, gy: G, s: 1 };
+    stripHitRects.rack = { x: rx - 12, y: G - 32, w: 24, h: 32 };
+    return;
+  }
+  const racks = ciRackCount();
+  if(!racks) return;
+  if(racks >= 2){ sShadow(rx - 46, G - 0.5, 44); sDrawSprite("prop_server_rack", rx - 46, G, 1); }
   sShadow(rx, G - 0.5, 44);
   sDrawSprite("prop_server_rack", rx, G, 1);
   stripObjArt.rack = { name: "prop_server_rack", gx: rx, gy: G, s: 1 };
@@ -210,23 +201,15 @@ function drawStripEasel(){
     sDrawSprite("prop_wall_1", ex, G - 9, 0.5);
     return;
   }
-  sR(ex - 7, G - 4, 2, 4, "#8a6a44"); sR(ex + 5, G - 4, 2, 4, "#8a6a44");
-  if(!sDrawSprite("prop_wall_1", ex, G - 3, 0.9)){
-    sR(ex - 9, G - 25, 18, 22, "#fff5e6"); sR(ex - 9, G - 25, 18, 5, "#e2543e");
-    sR(ex - 5, G - 16, 3, 3, "#f09a3e"); sR(ex + 3, G - 16, 3, 3, "#5aa469");
-    sR(ex - 7, G - 8, 14, 2, "#9a8f85");
-  }
+  sDrawSprite("prop_easel", ex, G, 1);   /* A字の脚と横木。ポスターを立てかける */
+  sDrawSprite("prop_wall_1", ex, G - 10, 0.9);   /* 横木 (原寸 row 17) に立てかける */
 }
 /* トロフィー台（ゾーン E 0.75W, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
 function drawStripTrophy(){
   const G = STRIP_GROUND, tx = stripTrophyCX();
   sShadow(tx, G - 0.5, 22);
-  sR(tx - 9, G - 9, 18, 9, "#8a6a44");
-  sR(tx - 10, G - 10, 20, 2, "#b08954");
-  if(!sDrawSprite("prop_wall_3", tx, G - 10, 0.8)){
-    sR(tx - 11, G - 23, 22, 13, "#d9b23a"); sR(tx - 9, G - 21, 18, 9, "#f5d76e");
-    sR(tx - 4, G - 19, 8, 3, "#8a6a44");
-  }
+  sDrawSprite("prop_trophy_stand", tx, G, 1);
+  sDrawSprite("prop_wall_3", tx, G - 10, 0.8);
   /* Stage 3: トロフィー台クリック → 統計タブ */
   stripHitRects.trophy = { x: tx - 12, y: G - 24, w: 24, h: 24 };
 }
@@ -289,12 +272,12 @@ function renderStrip(){
   drawStripProjectBoardMain();                      /* 机の背後のプロジェクトボード (支柱は机より背面) */
   /* tier>=1: オフィスチェアを みゅけ の背後 (家具層) に置く。猫と PC は
      この後に描くので常に椅子より手前 */
-  if(officeTier(S) >= 1) sDrawSprite("prop_chair", cx + 12, G, 2);
+  /* 2026-10-27: 椅子は「ふかふか椅子」の Lv で段が変わる (strip-visible.ts) */
+  const chairNm = chairSpriteName();
+  if(chairNm) sDrawSprite(chairNm, cx + 12, G, 2);
   /* 主机の天板: tier>=1 ではラミネート (desk_laminate_main 116×3) */
-  if(!(officeTier(S) >= 1 && sDrawSprite("desk_laminate_main", cx, G, 1))){
-    sR(cx - 58, G - 3, 116, 3, "#b08954");
-    sR(cx - 58, G - 3, 116, 1.1, "#cfa06a");
-  }
+  sDrawSprite(officeTier(S) >= 1 ? "desk_laminate_main" : "desk_wood_main", cx, G, 1);
+  drawStripDeskUpgrades(cx);   /* サブモニタ・キーボード・企画の付箋ボード (アップグレードの段) */
   /* PC はコーディング中も含め常時表示（みゅけより後ろのレイヤー）。
      ただし sakuri作画 code アニメのフレームが解決できる間は、ポーズ内のモニタが
      PC を担うので prop_pc は描かず、進捗表示はポーズ内モニタへ重ねる（二重モニタ防止）。
@@ -315,24 +298,21 @@ function renderStrip(){
      押し下げてある。家具層の小物なのでヒットゾーンは持たない */
   const coffeeSpr = ANIMS.prop_coffee ? animFrameAt("prop_coffee", Date.now()) : "prop_coffee";
   const coffeePl = propPlace("coffee");
-  if(!sDrawSprite(coffeeSpr, coffeePl.cx, coffeePl.baseY, 1.25)){
-    sR(coffeePl.cx - 1, coffeePl.baseY - 12.5, 8, 10, "#e2543e"); sR(coffeePl.cx + 7, coffeePl.baseY - 9.5, 3, 4, "#e2543e");
-  }
+  sDrawSprite(coffeeSpr, coffeePl.cx, coffeePl.baseY, 1.25);
   /* 2026-10-25: おやつ箱 (sakuri 指示でメニューのボタンから移設)。机の右足元に置く。
      クールダウン中は蓋が閉まった絵 (prop_snackbox_shut) になって「まだ」を絵で示す */
   const snackReadyNow = Date.now() >= snackReadyAt;
   const snackPl = propPlace("snack");
   sDrawSprite(snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", snackPl.cx, snackPl.baseY, 1);
   stripObjArt.snack = { name: snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", gx: snackPl.cx, gy: snackPl.baseY, s: 1 };
-  if(snackReadyNow && blinkOn(90, 45)){
-    sR(snackPl.cx - 0.6, snackPl.baseY - 26, 1.2, 4, "#ffd94d"); sR(snackPl.cx - 1.8, snackPl.baseY - 24.8, 3.6, 1.2, "#ffd94d");
+  if(snackReadyNow && !motionReduced()){
+    /* 開けられる合図: 蓋の上でキラキラ (第1次の fx_spark の3コマを繰り返す) */
+    const ph = frame % 90;
+    if(ph < 45) sDrawSprite("fx_spark_" + Math.min(2, Math.floor(ph / 15)), snackPl.cx, snackPl.baseY - 21, 1);
   }
   stripHitRects.snack = { x: snackPl.cx - 14, y: snackPl.baseY - 25, w: 28, h: 25 };
   if(S.stamps.releases10){
-    if(!sDrawSprite("prop_wall_2", cx - 70, G, 0.6)){
-      sR(cx - 76, G - 14, 12, 14, "#fff5e6"); sR(cx - 76, G - 14, 12, 4, "#e2543e");
-      sR(cx - 73, G - 8, 2, 2, "#9a8f85"); sR(cx - 69, G - 8, 2, 2, "#9a8f85"); sR(cx - 65, G - 8, 2, 2, "#9a8f85");
-    }
+    sDrawSprite("prop_wall_2", cx - 70, G, 0.6);
     /* Stage 3: 卓上カレンダークリック → 統計タブ (日々の記録) */
     stripHitRects.calendar = { x: cx - 79, y: G - 16, w: 18, h: 16 };
   }
@@ -349,32 +329,26 @@ function renderStrip(){
     stripObjArt.toolbox = { name: "prop_toolbox", gx: toolPl.cx, gy: toolPl.baseY, s: 1 };
     stripHitRects.toolbox = { x: toolPl.cx - 12, y: toolPl.baseY - 24, w: 24, h: 24 };
     if(upd.status === "available" || upd.status === "downloading" || upd.status === "ready"){
-      sR(toolPl.cx - 1, toolPl.baseY - 23.5, 2, 5, "#e2543e");
-      if(blinkOn(50, 30)) sR(toolPl.cx - 1.6, toolPl.baseY - 24.4, 3.2, 1.4, "#ffd94d");
+      if(blinkOn(50, 30)) sDrawSprite("icon_update_ribbon", toolPl.cx, toolPl.baseY - 17, 1);   /* 更新ありの赤いリボン */
     }
   }
-  /* F: オーバークロック・ゲージ（机の右脇に立つ縦ゲージ。UI なのでコード描画可）。
-     溜まり具合は色＋量、満タンは金の明滅、発動中は赤で残り時間を減らして示す */
+  /* F: オーバークロック・ゲージ（机の右脇に立つ縦の筒 prop_fever_gauge 15×44）。
+     溜まり具合は中身の絵の色＋量 (青＝溜め中、金＝満タン、赤＝発動中で残り時間)。
+     中身の窓は筒の原寸 x3〜11, y3〜40 = 帯で (gx-4.5, G-41)〜(gx+4.5, G-3) */
   {
-    const gx = stripDeskCX() + 88, gh = 38, gw = 9;
+    const gx = stripDeskCX() + 88, gh = 38, wy = G - 3;
     const fActive = feverActive();
     const fFrac = fActive ? Math.max(0, (feverUntil - Date.now()) / FEVER.durationMs)
                           : (S.fever ? (S.fever.gauge || 0) / 100 : 0);
-    sR(gx - gw / 2 - 1.5, G - gh - 1.5, gw + 3, gh + 3, "#604B40");
-    sR(gx - gw / 2, G - gh, gw, gh, "#fff5e6");
+    sDrawSprite("prop_fever_gauge", gx, G, 1);
     if(fFrac > 0){
-      const fh = Math.max(1.5, gh * Math.min(1, fFrac));
-      sR(gx - gw / 2, G - fh, gw, fh, fActive ? "#e2543e" : (fFrac >= 1 ? (blinkOn(50, 30) ? "#ffd94d" : "#f0b429") : "#4a90c2"));
+      const fh = Math.max(4, Math.round(gh * Math.min(1, fFrac)));
+      sDrawNine("ui_gauge_fill_" + (fActive ? "red" : fFrac >= 1 ? "gold" : "blue") + "_3v", gx - 4.5, wy - fh, 9, fh, 0, 2);
     }
-    if(fFrac >= 1 && !fActive && blinkOn(50, 30)){
-      sctx.save();
-      sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
-      sctx.fillText("⚡", gx, G - gh - 7);
-      sctx.restore();
-    }
+    if(fFrac >= 1 && !fActive && blinkOn(50, 30)) sDrawSprite("icon_bolt", gx, G - 43, 1);
     if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
-    stripHitRects.fever = { x: gx - 3, y: G - gh - 9, w: 13, h: gh + 11 };
+    stripHitRects.fever = { x: gx - 7, y: G - 52, w: 14, h: 52 };
   }
   /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
      ダイジェティック表現: 数字を見なくても「荒れてきた」が分かる） */
@@ -384,16 +358,17 @@ function renderStrip(){
     const spots = [stripDeskCX() - 128, stripDeskCX() + 122, stripDeskCX() - 148];
     for(let i = 0; i < stacks; i++){
       const px = spots[i];
-      for(let j = 0; j < 3; j++)
-        sR(px - 7 + (j % 2) * 1.5, G - 2 - j * 2.2, 14, 2, j % 2 ? "#e9e0c8" : "#f7f1de");
-      sR(px - 6, G - 8.6, 12, 1, "#d8cfb8");
-      if(i === 2) sR(px + 9, G - 3, 6, 3, "#c9a86a");   /* 3段目は倒れた箱も */
+      sDrawSprite("prop_debt_pile_" + (stacks - i), px, G, 1);   /* 2026-10-27: 帯域ごとの山の絵 (3 は箱も倒れている) */
     }
   }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
+  drawStripLineUpgrades();     /* 自動テスト機・梱包機 (アップグレードの段)。山の背後に立つ機械 */
   drawStripPiles();
   drawStripLine2Piles();
+  drawStripStationSignals();   /* 工程ごとの信号柱 (緑/黄/赤) */
   drawStripFlowItems();
+  updateStripBots(dt);
+  drawStripBots();             /* 子ねこボット (Lv の台数だけ運搬) */
   /* --- みゅけ --- */
   if(miyukeTrip){
     /* v2.3.3: 旅程中は移動レイヤーが姿を握る（移動中=歩行フレーム、滞在中=アイドル） */
@@ -442,8 +417,8 @@ function renderStrip(){
       }
     }
     if(catState === "celebrate"){
-      const cols = ["#e2543e", "#ffd94d", "#5aa469", "#4a90c2"];
-      for(let i = 0; i < 6; i++) sR(gx - 42 + ((i * 29 + frame * 7) % 84), 18 + ((i * 17 + frame * 9) % 52), 2.2, 2.2, cols[i % 4]);
+      for(let i = 0; i < 6; i++)
+        sDrawSprite("fx_confetti_" + (i % 4) + ((frame + i) % 4 < 2 ? "_a" : "_b"), gx - 42 + ((i * 29 + frame * 7) % 84), 20 + ((i * 17 + frame * 9) % 52), 1);
     }
   }
   /* --- スタッフのウォーカー ---
@@ -469,7 +444,6 @@ function renderStrip(){
     sShadow(wk.x, G - 0.5, ssz0 ? ssz0[0] * ssc * 0.7 : 30);
     const bob = useAnim ? 0 : (wk.sitting ? 0 : (frame % 2 ? 0 : -0.8));
     const drawn = sDrawSprite(nm, wk.x, G + bob, ssc, flip);
-    if(!drawn) sDrawStaffFallback(st.coat, wk.x, G);
     const ssz = drawn ? (spriteSize(nm) || [32, 24]) : null;
     let srect = ssz
       ? { x: wk.x - ssz[0] * ssc / 2, y: (G + bob) - ssz[1] * ssc, w: ssz[0] * ssc, h: ssz[1] * ssc }
@@ -489,11 +463,7 @@ function renderStrip(){
       const bh = ssz ? ssz[1] * ssc : 24 * SPRITE_SCALES.strip.staff;
       if(wk.carryKind === "memo"){
         /* Phase C: 依頼メモは白いカード＋赤帯で（荷物箱と見分ける） */
-        const mxp = wk.x + bw * 0.26 * wk.dir;
-        sR(mxp - 3.5, G - bh * 0.8 - 8, 7, 9, "#fff5e6");
-        sR(mxp - 3.5, G - bh * 0.8 - 8, 7, 1.4, "#e2543e");
-        sR(mxp - 2, G - bh * 0.8 - 4.5, 4, 1, "#9a8f85");
-        sR(mxp - 2, G - bh * 0.8 - 2.5, 4, 1, "#9a8f85");
+        sDrawSprite("icon_memo", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8 + 1, 1);
       } else {
         sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8, 1);
       }
@@ -511,7 +481,7 @@ function renderStrip(){
     let nm = base, esc = SPRITE_SCALES.strip.staff;
     if(sa && sa.frames.some(f => hasSprite(f))){ nm = animFrameAt(base, stripNow - i * 700); esc = SPRITE_SCALES.strip.staff48; }
     sShadow(exX, G - 0.5, 34);
-    if(!sDrawSprite(nm, exX, G, esc)) sDrawStaffFallback(ex.coat, exX, G);
+    sDrawSprite(nm, exX, G, esc);
     const esz = spriteSize(nm);
     sctx.save();
     sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
@@ -529,8 +499,7 @@ function renderStrip(){
     } else {
       sShadow(v.x, G - 0.5, 30);
       const vbob = frame % 2 ? 0 : -0.8;
-      if(!sDrawSprite(vbase, v.x, G + vbob, SPRITE_SCALES.strip.staff, v.dir < 0))
-        sDrawStaffFallback(v.coat, v.x, G);
+      sDrawSprite(vbase, v.x, G + vbob, SPRITE_SCALES.strip.staff, v.dir < 0);
     }
   }
   /* --- Phase D: 子会社の配達猫（荷物を持って本社へ） --- */
@@ -557,20 +526,14 @@ function renderStrip(){
     const hop = Math.abs(Math.sin(stripNow / 170)) * 3;
     const fx = stripFish.x;
     sShadow(fx, G - 0.5, 26);
-    if(!sDrawSprite("icon_fish", fx, G - 1 - hop, 1.6)){
-      sR(fx - 9, G - 9 - hop, 15, 8, "#ffd94d"); sR(fx + 6, G - 10 - hop, 6, 10, "#f5b81e");
-      sR(fx - 12, G - 7 - hop, 4, 4, "#ffd94d"); sR(fx - 10, G - 6 - hop, 2, 2, "#3a3230");
-    }
-    if(frame % 8 < 4){ sR(fx - 13, G - 14 - hop, 2, 2, "#ffffff"); sR(fx + 11, G - 16 - hop, 2, 2, "#ffffff"); }
+    sDrawSprite("icon_fish", fx, G - 1 - hop, 1.6);
+    if(frame % 8 < 4){ sDrawSprite("fx_spark_2", fx - 13, G - 10 - hop, 1); sDrawSprite("fx_spark_2", fx + 12, G - 12 - hop, 1); }
     stripHitRects.fish = { x: fx - 15, y: G - 20, w: 30, h: 22 };
   }
   if(bugEvent){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
-      if(!sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7)){
-        sR(bp.x - 3, bp.y - 3, 7, 6, "#3a3230"); sR(bp.x - 5, bp.y - 1, 2, 2, "#3a3230");
-        sR(bp.x + 4, bp.y - 1, 2, 2, "#3a3230"); sR(bp.x - 1, bp.y - 5, 2, 2, "#e2543e");
-      }
+      sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
       stripHitRects.bugs.push({ x: bp.x - 9, y: bp.y - 9, w: 18, h: 18 });
     }
   }
@@ -584,43 +547,18 @@ function renderStrip(){
     sDrawSprite(dnm, dx, dgy, 1);
     const dsz = spriteSize(dnm) || [24, 20];
     stripHitRects.duck = { x: dx - dsz[0] / 2, y: dgy - dsz[1], w: dsz[0], h: dsz[1] };
+    /* 2026-10-27: Lv 4〜7 で2羽、8〜10 で3羽 */
+    for(let i = 1; i < duckCount(); i++){
+      const ex = stripQAX() + 18 + i * 16;   /* 2羽目以降は QA トレイの右で検査する (信号柱の外側) */
+      sShadow(ex, G - 0.5, 20);
+      sDrawSprite(dnm, ex, G - ((frame + i * 3) % 6 < 3 ? 0 : 0.8), 1);
+    }
   }
   /* --- フローターとクリックのキラキラ --- */
-  for(const sp of stripSparks){
-    const age = (now - sp.born) / 1000;
-    if(age > 0.4) continue;
-    sctx.save();
-    sctx.globalAlpha = 1 - age / 0.4;
-    sR(sp.x - 5, sp.y - 5 - age * 6, 2, 2, "#ffd94d");
-    sR(sp.x + 3, sp.y - 3 - age * 6, 2, 2, "#e8873a");
-    sR(sp.x - 1, sp.y - 8 - age * 9, 2, 2, "#ffffff");
-    sctx.restore();
-  }
-  stripSparks = stripSparks.filter(sp => now - sp.born <= 400);
-  sctx.save();
-  sctx.font = "700 10px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  sctx.textAlign = "center";
-  for(const f of stripFloaters){
-    const age = (now - f.born) / 1000;
-    if(age > 1.4) continue;
-    sctx.globalAlpha = Math.max(0, 1 - age / 1.4);
-    sctx.fillStyle = f.color;
-    sctx.fillText(f.text, f.x, f.y - age * 11);
-  }
-  sctx.restore();
-  stripFloaters = stripFloaters.filter(f => now - f.born <= 1400);
+  drawStripSparks(now);
+  drawStripFloaters(now);
   /* --- リリースの紙吹雪（帯） --- */
-  for(const p of stripConfetti){
-    const age = (now - p.born) / 1000;
-    if(age > 2.2) continue;
-    p.vy += 30 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
-    sctx.save();
-    sctx.translate(p.x, p.y); sctx.rotate(p.rot);
-    sctx.globalAlpha = Math.max(0, 1 - age / 2.2);
-    sctx.fillStyle = p.col; sctx.fillRect(-1.6, -1.1, 3.2, 2.2);
-    sctx.restore();
-  }
-  stripConfetti = stripConfetti.filter(p => now - p.born <= 2200 && p.y < STRIP_H + 6);
+  drawStripConfetti(now, dt);
   /* --- リリースのコイン噴水 (可視生産 P3): 棚から湧いて右下 HUD へ吸い込まれる --- */
   if(stripCoins.length){
     const tx = stripVW - 34, ty = STRIP_H - 14;
@@ -636,7 +574,7 @@ function renderStrip(){
       if(dd < 9) c.dead = true;
       sctx.save();
       if(age > 0.75) sctx.globalAlpha = Math.max(0, 1 - (age - 0.75) / 0.35);
-      if(!sDrawSprite("icon_coin", c.x, c.y + 6, 0.75)) sR(c.x - 3, c.y - 3, 6, 6, "#ffd94d");
+      sDrawSprite("icon_coin", c.x, c.y + 6, 0.75);
       sctx.restore();
     }
     stripCoins = stripCoins.filter(c => !c.dead && (now - c.born) / 1000 < 1.6);
@@ -651,4 +589,69 @@ function renderStrip(){
   drawLayoutEditOverlay();
   /* --- セリフ吹き出し（頭上・約4秒で消える） --- */
   drawStripBubble(stripMiyukeX(), G - 82);
+}
+/* ---------- 演出の粒（キラキラ・浮き文字・紙吹雪） ----------
+   絵はすべてスプライト (fx_spark_* / fx_confetti_*)。コードが持つのは動きだけ */
+/* クリックのキラキラ: 中心で 3コマ (光る → 開く → 消える)。周りに小さな光が
+   放射状に減速しながら散る。big (CRITICAL) は 2倍の絵で、散る光も多く遠く */
+function drawStripSparks(now){
+  for(const sp of stripSparks){
+    const life = sp.big ? 0.55 : 0.4;
+    const t = (now - sp.born) / 1000 / life;
+    if(t > 1) continue;
+    const sc = sp.big ? 2 : 1;
+    sDrawSprite("fx_spark_" + Math.min(2, Math.floor(t * 3)), sp.x, sp.y + 4.5 * sc, sc);
+    const n = sp.big ? 6 : 4, reach = sp.big ? 16 : 10;
+    const r = reach * (1 - (1 - t) * (1 - t) * (1 - t));
+    for(let i = 0; i < n; i++){
+      const a = (i / n) * Math.PI * 2 + (sp.seed || 0);
+      sDrawSprite("fx_spark_2", sp.x + Math.cos(a) * r, sp.y + Math.sin(a) * r + t * 3 + 4.5, 1);
+    }
+  }
+  stripSparks = stripSparks.filter(sp => now - sp.born <= (sp.big ? 550 : 400));
+}
+/* 浮き文字: ポンと膨らんで出て、減速しながら昇り、後半だけ消えていく。
+   帯は透明で下はユーザーの壁紙なので、濃い縁取りでどの背景でも読めるようにする */
+function drawStripFloaters(now){
+  sctx.save();
+  sctx.font = "700 10px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  sctx.textAlign = "center";
+  sctx.lineJoin = "round";
+  sctx.lineWidth = 2.6;
+  sctx.strokeStyle = "#2b201acc";
+  for(const f of stripFloaters){
+    const age = (now - f.born) / 1000;
+    if(age > 1.4) continue;
+    const t = age / 1.4;
+    const rise = 14 * (1 - (1 - t) * (1 - t));
+    const pop = age < 0.09 ? 0.6 + age / 0.09 * 0.6 : age < 0.18 ? 1.2 - (age - 0.09) / 0.09 * 0.2 : 1;
+    sctx.globalAlpha = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+    sctx.save();
+    sctx.translate(f.x, f.y - rise);
+    if(pop !== 1) sctx.scale(pop, pop);
+    sctx.strokeText(f.text, 0, 0);
+    sctx.fillStyle = f.color;
+    sctx.fillText(f.text, 0, 0);
+    sctx.restore();
+  }
+  sctx.restore();
+  stripFloaters = stripFloaters.filter(f => now - f.born <= 1400);
+}
+/* 紙吹雪: 紙片の絵を、表 (a) と裏返り途中 (b) で切り替えて「ひらひら」に見せる。
+   空気抵抗で横流れが落ち着き、落下は終端速度で頭打ちになって左右に揺れる */
+function drawStripConfetti(now, dt){
+  for(const p of stripConfetti){
+    const age = (now - p.born) / 1000;
+    if(age > 2.2) continue;
+    p.vy = Math.min(22, p.vy + 30 * dt);
+    p.vx *= Math.max(0, 1 - 1.2 * dt);
+    p.rot += p.vr * dt;
+    p.x += (p.vx + Math.sin(p.rot * 0.7) * 6) * dt; p.y += p.vy * dt;
+    const ci = Math.max(0, CONFETTI_COLS.indexOf(p.col));
+    sctx.save();
+    sctx.globalAlpha = age < 1.6 ? 1 : Math.max(0, 1 - (age - 1.6) / 0.6);
+    sDrawSprite("fx_confetti_" + ci + (Math.abs(Math.cos(p.rot)) > 0.5 ? "_a" : "_b"), p.x, p.y + 1, 1);
+    sctx.restore();
+  }
+  stripConfetti = stripConfetti.filter(p => now - p.born <= 2200 && p.y < STRIP_H + 6);
 }

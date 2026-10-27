@@ -157,15 +157,30 @@ function drawStripBubble(hx, topY){
   sctx.font = "700 9.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   const tw = sctx.measureText(t).width;
   const bw = tw + 12, bh = 16;
-  const bx = Math.max(3, Math.min(stripVW - bw - 3, hx - bw / 2));
-  const by = Math.max(2, topY - bh - 4);
-  stripHitRects.bubble = { x: bx, y: by, w: bw, h: bh + 5 };  /* しっぽ分も含める */
+  let bx = Math.max(3, Math.min(stripVW - bw - 3, hx - bw / 2));
+  let by = Math.max(2, topY - bh - 4);
+  /* 頭上がプロジェクトボードに重なるとき (机に座っている間はいつも) は、ボードの文字を
+     隠さないよう頭の横・ボードの下に出す。右に入らなければ左、どちらも無理なら頭上 */
+  let side = 0;
+  const br = stripHitRects.board;
+  if(br && bx < br.x + br.w && bx + bw > br.x && by < br.y + br.h){
+    const sy = br.y + br.h + 2;
+    if(hx + 12 + bw <= stripVW - 3){ side = 1; bx = hx + 12; by = sy; }
+    else if(hx - 32 - bw >= 3){ side = -1; bx = hx - 32 - bw; by = sy; }
+  }
+  stripHitRects.bubble = side ? { x: bx - 5, y: by, w: bw + 10, h: bh } : { x: bx, y: by, w: bw, h: bh + 5 };  /* しっぽ分も含める */
   sctx.globalAlpha = 0.96 * Math.min(1, remain / 600);
   sctx.fillStyle = "#fffaf2"; sctx.strokeStyle = "#6b5540"; sctx.lineWidth = 0.7;
   stripRoundRect(bx, by, bw, bh, 4); sctx.fill(); sctx.stroke();
-  const tx = Math.max(bx + 6, Math.min(bx + bw - 6, hx));
   sctx.beginPath();
-  sctx.moveTo(tx - 2.5, by + bh - 0.5); sctx.lineTo(tx + 2.5, by + bh - 0.5); sctx.lineTo(hx, by + bh + 4);
+  if(side){
+    /* 横出しのしっぽは頭のほうへ水平に向ける */
+    const ex = side > 0 ? bx + 0.5 : bx + bw - 0.5, cy = by + bh / 2 + 1;
+    sctx.moveTo(ex, cy - 2.5); sctx.lineTo(ex, cy + 2.5); sctx.lineTo(ex - side * 5, cy + 3.5);
+  } else {
+    const tx = Math.max(bx + 6, Math.min(bx + bw - 6, hx));
+    sctx.moveTo(tx - 2.5, by + bh - 0.5); sctx.lineTo(tx + 2.5, by + bh - 0.5); sctx.lineTo(hx, by + bh + 4);
+  }
   sctx.closePath();
   sctx.fillStyle = "#fffaf2"; sctx.fill();
   sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "left"; sctx.textBaseline = "middle";
