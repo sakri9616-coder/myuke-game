@@ -40,6 +40,59 @@ function fitMemoText(mt, maxW){
   while(head.length > 1 && sctx.measureText(head + "…" + tail).width > maxW - 3) head = head.slice(0, -1);
   return head + "…" + tail;
 }
+/* ボードの左下に吊る2行のメモ札 (幅 w)。1行目に入らない分を2行目へ送り、
+   2行目もはみ出すなら末尾の括弧書きを残して詰める */
+function drawStripMemoTag2(mx0, my0, memoTxt, w){
+  const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅 */
+  const h = 24;
+  sR(mx0 + 10, my0 - 3, 2, 3, "#604B40"); sR(mx0 + w - 12, my0 - 3, 2, 3, "#604B40");
+  sR(mx0, my0, w, h, memoGold ? "#d9a41a" : "#8a6a44");
+  sR(mx0 + 1.5, my0 + 1.5, w - 3, h - 3, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#fff5e6");
+  sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
+  sctx.save();
+  sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
+  const maxW = w - 9;
+  const chars = [...memoTxt];
+  let n = chars.length;
+  while(n > 1 && sctx.measureText(chars.slice(0, n).join("")).width > maxW) n--;
+  sctx.fillText(chars.slice(0, n).join(""), mx0 + 4.5, my0 + 7.5);
+  const rest = chars.slice(n).join("");
+  if(rest) sctx.fillText(fitMemoText(rest, maxW), mx0 + 4.5, my0 + 16.5);
+  sctx.restore();
+  stripHitRects.memo = { x: mx0, y: my0, w, h };
+}
+/* ボードの左肩に張り出すタブ: コイン残高と、集中力 (残量メーター + 生産 +N%)。
+   左に入らなければ右側の社格チップの下へ */
+function drawStripBoardSideTabs(bx, top){
+  sctx.save();
+  sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  sctx.textAlign = "left"; sctx.textBaseline = "middle";
+  const coinTxt = "🪙 " + fmt(Math.floor(S.coins));
+  const prodTxt = "生産 +" + Math.round((concProdMult() - 1) * 100) + "%";
+  const brainW = sctx.measureText("🧠").width, meterW = 20;
+  const coinW = sctx.measureText(coinTxt).width + 10;
+  const concW = brainW + 3 + meterW + 4 + sctx.measureText(prodTxt).width + 8;
+  const tw = Math.max(coinW, concW);
+  let tx = bx - tw - 1, ty = top + 1;
+  if(tx < 1){ tx = bx + STRIP_BOARD.w + 1; ty = top + 15; }
+  /* コイン (真鍮の札) */
+  sR(tx, ty, tw, 12, "#8a6a44");
+  sR(tx + 1, ty + 1, tw - 2, 10, "#d9b23a");
+  sctx.fillStyle = "#4a3b2c";
+  sctx.fillText(coinTxt, tx + 5, ty + 6.3);
+  /* 集中力 */
+  const cy = ty + 14;
+  sR(tx, cy, tw, 12, "#8a6a44");
+  sR(tx + 1, cy + 1, tw - 2, 10, "#fff5e6");
+  sctx.fillText("🧠", tx + 4, cy + 6.3);
+  const mx = tx + 4 + brainW + 3;
+  const conc = Math.max(0, Math.min(100, S.concentration)) / 100;
+  sR(mx, cy + 3.5, meterW, 5, "#604B40");
+  if(conc > 0) sR(mx + 1, cy + 4.5, Math.max(1, (meterW - 2) * conc), 3, "#5aa4c2");
+  sctx.fillText(prodTxt, mx + meterW + 4, cy + 6.3);
+  sctx.restore();
+}
 function projectBoardModel(p, dp){
   if(!p) return { has: false, frac: 0, pct: -1, ticks: [], planning: false };
   if(p.planning){
@@ -128,9 +181,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
      3行に残し、細部はメニューのヒーローカード (クリックで開く) に任せる。
        r1: 進捗 % (主役の数字は1つだけ) + 『作品名』 + ジャンル (詰まり時は ⚠)
        r2: 太い進捗バー (節目の目盛り付き)
-       r3: 左 = いま気にすること1つ / 右 = 集中力メーター + コイン
-     ボードから外したもの: 説明文・DP 実数・規模ピル・機能チップ列・生産 +N%・QA・
-     バグ在庫 (どれもメニューに同じ表示がある)。吊りメモとコイン札はボードの中へ */
+         r3: 現在 / 必要 DP (旧表示を残す) + 次の機能と完成数 (詰まり中は詰まりの工程)
+     コイン・集中力 (生産 +N%) はボード左肩のタブ、メモは左下に吊る2行の札に分けた。
+     説明文・規模ピル・QA・バグ在庫はメニューのヒーローカードに任せる */
   sctx.save();
   sctx.textAlign = "left"; sctx.textBaseline = "middle";
   /* r1: 大 % + 『作品名』 + 右端にジャンルピル (詰まり時は ⚠ プレート) */
@@ -178,52 +231,33 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(m.frac > 0)
     sR(bar.x, bar.y, Math.max(1, bar.w * m.frac), bar.h, bn ? "#e2543e" : (m.planning ? "#ffd94d" : "#7be495"));
   for(const t of m.ticks) sR(bar.x + Math.round(bar.w * t), bar.y, 1.2, bar.h, "#fff3b0");
-  /* r3 右から: コイン札 → 集中力メーター (数字ではなく残量で見せる) */
-  const ry = iy + 27, rh = 11, rcy = ry + rh / 2 + 0.3;
-  sctx.font = "700 8px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  const coinTxt = "🪙 " + fmt(Math.floor(S.coins));
-  const coinW = Math.max(36, sctx.measureText(coinTxt).width + 9);
-  const coinX = ix + iw - 1.5 - coinW;
-  sR(coinX, ry, coinW, rh, "#8a6a44");
-  sR(coinX + 1, ry + 1, coinW - 2, rh - 2, "#d9b23a");
-  sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "center";
-  sctx.fillText(coinTxt, coinX + coinW / 2, rcy);
-  sctx.textAlign = "left";
-  const concW = 18, concX = coinX - 4 - concW;
-  sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  const brainW = sctx.measureText("🧠").width;
-  sctx.fillText("🧠", concX - brainW - 1.5, rcy);
-  const conc = Math.max(0, Math.min(100, S.concentration)) / 100;
-  sR(concX, ry + 3, concW, 5, "#604B40");
-  if(conc > 0) sR(concX + 1, ry + 4, Math.max(1, (concW - 2) * conc), 3, "#5aa4c2");
-  /* r3 左: いま気にすること1つ (企画中の案内 > メモ > 詰まり > 次の機能) */
-  const lx = ix + 1.5, lw = concX - brainW - 5 - lx;
-  const memoTxt = stripMemoText();
-  const memoHere = memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo";
+  /* r3: 進捗の実数 (旧表示「現在 / 必要 DP」を残す) + 機能の進み具合。
+     企画中は着工までの案内、詰まり中は右側が詰まりの工程名になる */
+  const rcy = iy + 32.5;
   if(p && m.planning){
+    sctx.font = "7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#8a6a44";
-    sctx.fillText(fitMemoText("💡 アイデア あと " + Math.max(0, (p.ideaCost || 0) - Math.floor(S.ideas)) + " 個で着工", lw), lx, rcy);
-  } else if(memoHere){
-    /* 吊りメモはボードの中の付箋に (クリック先・大型案件の金色の明滅は従来どおり) */
-    const memoGold = !!S.bigDeal;
-    sR(lx, ry, lw, rh, memoGold ? "#d9a41a" : "#d8c9ae");
-    sR(lx + 1, ry + 1, lw - 2, rh - 2, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#f3e7cd");
-    sR(lx + 3, ry + 3.5, 3, 3, "#e2543e");
+    sctx.fillText(fitMemoText("💡 企画中： アイデア あと " + Math.max(0, (p.ideaCost || 0) - Math.floor(S.ideas)) + " 個で着工（必要 " + (p.ideaCost || 0) + " 個）", iw - 4), ix + 2, rcy);
+  } else if(p){
+    sctx.font = "700 8px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
-    sctx.fillText(fitMemoText(memoTxt, lw - 10), lx + 8, rcy);
-    stripHitRects.memo = { x: lx, y: ry, w: lw, h: rh };
-  } else if(p && bn){
-    sctx.fillStyle = "#d9534f";
-    /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
-    const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
-    sctx.fillText(fitMemoText("⚠ " + stName + "が詰まり中" + (bnAll.line ? "（第" + bnAll.line + "ライン）" : ""), lw), lx, rcy);
-  } else if(p && p.feats && p.feats.length){
-    const done = Math.min(p.doneFeats || 0, p.feats.length);
-    const txt = done < p.feats.length
-      ? "▸ 次の機能：" + p.feats[done] + "（" + done + "/" + p.feats.length + "）"
-      : "▸ 仕上げ中（" + done + "/" + p.feats.length + "）";
-    sctx.fillStyle = "#8a6a44";
-    sctx.fillText(fitMemoText(txt, lw), lx, rcy);
+    const dpTxt = "📈 " + fmt(Math.floor(dp)) + " / " + fmt(p.totalDP) + " DP";
+    sctx.fillText(dpTxt, ix + 2, rcy);
+    const rx0 = ix + 2 + sctx.measureText(dpTxt).width + 8, rw = ix + iw - 3 - rx0;
+    sctx.font = "7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+    sctx.textAlign = "right";
+    if(bn){
+      /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
+      const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
+      sctx.fillStyle = "#d9534f";
+      sctx.fillText(fitMemoText("⚠ " + stName + "が詰まり中" + (bnAll.line ? "（第" + bnAll.line + "ライン）" : ""), rw), ix + iw - 3, rcy);
+    } else if(p.feats && p.feats.length){
+      const done = Math.min(p.doneFeats || 0, p.feats.length);
+      const txt = (done < p.feats.length ? "次の機能：" + p.feats[done] : "仕上げ中") + "（✅ " + done + "/" + p.feats.length + "）";
+      sctx.fillStyle = "#8a6a44";
+      sctx.fillText(fitMemoText(txt, rw), ix + iw - 3, rcy);
+    }
+    sctx.textAlign = "left";
   }
   sctx.restore();
   /* Wave H: モジュールチップ列（ボード右側に吊るす縦タグ — ボード下は
@@ -248,6 +282,13 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     sctx.restore();
     sctx.textAlign = "left";
   }
+  /* 2026-10-27 (sakuri:「すべてをリーダーボードに集約する必要はない。分割して可視性を担保」):
+     コインと集中力はボードの左肩に張り出すタブ、メモはボード左下に吊る2行の札にする。
+     どれも机に座ったみゅけの頭 (ボード中央やや右の下) を避けた位置 */
+  drawStripBoardSideTabs(bx, top);
+  const memoTxt = stripMemoText();
+  if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo")
+    drawStripMemoTag2(bx + 4, top + bh + 2, memoTxt, 82);
   /* Phase B・社格チップ（リーダーボード右上）: r1 は作品名＋ピル、r2 は DP 実数＋
      生産 +N% で既に満杯で、ボード上端は帯の上端から 3px しかないため、面の中に
      押し込まず右端にタブとして張り出す。帯の上段はボード以外に高い家具がなく、
