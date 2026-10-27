@@ -46,16 +46,20 @@ function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
 function extraMult(){ return resMult() * extraMultBase(); }
 function extraMultBase(){ return perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
-/* 工程（テスト/ビルド/出荷）と QA にも、実装と同じ会社全体の倍率を掛ける。
-   以前は実装だけが アップグレード×星屑×研究 で伸び、後工程は足し算のままだったので、
-   周回や強化を重ねるほど実装だけが突出して詰まり、バグも QA を置き去りにしていた */
-function stageMult(stage){ return dpMult(S.upgrades) * dustMult() * extraMultBase() * repMult(stage); }   /* 反復研究だけは工程ごと */
+/* 工程中心（2026-10-27）: 倍率は3系統に分ける。
+   ・工程別: 自分の工程の設備・担当スタッフ（育成・部署Lv）・反復研究
+   ・会社全体: 星屑・星屑特典・技術遺産・チャレンジ報酬（全工程に同じだけ効く）
+   ・一時的: やる気MAX（初リリースまで）・ご褒美・フィーバー（実装のみ）
+   会社全体と一時的な倍率は全工程に同じだけ掛かるので、どこが詰まるかは
+   工程別の投資だけで決まる。どこに投資するかがこのゲームの中心 */
+function companyMult(){ return dustMult() * extraMultBase(); }
+function stageMult(stage){ return companyMult() * firstBoost() * repMult(stage); }
 function qaRate(){
   return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult("test");
 }
-function testRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.tester||0) + staffSums().testDP) * stageMult("test"); }
-function buildRate(){ return (BAL.stageBaseRate + 5*(S.upgrades.ci||0) + 4*(S.upgrades.pack||0)) * stageMult("build"); }
-function shipRate(){ return (BAL.stageBaseRate + 6*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
+function testRate(){ return (BAL.stageBaseRate + BAL.equipDP.tester*(S.upgrades.tester||0) + staffSums().testDP) * stageMult("test"); }
+function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*(S.upgrades.ci||0) + BAL.equipDP.pack*(S.upgrades.pack||0)) * buildEquipMult(S.upgrades) * stageMult("build"); }
+function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.bot*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
 function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
    「引っ越したてのみゅけのやる気MAX」で生産 ×3.4。帯で無操作でも初リリースが
@@ -63,14 +67,14 @@ function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 
    Sprint 1 の ×1.5 では帯の無操作は約11〜12分かかっていた (C2-P0-2) */
 function firstBoost(){ return S.totals.releases === 0 ? 3.4 : 1; }
 function productionRate(){
-  return (BAL.basePerMin + botRate() + staffSums().prog) * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
+  return (BAL.basePerMin + botRate() + staffSums().prog) * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
 }
 /* 第2ラインの素の生産量。倍率は produceDP 側で掛かる（以前は line2Rate を
    そのまま produceDP に渡していたため、アップグレード×星屑の倍率が二重に掛かっていた） */
 function line2BaseRate(){
   return (BAL.line2BaseRate + 0.8 * staffSums().progW) * (S.research.res_eff2 ? 1.5 : 1);
 }
-function line2Rate(){ return line2BaseRate() * dpMult(S.upgrades) * dustMult() * extraMult(); }
+function line2Rate(){ return line2BaseRate() * implMult(S.upgrades) * dustMult() * extraMult(); }
 function bugFactor(){
   return S.bugStock > 8 ? Math.max(0.5, 1 - (S.bugStock - 8) * 0.02) : 1;
 }
@@ -344,7 +348,7 @@ function activateFever(){
 }
 function produceDP(amount, target){
   const fromInput = prodMuted;
-  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+  const aBase = amount * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分 */
@@ -370,6 +374,22 @@ function produceDP(amount, target){
     S.tut.seen.first_bug = true;
     say("バグが出たにゃ。あたしが勝手に叩くから大丈夫だよ");
   }
+}
+/* 工程中心（2026-10-27）: 応援は詰まっている工程を手伝う。後工程が律速なら、
+   その工程の手前に溜まった仕掛品を次へ送る（出荷が律速なら出荷して進捗に計上）。
+   送れた量と工程名を返す。実装が律速（後工程に余裕がある）なら moved 0 を返し、呼び出し側が
+   従来どおり生産に回す。以前は応援が全量実装に入り、後工程の前に積まれるだけだった */
+function cheerAssist(amount){
+  const none = { moved: 0, name: "" };
+  if(!S.project || S.project.planning || amount <= 0) return none;
+  const b = bottleneckStage();
+  if(!b.isBn) return none;
+  const w = S.wip;
+  let moved = 0;
+  if(b.worst.id === "test"){ moved = Math.min(amount, w.code); w.code -= moved; w.tested += moved; }
+  else if(b.worst.id === "build"){ moved = Math.min(amount, w.tested); w.tested -= moved; w.built += moved; }
+  else { moved = Math.min(amount, w.built); w.built -= moved; if(moved > 0) creditProject(moved); }
+  return { moved, name: b.worst.name };
 }
 /* 工程処理: caps = {test, build, ship}（この tick で使える DP 量）。使った分を返す */
 function processPipe(wip, caps, bugF, creditFn){
@@ -461,7 +481,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  let coins = Math.round(BAL.coinBase[p.size] * dustPriceMult() * brandMult() * modulePriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   let rp = BAL.rpBase[p.size];
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -516,7 +536,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
+  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * dustPriceMult() * brandMult() * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
   let rp = BAL.rpBase[p.size];
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
