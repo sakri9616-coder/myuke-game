@@ -88,6 +88,7 @@ function buildSprites(){
         " got " + cv.width + "x" + cv.height + ", spec " + spec[0] + "x" + spec[1] +
         " (bottom-center anchor keeps placement intact)");
     }
+    stripStaticImages.add(cv);
     spriteCache[name] = cv;
   }
 }
@@ -196,7 +197,6 @@ function duckSprite(){
    スロット座標は帯レンダラ側の stripShelfSlots() が持つ（棚板の実測位置）。
    並ぶ数は min(総リリース数≒ S.shelf.length, 枠数)。最新作はリリース直後
    しばらく金枠で光る（shelfGlowFrame はリリース時にセットされる） */
-const SHELF_BOX_COLS = ["#e8873a","#5aa469","#4a90c2","#c25a7a","#8a6fc9","#d9b23a","#4fb3a9","#a05a3a"];
 let shelfGlowFrame = -1;
 /* ---------- ストリップモード描画（デスクトップ下部の帯に直接住む） ----------
    仮想空間は高さ 120 単位・幅は画面アスペクト可変。地面は下端 -4。
@@ -204,7 +204,7 @@ let shelfGlowFrame = -1;
    机に座る／床を散歩する。スタッフは視覚専用ウォーカーとして帯を歩く。
    シミュレーションには一切触らない（ビュー専用）。 */
 const stripCv = document.getElementById("strip") as HTMLCanvasElement | null;
-const sctx = stripCv ? stripCv.getContext("2d") : null;
+const sctx: CanvasRenderingContext2D | null = stripCv ? makeStripFrameCtx(stripCv.getContext("2d")) : null;   /* 描画の軽量化: strip-frame.ts */
 const STRIP_H = 120, STRIP_GROUND = STRIP_H - 4;
 let stripVW = 640, stripScale = 2, stripNow = 0;
 let miyukeStrip = { x: -1, targetX: 0, dir: 1, moving: false, nextPick: 0, walkClock: 0 };
@@ -222,7 +222,7 @@ function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "board", "board2", "memo", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
+  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "shelf", "miyuke", "desk", "duck"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
   for(const k of ["bugs", "piles", "staff"]){
     const arr = R[k] || [];
@@ -258,6 +258,7 @@ function yellowSpriteOf(name){
   c2.drawImage(src, 0, 0);
   c2.globalCompositeOperation = "source-in";
   c2.fillStyle = "#ffd94d"; c2.fillRect(0, 0, cv.width, cv.height);
+  stripStaticImages.add(cv);
   spriteHaloCache[name] = cv;
   return cv;
 }

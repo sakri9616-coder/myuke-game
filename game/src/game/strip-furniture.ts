@@ -35,19 +35,15 @@ function stripShelfBoxes(){
   for(let i = 0; i < n; i++){
     const sl = slots[i];
     out.push({ x: sl.x, yb: sl.yb, w: sl.w, h: sl.h,
-      color: SHELF_BOX_COLS[(view[i].icon || 0) % SHELF_BOX_COLS.length],
+      ci: projectColorIdx(view[i]),
       glow: (i === 0 && frame < shelfGlowFrame) || !!view[i].ip });   /* 第2ウェーブ L: IP 作品は金の縁で常時点灯 */
   }
   return out;
 }
 /* 星屑特典「棚の星飾り」: 棚の天板に載る小物として統合 (§c.5。旧: デスク横の浮遊星) */
 function drawStripStarOnShelf(scx, topY){
-  const x = scx + 18, y = topY - 5 + (frame % 20 < 10 ? 0 : 0.7);
-  sR(x - 2, y, 5, 5, "#ffd94d");
-  sR(x - 1, y - 2, 3, 2, "#ffd94d"); sR(x - 1, y + 5, 3, 2, "#ffd94d");
-  sR(x - 4, y + 1, 2, 3, "#ffd94d"); sR(x + 3, y + 1, 2, 3, "#ffd94d");
-  sR(x, y + 2, 1, 1, "#fff3b0");
-  if(frame % 30 < 4) sR(x + 6, y - 2, 2, 2, "#fff3b0");
+  /* 2コマのまたたき (prop_star_deco_0/_1)。天板に接地 */
+  sDrawSprite("prop_star_deco_" + (frame % 30 < 4 ? 1 : 0), scx + 18, topY, 1);
 }
 /* 作品棚（ゾーン B, §c.2）: 柵セグメント（背面物）＋棚本体＋作品ボックス。
    「成果は左」という読み順を作るランドマーク（帯で唯一 90 単位級まで高い家具） */
@@ -58,43 +54,22 @@ function drawStripShelf(){
   /* 背面の柵セグメント（高さ 24・幅 100 = R9 の許容背面物の上限）。
      tier>=2 では撤去する (オフィス化で最もテーマ外だった要素。
      OFFICE_ART_DIRECTION の DROP リスト) */
-  if(tier < 2){
-    const fy = G - 24;
-    sR(scx - 50, fy + 6, 100, 2.4, "#a9835acc");
-    sR(scx - 50, fy + 15, 100, 2.4, "#a9835acc");
-    for(let i = 0; i < 5; i++) sR(scx - 48 + i * 24, fy, 3, 24, "#b08954cc");
-  }
+  if(tier < 2) sDrawSprite("prop_fence", scx, G, 1);
   sShadow(scx, G - 0.5, 72);
   let topY;
   /* tier>=2: 棚枠はスチール (shelf_steel 40×28 — prop_shelf と同一キャンバス・
      同一接地。板の上面はスロット基線 G-30/G-10 と正確に一致する) */
   const shelfDrawn = (tier >= 2 && sDrawSprite("shelf_steel", scx, G, 2)) ? "shelf_steel"
     : (sDrawSprite("prop_shelf", scx, G, 2) ? "prop_shelf" : null);
-  if(shelfDrawn){
-    stripObjArt.shelf = { name: shelfDrawn, gx: scx, gy: G, s: 2 };
-    topY = G - 56;
-  } else {
-    /* フォールバック棚: 板2段の簡素な家具 (76×52) */
-    sR(scx - 38, G - 52, 76, 52, "#8a6a44");
-    sR(scx - 35, G - 49, 70, 43, "#6e5433");
-    sR(scx - 38, G - 30, 76, 3, "#8a6a44");
-    sR(scx - 38, G - 8, 76, 3, "#8a6a44");
-    topY = G - 52;
-  }
+  if(shelfDrawn) stripObjArt.shelf = { name: shelfDrawn, gx: scx, gy: G, s: 2 };
+  topY = G - 56;
   const shelfBoxes = stripShelfBoxes();
   /* tier>=2: 技術書の列 (prop_books) を下段に置く。下段に作品箱が1つでも
      ある時は衝突するので出さない (空いている段だけの装飾) */
   if(tier >= 2 && !shelfBoxes.some(b => b.yb === G - 10)) sDrawSprite("prop_books", scx, G - 10, 2);
   for(const bx of shelfBoxes){
-    sR(bx.x, bx.yb - bx.h, bx.w, bx.h, bx.color);
-    sR(bx.x, bx.yb - bx.h + 3, bx.w, 1.2, "#00000033");
-    if(bx.glow){
-      sR(bx.x - 1, bx.yb - bx.h - 1, bx.w + 2, 1.2, "#ffd94d");
-      sR(bx.x - 1, bx.yb, bx.w + 2, 1.2, "#ffd94d");
-      sR(bx.x - 1, bx.yb - bx.h - 1, 1.2, bx.h + 2, "#ffd94d");
-      sR(bx.x + bx.w, bx.yb - bx.h - 1, 1.2, bx.h + 2, "#ffd94d");
-      if(frame % 6 < 3) sR(bx.x + bx.w + 1, bx.yb - bx.h - 3, 2, 2, "#fff3b0");
-    }
+    sDrawTL("prop_shelf_box_" + bx.ci, bx.x, bx.yb - bx.h);
+    if(bx.glow && frame % 12 < 9) sDrawTL("fx_shelf_glow", bx.x - 1, bx.yb - bx.h - 1);   /* 新作・IP 作品の金の縁 */
   }
   if(hasPerk("stardecor")) drawStripStarOnShelf(scx, topY);
   /* 第2ウェーブ J: オフィスグレードの置物（レガシー技術・Codex 作画の小物） */
@@ -108,22 +83,14 @@ function drawStripResearchStation(){
   const G = STRIP_GROUND, rcx = stripResearchCX();
   sRug(rcx, 84);
   sShadow(rcx, G - 0.5, 62);
-  sR(rcx - 32, G - 14, 64, 3, "#b08954");
-  sR(rcx - 32, G - 14, 64, 1.1, "#cfa06a");
-  sR(rcx - 30, G - 11, 3, 11, "#8a6a44");
-  sR(rcx + 27, G - 11, 3, 11, "#8a6a44");
-  /* 本の山（机の左） */
-  sR(rcx - 28, G - 17.5, 11, 3.5, "#4a90c2"); sR(rcx - 28, G - 17.5, 11, 1, "#ffffff55");
-  sR(rcx - 27, G - 20.5, 9, 3, "#c25a7a"); sR(rcx - 27, G - 20.5, 9, 1, "#ffffff55");
-  sR(rcx - 28.5, G - 23.5, 10, 3, "#5aa469");
-  /* 開いた本（机の中央） */
-  sR(rcx - 6, G - 16.5, 13, 2.5, "#fff5e6"); sR(rcx - 0.5, G - 16.5, 1, 2.5, "#d8c9ae");
+  /* 机・本の山・開いた本 (prop_research_desk)。研究ポイントで終わらせられる研究があれば
+     開いた本が光る絵 (prop_research_desk_on) とゆっくり交互に出す */
+  const canFinish = RESEARCH_DEFS.some(d => !S.research[d.id] && d.cost <= S.rp);
+  sDrawSprite(canFinish && blinkOn(60, 40) ? "prop_research_desk_on" : "prop_research_desk", rcx, G, 1);
   /* 植木鉢（研究机の右が既定）: prop_plant は装飾スロット級に小さく使う (§c.8)。
      Phase E で独立配置 (他の面にも載せられる) */
   const plantPl = propPlace("plant");
-  if(!sDrawSprite("prop_plant", plantPl.cx, plantPl.baseY, 0.8)){
-    sR(plantPl.cx - 3, plantPl.baseY - 6, 6, 6, "#7a5230"); sR(plantPl.cx - 5, plantPl.baseY - 12, 10, 6, "#5aa469"); sR(plantPl.cx - 2, plantPl.baseY - 15, 4, 4, "#6fbb7a");
-  }
+  sDrawSprite("prop_plant", plantPl.cx, plantPl.baseY, 0.8);
   /* Stage 3: 研究机クリック → 研究タブ */
   stripHitRects.research = { x: rcx - 34, y: G - 30, w: 68, h: 30 };
 }
@@ -137,12 +104,7 @@ function drawStripDesk2(){
      差し替え。旧 40×24 前提の desk_laminate_2_sprite (ティア連動の差し替え) は
      絵の形が合わないため使わず、全ティアで sakuri の机を使う。下端の透過
      3行分だけアンカーを押し下げて接地させる (prop_coffee と同じ流儀) */
-  const drawn = sDrawSprite("prop_desk2", dcx, G + 6, 2);
-  if(!drawn){
-    sR(dcx - 40, G - 16, 80, 3, "#b08954");
-    sR(dcx - 38, G - 13, 3, 13, "#8a6a44"); sR(dcx + 35, G - 13, 3, 13, "#8a6a44");
-    sR(dcx - 12, G - 40, 24, 17, "#445464"); sR(dcx - 10, G - 38, 20, 13, "#2e4a3e");
-  }
+  sDrawSprite("prop_desk2", dcx, G + 6, 2);
   drawStripDesk2Screen(dcx, G);
 }
 /* ライン2の進捗をモニタ内にダイジェティック表示（主モニタと同じ流儀 R10）。
@@ -151,16 +113,14 @@ function drawStripDesk2(){
 function drawStripDesk2Screen(dcx, G){
   const q = S.line2.project;
   if(!q) return;
-  const col = SHELF_BOX_COLS[(typeof q.icon === "number" ? q.icon : 0) % SHELF_BOX_COLS.length];
-  sR(dcx - 16, G - 60, 4, 4, col);
-  sR(dcx - 16, G - 58, 4, 1, "#00000033");
+  sDrawTL("icon_project_mini_" + projectColorIdx(q), dcx - 16.5, G - 60.5);
   const bx = dcx - 16, bw = 28;
-  sR(bx, G - 48, bw, 3, "#101d16");
+  sDrawNine("ui_minibar_track_3", bx, G - 48, bw, 3, 2, 0);
   if(q.planning){
-    if(blinkOn(12, 7)) sR(bx + 1, G - 47, 3, 1, "#ffd94d");
+    if(blinkOn(12, 7)) sDrawNine("ui_minibar_fill_yellow_3", bx + 1, G - 48, 4, 2, 1, 0);
   } else {
     const frac = Math.max(0, Math.min(1, S.line2.projectDP / q.totalDP));
-    if(frac > 0) sR(bx, G - 48, Math.max(1, bw * frac), 3, "#7be495");
+    if(frac > 0) sDrawNine("ui_minibar_fill_3", bx, G - 48, Math.max(2, bw * frac), 2, 1, 0);
   }
   drawStripGitLog(stripGitLog2, dcx - 14, G - 54, 24);
 }

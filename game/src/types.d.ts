@@ -177,6 +177,7 @@ interface Window {
   __miyukeApplyMode?: (mode: string) => void;
   __miyukeOnModeChange?: (mode: string) => void;
   __miyukeHitZones?: any;
+  __miyukeDrawStats?: () => { presented: number; skipped: number };
   __miyukeSendSnapshot?: () => void;
   __viewerSaveTrap?: { hits: number };
   webkitAudioContext?: typeof AudioContext;

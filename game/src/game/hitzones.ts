@@ -137,7 +137,13 @@ if(stripCv){
         return;
       }
     }
-    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12) */
+    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12)。
+       ボードの中に貼ったメモ付箋は、ボードより先にメモの行き先を開く */
+    const mr = stripHitRects.memo;
+    if(mr && ux >= mr.x && ux <= mr.x + mr.w && uy >= mr.y && uy <= mr.y + mr.h){
+      openTabPanel(stripMemoTab());
+      return;
+    }
     for(const bkey of ["board", "board2"]){
       const br = stripHitRects[bkey];
       if(br && ux >= br.x && ux <= br.x + br.w && uy >= br.y && uy <= br.y + br.h){
@@ -201,7 +207,7 @@ if(stripCv){
       clickTimes = [];
     }
     const crit = cheerClick(ux, uy, part);
-    addStripSpark(ux, uy);
+    addStripSpark(ux, uy, crit);
     if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
@@ -276,7 +282,10 @@ function renderFrame(){
   if(lastRenderAt) advanceCodePhase(dtR);
   lastRenderAt = nowR;
   /* 帯ではヘッダもパネルも表示されない (display:none) ので、HUD の更新はメニュー形態だけ */
-  if(document.body.classList.contains("strip")){ renderStrip(); publishHitZones(false); return; }
+  if(document.body.classList.contains("strip")){ stripFrameRun(renderStrip); publishHitZones(false); return; }
+  /* 描画の軽量化: 隠れているメニュー窓では HUD を書き換えない (見えないうえ、
+     rAF が止まってもタイマーから 20 回/秒 呼ばれていた)。表示された次のフレームで追いつく */
+  if(document.hidden) return;
   renderHeader();   /* Sprint 2: HUD のカウントアップをフレーム駆動で滑らかにする */
   /* Strip Canon: フルモードにシーンは描かない（R11: 管理側はパネルのみ）。
      みゅけの世界は帯だけ。フルではヘッダとパネルの DOM 更新のみ行う */
