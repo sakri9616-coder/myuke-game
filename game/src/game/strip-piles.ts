@@ -581,7 +581,7 @@ function renderStrip(){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
       sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
-      stripHitRects.bugs.push({ x: bp.x - 9, y: bp.y - 9, w: 18, h: 18 });
+      stripHitRects.bugs.push({ x: bp.x - 30, y: bp.y - 30, w: 60, h: 60 });   /* 判定は見た目の約3倍 */
     }
   }
   /* 星飾りは棚の天板へ移行済み（drawStripShelf 内, §c.5） */

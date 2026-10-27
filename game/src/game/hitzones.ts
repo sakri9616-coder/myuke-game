@@ -128,7 +128,7 @@ if(stripCv){
     if(bugEvent){
       for(let i = 0; i < bugEvent.bugs.length; i++){
         const bp = stripBugXY(bugEvent.bugs[i]);
-        if(Math.hypot(ux - bp.x, uy - bp.y) <= 13){
+        if(Math.hypot(ux - bp.x, uy - bp.y) <= 30){   /* 見た目の約3倍 (sakuri 2026-10-27) */
           splatBug(i, bp.x, bp.y);   /* 報酬の浮き文字は splatBug が出す */
           headerAfterStripClick();
           return;

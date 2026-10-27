@@ -16,7 +16,9 @@ const BUG_INDIV_WITH_SWARM = 8;  /* 群れがいるときの1匹描きの数 */
 const BUG_SWARM_MAX = 12;
 const BUG_STEP_MS = 220;         /* 這う刻み。1刻みで 2px 進む (≒9px/秒) */
 const BUG_FX_MAX = 4;
-const BUG_HIT = { one: [16, 13], s: [28, 15], l: [46, 22] };
+/* 当たり判定は見た目の約3倍 (sakuri 2026-10-27「数倍大きく。後ろの物が掴めなくなっても結構」)。
+   地面から上へ広げる。帯の何もない所は従来どおり素通し (判定はバグの周りだけ) */
+const BUG_HIT = { one: [42, 30], s: [72, 36], l: [120, 54] };
 let stripBugVis = [];            /* {kind:"one"|"s"|"l", x, tx, dir, ph, n} */
 let stripBugFx = [];             /* {kind:"patch"|"splat", x, at} */
 let stripBugStepAt = 0, stripBugStepN = 0;
