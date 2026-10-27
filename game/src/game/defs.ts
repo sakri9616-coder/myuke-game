@@ -284,22 +284,36 @@ function repMult(stage){
 function tier1Done(){ return RESEARCH_DEFS.filter(r => !r.tier).every(r => S.research[r.id]); }
 function resMult(){ return repMult("impl"); }   /* 実装ぶん（extraMult 経由で実装・第2ライン・クリックに掛かる） */
 
-/* ---------- 実績 ---------- */
+/* ---------- 実績 ----------
+   cat = 実績ボードの段（工程・設備・会社・みゅけ）、icon = カードの絵（既存スプライト名）、
+   hint = 未取得のときに見せる条件。id はセーブ互換のため変えない */
+const STAMP_CATS = [
+  { id:"line",  name:"工程",       icon:"🏭" },
+  { id:"equip", name:"設備と研究", icon:"🔧" },
+  { id:"corp",  name:"会社とチーム", icon:"🏢" },
+  { id:"cat",   name:"みゅけ",     icon:"🐱" }
+];
 const STAMP_DEFS = [
-  { id:"first_bug",    name:"初バグ",           test:s=>s.totals.bugsSquashed>=1 },
-  { id:"first_release",name:"初リリース",       test:s=>s.totals.releases>=1 },
-  { id:"commits100",   name:"100コミット",      test:s=>s.totals.commits>=100, prog:s=>[s.totals.commits,100] },
-  { id:"cursor10km",   name:"カーソル10km",     test:s=>s.totals.cursorPx>=100*1000*37.79, prog:s=>[Math.floor(s.totals.cursorPx/37.79),100000] },
-  { id:"releases10",   name:"10作品リリース",   test:s=>s.totals.releases>=10, prog:s=>[s.totals.releases,10] },
-  { id:"coins5000",    name:"通算5000コイン",   test:s=>s.totals.coinsEarned>=5000, prog:s=>[Math.floor(s.totals.coinsEarned),5000] },
-  { id:"nightowl",     name:"夜ふかし開発",     test:s=>s.flags.nightCommit===true },
-  { id:"bot_buy",      name:"初めての同僚",     test:s=>(s.upgrades.bot||0)>=1 },
-  { id:"prestige1",    name:"EXIT経験者",   test:s=>s.prestiges>=1 },
-  { id:"play_all",     name:"一人遊びマスター", test:s=>["yarn","groom","watch","chase","zoomies"].every(p=>s.flags["play_"+p]) },
-  { id:"first_hire",   name:"初めての雇用",     test:s=>s.totals.hired>=1 },
-  { id:"staff5",       name:"チーム5人",        test:s=>s.staff.length>=5, prog:s=>[s.staff.length,5] },
-  { id:"line2_first",  name:"第2ライン初出荷", test:s=>s.flags.line2Released===true },
-  { id:"goldfish",     name:"金のフィッシュ",  test:s=>s.totals.goldFish>=1 },
-  { id:"click1000",    name:"応援1000回",       test:s=>s.totals.clicks>=1000, prog:s=>[s.totals.clicks,1000] }
+  { id:"commits100",   cat:"line",  icon:"icon_book",        name:"100コミット",      hint:"実装でコミットを100回", test:s=>s.totals.commits>=100, prog:s=>[s.totals.commits,100] },
+  { id:"first_bug",    cat:"line",  icon:"icon_bug",         name:"初バグ",           hint:"テストでバグを1匹たたく", test:s=>s.totals.bugsSquashed>=1 },
+  { id:"first_release",cat:"line",  icon:"icon_box",         name:"初リリース",       hint:"作品を1本出荷する", test:s=>s.totals.releases>=1 },
+  { id:"releases10",   cat:"line",  icon:"prop_ship",        name:"10作品リリース",   hint:"作品を10本出荷する", test:s=>s.totals.releases>=10, prog:s=>[s.totals.releases,10] },
+  { id:"bn_cleared",   cat:"line",  icon:"icon_wrench",      name:"詰まり解消",       hint:"ボトルネックの工程を流れるようにする", test:s=>s.flags.bnCleared===true },
+  { id:"all_green",    cat:"line",  icon:"miyuke_happy",     name:"全工程グリーン",   hint:"企画から出荷まで5工程のランプが全部緑", test:s=>s.flags.allGreen===true },
+  { id:"line2_first",  cat:"line",  icon:"prop_packmachine", name:"第2ライン初出荷", hint:"第2ラインで作品を出荷する", test:s=>s.flags.line2Released===true },
+  { id:"bot_buy",      cat:"equip", icon:"staff_mike2_sit",  name:"初めての同僚",     hint:"子ねこボットを導入する", test:s=>(s.upgrades.bot||0)>=1 },
+  { id:"equip_all",    cat:"equip", icon:"prop_toolbox",     name:"設備ひと通り",     hint:"工場の設備をすべて Lv1 以上に", test:s=>UPGRADE_DEFS.every(u=>(s.upgrades[u.id]||0)>=1), prog:s=>[UPGRADE_DEFS.filter(u=>(s.upgrades[u.id]||0)>=1).length,UPGRADE_DEFS.length] },
+  { id:"equip_max",    cat:"equip", icon:"prop_star_gold",   name:"設備を極めた",     hint:"どれか1つの設備を最大Lvに", test:s=>UPGRADE_DEFS.some(u=>(s.upgrades[u.id]||0)>=u.max) },
+  { id:"rep_all3",     cat:"equip", icon:"icon_idea",        name:"工程研究そろい",   hint:"工程別の反復研究を全部 Lv3 以上に", test:s=>REPEAT_RESEARCHES.every(r=>((s.researchLv||{})[r.id]||0)>=3), prog:s=>[Math.min(...REPEAT_RESEARCHES.map(r=>((s.researchLv||{})[r.id]||0))),3] },
+  { id:"first_hire",   cat:"corp",  icon:"staff_kuro_sit",   name:"初めての雇用",     hint:"スタッフを1匹雇う", test:s=>s.totals.hired>=1 },
+  { id:"staff5",       cat:"corp",  icon:"staff_hachiware_sit", name:"チーム5人",     hint:"スタッフを5匹にする", test:s=>s.staff.length>=5, prog:s=>[s.staff.length,5] },
+  { id:"dept5",        cat:"corp",  icon:"prop_annex_sign",  name:"部署 Lv5",         hint:"どれか1つの部署を Lv5 に", test:s=>Object.values(s.depts||{}).some(v=>Number(v)>=5), prog:s=>[Math.max(1,...Object.values(s.depts||{}).map(Number)),5] },
+  { id:"coins5000",    cat:"corp",  icon:"icon_coin",        name:"通算5000コイン",   hint:"コインを通算5000枚かせぐ", test:s=>s.totals.coinsEarned>=5000, prog:s=>[Math.floor(s.totals.coinsEarned),5000] },
+  { id:"prestige1",    cat:"corp",  icon:"prop_trophy_gold", name:"EXIT経験者",       hint:"会社を売却（EXIT）する", test:s=>s.prestiges>=1 },
+  { id:"click1000",    cat:"cat",   icon:"icon_heart",       name:"応援1000回",       hint:"みゅけを1000回応援する", test:s=>s.totals.clicks>=1000, prog:s=>[s.totals.clicks,1000] },
+  { id:"cursor10km",   cat:"cat",   icon:"miyuke_walk_0",    name:"カーソル10km",     hint:"カーソルを通算10km動かす", test:s=>s.totals.cursorPx>=100*1000*37.79, prog:s=>[Math.floor(s.totals.cursorPx/37.79),100000] },
+  { id:"nightowl",     cat:"cat",   icon:"miyuke_sleep",     name:"夜ふかし開発",     hint:"夜中にコミットする", test:s=>s.flags.nightCommit===true },
+  { id:"play_all",     cat:"cat",   icon:"miyuke_yarn",      name:"一人遊びマスター", hint:"一人遊びを5種類ぜんぶ見る", test:s=>["yarn","groom","watch","chase","zoomies"].every(p=>s.flags["play_"+p]) },
+  { id:"goldfish",     cat:"cat",   icon:"icon_fish",        name:"金のフィッシュ",  hint:"金のフィッシュをつかまえる", test:s=>s.totals.goldFish>=1 }
 ];
 

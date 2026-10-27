@@ -1,7 +1,7 @@
 /* ---------- UI ---------- */
 const TABS = [
   ["proj","📋 プロジェクト"], ["staff","👥 スタッフ"], ["factory","🏭 工場"], ["click","👆 応援"],
-  ["shelf","📚 作品棚"], ["requests","📮 依頼"], ["research","🔬 研究"], ["stats","📊 統計"], ["settings","⚙️ 設定"]
+  ["shelf","📚 作品棚"], ["requests","📮 依頼"], ["research","🔬 研究"], ["trophy","🏅 実績"], ["stats","📊 統計"], ["settings","⚙️ 設定"]
 ];
 let currentTab = "proj";
 const tabsEl = document.getElementById("tabs");

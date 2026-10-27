@@ -162,7 +162,7 @@ if(stripCv){
       }
     }
     /* Stage 3: 家具オブジェクト → 対応タブ (物から管理への導線を全タブに) */
-    for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "stats"], ["calendar", "stats"]]){
+    for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "trophy"], ["calendar", "stats"]]){
       const rr = stripHitRects[rkey];
       if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
         openTabPanel(tab);
