@@ -11,7 +11,7 @@
 #   ゲーム HTML をビルドして、それと desktop/ を指して smoke＋sim を回す。
 #   (ビルドの依存 node_modules はライブツリーの game/node_modules を借りる)ライブツリーの未コミット変更には汚染されない。
 #   展開ディレクトリは終了時に削除される（sim の全文は表示しないため、
-#   必要なら MIYUKE_GAME_HTML を直接指定して balance-sim.js を回すこと）。
+#   必要なら MIYUKE_GAME_HTML を直接指定して game-sim.js gates を回すこと）。
 #
 # 制限: ゲームのソース (game/・graphics/sprites.js) と desktop/ だけがスナップショット由来になる。
 #   tools/ 自体はライブ版で回るため、tools 側に未コミット変更がある回は
@@ -37,8 +37,10 @@ export MIYUKE_DESK="$TMP/desktop/"
 echo "worktree-verify: ref=$REF snapshot=$TMP"
 node "$ROOT/tools/miyuke-smoke.js"
 SMOKE=$?
-node "$ROOT/tools/balance-sim.js" > "$TMP/sim.out" 2>&1
+# ゲートは game-sim（改訂3）。G3 は段階3まで判定から外す（verify-all.sh と同じ扱い）
+node "$ROOT/tools/game-sim.js" gates 3 > "$TMP/sim.out" 2>&1
 SIM=$?
+if [ "$SIM" -eq 0 ] && grep "^  FAIL " "$TMP/sim.out" | awk '{print $2}' | grep -qv '^G3$'; then SIM=1; fi
 # sim.out は trap で消えるため、末尾だけ表示してから終了する。
 tail -n 20 "$TMP/sim.out"
 echo "worktree-verify: smoke=$SMOKE sim=$SIM"

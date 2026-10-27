@@ -84,10 +84,9 @@ function tick(){
   // 恒常的に 0 になり、ライン2が飢餓して永遠に完走しなかった (実機バグ)
   const bugF = bugFactor();
   const caps = { test: testRate()/60, build: buildRate()/60, ship: shipRate()/60 };
-  /* Wave H・統合: 第1ラインのビルド工程は全モジュールの完成を待つ
-     （第2ラインは従来どおり独立なので、キャップはライン1側だけ差し替える） */
-  const capsL1 = (S.project && S.project.modules && !modulesDone(S.project))
-    ? { test: caps.test, build: 0, ship: caps.ship } : caps;
+  /* 再設計 段階1: ビルドはモジュールの完成を待たない（Wave H の「全モジュール完成まで build 0」は
+     放置で L 作品が何時間も止まり、入金ゼロの日を作っていた）。未完成のモジュールは出荷時の品質＝値段にだけ効く */
+  const capsL1 = caps;
   /* 企画中プロジェクトは工程に流さない（仕掛品は実装バッファに溜まる） */
   const used = (S.project && S.project.planning)
     ? { test:0, build:0, ship:0 }
@@ -134,7 +133,8 @@ function tick(){
   /* 第2ウェーブ L: 常駐秒を積む */
   S.residentSec = (S.residentSec || 0) + 1;
   ensureTrend();
-  /* トレンドと IP のロイヤリティは v2.12.1 から出荷の本数で回る（recordRelease → onShipCycles） */
+  /* トレンドは v2.12.1 から出荷の本数で回る（recordRelease → trendOnShip） */
+  tickCatalog();    /* 再設計 段階1: 作品棚とシリーズの毎秒売上 */
   tickCoinFlow();   /* 🪙/秒 の表示値 */
   // 集中力
   if(coding){

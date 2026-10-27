@@ -117,10 +117,11 @@ function simulate(opts){
   const days = opts.days || 1, minPerDay = opts.minPerDay || 180, exitAt = opts.exitAt || 0;
   const g = makeGame(opts.seed || 1);
   const { fake, run } = g;
+  if(opts.tweak || process.env.SIM_TWEAK) run(opts.tweak || process.env.SIM_TWEAK);   /* 数値を仮に変えて測る（実験用。ゲームには残らない） */
   if(opts.policy) run("choosePolicy(" + JSON.stringify(opts.policy) + ")");
-  const R = { profile: opts.profile, seed: opts.seed || 1, firstRelease: null, firstExit3: null, firstExit20: null,
-    exits: [], zeroReleaseDays: 0, dayReleases: [], maxGapMin: 0, maxCoins: 0, log: [] };
-  let clickAcc = 0, t = 0, lastJump = 0;
+  const R = { jumps: [], profile: opts.profile, seed: opts.seed || 1, firstRelease: null, firstExit3: null, firstExit20: null,
+    exits: [], zeroReleaseDays: 0, dayReleases: [], maxGapMin: 0, maxDryMin: 0, maxCoins: 0, log: [] };
+  let clickAcc = 0, t = 0, lastJump = 0, lastCE = 0, dry = 0;
   let sig = run("botJumpSig()");
   for(let day = 0; day < days; day++){
     const rel0 = run("S.totals.releases");
@@ -142,10 +143,13 @@ function simulate(opts){
       const gain = run("prestigePreview().gain");
       if(R.firstExit3 === null && gain >= 3) R.firstExit3 = t;
       if(R.firstExit20 === null && gain >= 20) R.firstExit20 = t;
-      R.maxCoins = Math.max(R.maxCoins, run("S.totals.coinsEarned"));
+      const ce = run("S.totals.coinsEarned");
+      /* 入金の途切れ: コインが1枚も入らなかった分が何分続いたか（段階1: 毎秒売上の確認） */
+      if(ce > lastCE){ lastCE = ce; dry = 0; } else { dry++; R.maxDryMin = Math.max(R.maxDryMin, dry); }
+      R.maxCoins = Math.max(R.maxCoins, ce);
       /* 停滞: 新しい軸や節目（社格・設備の節目・研究・仕事の桁・売却）がない区間の最長 */
       const ns = run("botJumpSig()");
-      if(ns !== sig){ sig = ns; R.maxGapMin = Math.max(R.maxGapMin, t - lastJump); lastJump = t; }
+      if(ns !== sig){ R.jumps.push(t); if(t - lastJump > R.maxGapMin){ R.maxGapMin = t - lastJump; R.maxGapAt = [lastJump, t, sig, ns]; } sig = ns; lastJump = t; }
       if(exitAt && gain >= exitAt){
         run("doPrestigeCore('__none', '__auto', -1)");
         R.exits.push({ t, gain });
@@ -184,7 +188,9 @@ function gates(seeds){
   const ratio = med(cl.map((r, i) => simGainAt(r, 40) / Math.max(1, simGainAt(pa[i], 40))));
   rows.push(["G4", "同じ買い方なら張り付きが速い（40分時点の星屑比 >1.0）", ratio.toFixed(2), ratio > 1]);
   rows.push(["G5", "5方針それぞれに最良の遊び方がある", "段階4で実装", null]);
-  const gap = med(cl.map(r => r.maxGapMin));
+  /* 張り付きの停滞は、実際にクリックしている最初の20分の中だけで測る（手を離した後は放置の扱い） */
+  const gapIn = (r, end) => { let last = 0, g = 0; for(const j of r.jumps){ if(j > end) break; g = Math.max(g, j - last); last = j; } return Math.max(g, end - last); };
+  const gap = med(cl.map(r => gapIn(r, 20)));
   const gapP = med(pa.map(r => r.maxGapMin));
   rows.push(["G6", "停滞（軸も節目もない区間）張り付き≤5分・放置≤30分", gap + "分 / " + gapP + "分", gap <= 5 && gapP <= 30]);
   const long = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20 });
@@ -203,14 +209,14 @@ if(require.main === module){
     console.log("== ゲート改訂3（game-sim・" + n + "シードの中央値） ==");
     for(const [id, name, val, ok] of G.rows) console.log((ok === null ? "  --  " : ok ? "  PASS " : "  FAIL ") + id + " " + name + ": " + val);
     const cs = G.cl.map(r => (r.clickShare * 100).toFixed(0) + "%").join(" / ");
-    console.log("参考: 秒5クリック40分のクリック由来 DP " + cs + "、放置10日の売却 " + G.long.exits.length + " 回（初回 " + (G.long.exits[0] ? G.long.exits[0].t + "分" : "なし") + "）、通算星屑 " + G.long.dustTotal);
+    console.log("参考: 秒5クリック40分のクリック由来 DP " + cs + "、放置10日の売却 " + G.long.exits.length + " 回（初回 " + (G.long.exits[0] ? G.long.exits[0].t + "分" : "なし") + "）、通算星屑 " + G.long.dustTotal + "、入金の最長途切れ " + G.long.maxDryMin + "分");
     console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
   } else {
     const profile = a[0] || "click5", minutes = Number(a[1] || 30), seed = Number(a[2] || 1);
     const r = simulate({ profile, days: 1, minPerDay: minutes, seed });
     const fm = x => x === null ? "未到達" : x + "分";
     console.log("profile=" + profile + " seed=" + seed + " " + minutes + "分  (実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒)");
-    console.log("  初リリース " + fm(r.firstRelease) + " / 星屑3個 " + fm(r.firstExit3) + " / 星屑20個 " + fm(r.firstExit20) + " / 最長の停滞 " + r.maxGapMin + "分");
+    console.log("  初リリース " + fm(r.firstRelease) + " / 星屑3個 " + fm(r.firstExit3) + " / 星屑20個 " + fm(r.firstExit20) + " / 最長の停滞 " + r.maxGapMin + "分" + (r.maxGapAt ? " " + JSON.stringify(r.maxGapAt) : ""));
     console.log("  クリック由来 " + (r.clickShare * 100).toFixed(0) + "%");
     for(const l of r.log) console.log("   " + JSON.stringify(l));
   }

@@ -3,7 +3,7 @@
    「起動する・開発が進む・リリースできる・買える・保存できる・帯が描ける・
    2つの窓が同期する・リリースの設定が揃っている」ことだけを見る。
    演出の細部 (アニメのフレーム・座標・色など) は確かめない。
-   バランスの保証は tools/balance-sim.js、帯の初リリース時間は
+   バランスの保証は tools/game-sim.js、帯の初リリース時間は
    tools/strip-fresh-measure.js、スプライトは graphics/validate-sprites.cjs が担う。
    出力の最終行 "SMOKE RESULT: N passed, M failed" は tools/verify-all.sh が読む。 */
 "use strict";
@@ -205,6 +205,16 @@ console.log("== 5. prestige ==");
   run(sb, "doPrestigeCore('__none', '__auto', -1);");
   check("selling the company grants stardust and starts a new company",
     gain >= 3 && run(sb, "S.dust") === gain && run(sb, "S.prestiges") === 1 && run(sb, "S.coins") < 99999 && !run(sb, "S.upgrades.keyboard"));
+}
+{
+  /* 再設計 段階1: 出した作品は棚で毎秒売れ続け、棚は会社と一緒に売却で消える */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.coins = 0; catalogAdd({ name: 'テスト作' }, 6000); for(let i = 0; i < 10; i++) tickCatalog();");
+  const sold = run(sb, "S.coins");
+  run(sb, "S.runDP = BAL.prestigeDPPerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  check("released works keep selling every second until the company is sold",
+    sold >= 70 && sold <= 90 && run(sb, "S.catalog.length") === 0);
 }
 
 /* ================= 6. リリースの設定 ================= */

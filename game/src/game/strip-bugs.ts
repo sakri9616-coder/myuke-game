@@ -36,7 +36,8 @@ function bugSwarmChunk(share){ return Math.max(1, Math.ceil(share / 3)); }
    匹数の平方根ぶん厚くする (1匹 ×1・100匹 ×10・1万匹 ×100)。匹数自体も生産に比例して
    増えるので、平方根で抑えて報酬の二重インフレを避ける */
 function stockBugReward(squashed){
-  return Math.max(1, Math.round(BAL.stockBugCoin * workScale() * Math.sqrt(Math.max(1, squashed))));
+  const k = Math.sqrt(Math.max(1, squashed));
+  return Math.max(1, rewardCoins(BAL.rewardSec.stockBug * k, Math.round(BAL.stockBugCoin * workScale() * k)));   /* 段階1: 収入の2秒×√匹数（下限は従来の式） */
 }
 /* 在庫バグの見た目の範囲: QA トレイの周りから、匹数の桁に応じて帯の端まで広がる */
 function stripBugSpan(n){

@@ -30,10 +30,10 @@ function stateTick(now){
     S.ideas += (catState==="treasure" ? 4 : 2);
     /* Sprint 4: 宝探しはたまに小銭も見つける */
     if(catState==="treasure" && Math.random() < 0.35){
-      const c = 10 + Math.floor(Math.random()*15);
+      const c = rewardCoins(BAL.rewardSec.treasure, 10 + Math.floor(Math.random()*15));
       S.coins += c; S.totals.coinsEarned += c;
-      say("宝探しで "+c+"🪙 見つけたにゃ！");
-      addLog("🗺️ 宝探しで "+c+"🪙 を見つけた");
+      say("宝探しで "+fmt(c)+"🪙 見つけたにゃ！");
+      addLog("🗺️ 宝探しで "+fmt(c)+"🪙 を見つけた");
     }
   }
   if(catState === "think"){ S.ideas += 1 + (S.upgrades.monitor||0); }
@@ -116,20 +116,20 @@ function addFloater(x, y, text, color){
 function catchFish(bx, by){
   fishEvent = null;
   nextFishAt = Date.now() + (150000 + Math.random()*120000) * fishIntervalMul();   /* Sprint 4: 幸運のヒレ */
-  const coins = Math.round(80 * dustMult() * workScale());   /* 仕事の桁ぶん報酬も伸びる */   // Sprint 1: セッション中のイベント収入を厚く
+  const coins = rewardCoins(BAL.rewardSec.fish, Math.round(80 * dustMult() * workScale()));   /* 収入の90秒ぶん（下限は従来の式） */   // Sprint 1: セッション中のイベント収入を厚く
   S.rp += 2; S.coins += coins; S.totals.coinsEarned += coins;
   S.totals.goldFish++;
   SoundKit.play("fishCatch");
   addFloater(bx, by - 10, "🐟 +2🔬 +" + fmt(coins) + "🪙", "#d9a41a");
   say("金のひらめきフィッシュ、捕まえたにゃ！！ 研究P+2");
-  addLog("🐟 金のひらめきフィッシュを捕まえた（研究P+2 / +"+coins+"🪙）");
+  addLog("🐟 金のひらめきフィッシュを捕まえた（研究P+2 / +"+fmt(coins)+"🪙）");
   checkStamps(); save();
   tutCheck();
 }
 function splatBug(i, bx, by){
   bugEvent.bugs.splice(i, 1);
   SoundKit.play("bugSquash");
-  const squash = 6 * workScale();   /* 仕事の桁ぶん報酬も伸びる */
+  const squash = rewardCoins(BAL.rewardSec.bug, 6 * workScale());   /* 収入の3秒ぶん（下限は従来の式） */
   S.coins += squash; S.totals.coinsEarned += squash;
   S.totals.bugsSquashed++; S.today.bugs++; S.totals.eventBugs++;
   if(feverActive()){
@@ -142,7 +142,7 @@ function splatBug(i, bx, by){
   }
   addFloater(bx, by - 8, "+" + fmt(squash) + "🪙", "#5aa469");
   if(bugEvent.bugs.length === 0){
-    const sweep = 20 * workScale();
+    const sweep = rewardCoins(BAL.rewardSec.sweep, 20 * workScale());
     S.coins += sweep; S.totals.coinsEarned += sweep;
     bugEvent = null;
     nextBugAt = Date.now() + 180000 + Math.random()*150000;

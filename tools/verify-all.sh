@@ -3,7 +3,7 @@
 #   0) game の型チェック（tsc）とビルド（game/build.mjs → desktop/dist/index.html）
 #   1) graphics/validate-sprites.cjs（スプライト契約）
 #   2) tools/miyuke-smoke.js（スモークテスト）
-#   3) tools/balance-sim.js（バランスsimゲート）
+#   3) tools/game-sim.js（ゲート改訂3。旧 balance-sim は段階1で退役）
 #   4) tools/strip-fresh-measure.js（無操作の帯での初リリース実測）
 #   5) tools/strip-capture.js（帯スクリーンショット、Playwright）
 # 使い方: tools/verify-all.sh [--tag=YYYYMMDD-HHMMSS] [--skip-shot]
@@ -16,10 +16,7 @@
 #   既知フレークだったが、smoke の B9-B サンドボックスを偽時計化して根治し、
 #   同領域の本物の回帰を握り潰さないよう前方一致マスクを撤去した。
 #   smoke の失敗は全て FAIL）。
-# ゲート（DESIGN.md / balance-sim.js 末尾の Sprint ゲートと同一。2026-10-26 改訂2・レビュー室【可】）:
-#   初リリース passive/active とも ≤5分 / 主指標＝星屑通算比 ≥1.3
-#   かつ コイン比 ≥1.1 かつ 件数比 ≥1.0（3指標とも出力に残す）/ 7日目以降の0リリース日 0/0 /
-#   帯の初リリース中央値 ≤300秒。
+# ゲート: システム理念書 9章のゲート改訂3（G1〜G8、game-sim.js gates）と、帯の初リリース中央値 ≤300秒。
 # 帯スクショは「可能なら」の工程：Playwright/Chromium が無い環境では WARNING に留め、
 #   ゲーム本体の判定（1〜4）には影響させない。
 set -u
@@ -94,34 +91,20 @@ else
   fi
 fi
 
-# 3) balance-sim gates
-run_step sim node "$ROOT/tools/balance-sim.js"
-GATE_LINE="$(grep "ゲート判定" "$TMP/sim.out" | head -1 || true)"
-if [ -z "$GATE_LINE" ]; then
-  FAIL=1; echo "SIM: FAIL (no gate line)" >> "$LOG"
-else
-  P_MIN="$(echo "$GATE_LINE" | sed -E 's/.*初リリース passive=([0-9]+)分.*/\1/')"
-  A_MIN="$(echo "$GATE_LINE" | sed -E 's/.*初リリース passive=[0-9]+分 active=([0-9]+)分.*/\1/')"
-  COIN_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*コイン比 ([0-9.]+).*/\1/')"
-  DUST_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*星屑比 ([0-9.]+).*/\1/')"
-  COUNT_RATIO="$(echo "$GATE_LINE" | sed -E 's/.*件数比 ([0-9.]+).*/\1/')"
-  Z_DAYS="$(echo "$GATE_LINE" | sed -E 's/.*0リリース日 passive=([0-9]+) active=([0-9]+).*/\1 \2/')"
-  GATE_OK="$(awk -v d="$DUST_RATIO" -v c="$COIN_RATIO" -v n="$COUNT_RATIO" 'BEGIN{print (d >= 1.30 && c >= 1.10 && n >= 1.00) ? "ok" : "no"}')"
-  if [ "$P_MIN" -le 5 ] && [ "$A_MIN" -le 5 ] && [ "$GATE_OK" = "ok" ] && [ "$Z_DAYS" = "0 0" ]; then
-    echo "SIM: PASS (first release passive=${P_MIN}分 active=${A_MIN}分 / dust ratio ${DUST_RATIO} / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
-  else
-    FAIL=1; echo "SIM: FAIL (first release passive=${P_MIN}分 active=${A_MIN}分 / dust ratio ${DUST_RATIO} / coin ratio ${COIN_RATIO} / count ratio ${COUNT_RATIO} / zero-days $Z_DAYS)" >> "$LOG"
-  fi
-fi
+# 3) 旧 balance-sim のゲートは再設計の段階1（2026-10-27）で退役した。別実装の sim は本物のコードとずれていくため、
+#    ゲームの判定は 3b の game-sim（本物のゲームコードを回す）だけで行う。balance-sim.js は資料として残す
 
-# 3b) game-sim gates（改訂3・本物のゲームコード）。再設計の段階0では移行期間として WARNING 扱い。
-#     段階1で改訂3を満たしたら FAIL 扱いに切り替え、旧 balance-sim のゲートを退役させる
+# 3b) game-sim gates（改訂3・本物のゲームコード）。FAIL が1つでもあれば FAIL。
+#     例外: G3（放置で星屑20個に3時間）は星屑を企業価値から出す段階3で満たす計画なので、それまでは WARNING
 run_step gamesim node "$ROOT/tools/game-sim.js" gates 3
-GS_FAILS="$(grep -c "^  FAIL " "$TMP/gamesim.out" || true)"
+GS_HARD="$(grep "^  FAIL " "$TMP/gamesim.out" | awk '{print $2}' | grep -v '^G3$' | tr '\n' ' ' || true)"
+GS_SOFT="$(grep "^  FAIL " "$TMP/gamesim.out" | awk '{print $2}' | grep '^G3$' || true)"
 if ! grep -q "ゲート改訂3" "$TMP/gamesim.out"; then
-  echo "GAMESIM: WARNING (no gate table, see step log)" >> "$LOG"; WARNINGS="$WARNINGS gamesim-missing;"
-elif [ "$GS_FAILS" != "0" ]; then
-  echo "GAMESIM: WARNING ($GS_FAILS gate(s) FAIL under 改訂3: $(grep "^  FAIL " "$TMP/gamesim.out" | awk '{print $2}' | tr '\n' ' '))" >> "$LOG"; WARNINGS="$WARNINGS gamesim-gates;"
+  FAIL=1; echo "GAMESIM: FAIL (no gate table, see step log)" >> "$LOG"
+elif [ -n "${GS_HARD// /}" ]; then
+  FAIL=1; echo "GAMESIM: FAIL (改訂3: $GS_HARD)" >> "$LOG"
+elif [ -n "$GS_SOFT" ]; then
+  echo "GAMESIM: WARNING (G3 は段階3で満たす計画)" >> "$LOG"; WARNINGS="$WARNINGS gamesim-G3;"
 else
   echo "GAMESIM: PASS (改訂3)" >> "$LOG"
 fi

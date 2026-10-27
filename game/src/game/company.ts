@@ -303,6 +303,7 @@ function resetCompanyRun(){
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
   S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却・持株化で消える */
+  S.catalog = [];   /* 再設計 段階1: 作品棚の売上も会社の資産 */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
@@ -554,8 +555,8 @@ function rotateTrend(){
 }
 function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel(); }
 /* 自社IP: M/L の作品をパネルで指定し、バグ0で出荷すると成立する。
-   即時に価格の30%、その後は出荷1本ごとに価格の IP_ROYALTY_PER_SHIP のロイヤリティが
-   IP_HALF_SHIPS 本ごとに半減しながら IP_LIFE_SHIPS 本ぶん入る（生涯で約 ×2.3。v2.12.1 までは常駐時間で入っていた）。
+   即時に価格の30%、その後はシリーズとして値段 × CAT.seriesPerMin /分 を EXIT まで毎秒稼ぐ
+   （再設計 段階1。v2.12.1 までは出荷1本ごと、その前は常駐時間でロイヤリティが入っていた。production.ts の作品棚を参照）。
    2026-10-27 作り直し（sakuri「手動で操作する意味がない。バグがないときのボーナス程度」）:
    旧仕様は指定しても損がなく、指定できるなら常に指定するだけだった。いまは賭けにした。
    ・IP 作品は作り込みが要る: 指定した瞬間に作品の規模が ×IP_SIZE_MULT（値段の元は据え置き）
@@ -581,7 +582,7 @@ function designateIP(which){
 }
 /* 成立判定と登録だけを行う。即時の入金は release 側で「売却額の30%」に
    置き換え済み（全額＋30%ではない — それだと IP 指定が無条件に最適になる。
-   レビュー室の事後チェックで確定した経済）。ロイヤリティの元本は
+   レビュー室の事後チェックで確定した経済）。シリーズ売上の元本は
    依頼ボーナスを含まない通常価格 */
 function settleIP(p, basePrice, work, ipOk){
   if(!p.ip) return;
@@ -593,41 +594,12 @@ function settleIP(p, basePrice, work, ipOk){
   if(!Array.isArray(S.ips)) S.ips = [];
   S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: basePrice, bornSec: S.residentSec || 0, frac: 0, ships: 0, scale: p.scale || 1 });
   if(work) work.ip = true;
-  addLog("🏷 『"+p.name+"』が自社IPになった！ 即時は売却額の30%だけ受け取り、残りはロイヤリティで入るにゃ");
+  addLog("🏷 『"+p.name+"』が自社IPになった！ 即時は売却額の30%だけ受け取り、あとはシリーズとして毎秒売れ続けるにゃ");
   say("『"+p.name+"』、自社IPになったにゃ！");
 }
 function ipConvertible(p){
   return !!p.ip && Math.floor(S.bugStock) <= 0 && (S.ips || []).length < 3;
 }
-/* 2026-10-27（v2.12.1）: ロイヤリティは常駐時間ではなく「その後の出荷」で入る（sakuri「時間がプレイヤーの
-   介入不可能な完全なボトルネックになる設計をすべて見直せ」）。成立後の出荷1本ごとに
-   価格 × IP_ROYALTY_PER_SHIP、IP_HALF_SHIPS 本ごとに半減、IP_LIFE_SHIPS 本で終わる（生涯 ×2.33 は従来と同じ）。
-   いまの仕事の桁に追従する（桁が上がった会社では IP の稼ぎも同じだけ上がる）。速く作るほど早く回収できる */
-const IP_ROYALTY_PER_SHIP = 0.18, IP_HALF_SHIPS = 6, IP_LIFE_SHIPS = 24;
-function ipRoyaltyOnShip(){
-  if(!S.ips || !S.ips.length) return;
-  let paid = 0;
-  for(const ip of S.ips.slice()){
-    const n = ip.ships || 0;
-    if(n >= IP_LIFE_SHIPS){
-      S.ips.splice(S.ips.indexOf(ip), 1);
-      addLog("🏷 自社IP『"+ip.name+"』はロイヤリティ期間を終えたにゃ（出荷 "+IP_LIFE_SHIPS+" 本ぶん）");
-      continue;
-    }
-    const decay = Math.pow(0.5, Math.floor(n / IP_HALF_SHIPS));
-    const follow = Math.max(1, workScale() / (ip.scale || 1));
-    ip.frac = (ip.frac || 0) + ip.price * IP_ROYALTY_PER_SHIP * decay * follow;
-    ip.ships = n + 1;
-    const pay = Math.floor(ip.frac);
-    if(pay > 0){ ip.frac -= pay; S.coins += pay; S.totals.coinsEarned += pay; paid += pay; }
-  }
-  if(paid > 0){
-    addLog("💰 自社IPのロイヤリティ +" + fmt(paid) + "🪙");
-    if(document.body.classList.contains("strip"))
-      addStripFloater(stripShelfCX(), STRIP_GROUND - 70, "💰 ロイヤリティ +" + fmt(paid), "#c9962e");
-  }
-}
-function ipShipsLeft(ip){ return Math.max(0, IP_LIFE_SHIPS - (ip.ships || 0)); }
 /* 実績ボードの工程系: 詰まり→解消 と 全工程グリーン は「その瞬間」の事実なので、
    1秒ティックで見てフラグに残す（checkStamps はクリックごとにも呼ばれるので重い判定は置かない） */
 let stampBnSeen = false;

@@ -90,7 +90,8 @@ interface ShelfEntry {
   [k: string]: any;
 }
 
-interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number }   // ships・scale は v2.12.1〜（出荷の本数で回るロイヤリティ）
+interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number }   // scale は v2.12.1〜。ships・frac は段階1から使わない（シリーズは毎秒売上）
+interface CatalogEntry { n: string; r: number }   // 再設計 段階1: 作品棚の1作品（r = 🪙/秒）
 
 interface Line2State {
   unlocked: boolean;
@@ -151,7 +152,7 @@ interface GameState {
   dustPerks: Record<string, boolean | number>; dustTotal: number;
   legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number;
   challenge: { id: string; startCoins: number } | null; challengeRewards: Record<string, boolean>;
-  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number;
+  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[];
   executives: Executive[]; execAlumni: { name: string; role: string }[];
   researchLv: Record<string, number>;
   buffs: { prodUntil?: number; clickUntil?: number };
