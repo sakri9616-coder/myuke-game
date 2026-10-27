@@ -586,7 +586,7 @@ function renderPanel(){
       h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
-      const preBody = kv("企業価値の最高", fmt(S.runPeakValue || 0)+" ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能・"+fmt(BAL.valuePerDust * BAL.dustSoftcap)+" で20個の売りどき）") +
+      const preBody = kv("企業価値の最高", fmt(S.runPeakValue || 0)+" ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能・"+fmt(dustValueUnit() * BAL.dustSoftcap)+" で20個の売りどき）") +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+fmtDec(pv.curMult, 2)+" → 売却後 ×"+fmtDec(pv.nextMult, 2)) +
         (pv.subGain > 0 ? kv("うち子会社ぶん（目安）", "星屑 約 "+pv.subGain+" 個（子会社の売上も企業価値に入っています）") : "") +
         kv("EXIT回数", S.prestiges+" 回") + exitMsHTML() +
@@ -610,7 +610,7 @@ function renderPanel(){
           kv("条件: 最高到達社格", rankName(S.maxStudioLv || S.studioLv) + (hp.cond.lv6 ? " ✅" : "（大企業が目標）")) +
           kv("条件: 子会社", ((S.subs || []).length) + " / 2 社" + (hp.cond.subs ? " ✅" : "")) +
           kv("条件: EXIT 回数", (S.prestiges || 0) + " / " + HOLD_EXITS + " 回" + (hp.cond.exits ? " ✅" : "")) +
-          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は桁3つごとに1個）")));
+          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は ÷100 の平方根）")));
       }
       if((S.holdings || 0) > 0 || (S.legacy || 0) > 0){
         let techRows = "", techChips = "";
@@ -632,7 +632,7 @@ function renderPanel(){
         const cdef = challengeDef(S.challenge.id);
         if(cdef){
           const prog = S.challenge.id === "black"
-            ? "企業価値の最高 " + fmt(S.runPeakValue || 0) + " / " + fmt(BLACK_GOAL_DUST * BAL.valuePerDust)
+            ? "企業価値の最高 " + fmt(S.runPeakValue || 0) + " / " + fmt(BLACK_GOAL_DUST * dustValueUnit())
             : "現在 Lv" + S.studioLv + " / 目標 Lv" + challengeGoalLv();
           h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
             "<span class='sock'>🎯</span><span class='nm'>チャレンジ中: " + cdef.name + "</span>" +
