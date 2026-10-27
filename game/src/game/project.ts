@@ -72,7 +72,7 @@ function planProject(_which?){
   if(S.ideas < cost){ say("アイデアが足りないにゃ（あと " + Math.ceil(cost - S.ideas) + " 個）"); return; }
   S.ideas -= cost;
   p.planLv = planLv(p) + 1;
-  addLog("💡 『" + p.name + "』の企画を練った（企画Lv" + p.planLv + "・価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "・オーバークロックの溜まり ×" + ideaChargeMult().toFixed(2) + "）");
+  addLog("💡 『" + p.name + "』の企画を練った（企画Lv" + p.planLv + "・価格 ×" + fmtDec(planPriceMult(p), 2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "・オーバークロックの溜まり ×" + fmtDec(ideaChargeMult(), 2) + "）");
   say("企画を練ったにゃ！ いい作品になりそう");
   save(); renderPanel();
 }

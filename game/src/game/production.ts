@@ -98,7 +98,7 @@ function applyShipQuality(p){
     const add = Math.round(shippedBugs * 1.5);
     if(add > 0){
       S.debt = Math.min(500, (S.debt || 0) + add);
-      if(add >= 5) addLog("🐛 バグを抱えたままの出荷で技術的負債 +" + add + "（現在 " + Math.round(S.debt) + "・生産効率 ×" + debtEff().toFixed(2) + "）");
+      if(add >= 5) addLog("🐛 バグを抱えたままの出荷で技術的負債 +" + add + "（現在 " + fmt(Math.round(S.debt)) + "・生産効率 ×" + fmtDec(debtEff(), 2) + "）");
     }
   }
   let delta = 0;
@@ -111,8 +111,8 @@ function applyShipQuality(p){
   if(delta !== 0){
     S.brand = Math.max(0, Math.min(450, (S.brand || 0) + delta));
     addLog(delta > 0
-      ? "⭐ 評判アップ: ブランド力 " + Math.round(S.brand) + "（単価 ×" + brandMult().toFixed(2) + "）"
-      : "📉 評判ダウン: ブランド力 " + Math.round(S.brand) + "（単価 ×" + brandMult().toFixed(2) + "）");
+      ? "⭐ 評判アップ: ブランド力 " + fmt(Math.round(S.brand)) + "（単価 ×" + fmtDec(brandMult(), 2) + "）"
+      : "📉 評判ダウン: ブランド力 " + fmt(Math.round(S.brand)) + "（単価 ×" + fmtDec(brandMult(), 2) + "）");
   }
 }
 /* ---------- 拡張ウェーブ G': デスマーチ出荷 ----------
