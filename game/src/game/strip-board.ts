@@ -280,7 +280,10 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
      端に寄せた配置では反対側へ逃がし、両端とも入らなければ出さない（表示のみで
      クリック判定は持たない。社格の確認はメニューのチップでもできる） */
   {
+    /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。20個を超えたら「売りどき」 */
+    const sellNow = prestigePreview().gain;
     const rankTxt = companyRank() + " " + S.staff.length + "/" + staffCap() + "人" +
+      " ・ 企業価値 " + fmt(companyValue()) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "") +
       (S.subs && S.subs.length ? " ・ グループ" + S.subs.length + "社・総勢" + totalPeople() + "人" : "") +
       (S.holdings ? " ・ 持株×" + S.holdings : "") +   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
       (S.challenge ? " ・ 🎯" + (challengeDef(S.challenge.id) || {}).name : "");   /* 第2ウェーブ K: 挑戦中は帯でも分かる */

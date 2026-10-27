@@ -66,6 +66,9 @@ function freshState(): GameState {
     trend:null, devGenrePref:null, ips:[], residentSec:0,
     /* 再設計 段階1 追加分: 作品棚の毎秒売上 [{ n: 作品名, r: 🪙/秒 }]（新しい順・EXIT で消える） */
     catalog:[],
+    /* 再設計 段階3 追加分: この会社が届いた企業価値の最高値（売却益と自動昇格の元・EXIT で 0）と、
+       段階3より前の星屑の倍率（旧式で固めた値と、その時の通算星屑） */
+    runPeakValue:0, dustLegacyMult:1, dustLegacyBase:0,
     /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
     executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
@@ -273,6 +276,9 @@ function load(rawText?: string){
     if(typeof data.dustTotal !== "number") S.dustTotal = S.dust || 0;
     /* 第2ウェーブ J: 旧セーブの eraDust は現在の通算星屑で補完する（仕様書7節） */
     if(typeof data.eraDust !== "number") S.eraDust = S.dustTotal || 0;
+    /* 再設計 段階3: 旧式の星屑の倍率をそのまま固める（倍率は下がらない）。以後の星屑は新しい +50% で掛かる */
+    if(typeof data.dustLegacyMult !== "number"){ S.dustLegacyMult = dustMultOld(S.dustTotal || 0); S.dustLegacyBase = S.dustTotal || 0; }
+    if(typeof S.runPeakValue !== "number" || !isFinite(S.runPeakValue)) S.runPeakValue = 0;
     if(typeof S.legacy !== "number") S.legacy = 0;
     if(!S.legacyTech || typeof S.legacyTech !== "object") S.legacyTech = {};
     if(typeof S.holdings !== "number") S.holdings = 0;

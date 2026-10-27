@@ -423,11 +423,13 @@ function renderPanel(){
         subHTML + foundHTML);
     }
     /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
+    /* 再設計 段階3: スタジオ拡張の枠は「次の社格の予告」（sakuri 2026-10-27）。社格は企業価値が届くと自動で上がる */
     if(S.studioLv < STAFF_CAPS.length){
-      const cost = studioCost(S.studioLv);
-      h += "<div class='item buy slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
-        "<div class='ds'>雇用上限が "+STAFF_CAPS[S.studioLv]+" 人になります"+(S.studioLv + 1 === 5 ? " ・ 🏢 子会社が解放されます" : "")+"</div></div>"+
-        buyBtn("studio", cost, "coins", "buyStudio()")+"</div>";
+      const need = nextRankValue(), have = S.runPeakValue || 0;
+      const opens = RANK_UNLOCKS[S.studioLv + 1];
+      h += "<div class='item slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
+        " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"</span>"+
+        "<div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"</div></div></div>";
     } else {
       h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
     }

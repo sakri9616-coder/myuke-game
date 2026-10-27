@@ -13,20 +13,31 @@ function boostGate(amount, link = 1){
 /* 生産倍率は「通算で獲得した星屑」で決める（星屑ショップで使っても下がらない） */
 /* 星屑の通算獲得（旧セーブは dustTotal を持たないので所持分で代用） */
 function dustTotal(){ return typeof S.dustTotal === "number" ? S.dustTotal : S.dust; }
-/* 星屑の倍率: 通算 dustMultSoftcap 個までは1個 +dustBonus、超えた分は平方根で効く（頭打ちにはしない）。
-   v2.8.0 の 30 個では周回の伸びが早々に潰れていたので 100 個に緩めた（理念書4「インフレを恐れない」）。
-   外し切ると「星屑 × 全DP × コイン → 強化」の複利が 14〜20 日目から暴走したので、緩い上限は残す */
-function dustMultFor(d){ const c = BAL.dustMultSoftcap; return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c)); }
+/* 星屑の倍率（再設計 段階3・sakuri 承認 2026-10-27）: 1個 +dustBonus（+50%）、上限なし。
+   段階3より前に貯めた星屑の倍率（旧式: +4%・通算100個から平方根）は S.dustLegacyMult に固めて掛け合わせる
+   （旧セーブの倍率は1つも下がらず、そこから新しい星屑ぶんが掛かる）。売却益が企業価値の平方根で伸びるので、
+   倍率が星屑に比例でも周回ごとの伸びは多項式に収まる（sim の G8 で確認） */
+function dustMultOld(d){ const c = 100; return 1 + 0.04 * (d <= c ? d : c * Math.sqrt(d / c)); }
+function dustMultFor(d){ return (S.dustLegacyMult || 1) * (1 + BAL.dustBonus * Math.max(0, d - (S.dustLegacyBase || 0))); }
 function dustMult(){ return dustMultFor(dustTotal()); }
 /* 作品単価への星屑の効き（dustPriceExp 乗）。工程にも星屑倍率が掛かり出荷数そのものが伸びるので、
    単価まで同じだけ効くと コイン ∝ 倍率² になる */
 function dustPriceMult(){ return Math.pow(dustMult(), BAL.dustPriceExp); }
-/* 売却益: dustSoftcap 個までは DP に比例、超えた分は dustGainExp 乗で伸びる（上限は無い）。
-   倍率が通算星屑に比例し、その倍率で次の売却益も増えるので、比例のままだと周回ごとに
-   指数のさらに指数で膨らみ、数日で数字が意味を失う（sim 実測: 30日で星屑 2.6万・コイン 980億） */
-function dustGainFromDP(dp){
-  const x = dp / BAL.prestigeDPPerDust, c = BAL.dustSoftcap;
+/* 売却益（再設計 段階3）: この会社が届いた企業価値の最高値から。dustSoftcap 個までは比例、超えた分は
+   dustGainExp 乗で伸びる（上限は無い）。20個のあたりが「売りどき」で、そこから先は待つほど効率が落ちる。
+   旧: 開発量 DP から出していたので、応援で手を動かした量がそのまま星屑になっていた */
+function dustGainFromValue(v){
+  const x = v / BAL.valuePerDust, c = BAL.dustSoftcap;
   return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));
+}
+/* 自動昇格の閾値（再設計 段階3）: RANK_VALUE[いまの社格] に企業価値が届いたら次の社格へ。下がることはない */
+const RANK_VALUE = [0, 5e3, 3e4, 2e5, 1e6, 5e6];
+function nextRankValue(){ return S.studioLv < STAFF_CAPS.length ? RANK_VALUE[S.studioLv] : null; }
+/* 1秒ティックから: 企業価値の最高値を記録し、届いた社格へ上げる */
+function tickCompanyValue(){
+  const v = companyValue();
+  if(!(v <= (S.runPeakValue || 0))) S.runPeakValue = v;
+  while(S.studioLv < STAFF_CAPS.length && S.runPeakValue >= RANK_VALUE[S.studioLv]) promoteRank();
 }
 function hasPerk(id){ return !!(S.dustPerks && S.dustPerks[id]); }
 /* Sprint 4: レベル制の星屑特典（S.dustPerks[id] が数値ならそのレベル、
@@ -423,8 +434,12 @@ function creditProject(a){
     pulseMilestone();
     spawnFeatNote(1);   /* 可視生産: 付箋が机からボードへ飛ぶ (演出のみ) */
   }
-  while(S.projectDP - S.commitMark >= BAL.commitEvery){
-    S.commitMark += BAL.commitEvery;
+  /* コミットの刻みは仕事の桁に合わせる（段階3: 桁が大きい会社では DP 100 ごとの刻みだと1回の入金で
+     数百万回ループして帯が止まった）。1回の呼び出しで演出するのは3回まで、残りは数だけ進める */
+  const cstep = BAL.commitEvery * (p.scale || 1);
+  for(let n = 0; S.projectDP - S.commitMark >= cstep; n++){
+    if(n >= 3){ const k = Math.floor((S.projectDP - S.commitMark) / cstep); S.commitMark += k * cstep; S.totals.commits += k; S.today.commits += k; break; }
+    S.commitMark += cstep;
     doCommit();
   }
   S.packages = Math.floor(S.projectDP / (p.totalDP/6));
@@ -441,8 +456,10 @@ function creditProject2(a){
     addLog("第2ライン: 機能『"+p.feats[p.doneFeats-1]+"』が完成");
     spawnFeatNote(2);   /* 可視生産: 第2ラインの付箋も自分のボードへ */
   }
-  while(L.projectDP - L.commitMark >= BAL.commitEvery){
-    L.commitMark += BAL.commitEvery;
+  const cstep2 = BAL.commitEvery * (p.scale || 1);
+  for(let n = 0; L.projectDP - L.commitMark >= cstep2; n++){
+    if(n >= 3){ const k = Math.floor((L.projectDP - L.commitMark) / cstep2); L.commitMark += k * cstep2; S.totals.commits += k; S.today.commits += k; break; }
+    L.commitMark += cstep2;
     S.totals.commits++; S.today.commits++;
     stripGitLog2.push({ at: Date.now(), seed: Math.random() });
     if(stripGitLog2.length > 3) stripGitLog2.shift();
@@ -525,7 +542,7 @@ function payFlow(p, a, line2){
 /* sim 実測（game-sim・3シード、段階1）: 0.015 では放置の停滞が 70分、0.04 で 66分、0.08 で 29分。
    秒5クリックの星屑20個は 0.015〜0.08 でほぼ変わらない（15〜18分）。張り付きはリリースが速いぶん棚がすぐ入れ替わり、
    放置はリリースの間が長いぶん棚が長く稼ぐ: 同じ作品棚が遊び方で効き方を変える */
-const CAT = { ratePerMin: 0.08, decay: 0.8, max: 12, seriesPerMin: 0.04 };
+const CAT = { ratePerMin: 0.09, decay: 0.8, max: 12, seriesPerMin: 0.04 };
 function catalogAdd(p, price){
   if(!Array.isArray(S.catalog)) S.catalog = [];
   for(const e of S.catalog) e.r *= CAT.decay;
@@ -546,6 +563,21 @@ function incomePerSec(){
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
   return r;
 }
+/* ---------- 企業価値（再設計 段階3）----------
+   会社が「あなたの手なしで」1時間に稼ぐコイン。買い手が買うのは会社であって、あなたの応援ではない。
+   = 自動生産のうち工程を通って出荷できる量 × いまの作品の DP 単価 ＋ 作品棚とシリーズ ＋ 子会社。
+   応援や実作業は会社を速く育てる手段で、価値そのものには数えない */
+function autoIncomePerSec(){
+  const p = S.project;
+  let r = catalogRate();
+  if(p && p.totalDP > 0){
+    const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60;
+    r += dps * basePriceCoins(p, false) / p.totalDP;
+  }
+  for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
+  return r;
+}
+function companyValue(){ return autoIncomePerSec() * 3600; }
 /* イベント報酬: 収入の sec 秒ぶん。従来の式 floor を下回らない */
 function rewardCoins(sec, floor){ return Math.max(floor, Math.round(sec * incomePerSec())); }
 function tickCatalog(){

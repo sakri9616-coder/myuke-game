@@ -5,7 +5,7 @@
    runDP・売却で得る星屑・コインを記録する。balance-sim の模型ではなく実コードを測る。
 
    使い方: node tools/tempo-probe.js [--html=/path/game.html] [--min=20] [--cps=5] [--seed=save.json] [--buy=hint|none]
-   目標: 20 分で星屑 20 個（BAL.dustSoftcap ＝伸びが鈍る境目。runDP = 20 × prestigeDPPerDust）
+   目標: 20 分で星屑 20 個（BAL.dustSoftcap ＝伸びが鈍る境目。段階3から星屑は企業価値の最高値から: runPeakValue = 20 × valuePerDust）
    html を省くと desktop/dist/index.html（node game/build.mjs の出力）を使う */
 const fs = require("fs");
 const path = require("path");
@@ -95,7 +95,7 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
   for(let m = 1; m <= minutes; m++){
     await page.clock.runFor(60000);
     const r = await page.evaluate(() => ({
-      runDP: S.runDP, coins: S.coins, dust: dustGainFromDP(S.runDP), shipped: (S.shelf || []).length,
+      runDP: S.runDP, coins: S.coins, dust: dustGainFromValue(S.runPeakValue || 0), peak: S.runPeakValue || 0, shipped: (S.shelf || []).length,
       studio: S.studioLv, staff: S.staff.length, clicks: S.totals.clicks,
       proj: S.project ? S.project.size + " " + Math.round(S.projectDP) + "/" + Math.round(S.project.totalDP) : "-",
       autoPerMin: Math.round(productionRate())
@@ -105,9 +105,9 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "（�
       console.log(`${String(m).padStart(3)}分 runDP ${Math.round(r.runDP).toLocaleString().padStart(9)} / 星屑 ${String(r.dust).padStart(3)} / コイン ${Math.round(r.coins).toLocaleString().padStart(8)} / 出荷 ${r.shipped} / 社格 ${r.studio}・${r.staff}人 / 自動 ${r.autoPerMin}DP/分 / 作品 ${r.proj}`);
   }
   const last = rows[rows.length - 1];
-  const bal = await page.evaluate(() => ({ per: BAL.prestigeDPPerDust, soft: BAL.dustSoftcap }));
+  const bal = await page.evaluate(() => ({ per: BAL.valuePerDust, soft: BAL.dustSoftcap }));
   const target = bal.per * bal.soft;
-  console.log(`結果: ${minutes}分・秒${cps}クリック（${last.clicks} 回）で runDP ${Math.round(last.runDP).toLocaleString()}（目標 ${target.toLocaleString()} の ${(last.runDP / target * 100).toFixed(0)}%）・星屑 ${last.dust}（目標 ${bal.soft}）`);
+  console.log(`結果: ${minutes}分・秒${cps}クリック（${last.clicks} 回）で企業価値 ${Math.round(last.peak).toLocaleString()}（目標 ${target.toLocaleString()} の ${(last.peak / target * 100).toFixed(0)}%）・星屑 ${last.dust}（目標 ${bal.soft}）`);
   const probe = await page.evaluate(() => window.__probe);
   console.log("買った物（先頭 30）: " + probe.buys.slice(0, 30).map(b => Math.round(b[0] / 60) + "分 " + b[1]).join(", "));
   if(errors.length) console.log("ページのエラー: " + errors.slice(0, 3).join(" | "));

@@ -197,7 +197,7 @@ function buyDustPerk(id){
 function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
-  const gain = dustGainFromDP(S.runDP) + subGain;
+  const gain = dustGainFromValue(S.runPeakValue || 0) + subGain;   /* 段階3: 企業価値の最高値から */
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン"];
   if(subGain > 0) resets.push("子会社");
@@ -212,8 +212,8 @@ function prestigePreview(){
     resets.splice(resets.indexOf("研究"), 1);
     keeps.push("研究『"+nbTop.name+"』"+(nbTop.requires ? "とその前提" : "")+"（研究ノート）");
   }
-  if(hasPerk("seedmoney")) keeps.push("初期資金 300🪙");
-  if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大500🪙を持ち越し）");
+  if(hasPerk("seedmoney")) keeps.push("初期資金 3,000🪙");
+  if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10%・最大5,000🪙を持ち越し）");
   if(S.executives && S.executives.length) keeps.push("役員 " + S.executives.map(e => "『"+e.name+"』").join(""));   /* 第2ウェーブ M */
   return {
     gain, subGain,
@@ -297,7 +297,7 @@ function doPrestige(){
 function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0; S.vendorReadyAt = 0; S.vendorUses = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
-  S.upgrades = {}; S.runDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
+  S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.activeRequest = null; S.nextRequestGenre = null;
   S.research = {};
   S.researchLv = {};   /* Sprint 4: 反復研究もリセット対象 */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
@@ -352,7 +352,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
   resetCompanyRun();
   /* 特典の引き継ぎ: 初期資金・星の貯金箱・研究ノート・ベテラン */
-  S.coins = (hasPerk("seedmoney") ? 300 : 0) + (hasPerk("piggybank") ? Math.min(500, Math.floor(coinsBefore * 0.1)) : 0);
+  S.coins = (hasPerk("seedmoney") ? 3000 : 0) + (hasPerk("piggybank") ? Math.min(5000, Math.floor(coinsBefore * 0.1)) : 0);   /* 段階3: コインの桁 ×10 に合わせた */
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   if(keptStaff){ S.staff = [keptStaff]; S.staffSeq = Math.max(S.staffSeq, keptStaff.id); }
   addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round((dustMultFor(S.dustTotal) - 1)*100)+"%）");
@@ -437,7 +437,7 @@ function doHoldingsCore(){
   S.holdings = (S.holdings || 0) + 1;
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
-  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0;
+  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = 1; S.dustLegacyBase = 0;
   S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
@@ -470,7 +470,7 @@ function challengeDef(id){ return CHALLENGE_DEFS.find(c => c.id === id) || null;
 function challengeActive(id){ return !!(S.challenge && S.challenge.id === id); }
 function challengeStartable(){
   return !S.challenge && ((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1) &&
-    S.studioLv === 1 && S.runDP < BAL.prestigeDPPerDust;
+    S.studioLv === 1 && (S.runPeakValue || 0) < BAL.valuePerDust;
 }
 function startChallenge(id){
   if(!challengeDef(id) || S.challenge) return;

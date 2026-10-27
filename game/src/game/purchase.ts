@@ -54,7 +54,7 @@ function buyResearch(id){
 }
 function hireStaff(role){
   const def = STAFF_ROLES[role];
-  if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。スタジオ拡張してね"); return; }
+  if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。企業価値が上がって次の社格になると広がるよ"); return; }
   if(roleLocked(role)){ say(def.name + "は社格「" + rankName(CHEER_STAFF_RANK) + "」から雇えるにゃ"); return; }
   const cost = hireCost(role);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
@@ -89,16 +89,17 @@ function trainStaff(id){
   say(st.name+"、レベルアップにゃ！");
   save(); renderPanel();
 }
-function buyStudio(){
-  if(S.studioLv >= STAFF_CAPS.length){ say("スタジオは最大にゃ"); return; }
-  const cost = studioCost(S.studioLv);
-  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
-  S.coins -= cost; S.studioLv++;
+/* 再設計 段階3: 社格はコインで買わず、企業価値が届くと自動で上がる（sakuri 承認 2026-10-27）。
+   スタッフタブのスタジオ拡張の枠は「次の社格の予告」になった（sakuri 2026-10-27） */
+function buyStudio(){ say("社格は企業価値が届くと自動で上がるにゃ"); }
+function promoteRank(){
+  if(S.studioLv >= STAFF_CAPS.length) return;
+  S.studioLv++;
   /* Phase B: 最高到達社格を更新（売却で studioLv が戻っても残る永続記録） */
   S.maxStudioLv = Math.max(S.maxStudioLv || 0, S.studioLv);
   SoundKit.play("purchase");
   /* Phase B・昇格のセレモニー（仕様書2節）: セリフ＋ログの二経路。色だけに頼らない */
-  addLog("🏠 スタジオ拡張！ 社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）（-" + fmt(cost) + "🪙）");
+  addLog("🏠 昇格！ 企業価値が届いて社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）"+(RANK_UNLOCKS[S.studioLv] ? " ・ " + RANK_UNLOCKS[S.studioLv] + "が開いた" : ""));
   say("社格が「"+companyRank()+"」になったにゃ！ スタジオが広くなって、もっと仲間を呼べるよ");
   if(S.studioLv === 5){
     /* Phase D: 準大手で子会社が解放される。帯のボード右端タブにも社格が

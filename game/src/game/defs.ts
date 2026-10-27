@@ -35,6 +35,8 @@ const STAFF_ROLES = {
      （応援係はコンボ・会心・応援の熱・応援P を持たない。それはみゅけと遊ぶあなたの腕前） */
   cheer:   { name:"応援係",       stage:"応援",   base:400, out:0.5,  unit:"回/秒",   desc:"みゅけの横で応援する（0.5回/秒）。あなたの応援は別枠で上乗せ" }
 };
+/* 社格ごとに開く新しい軸（再設計 段階3）。予告の枠と昇格のログに出す */
+const RANK_UNLOCKS = { 2: "営業の雇用と依頼の自動受注", 3: "応援係", 4: "大型案件とチャレンジの目標", 5: "グループ子会社", 6: "持株化への道" };
 const CHEER_STAFF_RANK = 3;   /* 応援係を雇える社格（中小）。序盤の応援はあなたの手で */
 function roleLocked(role){ return role === "cheer" && (S.studioLv || 1) < CHEER_STAFF_RANK; }
 const STAFF_CAPS = [3, 6, 10, 16, 24, 36];  // スタジオLv1..6 の雇用上限（レーンB Phase B・社格ラダー）
@@ -49,7 +51,7 @@ function staffCap(){
   return STAFF_CAPS[S.studioLv - 1] + (hasLegacyTech("cap1") ? 6 : 0) + (hasLegacyTech("cap2") ? 6 : 0);   /* 第2ウェーブ J: 上限拡張 I/II で 36→42→48 */
 }
 const STUDIO_COSTS = [0, 400, 1200, 3600, 7200, 18000];
-function studioCost(lv){ return STUDIO_COSTS[lv]; }  // STUDIO_COSTS[現Lv] = 次Lvへの費用: 400/1200/3600/7200/18000（上段は停滞是正のレーンAで圧縮、2026-10-26）
+function studioCost(lv){ return STUDIO_COSTS[lv]; }  // 段階3 からは使わない（社格は企業価値で自動昇格）。旧版の表示と sim の比較用に残す
 function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;

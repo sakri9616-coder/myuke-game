@@ -152,7 +152,7 @@ interface GameState {
   dustPerks: Record<string, boolean | number>; dustTotal: number;
   legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number;
   challenge: { id: string; startCoins: number } | null; challengeRewards: Record<string, boolean>;
-  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[];
+  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];
   researchLv: Record<string, number>;
   buffs: { prodUntil?: number; clickUntil?: number };
