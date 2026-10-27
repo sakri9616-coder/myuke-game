@@ -17,20 +17,24 @@ for(const [id,label] of TABS){
   btn.onclick = ()=>{ switchTab(id); };
   tabsEl.appendChild(btn);
 }
-/* 万進法の表示（再設計 段階0）: 1万未満は従来どおり桁区切りの整数。1万からは 4 桁ごとに単位を
-   切り替え、有効数字 3〜4 桁で出す（1.23万・45.6億・789兆…無量大数）。その先は 1.23e72。
-   桁区切りのまま並べると兆を超えたあたりで帯に収まらなくなるため。単位の名前自体が成長の手応えになる */
-const MAN_UNITS = ["", "万", "億", "兆", "京", "垓", "秭", "穣", "溝", "澗", "正", "載", "極", "恒河沙", "阿僧祇", "那由他", "不可思議", "無量大数"];
+/* SI 接頭辞風の表示: 1000 未満は整数のまま。1000 からは 3 桁ごとに k・m・g・t・p・e と単位を
+   切り替え、有効数字 3 桁で出す（1.23k・45.6m・789g…）。e（10^18）の先は 1.23e21 の指数表記。
+   桁区切りのまま並べると帯に収まらなくなるため。単位の繰り上がり自体が成長の手応えになる */
+const SI_UNITS = ["", "k", "m", "g", "t", "p", "e"];
 function fmt(n){
   if(!isFinite(n)) return String(n);
   if(n < 0) return "-" + fmt(-n);
-  if(n < 1e4) return Math.floor(n).toLocaleString("ja-JP");
-  const k = Math.min(MAN_UNITS.length - 1, Math.floor(Math.log10(n) / 4));
-  const v = n / Math.pow(10, 4 * k);
-  if(v >= 1e4) return String(Math.floor(n / Math.pow(10, Math.floor(Math.log10(n)) - 2)) / 100) + "e" + Math.floor(Math.log10(n));
+  if(n < 1e3) return String(Math.floor(n));
+  let e = Math.floor(Math.log10(n));
+  if(n / Math.pow(10, e) >= 10) e++;   /* log10 の丸め誤差で 1 桁小さく出る境目の補正 */
+  const k = Math.floor(e / 3);
+  if(k >= SI_UNITS.length) return String(Math.floor(n / Math.pow(10, e - 2)) / 100) + "e" + e;
+  const v = n / Math.pow(10, 3 * k);
   const d = v < 10 ? 2 : v < 100 ? 1 : 0;
-  return String(Math.floor(v * Math.pow(10, d)) / Math.pow(10, d)) + MAN_UNITS[k];
+  return String(Math.floor(v * Math.pow(10, d) + 1e-9) / Math.pow(10, d)) + SI_UNITS[k];
 }
+/* 小数つきの量・倍率の表示: 1000 未満は小数 d 桁、それ以上は fmt と同じ単位表記 */
+function fmtDec(n, d){ return Math.abs(n) < 1e3 ? n.toFixed(d) : fmt(n); }
 /* クリックの DP 表示: 小さいうちは小数1桁、100 以上は桁区切りの整数 */
 function fmtClickDP(n){ return n < 100 ? n.toFixed(1) : fmt(n); }
 /* 毎秒の量の表示: 10 未満は小数1桁 */
@@ -214,7 +218,7 @@ function renderHeader(){
       const ft = p.totalDP / (p.feats.length + 1);
       const nextAt = p.doneFeats < p.feats.length ? ft * (p.doneFeats + 1) : p.totalDP;
       pl.textContent = "現在のプロジェクト進捗（次の節目まで あと " +
-        Math.max(0, Math.ceil(nextAt - S.projectDP)) + " DP）";
+        fmt(Math.max(0, Math.ceil(nextAt - S.projectDP))) + " DP）";
     }
   }
   /* Sprint 3: ボトルネックチップ（詰まりがある時だけプロジェクトパネルに出す。

@@ -107,7 +107,7 @@ function scaleSub(id){
   const cost = subScaleCost(sub);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; sub.lv++;
-  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-" + fmt(cost) + "🪙）");
+  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+fmtDec(subLvMult(sub), 1)+"）（-" + fmt(cost) + "🪙）");
   say(sub.name+"が大きくなったにゃ！");
   save(); renderPanel();
 }
@@ -311,7 +311,7 @@ function doPrestige(){
   const pv = prestigePreview();
   const gain = pv.gain;
   if(gain < 3){ say("売却には星屑3個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
-  if(!confirm("会社を売却しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+pv.curMult.toFixed(2)+" → ×"+pv.nextMult.toFixed(2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
+  if(!confirm("会社を売却しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+fmtDec(pv.curMult, 2)+" → ×"+fmtDec(pv.nextMult, 2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
   doPrestigeCore(execSelArg(), vetSelArg(), swapSelArg());
 }
 /* 確認なしの本体。menu (viewer) からは VERBS 経由でこちらが呼ばれ、確認は
