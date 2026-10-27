@@ -2,7 +2,7 @@
    node tools/miyuke-editor2-capture.js --before=/path/to/pre-pass.html --tag=rev2
    Self-check mode for verify-all (single version, no second file needed):
    node tools/miyuke-editor2-capture.js --self --tag=verify --outdir=/path/to/dir
-   In --self mode, before defaults to the current game/index.html, so the
+   In --self mode, before defaults to the current build (desktop/dist/index.html), so the
    before/after comparison becomes a determinism + menu-health check: any
    pageerror, broken hire fold, horizontal overflow, or newly-scrolling tab
    in the CURRENT menu fails the run. --outdir defaults to the project root
@@ -16,7 +16,8 @@ const arg = name => (process.argv.find(x => x.startsWith("--" + name + "=")) || 
 const self = process.argv.includes("--self");
 const outdir = arg("outdir");
 let before = arg("before");
-if(self && !before) before = path.join(root, "game/index.html");
+const currentHtml = require("./game-html.cjs").gameHtmlPath();
+if(self && !before) before = currentHtml;
 const tag = arg("tag") || new Date().toISOString().replace(/[:.]/g, "-");
 if(!before || !fs.existsSync(before)) throw new Error("Supply --before=/path/to/pre-pass.html (or --self to compare the current game against itself)");
 if(!/^[\w-]+$/.test(tag)) throw new Error("Use letters, digits, underscores or hyphens in --tag");
@@ -44,7 +45,7 @@ for(const version of ["before", "after"]){
 }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "miyuke-editor2-capture-"));
 fs.copyFileSync(before, path.join(tmp, "before.html"));
-fs.copyFileSync(path.join(root, "game/index.html"), path.join(tmp, "after.html"));
+fs.copyFileSync(currentHtml, path.join(tmp, "after.html"));
 async function measure(page){
   return page.evaluate(() => {
     const panel = document.getElementById("panel"), rect = panel.getBoundingClientRect();

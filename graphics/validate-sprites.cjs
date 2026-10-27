@@ -131,19 +131,15 @@ let failed = 0;
 function check(test, message) { if (!test) { console.error(`FAIL: ${message}`); failed++; } }
 // (旧) バイト単位の保護ハッシュは、sakuriさんのパレット拡張とアニメ資産の
 // 追加で失効した。代わりに下の構造検査 (寸法・行長・未定義文字・接地) が
-// 全エントリを走査する。加えて sprites.js と game/index.html の内蔵コピーの
-// 一致をここで必須化する (二重管理の乖離検出)。
+// 全エントリを走査する。ゲームのビルド (game/build.mjs) は sprites.js を直接
+// 取り込むため、以前の「埋め込みコピーとの一致」検査は不要になった。
 {
-  const gameSrc = fs.readFileSync(path.join(__dirname, '..', 'game', 'index.html'), 'utf8');
-  const grab = t => { const i = t.indexOf('window.MIYUKE_SPRITES'); return t.slice(i, t.indexOf('\n};', i) + 3); };
-  check(grab(gameSrc) === grab(source), 'game/index.html embedded MIYUKE_SPRITES differs from sprites.js');
-  const grabA = t => { const i = t.indexOf('window.MIYUKE_ANIMS'); return i < 0 ? '' : t.slice(i, t.indexOf('/* ===== MIYUKE_ANIMS ここまで ===== */', i)); };
-  check(grabA(gameSrc) === grabA(source), 'game/index.html embedded MIYUKE_ANIMS differs from sprites.js');
-  console.log('PASS: embedded copies in game/index.html match sprites.js (sprites + ANIMS).\n');
+  const gameDir = path.join(__dirname, '..', 'game', 'src', 'game');
+  const gameSrc = fs.readdirSync(gameDir).filter(f => f.endsWith('.ts')).map(f => fs.readFileSync(path.join(gameDir, f), 'utf8')).join('\n');
   /* B-P1-2: 子ねこボットのスプライト契約（名前＋寸法のみ。絵自体は未着手で、
      required には入れない）。絵が届いたら上の expected() 経由で寸法検査される */
   for (const name of ['bot_idle', 'bot_carry']) {
-    check(gameSrc.includes('SPRITE_SPEC["' + name + '"]'), 'bot sprite contract missing in game/index.html: ' + name);
+    check(gameSrc.includes('SPRITE_SPEC["' + name + '"]'), 'bot sprite contract missing in game/src: ' + name);
     check(JSON.stringify(expected(name)) === '[24,20]', 'bot sprite contract size is 24x20: ' + name);
     /* 絵が届いた場合の実寸検査は下の全エントリ走査（expected() 経由）が担う */
   }
@@ -450,5 +446,5 @@ console.log('Staff proportions: sit and walk heads 14×12px (rows 6–17, 50% of
   }
   console.log('ANIMS: frames exist, durations aligned, loop ranges in bounds, snack total 4500ms.');
 }
-console.log(failed ? `FAIL: ${failed} checks failed.` : 'PASS: all sprites (legacy + animation frames + prop_pc) — dimensions, equal row widths (ragged = error), palette keys, margins, baselines, staff components, Miyuke cat masks, typing stability, ANIMS consistency, embedded-copy sync.');
+console.log(failed ? `FAIL: ${failed} checks failed.` : 'PASS: all sprites (legacy + animation frames + prop_pc) — dimensions, equal row widths (ragged = error), palette keys, margins, baselines, staff components, Miyuke cat masks, typing stability, ANIMS consistency.');
 process.exitCode = failed ? 1 : 0;

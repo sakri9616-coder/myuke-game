@@ -48,8 +48,8 @@ FAIL=0
 fail() { echo "CHECK_FAIL: $1"; FAIL=1; }
 ok() { echo "CHECK_OK: $1"; }
 
-# 1) 版数一致: tauri.conf.json と game/index.html の GAME_VERSION
-GAME_VER="$(python3 -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('$ROOT/game/index.html', encoding='utf-8').read()).group(1))")"
+# 1) 版数一致: tauri.conf.json と game/src/game/save.ts の GAME_VERSION
+GAME_VER="$(python3 -c "import re;print(re.search(r'const GAME_VERSION = \"v?([^\"]+)\"', open('$ROOT/game/src/game/save.ts', encoding='utf-8').read()).group(1))")"
 if [ "$GAME_VER" = "$VER" ]; then ok "version 一致 (対象 v$VER / GAME_VERSION=$GAME_VER)";
 else fail "version 不一致 (対象 v$VER / GAME_VERSION=$GAME_VER)"; fi
 

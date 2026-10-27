@@ -639,6 +639,50 @@ fn set_strip_scale(app: AppHandle, scale: f64) {
     guard("cmd set_strip_scale", move || set_strip_scale_inner(&app, scale));
 }
 
+// ---- セーブデータのファイル保存 ----
+// ゲームのセーブ (JSON) を app_data_dir/miyuke-save.json に置く。WebView の
+// localStorage はプロファイル側の都合で消えることがあるため、正本はファイル。
+// 読み込みは起動時に Rust が読んで帯ウィンドウの初期化スクリプトで渡し
+// (ページの load() は同期のまま)、書き込みは save_game コマンドで行う。
+// ページ側は localStorage にも同じものを書き、起動時は lastTick の新しい方を採る。
+const SAVE_FILE: &str = "miyuke-save.json";
+
+fn save_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join(SAVE_FILE))
+}
+
+/// 起動時のセーブを JS の式として返す (無い・読めないときは null)
+fn save_init_script(app: &AppHandle) -> String {
+    let text = save_path(app).and_then(|p| fs::read_to_string(p).ok());
+    let lit = match text {
+        Some(t) if serde_json::from_str::<serde_json::Value>(&t).map(|v| v.is_object()).unwrap_or(false) => {
+            serde_json::to_string(&t).unwrap_or_else(|_| "null".into())
+        }
+        _ => "null".into(),
+    };
+    format!("window.__MIYUKE_SAVE__ = {};", lit)
+}
+
+/// セーブの書き込み。単一書き手の原則で、帯ウィンドウ (owner) 以外からは受け付けない。
+/// 一時ファイルに書いてから置き換えるので、途中で落ちても前のセーブが残る
+#[tauri::command]
+fn save_game(app: AppHandle, window: tauri::Window, data: String) -> Result<(), String> {
+    if window.label() != WIN_STRIP {
+        return Err("save_game: only the strip window may write the save".into());
+    }
+    match serde_json::from_str::<serde_json::Value>(&data) {
+        Ok(v) if v.is_object() => {}
+        _ => return Err("save_game: not a JSON object".into()),
+    }
+    let path = save_path(&app).ok_or("save_game: no app data dir")?;
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, data.as_bytes()).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
 fn set_strip_scale_inner(app: &AppHandle, scale: f64) {
     let state = app.state::<ShellState>();
     let s = if scale.is_finite() { scale.clamp(0.45, 1.05) } else { 0.7 };
@@ -1080,7 +1124,8 @@ fn main() {
             set_hit_zones,
             set_input_counting,
             reset_strip_position,
-            set_strip_scale
+            set_strip_scale,
+            save_game
         ])
         .setup(|app| {
             // ---- 状態の読み込み ----
@@ -1233,8 +1278,9 @@ fn main() {
             // 生成直後のサイズが目標と大きく違うと、WM の無い環境では表示時の
             // サイズ交渉で初回サイズが残ることがあるため、最初から帯に近い形で作る。
             let init_script = format!(
-                "window.__MIYUKE_MODE__ = 'strip'; window.__MIYUKE_ROLE__ = 'owner';{}",
-                beacon_init_script()
+                "window.__MIYUKE_MODE__ = 'strip'; window.__MIYUKE_ROLE__ = 'owner';{}{}",
+                beacon_init_script(),
+                save_init_script(app.handle())
             );
             let win = WebviewWindowBuilder::new(app, WIN_STRIP, WebviewUrl::App("index.html".into()))
                 .title("みゅけ、きょうも開発中")

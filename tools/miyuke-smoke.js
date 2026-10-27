@@ -1,4 +1,4 @@
-/* miyuke-smoke.js — Node + DOMスタブで game/index.html を通し実行するスモークテスト。
+/* miyuke-smoke.js — Node + DOMスタブでゲーム HTML (game/src からビルド) を通し実行するスモークテスト。
    Phase A: ブラウザ フルモード（パネルのみ。Strip Canon で部屋シーンは廃止）
    Phase B: ストリップモード + 偽 __TAURI__（ヒットゾーン送信経路）
    Phase B4: Strip Canon 家具（ゾーン/棚/研究机/第2机/装飾/信号機図/⚠チップ）
@@ -19,6 +19,7 @@
    Phase D: v2.3.5 自動アップデート（設定ファイル整合 + 偽 Updater のフロー）
    Phase E: 2ウィンドウ化（owner/viewer 2コンテキスト + 偽イベントバスで
             単一書き手・コマンド一回実行・スナップショット描画を検証）
+   Phase A12: セーブのファイル保存（起動時注入の採否 / save_game への書き込み / 読み込み機能）
    Phase F: チュートリアル導線（段階的開示: 事実ベースのステージ進行 /
             ロックと「所持が勝つ」原則 / ベテラン移行 / スキップと見直し /
             viewer がスナップショットだけで同じロック・🆕 を描くこと） */
@@ -26,10 +27,11 @@
 const fs = require("fs");
 const vm = require("vm");
 
-/* 読み先は MIYUKE_GAME_HTML で差し替え可能（既定はライブツリー）。
+/* 読み先は tools/game-html.cjs が決める（MIYUKE_GAME_HTML で差し替え可能。既定はソースからビルド）。
    worktree-verify.sh が git archive スナップショットを指すために使う。
-   未設定時の挙動は従来どおり。 */
-const HTML = fs.readFileSync(process.env.MIYUKE_GAME_HTML || "/home/hatch/workspace/miyuke-game/game/index.html", "utf8");
+   未設定時は game/build.mjs で desktop/dist/index.html を作ってから読む。 */
+const GAME_HTML = require("./game-html.cjs");
+const HTML = GAME_HTML.readGameHtml();
 const BLOCKS = [...HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 if (BLOCKS.length < 2) { console.error("script blocks not found"); process.exit(1); }
 
@@ -955,6 +957,54 @@ console.log("== Phase A11: sakuri prop batch (prop_coffee steam anim) ==");
     run(sb2, "window.__stripDrawn.splice(0)").some(d => /^prop_coffee_[01]$/.test(d)));
 }
 
+/* ================= Phase A12: セーブのファイル保存 ================= */
+/* 正本は Rust 側のファイル (起動時に window.__MIYUKE_SAVE__ で渡り、save_game で書く)。
+   localStorage にも同じものを書き、起動時は lastTick の新しい方を採る */
+console.log("== Phase A12: file-backed save (Rust save_game + startup injection) ==");
+{
+  const seed = (coins, lastTick) => JSON.stringify({ coins, ideas: 0, lastTick });
+  /* ファイルだけ (localStorage が消えた状態) → ファイルから復元される */
+  const sbF = buildSandbox({});
+  sbF.__MIYUKE_SAVE__ = seed(1234, 1000);
+  loadGame(sbF);
+  check("file-only save is restored (localStorage was wiped)", run(sbF, "S.coins") === 1234, "coins=" + run(sbF, "S.coins"));
+  check("startup file save is consumed once", run(sbF, "window.__MIYUKE_SAVE__") === null);
+  /* 両方ある → lastTick の新しい方 (ここでは localStorage) */
+  const sbN = buildSandbox({});
+  sbN.__MIYUKE_SAVE__ = seed(111, 1000);
+  sbN.localStorage.setItem("miyuke-save-v1", seed(222, 2000));
+  loadGame(sbN);
+  check("newer of file / localStorage wins (localStorage newer)", run(sbN, "S.coins") === 222, "coins=" + run(sbN, "S.coins"));
+  const sbO = buildSandbox({});
+  sbO.__MIYUKE_SAVE__ = seed(333, 3000);
+  sbO.localStorage.setItem("miyuke-save-v1", seed(444, 2000));
+  loadGame(sbO);
+  check("newer of file / localStorage wins (file newer)", run(sbO, "S.coins") === 333, "coins=" + run(sbO, "S.coins"));
+  /* save() は localStorage と save_game の両方へ同じ JSON を書く */
+  const calls = [];
+  const sbW = buildSandbox({ tauri: { core: { invoke: (c, a) => { calls.push([c, a]); return Promise.resolve(); } },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve() } } });
+  loadGame(sbW);
+  calls.length = 0;
+  run(sbW, "S.coins = 777; save();");
+  const sg = calls.filter(c => c[0] === "save_game");
+  check("save() sends the same JSON to Rust save_game and localStorage",
+    sg.length === 1 && JSON.parse(sg[0][1].data).coins === 777 &&
+    sg[0][1].data === sbW.localStorage.getItem("miyuke-save-v1"), "calls=" + sg.length);
+  /* 読み込み機能: 渡したテキストを読み、ファイルへ確定する (起動時セーブで上書きしない) */
+  calls.length = 0;
+  check("importSaveText loads the given text (not the startup save)",
+    run(sbW, `importSaveText(${JSON.stringify(seed(4321, 1))})`) === true && run(sbW, "S.coins") === 4321);
+  check("imported save is written through to the file",
+    calls.some(c => c[0] === "save_game" && JSON.parse(c[1].data).coins === 4321));
+  /* Rust 側: コマンド登録・帯以外からの書き込み拒否・帯にだけ起動時セーブを渡す */
+  const rs = fs.readFileSync(GAME_HTML.DESK_DIR + "src-tauri/src/main.rs", "utf8");
+  check("main.rs registers save_game and rejects writers other than the strip window",
+    /generate_handler!\[[\s\S]*\bsave_game\b[\s\S]*\]/.test(rs) && rs.includes("window.label() != WIN_STRIP"));
+  check("main.rs injects the startup save into the strip window only",
+    (rs.match(/save_init_script\(app\.handle\(\)\)/g) || []).length === 1 && rs.includes("__MIYUKE_SAVE__"));
+}
+
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */
 console.log("== Phase B: strip mode with fake Tauri ==");
 {
@@ -1285,10 +1335,15 @@ console.log("== Phase B4: Strip Canon furniture (zones / shelf / gating) ==");
   check("hit zones include the shelf (clickable furniture, empty stays click-through)",
     zones.some(z => Math.abs((z[0] + z[2] / 2) - scxCss) < 30 && z[1] < 120),
     "zones=" + JSON.stringify(zones));
+  /* ブラウザ版の廃止で、帯は自分ではタブを開かない。open_menu を Rust に頼むだけ
+     (帯は変形しない)。呼び出しは偽 invoke で記録する */
+  run(sb, `window.__inv = []; window.__TAURI__ = { core: { invoke: (c, a) => { window.__inv.push([c, a]); return Promise.resolve(); } } };`);
   sb._el("strip").dispatch("pointerdown", { clientX: scxCss, clientY: (116 - 28) / 120 * 210 });
-  check("clicking the shelf opens the shelf tab in full mode",
-    run(sb, "currentTab") === "shelf" && !sb.document.body.classList.contains("strip"),
-    "tab=" + run(sb, "currentTab"));
+  check("clicking the shelf asks Rust to open the menu on the shelf tab (strip stays a strip)",
+    run(sb, "JSON.stringify(window.__inv)") === JSON.stringify([["open_menu", { tab: "shelf" }]]) &&
+    sb.document.body.classList.contains("strip"),
+    run(sb, "JSON.stringify(window.__inv)"));
+  run(sb, "delete window.__TAURI__;");
 
   /* --- §c.7: 詰まりの ⚠ は Stage 3 でリーダーボードが担う (B12 で描画検証) --- */
   run(sb, "S.bugStock = 40;");
@@ -2059,11 +2114,13 @@ console.log("== Phase B12: strip project board (glanceable progress / hit zone /
   check("hit zones include the project board",
     zones.some(z => bcxCss >= z[0] && bcxCss <= z[0] + z[2] && bcyCss >= z[1] && bcyCss <= z[1] + z[3]),
     "zones=" + zones.length);
-  run(sb, "switchTab('staff');");
+  run(sb, `window.__inv = []; window.__TAURI__ = { core: { invoke: (c, a) => { window.__inv.push([c, a]); return Promise.resolve(); } } };`);
   sb._el("strip").dispatch("pointerdown", { clientX: bcxCss, clientY: bcyCss });
-  check("clicking the board opens the project tab (solo path)",
-    run(sb, "currentTab") === "proj" && !sb.document.body.classList.contains("strip"),
-    "tab=" + run(sb, "currentTab"));
+  check("clicking the board asks Rust to open the menu on the project tab",
+    run(sb, "JSON.stringify(window.__inv)") === JSON.stringify([["open_menu", { tab: "proj" }]]) &&
+    sb.document.body.classList.contains("strip"),
+    run(sb, "JSON.stringify(window.__inv)"));
+  run(sb, "delete window.__TAURI__;");
 
   /* --- typebox 撤去の回帰ガード: プロジェクトパネルに欄が残っていないこと --- */
   run(sb, "window.__miyukeApplyMode('full'); switchTab('proj'); renderPanel();");
@@ -2616,7 +2673,7 @@ console.log("== Phase B15: staff batch 10 (hachiware ANIMS — all coats animate
 console.log("== Phase D: auto-update (config + fake updater flows) ==");
 (async () => {
   /* --- 設定ファイル側の整合（実ファイルを読む） --- */
-  const DESK = process.env.MIYUKE_DESK || "/home/hatch/workspace/miyuke-game/desktop/";
+  const DESK = GAME_HTML.DESK_DIR;
   const conf = JSON.parse(fs.readFileSync(DESK + "src-tauri/tauri.conf.json", "utf8"));
   check("tauri version is 2.6.0", conf.version === "2.6.0", "got " + conf.version);
   check("GAME_VERSION label matches tauri version",
@@ -2644,15 +2701,15 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
   check("capabilities grant updater:default + process:default",
     caps.permissions.includes("updater:default") && caps.permissions.includes("process:default"));
 
-  /* --- ブラウザ（Tauri なし）では機能ごと隠れる --- */
+  /* --- Updater プラグインが無い環境（Tauri なしの検証スタブ）では操作できない --- */
   {
     const sb = buildSandbox({});
     loadGame(sb);
     check("browser: updApi() is null", run(sb, "updApi()") === null);
     run(sb, "paintUpd(); switchTab('settings'); renderPanel();");
     const html = sb._el("panel").innerHTML;
-    check("browser: settings shows デスクトップ版のみ for updates",
-      html.includes("アップデート") && html.includes("デスクトップ版のみ"));
+    check("no updater: settings shows the update row as unavailable",
+      html.includes("アップデート") && html.includes("利用できません"));
     check("browser: strip update chip is removed (Stage 3: toolbox ribbon instead)",
       !HTML.includes('id="strip-upd"') && !HTML.includes('id="strip-hud"'));
     check("browser: GAME_VERSION is v2.6.0", run(sb, "GAME_VERSION") === "v2.6.0");

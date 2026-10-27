@@ -13,3 +13,4 @@ verify-strip-*.png
 # ルート直下の確認用スクショと公開ステージは成果物ではない
 /*.png
 release-v*/
+desktop/dist/index.html

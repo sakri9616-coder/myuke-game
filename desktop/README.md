@@ -1,10 +1,10 @@
 # 『みゅけ、きょうも開発中』 デスクトップ版（Tauri v2）
 
-HTML版（`../game/index.html`）をデスクトップアプリ化したものです。
+ゲーム本体（`../game`、TypeScript）を Tauri v2 で常駐アプリにしたものです。
 フォームファクタは『デスクトップ小動物牧場』式の「壁紙の上に直接住むペット」：**起動直後はストリップ表示**が既定で、
 管理画面は同じウィンドウを大きく開いて使います（ゲームの実体・WebViewは1つだけです）。
-`dist/index.html` は `game/index.html` のコピーで、ゲーム本体のコード・バランスはHTML版と同一です。
-Rust側は「常駐のための枠」とモード切替だけを担当します。
+`dist/index.html` は `game` のソースからビルドされる生成物です（リポジトリには含めません。`cd ../game && npm ci && npm run build` で作られます）。
+Rust側は「常駐のための枠」・モード切替・入力集計・セーブファイルの読み書きを担当します。
 
 - アプリ名: みゅけ、きょうも開発中 / identifier: `jp.muse.miyuke`（セーブの置き場所に直結するので不変） / version 2.3.5
 
@@ -25,7 +25,7 @@ Rust側は「常駐のための枠」とモード切替だけを担当します�
 - **モードの記憶**: フルモードの位置・サイズと、フル時の「常に手前に表示」だけが `miyuke-shell.json`（アプリ設定フォルダ内）に保存され、次回に復元されます。起動時は常にストリップから始まります
 - テスト用に環境変数 `MIYUKE_START_MODE=full` を付けるとフルモードで起動します
 
-## HTML版から増えたもの（デスクトップ版の差分）
+## Rust 側が担う機能
 
 - **自動アップデート（v2.3.5〜）**: 起動時に GitHub Releases（`sakri9616-coder/myuke-game`）へ新しいバージョンが出ていないか確認します。更新があると、帯のチップ（🆕）と管理画面のカード、設定タブの「アップデート」行でお知らせし、ボタンひとつでダウンロード→インストール→再起動まで進みます。更新ファイルは署名検証されるため、別物や壊れたファイルは入りません
   - **v2.3.5 が「最後の手動インストール」です**。これを入れておけば、v2.3.6 以降はアプリが自分で更新を取りに行くので、zip をダウンロードし直す必要はありません（ポータブル版は自己更新できないため、自動更新の対象はインストーラ版です）
@@ -41,15 +41,14 @@ Rust側は「常駐のための枠」とモード切替だけを担当します�
 - **トレイ常駐**: システムトレイにアイコンが出ます。メニューは「みゅけを表示／隠す」「大きく開く（管理画面）」「デスクトップに戻す」「常に手前に表示（フル時）」「終了」。トレイアイコンの左クリックでも表示／隠すができます
 - **閉じる＝隠す**: ウィンドウの×ボタンを押しても終了せず、トレイに隠れます。本当に終了するのはトレイメニューの「終了」だけです
 - **単一インスタンス**: 二重に起動すると、既存のウィンドウが前面に出るだけです
-- **セーブの置き場所**: HTML版と同じくWebViewの localStorage に保存されます
-  - Linux: `~/.local/share/jp.muse.miyuke/localstorage/`
-  - Windows: `%LOCALAPPDATA%\jp.muse.miyuke\` 配下の WebView2 ユーザーデータ内
-  - （HTML版とは保存場所が別なので、セーブデータは引き継がれません）
+- **セーブの置き場所**: アプリのデータフォルダの `miyuke-save.json` が正本です（`save_game` コマンドで一時ファイル経由の置き換え書き込み。書けるのは帯ウィンドウだけ）
+  - Linux: `~/.local/share/jp.muse.miyuke/miyuke-save.json`
+  - Windows: `%APPDATA%\jp.muse.miyuke\miyuke-save.json`
+  - 起動時に Rust がファイルを読んで帯ウィンドウへ渡します。WebView の localStorage にも同じものを控えとして書き、起動時は新しい方を使います（ファイル化以前のセーブは localStorage から読まれ、次のセーブでファイルへ移ります）
 
 ## 入っていないもの（重要）
 
 - 着せ替えは未実装（将来フェーズ）。キャラクターの移動はストリップ帯の中だけです（デスクトップ全体を歩き回ることはしません）
-- OS全体の入力カウントはデスクトップ版のみの機能です（上の「OS全体の入力カウント」を参照）。ブラウザで `game/index.html` を開いた場合はページ内の集計だけになります
 
 ## Windowsでのインストール
 
@@ -67,11 +66,11 @@ Rust側は「常駐のための枠」とモード切替だけを担当します�
 
 ## ビルド方法
 
-通常の再ビルドは `bash resync-rebuild.sh` 一発です（`game/index.html` の再同期→ Windows ビルド → 配布 zip `myuke-desktop-windows.zip` の再作成まで。納品物は Windows のみのため、既定では Linux deb をビルドしません。Linux deb も要る場合は `BUILD_LINUX=1 bash resync-rebuild.sh` または `bash resync-rebuild.sh --with-linux`）。ビルド前にリリースノート・署名鍵・版数一致を入口チェックし、不備があれば開始前に止まります。v2.3.5 からはスクリプトが Updater 用の署名も行い、GitHub Release 用の成果物（インストーラ／Updater zip／latest.json）を `../release-v<版数>/` にステージします。公開手順は同フォルダの `RELEASE_UPLOAD.md` と `../DESIGN.md` の「v2.3.5」節を参照。
+通常の再ビルドは `bash resync-rebuild.sh` 一発です（`game` の型チェックとビルド→ Windows ビルド → 配布 zip `myuke-desktop-windows.zip` の再作成まで。納品物は Windows のみのため、既定では Linux deb をビルドしません。Linux deb も要る場合は `BUILD_LINUX=1 bash resync-rebuild.sh` または `bash resync-rebuild.sh --with-linux`）。ビルド前にリリースノート・署名鍵・版数一致を入口チェックし、不備があれば開始前に止まります。v2.3.5 からはスクリプトが Updater 用の署名も行い、GitHub Release 用の成果物（インストーラ／Updater zip／latest.json）を `../release-v<版数>/` にステージします。公開手順は同フォルダの `RELEASE_UPLOAD.md` と `../DESIGN.md` の「v2.3.5」節を参照。
 
 - **署名鍵の置き場所**: `desktop/.keys/`（`updater.key` が秘密鍵、`updater.key.password` がそのパスワード、`updater.key.pub` が公開鍵）。スクリプトが env 経由でビルドに渡します。**秘密鍵とパスワードはリポジトリや配布物に入れないこと**。失うと以後のアップデートを署名できなくなります。
 
-前提: Rust（stable、rustup推奨）と Node.js。フロントエンドはビルド不要で、`dist/index.html` をそのまま使います。
+前提: Rust（stable、rustup推奨）と Node.js。Tauri のビルド前に、フロントエンドを `cd ../game && npm ci && npm run build` で `dist/index.html` へビルドしておきます（`resync-rebuild.sh` と CI は自動で行います）。
 アイコンは `icon-source.png`（ドット絵・自作）から `npx tauri icon icon-source.png` で `src-tauri/icons/` に生成済みです。
 
 ```sh
@@ -126,7 +125,7 @@ npx tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin -b nsis -- -
   - 既定のストリップ起動でウィンドウが **1280×210・+0+750**（作業領域いっぱいの幅×210、底辺吸着）になり、ルートウィンドウ撮影で「壁紙の上に枠なしでペットとHUDだけが描かれる」ことを確認
   - HUDの「ひらく」ボタンを実際にクリック → フルモード **1180×860・+50+50** に切替わり、管理画面ヘッダーの「デスクトップに戻す」をクリック → ストリップ **1280×210・+0+750** に復帰（往復を実測）
   - `MIYUKE_START_MODE=full` のクリーン起動でも 1180×860・+50+50。フル形状が `miyuke-shell.json` に保存されること、ストリップ中に進んだゲーム進行がフル画面にそのまま引き継がれること（単一インスタンス）も確認
-  - ブラウザ単体でも `game/index.html#strip`（1280×210・壁紙グラデーション上）で、机のみゅけ・散歩するスタッフ・吹き出し・HUDチップの描画を確認
+  - （当時）ブラウザ単体の `game/index.html#strip`（1280×210・壁紙グラデーション上）でも、机のみゅけ・散歩するスタッフ・吹き出し・HUDチップの描画を確認
   - ヒットゾーン式クリック透過を `MIYUKE_DEBUG_HIT=1` のログ＋xdotool で実測: 帯の何もない所（左端）にポインタを置くと `ignore=true`（素通し）、机の上に移すと `ignore=false` に切替わり、画面中央（ウィンドウ外）に逃がしても異常なく帯へ戻れば再び切替わる。ゾーン数が起動直後の吹き出しの消滅に連動して 4→3 に変わることもログで確認（再現スクリプト: `desktop/hit-test.sh` ほか）
   - OS全体の入力カウントを `MIYUKE_DEBUG_INPUT=1` のログ＋xdotool 合成入力で実測（再現スクリプト: `desktop/input-test.sh`）: 既定 OFF では合成入力を飛ばしてもリスナーは起動せず集計はゼロ。設定 ON では打鍵 40 回 → 集計 **keys=40**（完全一致）、矩形パス移動＋クリック位置へのジャンプ = 1940px → **distPx=1940**（計算一致）、クリック 3 回 → **clicks=3**（完全一致）
 - 待機時リソース（Xvfb＋ソフトウェア描画での参考値・旧計測）: プロセスツリー合計 RSS 約350MB（WebKitGTK の3プロセス合算。共有ページの二重計上を含みます）、アイドルCPU は 1コアの約5%
