@@ -137,6 +137,7 @@ function tick(){
   /* トレンドは v2.12.1 から出荷の本数で回る（recordRelease → trendOnShip） */
   tickCatalog();    /* 再設計 段階1: 作品棚とシリーズの毎秒売上 */
   tickHeat();       /* 再設計 段階2: 応援の熱 */
+  tickCompanyValue();   /* 再設計 段階3: 企業価値の最高値と自動昇格 */
   tickCoinFlow();   /* 🪙/秒 の表示値 */
   // 集中力
   if(coding){

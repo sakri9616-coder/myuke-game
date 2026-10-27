@@ -82,10 +82,14 @@ function botBuy(){
     const cands = UPGRADE_DEFS.map(d => "up:" + d.id).concat(["hire:prog", "hire:test", "hire:carry"])
       .concat(S.studioLv >= 2 && !S.staff.some(x => x.role === "sales") ? ["hire:sales"] : [])
       .concat(STAFF_ROLES.cheer && !roleLocked("cheer") ? ["hire:cheer"] : [])
-      .concat(S.staff.length >= staffCap() ? ["studio:"] : []);
+      ;   /* 段階3: 社格は企業価値で自動昇格するので、スタジオは買わない */
     const fx = bottleneckFix();
     let fixKey = fx && fx.fix ? fx.fix : null;
-    if(fixKey && S.staff.length >= staffCap() && fixKey.startsWith("hire:")) fixKey = "studio:";
+    /* 段階3: 詰まりの助言が無い（実装が一番遅い）ときは、実装を一番安く速くする品を狙う
+       （DP/分の増分 ÷ 値段が最大のもの。仮に買って productionRate を測り、元に戻す）。
+       以前は最安の品を買い続け、放置で2時間半プログラマ猫を雇わなかった */
+    if(!fixKey) fixKey = botBestImpl(costOf);
+    if(fixKey && S.staff.length >= staffCap() && fixKey.startsWith("hire:")) fixKey = null;
     const fixCost = fixKey ? costOf(fixKey) : Infinity;
     let pick = null;
     if(fixKey && fixCost <= S.coins) pick = fixKey;
@@ -96,6 +100,19 @@ function botBuy(){
     }
     if(!pick || !doBuy(pick)) break;
   }
+}
+function botBestImpl(costOf){
+  const base = productionRate();
+  let best = null, bv = 0;
+  const tryKey = (key, apply, undo) => {
+    const c = costOf(key);
+    if(!isFinite(c)) return;
+    apply(); const gain = productionRate() - base; undo();
+    if(gain > 0 && gain / c > bv){ bv = gain / c; best = key; }
+  };
+  for(const id of ["keyboard", "ide", "bot"]) tryKey("up:" + id, () => { S.upgrades[id] = (S.upgrades[id] || 0) + 1; }, () => { S.upgrades[id]--; });
+  if(S.staff.length < staffCap()) tryKey("hire:prog", () => { S.staff.push({ id: -1, role: "prog", lv: 1, name: "", coat: "" }); }, () => { S.staff.pop(); });
+  return best;
 }
 function botJumpSig(){
   let ms = 0; for(const k in S.upgrades) for(const c of MILESTONE_LVS) if((S.upgrades[k] || 0) >= c) ms++;
@@ -151,7 +168,10 @@ function simulate(opts){
       /* 停滞: 新しい軸や節目（社格・設備の節目・研究・仕事の桁・売却）がない区間の最長 */
       const ns = run("botJumpSig()");
       if(ns !== sig){ R.jumps.push(t); if(t - lastJump > R.maxGapMin){ R.maxGapMin = t - lastJump; R.maxGapAt = [lastJump, t, sig, ns]; } sig = ns; lastJump = t; }
-      if(exitAt && gain >= exitAt){
+      /* 2社目以降は前回の売却益の1.5倍に届いてから売る（段階3: 星屑の倍率で次の会社が速く育つので、
+         20個で売り続けると数分ごとの売却になる。売りどきメーターを見て待つ遊び方の近似） */
+      const need = exitAt ? Math.max(exitAt, Math.ceil((R.exits.length ? R.exits[R.exits.length - 1].gain : 0) * 1.5)) : 0;
+      if(exitAt && gain >= need){
         run("doPrestigeCore('__none', '__auto', -1)");
         R.exits.push({ t, gain });
         if(opts.policy) run("choosePolicy(" + JSON.stringify(opts.policy) + ")");

@@ -205,7 +205,7 @@ console.log("== 5. prestige ==");
 {
   const sb = buildSandbox();
   loadGame(sb);
-  run(sb, "S.runDP = BAL.prestigeDPPerDust * 5; S.coins = 99999; S.upgrades = { keyboard: 3 };");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; S.coins = 99999; S.upgrades = { keyboard: 3 };");
   const gain = run(sb, "prestigePreview().gain");
   run(sb, "doPrestigeCore('__none', '__auto', -1);");
   check("selling the company grants stardust and starts a new company",
@@ -217,9 +217,19 @@ console.log("== 5. prestige ==");
   loadGame(sb);
   run(sb, "S.coins = 0; catalogAdd({ name: 'テスト作' }, 6000); for(let i = 0; i < 10; i++) tickCatalog();");
   const sold = run(sb, "S.coins");
-  run(sb, "S.runDP = BAL.prestigeDPPerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
   check("released works keep selling every second until the company is sold",
-    sold >= 70 && sold <= 90 && run(sb, "S.catalog.length") === 0);
+    sold >= 70 && sold <= 100 && run(sb, "S.catalog.length") === 0);
+}
+{
+  /* 再設計 段階3: 社格は企業価値が届くと自動で上がる（コインでは買えない） */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.studioLv = 1; S.coins = 1e9; buyStudio();");
+  const bought = run(sb, "S.studioLv");
+  run(sb, "S.runPeakValue = RANK_VALUE[2]; tickCompanyValue();");
+  check("rank rises automatically once company value reaches it",
+    bought === 1 && run(sb, "S.studioLv") === 3 && run(sb, "S.coins") === 1e9);
 }
 
 {
