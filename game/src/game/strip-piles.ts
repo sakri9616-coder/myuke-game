@@ -264,6 +264,7 @@ function renderStrip(){
   const dt = Math.min(0.5, (now - (stripLastFrameAt || now)) / 1000);
   stripLastFrameAt = now;
   stripUpdate(dt);
+  stripSpriteLog = [];   /* ホバーの縁取り用: このフレームに貼った絵の記録 (strip-core.ts) */
   /* ヒットゾーン記録をこのフレーム分にリセット（吹き出しは描画時に再設定される） */
   stripHitRects.miyuke = null; stripHitRects.staff = [];
   stripHitRects.duck = null; stripHitRects.bubble = null;
@@ -368,7 +369,7 @@ function renderStrip(){
     const gx = stripDeskCX() + 88, gh = 38, wy = G - 3;
     const fActive = feverActive();
     const fFrac = fActive ? Math.max(0, (feverUntil - Date.now()) / FEVER.durationMs)
-                          : (S.fever ? (S.fever.gauge || 0) / 100 : 0);
+                          : (S.fever ? stripMeter("fever", S.fever.gauge || 0) / 100 : 0);
     sDrawSprite("prop_fever_gauge", gx, G, 1);
     if(fFrac > 0){
       const fh = Math.max(4, Math.round(gh * Math.min(1, fFrac)));
@@ -580,8 +581,9 @@ function renderStrip(){
   if(bugEvent){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
+      const l0 = stripSpriteLog.length;
       sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
-      stripHitRects.bugs.push({ x: bp.x - 30, y: bp.y - 30, w: 60, h: 60 });   /* 判定は見た目の約3倍 */
+      stripHitRects.bugs.push({ x: bp.x - 30, y: bp.y - 30, w: 60, h: 60, art: [l0, stripSpriteLog.length] });   /* 判定は見た目の約3倍 */
     }
   }
   /* 星飾りは棚の天板へ移行済み（drawStripShelf 内, §c.5） */

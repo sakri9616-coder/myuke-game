@@ -37,7 +37,7 @@ if(!IS_VIEWER){
     S.totals.playSec += 1; bumpRev();
   }, 1000);
   setInterval(save, 10000);
-  window.addEventListener("beforeunload", save);
+  window.addEventListener("beforeunload", flushSave);
 }
 setInterval(()=>{
   /* 全ロール共通の安全網 (viewer は同期表示のまま)。帯ではパネルが表示されず、

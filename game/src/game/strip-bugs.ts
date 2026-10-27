@@ -118,11 +118,12 @@ function drawStripStockBugs(){
     const i = (j + BUG_INDIV_WITH_SWARM) % stripBugVis.length;
     const v = stripBugVis[i];
     const nm = stripBugSprite(v.kind, v.ph);
+    const l0 = stripSpriteLog.length;
     if(nm) sDrawSprite(nm, v.x, G, 1, v.dir < 0);
     else if(v.kind === "one") sDrawSprite("icon_bug", v.x, G + 3, 0.5, v.dir < 0);
     else for(const o of BUG_FALLBACK_CLUSTER[v.kind]) sDrawSprite("icon_bug", v.x + o[0] + ((v.ph + o[0]) % 2), G + 3 + o[1], 0.45);
     const hs = BUG_HIT[v.kind];
-    stripHitRects.stockBugs.push({ x: v.x - hs[0] / 2, y: G - hs[1], w: hs[0], h: hs[1], vis: v });
+    stripHitRects.stockBugs.push({ x: v.x - hs[0] / 2, y: G - hs[1], w: hs[0], h: hs[1], vis: v, art: [l0, stripSpriteLog.length] });
   }
   /* 演出: パッチ (落下 260ms → 貼り付き 160ms → 煙 2コマ 300ms) / 手で潰した跡 (240ms → 煙) */
   for(let i = stripBugFx.length - 1; i >= 0; i--){

@@ -106,7 +106,7 @@ async function updDownload(){
   if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
 }
 function updRelaunch(){
-  save();   /* 再起動の前に最後の進行を書き残す */
+  flushSave();   /* 再起動の前に最後の進行を書き残す (間引かずに書く) */
   try{
     const T = window.__TAURI__;
     if(T && T.process && typeof T.process.relaunch === "function"){
