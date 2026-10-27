@@ -14,6 +14,7 @@ const BAL = {
   cursorPxPerDP: 400,       // 何px移動で +1DP（レーンA・入力ブースト強化）
   clicksPerDP: 2,           // 何クリック（OS集計のストローク）で +1DP（レーンA新設）
   boostCapPerMin: 120,      // 入力ブーストの1分上限(DP)（レーンA・入力ブースト強化）
+  boostLinkRef: 40,         // 再設計 段階2: 自動生産がこの DP/分を超えたら、入力ブーストの重みと上限を比例して伸ばす
   sizes:     { TUT:120, XS:400, S:900, M:2600, L:7000 },
   coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
   rpBase:    { TUT:1,   XS:2,   S:2,   M:3,    L:5 },   // 再設計 段階1: 放置で研究が 40〜70分止まっていたので 1/1/2/4 から上げた
@@ -25,7 +26,7 @@ const BAL = {
   stockBugCoin: 4,          // 在庫バグを手で潰した報酬（×仕事の桁×√潰した匹数）        // 応援クリック・入力ブースト由来の DP のバグ混入倍率
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
-  prestigeDPPerDust: 8000,  // 星屑1個ぶんのDP（第2ウェーブ I: 12,000→8,000 で EXIT を小刻み化）
+  prestigeDPPerDust: 20000, // 星屑1個ぶんのDP（第2ウェーブ I: 12,000→8,000。再設計 段階2: 応援の熱と魚で張り付きが 15→11分に速まったので 20,000 に戻して 16分。星屑は段階3で企業価値から出す）
   dustSoftcap: 20,          // 1回の売却でこの個数を超えた分は dustGainExp 乗で伸びる
   dustGainExp: 0.5,         // （平方根。0.6 以上だと sim の active で 30 日に星屑 8,000 個超まで暴走した）
   dustPriceExp: 0.5,        // 作品単価には星屑倍率の dustPriceExp 乗で効く

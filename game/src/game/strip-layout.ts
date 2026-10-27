@@ -381,6 +381,15 @@ function addStripFloater(x, y, text, color?){
   stripFloaters.push({ x, y: y - Math.min(3, stacked) * 11, text, color: color || "#e8873a", born: now });
   if(stripFloaters.length > 12) stripFloaters.shift();
 }
+/* 浮き文字のまとめ（再設計 段階2）: 同じ key の文字が出て間もないうちは、新しく出さずに数を足して書き換える。
+   秒5回の連打でも文字は約2つ/秒に収まり、1つずつの数は大きく読める */
+function addStripFloaterSum(x, y, key, val, render, color?){
+  const now = Date.now();
+  const f = stripFloaters.find(f => f.key === key && now - f.born < 450);
+  if(f){ f.val += val; f.text = render(f.val); return; }
+  stripFloaters.push({ x, y, text: render(val), color: color || "#e8873a", born: now, key, val });
+  if(stripFloaters.length > 12) stripFloaters.shift();
+}
 function addStripSpark(x, y, big?){
   stripSparks.push({ x, y, born: Date.now(), big: !!big, seed: Math.random() * Math.PI });
   if(stripSparks.length > 10) stripSparks.shift();

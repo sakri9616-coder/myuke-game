@@ -56,13 +56,30 @@ function flagPlay(ps){ S.flags["play_"+ps] = true; if(ps==="duckplay") S.flags.p
    どちらも時間切れで消えるだけ。取り逃がしてもペナルティは一切ない。 */
 let fishEvent = null, bugEvent = null;
 let nextFishAt = Date.now() + 90000, nextBugAt = Date.now() + 160000;
+/* 魚の種類（再設計 段階2）: 金（コイン＋研究P）・応援（しばらく応援 ×FISH.cheerMult）・大漁（しばらく生産 ×FISH.haulMult）。
+   効き目は揮発（保存しない）。色違いの絵は発注中で、それまでは同じ絵で、現れた時の台詞と捕まえた時の文字で種類が分かる */
+const FISH = { cheerMult: 5, cheerSec: 15, haulMult: 3, haulSec: 60 };
+const FISH_KINDS = {
+  gold:  { name: "金のひらめきフィッシュ", w: 2 },
+  cheer: { name: "応援フィッシュ",         w: 1 },
+  haul:  { name: "大漁フィッシュ",         w: 1 }
+};
+let cheerFishUntil = 0, haulFishUntil = 0;
+function fishClickMult(){ return Date.now() < cheerFishUntil ? FISH.cheerMult : 1; }
+function fishProdMult(){ return Date.now() < haulFishUntil ? FISH.haulMult : 1; }
+function pickFishKind(){
+  let r = Math.random() * 4;
+  for(const k in FISH_KINDS){ r -= FISH_KINDS[k].w; if(r < 0) return k; }
+  return "gold";
+}
 function spawnFish(now){
-  fishEvent = { x: 34 + Math.random()*172, y: 40 + Math.random()*86, until: now + 10000 };
+  fishEvent = { x: 34 + Math.random()*172, y: 40 + Math.random()*86, until: now + 10000, kind: pickFishKind() };
   /* Sprint 4: 帯でも魚が見える・触れる。帯側の位置は帯の仮想座標で別に持つ
      （stripFish は帯レンダラが初期化し、帯の更新で泳がせる） */
   stripFish = null;
-  say("✨ 金のひらめきフィッシュが現れたにゃ！クリックで捕まえて！");
-  addLog("✨ 金のひらめきフィッシュが現れた");
+  const fname = FISH_KINDS[fishEvent.kind].name;
+  say("✨ " + fname + "が現れたにゃ！クリックで捕まえて！");
+  addLog("✨ " + fname + "が現れた");
 }
 function spawnBugSwarm(now, count?){
   const bugs = [];
@@ -114,8 +131,23 @@ function addFloater(x, y, text, color){
   addStripFloater(x, y, text, color);
 }
 function catchFish(bx, by){
+  const kind = (fishEvent && fishEvent.kind) || "gold";
   fishEvent = null;
   nextFishAt = Date.now() + (150000 + Math.random()*120000) * fishIntervalMul();   /* Sprint 4: 幸運のヒレ */
+  if(kind === "cheer" || kind === "haul"){
+    const cheer = kind === "cheer", now = Date.now();
+    if(cheer) cheerFishUntil = Math.max(cheerFishUntil, now) + FISH.cheerSec * 1000;
+    else haulFishUntil = Math.max(haulFishUntil, now) + FISH.haulSec * 1000;
+    S.totals.goldFish++;
+    SoundKit.play("fishCatch");
+    const what = cheer ? "応援 ×" + FISH.cheerMult + "（" + FISH.cheerSec + "秒）" : "生産 ×" + FISH.haulMult + "（" + FISH.haulSec + "秒）";
+    addFloater(bx, by - 10, "🐟 " + what, cheer ? "#e2543e" : "#3a8fd9");
+    say(FISH_KINDS[kind].name + "、捕まえたにゃ！ " + what);
+    addLog("🐟 " + FISH_KINDS[kind].name + "を捕まえた（" + what + "）");
+    checkStamps(); save();
+    tutCheck();
+    return;
+  }
   const coins = rewardCoins(BAL.rewardSec.fish, Math.round(80 * dustMult() * workScale()));   /* 収入の90秒ぶん（下限は従来の式） */   // Sprint 1: セッション中のイベント収入を厚く
   S.rp += 2; S.coins += coins; S.totals.coinsEarned += coins;
   S.totals.goldFish++;
@@ -152,6 +184,43 @@ function splatBug(i, bx, by){
   checkStamps(); save();
 }
 
+/* ---------- 応援の熱（再設計 段階2・2026-10-27 承認）----------
+   秒1回以上の応援を続けた時間で熱が上がる（HEAT.secPerLv 秒ごとに1段、1段ごとにクリック ×HEAT.perLv）。
+   コンボ（2.5秒で切れる）と違い、HEAT.graceSec 秒までの手休めでは下がらない。それより長く離すと
+   1秒ごとに HEAT.coolPerSec 秒ぶん冷める。張り付いて押し続けるほど労働の手応えが育つ（理念書3） */
+const HEAT = { secPerLv: 60, maxLv: 10, perLv: 1.1, graceSec: 10, coolPerSec: 6 };
+let heatSec = 0, heatClicksThisSec = 0;
+function heatLv(){ return Math.min(HEAT.maxLv, Math.floor(heatSec / HEAT.secPerLv)); }
+function heatMult(){ return Math.pow(HEAT.perLv, heatLv()); }
+/* 1秒ティックから呼ぶ */
+function tickHeat(){
+  const before = heatLv();
+  if(heatClicksThisSec > 0) heatSec = Math.min(HEAT.maxLv * HEAT.secPerLv, heatSec + 1);
+  else if(Date.now() - lastClickAt > HEAT.graceSec * 1000) heatSec = Math.max(0, heatSec - HEAT.coolPerSec);
+  heatClicksThisSec = 0;
+  const lv = heatLv();
+  if(lv > before && document.body.classList.contains("strip"))
+    addStripFloater(miyukeStrip.x > 0 ? miyukeStrip.x : stripVW / 2, STRIP_GROUND - 64, "🔥 応援の熱 Lv" + lv + "（×" + heatMult().toFixed(2) + "）", "#e2543e");
+}
+
+/* 応援係（再設計 段階2）: 1秒に cheersPerSec 回ぶん、素の応援（コンボ・会心・熱なし）を実装工程へ送る。
+   入力由来として扱い（自動生産に数えない）、あなたのクリックの堰（秒5回）とは別枠。浮き文字は3秒ごとにまとめて出す */
+let staffCheerAcc = 0, staffCheerShowAt = 0;
+function staffCheerTick(cheersPerSec){
+  if(challengeActive("idle") || (S.project && S.project.planning)) return;
+  const dp = clickBaseDP() * cheersPerSec;
+  prodMuted = true;
+  produceDP(dp, "l1");
+  prodMuted = false;
+  staffCheerAcc += dp * clickProdMult();
+  const now = Date.now();
+  if(now - staffCheerShowAt >= 3000 && document.body.classList.contains("strip")){
+    staffCheerShowAt = now;
+    addStripFloater(miyukeStrip.x > 0 ? miyukeStrip.x - 26 : stripVW / 2, STRIP_GROUND - 50, "📣 +" + fmtClickDP(staffCheerAcc) + "DP", "#c97a2e");
+    staffCheerAcc = 0;
+  }
+}
+
 /* ---------- v2: 応援クリック（コンボ） ---------- */
 let comboN = 0, lastClickAt = 0, ideaFrac = 0, rpFrac = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
@@ -161,9 +230,10 @@ function comboMult(){
 function updateComboUI(){
   const el = document.getElementById("combo-info");
   if(!el) return;
+  const heat = heatLv() > 0 ? "・🔥熱 Lv" + heatLv() + " ×" + heatMult().toFixed(2) : "";
   if(comboN >= 2){
-    el.textContent = "👆 応援コンボ ×" + comboMult().toFixed(1) + "（" + comboN + "連続） 1クリック +" +
-      fmtClickDP(clickShownDP() * comboMult()) + "DP";
+    el.textContent = "👆 応援コンボ ×" + comboMult().toFixed(1) + "（" + comboN + "連続）" + heat + " 1クリック +" +
+      fmtClickDP(clickShownDP() * comboMult() * heatMult()) + "DP";
   } else {
     el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + fmtClickDP(clickShownDP()) +
       "DP（連続でコンボ、たまにクリティカル×10）";
@@ -181,10 +251,11 @@ function handworkClick(stage){
   S.totals.clicks++;
   handworkFx = { stage, at: now };
   let moved = 0;
+  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P は押した回数ぶん（段階2: 秒5回の上限を外した。sakuri 2026-10-27） */
   if(!challengeActive("idle") && S.project && !S.project.planning && clickBucketTake()){
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
-    S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);
-    const amt = clickBaseDP() * comboMult() * HANDWORK_MULT * clickProdMult() * (feverActive() ? FEVER.clickMult : 1);
+    const amt = clickBaseDP() * comboMult() * heatMult() * fishClickMult() * HANDWORK_MULT * clickProdMult() * (feverActive() ? FEVER.clickMult : 1);
+    heatClicksThisSec++;
     const w = S.wip;
     if(stage === "code"){ moved = Math.min(amt, w.code); w.code -= moved; w.tested += moved; }
     else if(stage === "test"){ moved = Math.min(amt, w.tested); w.tested -= moved; w.built += moved; }
@@ -202,16 +273,18 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
   lastClickAt = now;
   S.totals.clicks++;
   const crit = Math.random() < critRate();
-  let gain = clickBaseDP() * comboMult();   /* F再設計: ハイブリッド式（基礎＋自動生産連動） */
+  let gain = clickBaseDP() * comboMult() * heatMult() * fishClickMult();   /* F再設計: ハイブリッド式（基礎＋自動生産連動）／段階2: 応援の熱 */
+  heatClicksThisSec++;
   if(crit){ gain *= 10; S.totals.crits++; }
   if(feverActive()) gain *= FEVER.clickMult;   /* F再設計: 発動中のクリックは ×3（旧 ×20 は Argon の警告で置換） */
   /* F再設計: バケツを通ったクリックだけが DP を生む（反応・コンボは無条件）。
      流入は案B 読み替え: 直接進捗は 20%、残り 80% は第1工程へ流して
      工程キャップに堰き止めさせる。企画中は全量が仕掛品になる。
      工程中心: さらに溜まった仕掛品を手で運んで出荷する（cheerCarry） */
+  /* 応援P は押した回数ぶん貯まる（段階2: sakuri 2026-10-27「秒5回までの制限いらない」。DP の堰は従来どおり） */
+  if(!challengeActive("idle")) S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);
   if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
-    S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P: DP が付いたクリック1回につき1（バケツで秒5回まで） */
     prodMuted = true;
     produceDP(gain * (1 - CLINK.directShare), "l1");
     if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
@@ -224,7 +297,8 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
       /* 工程中心: 溜まった仕掛品を手で運んで出荷する（クリック威力 × carryMult ぶん） */
       const carried = S.project ? cheerCarry(gain * CLINK.carryMult * clickProdMult()) : 0;
       progressPulseUntil = Date.now() + 500;
-      addFloater(bx, by - 22, "+" + (direct + carried).toFixed(1) + "DP すすんだ！" + (carried > 0 ? "（📦 手で運んだ）" : ""), "#e8873a");
+      if(document.body.classList.contains("strip"))
+        addStripFloaterSum(bx, by - 22, "adv", direct + carried, v => "+" + fmtClickDP(v) + "DP すすんだ！", "#e8873a");
     }
     if(crit){
       addFloater(bx, by - 12, "CRITICAL! +" + gain.toFixed(0) + "DP", "#d9534f");

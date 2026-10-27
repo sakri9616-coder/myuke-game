@@ -81,6 +81,7 @@ function botBuy(){
   for(let guard = 0; guard < 40; guard++){
     const cands = UPGRADE_DEFS.map(d => "up:" + d.id).concat(["hire:prog", "hire:test", "hire:carry"])
       .concat(S.studioLv >= 2 && !S.staff.some(x => x.role === "sales") ? ["hire:sales"] : [])
+      .concat(STAFF_ROLES.cheer && !roleLocked("cheer") ? ["hire:cheer"] : [])
       .concat(S.staff.length >= staffCap() ? ["studio:"] : []);
     const fx = bottleneckFix();
     let fixKey = fx && fx.fix ? fx.fix : null;
@@ -169,7 +170,7 @@ function simulate(opts){
   return R;
 }
 
-/* ゲート改訂3（再設計 2026-10-27・sakuri 承認）。G5（方針ごとの主役）は段階4、G8（90日の天井）は段階3で本実装 */
+/* ゲート改訂3（再設計 2026-10-27・sakuri 承認）。G5（寄せたビルドで主役）は段階4、G8（90日の天井）は段階3で本実装 */
 function gates(seeds){
   const med = a => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
   const INF = 1e9, v = x => x === null ? INF : x;
@@ -187,7 +188,7 @@ function gates(seeds){
   rows.push(["G3", "放置だけで星屑20個に3時間以内", p20 >= INF ? "3時間で未到達" : p20 + "分", p20 <= 180]);
   const ratio = med(cl.map((r, i) => simGainAt(r, 40) / Math.max(1, simGainAt(pa[i], 40))));
   rows.push(["G4", "同じ買い方なら張り付きが速い（40分時点の星屑比 >1.0）", ratio.toFixed(2), ratio > 1]);
-  rows.push(["G5", "5方針それぞれに最良の遊び方がある", "段階4で実装", null]);
+  rows.push(["G5", "5つの収入源のどれも、寄せたビルドで最大の収入源になれる", "段階4で実装", null]);
   /* 張り付きの停滞は、実際にクリックしている最初の20分の中だけで測る（手を離した後は放置の扱い） */
   const gapIn = (r, end) => { let last = 0, g = 0; for(const j of r.jumps){ if(j > end) break; g = Math.max(g, j - last); last = j; } return Math.max(g, end - last); };
   const gap = med(cl.map(r => gapIn(r, 20)));
