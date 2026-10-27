@@ -331,7 +331,11 @@ function applySnapshot(snap){
   if(snap.S) S = snap.S;                     /* レプリカへ丸ごと差し替え (唯一の真実は帯) */
   if(L.say){
     stripSay = { text: L.say.text || "", until: L.say.until || 0 };
-    if(L.say.text) lastSayText = L.say.text;
+    if(L.say.text && L.say.text !== lastSayText){
+      lastSayText = L.say.text;
+      const bt = document.getElementById("bubble-text");
+      if(bt) bt.textContent = lastSayText;
+    }
   }
   if(L.combo) comboN = L.combo.n || 0;
   if(typeof L.snackReadyIn === "number") snackReadyAt = Date.now() + L.snackReadyIn;

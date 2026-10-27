@@ -228,6 +228,8 @@ function comboMult(){
   return 1 + Math.min(comboCapBonus(), comboN * 0.10);
 }
 function updateComboUI(){
+  /* 帯の形態では表示されない (連打のたびに DOM を書き換えない) */
+  if(document.body.classList.contains("strip")) return;
   const el = document.getElementById("combo-info");
   if(!el) return;
   const heat = heatLv() > 0 ? "・🔥熱 Lv" + heatLv() + " ×" + heatMult().toFixed(2) : "";

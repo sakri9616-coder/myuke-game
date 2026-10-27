@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.14.3";   /* 表示ラベルの単一の出所 (v2.14.3: 購入ボタンの長押しで連続購入。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.14.4";   /* 表示ラベルの単一の出所 (v2.14.4: 連打ツールを使っても重くならないように。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -332,6 +332,8 @@ function addLog(text){
 }
 /* ストリップモードの吹き出し用に、最後のセリフと表示期限を覚えておく */
 let stripSay = { text: "", until: 0 };
+const SAY_SNAPSHOT_GAP_MS = 300;
+let lastSaySnapshotAt = 0;
 let lastSayText = "";   /* パネル再描画でもセリフが既定文に戻らないよう保持する */
 function say(text){
   lastSayText = text;
@@ -342,7 +344,9 @@ function say(text){
   /* 2ウィンドウ化: セリフは live の変化として即時スナップショットで menu に届ける。
      sendSnapshotNow は末尾のプロトコル節 (関数宣言なので巻き上げ済み)。
      viewer では内部ガードで無操作になる */
-  bumpRev();
-  sendSnapshotNow();
+  /* 連打で台詞が続いても、メニューへの即時送信は SAY_SNAPSHOT_GAP_MS に1回まで (毎回 S を丸ごと
+     複製して送っていた)。間引いた分は 2Hz の定期送信が運ぶ。台詞はパネルの作り直しを要しない
+     (viewer は live.say から吹き出しだけ書き換える) ので rev は上げない */
+  if(Date.now() - lastSaySnapshotAt >= SAY_SNAPSHOT_GAP_MS){ lastSaySnapshotAt = Date.now(); sendSnapshotNow(); }
 }
 
