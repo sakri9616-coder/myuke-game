@@ -88,6 +88,7 @@ function buildSprites(){
         " got " + cv.width + "x" + cv.height + ", spec " + spec[0] + "x" + spec[1] +
         " (bottom-center anchor keeps placement intact)");
     }
+    stripStaticImages.add(cv);
     spriteCache[name] = cv;
   }
 }
@@ -203,7 +204,7 @@ let shelfGlowFrame = -1;
    机に座る／床を散歩する。スタッフは視覚専用ウォーカーとして帯を歩く。
    シミュレーションには一切触らない（ビュー専用）。 */
 const stripCv = document.getElementById("strip") as HTMLCanvasElement | null;
-const sctx = stripCv ? stripCv.getContext("2d") : null;
+const sctx: CanvasRenderingContext2D | null = stripCv ? makeStripFrameCtx(stripCv.getContext("2d")) : null;   /* 描画の軽量化: strip-frame.ts */
 const STRIP_H = 120, STRIP_GROUND = STRIP_H - 4;
 let stripVW = 640, stripScale = 2, stripNow = 0;
 let miyukeStrip = { x: -1, targetX: 0, dir: 1, moving: false, nextPick: 0, walkClock: 0 };
@@ -257,6 +258,7 @@ function yellowSpriteOf(name){
   c2.drawImage(src, 0, 0);
   c2.globalCompositeOperation = "source-in";
   c2.fillStyle = "#ffd94d"; c2.fillRect(0, 0, cv.width, cv.height);
+  stripStaticImages.add(cv);
   spriteHaloCache[name] = cv;
   return cv;
 }

@@ -19,7 +19,7 @@ const SRC = path.join(GAME, "src");
 export const GAME_SOURCES = [
   "config", "defs", "save", "tutorial", "office", "sound", "juice", "project",
   "production", "state", "tick", "purchase", "company",
-  "strip-core", "strip-walk", "strip-layout", "strip-flow", "strip-ambient",
+  "strip-frame", "strip-core", "strip-walk", "strip-layout", "strip-flow", "strip-ambient",
   "strip-furniture", "strip-board", "strip-piles", "strip-visible", "hitzones",
   "ui-core", "ui-panel", "ui-misc", "os-input", "updater", "input", "sync", "main"
 ];
