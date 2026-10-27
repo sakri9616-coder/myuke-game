@@ -455,7 +455,9 @@ function renderStrip(){
       /* Phase C: 部長バッジ（その部署で一番 Lv の高いスタッフに自動で付く） */
       sctx.save();
       sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
-      sctx.fillText("⭐", wk.x, srect.y - 4);
+      /* 描画の軽量化: x はデバイス画素に揃える (猫の絵と同じ丸め。ずれは 0.5px 未満)。
+         端数のままだと歩くたびに毎フレーム描き直しになっていた */
+      sctx.fillText("⭐", Math.round(wk.x * stripScale) / stripScale, srect.y - 4);
       sctx.restore();
     }
     if(wk.carrying){

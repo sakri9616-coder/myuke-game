@@ -282,7 +282,10 @@ function renderFrame(){
   if(lastRenderAt) advanceCodePhase(dtR);
   lastRenderAt = nowR;
   /* 帯ではヘッダもパネルも表示されない (display:none) ので、HUD の更新はメニュー形態だけ */
-  if(document.body.classList.contains("strip")){ renderStrip(); publishHitZones(false); return; }
+  if(document.body.classList.contains("strip")){ stripFrameRun(renderStrip); publishHitZones(false); return; }
+  /* 描画の軽量化: 隠れているメニュー窓では HUD を書き換えない (見えないうえ、
+     rAF が止まってもタイマーから 20 回/秒 呼ばれていた)。表示された次のフレームで追いつく */
+  if(document.hidden) return;
   renderHeader();   /* Sprint 2: HUD のカウントアップをフレーム駆動で滑らかにする */
   /* Strip Canon: フルモードにシーンは描かない（R11: 管理側はパネルのみ）。
      みゅけの世界は帯だけ。フルではヘッダとパネルの DOM 更新のみ行う */
