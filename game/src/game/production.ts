@@ -13,21 +13,21 @@ function boostGate(amount){
 /* 生産倍率は「通算で獲得した星屑」で決める（星屑ショップで使っても下がらない） */
 /* 星屑の通算獲得（旧セーブは dustTotal を持たないので所持分で代用） */
 function dustTotal(){ return typeof S.dustTotal === "number" ? S.dustTotal : S.dust; }
-/* dustMultSoftcap 個を超えた分は平方根で効く（売却益の softcap と合わせて、周回の複利を抑える） */
-function dustMultFor(d){
-  const c = BAL.dustMultSoftcap;
-  return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c));
-}
+/* 星屑の倍率: 通算 dustMultSoftcap 個までは1個 +dustBonus、超えた分は平方根で効く（頭打ちにはしない）。
+   v2.8.0 の 30 個では周回の伸びが早々に潰れていたので 100 個に緩めた（理念書4「インフレを恐れない」）。
+   外し切ると「星屑 × 全DP × コイン → 強化」の複利が 14〜20 日目から暴走したので、緩い上限は残す */
+function dustMultFor(d){ const c = BAL.dustMultSoftcap; return 1 + BAL.dustBonus * (d <= c ? d : c * Math.sqrt(d / c)); }
 function dustMult(){ return dustMultFor(dustTotal()); }
-/* 売却益（本社ぶん）: dustSoftcap 個までは DP に比例、それを超えた分は平方根で伸びる。
-   倍率が通算星屑に比例するので、比例のままだと周回を延ばすほど指数的に膨らむ */
+/* 作品単価への星屑の効き（dustPriceExp 乗）。工程にも星屑倍率が掛かり出荷数そのものが伸びるので、
+   単価まで同じだけ効くと コイン ∝ 倍率² になる */
+function dustPriceMult(){ return Math.pow(dustMult(), BAL.dustPriceExp); }
+/* 売却益: dustSoftcap 個までは DP に比例、超えた分は dustGainExp 乗で伸びる（上限は無い）。
+   倍率が通算星屑に比例し、その倍率で次の売却益も増えるので、比例のままだと周回ごとに
+   指数のさらに指数で膨らみ、数日で数字が意味を失う（sim 実測: 30日で星屑 2.6万・コイン 980億） */
 function dustGainFromDP(dp){
   const x = dp / BAL.prestigeDPPerDust, c = BAL.dustSoftcap;
-  return Math.floor(x <= c ? x : c * Math.sqrt(x / c));
+  return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));
 }
-/* 作品単価への星屑の効き。後工程にも星屑倍率が掛かり出荷数そのものが伸びるので、
-   単価まで同じ倍率にすると コイン ∝ 倍率² で暴走する。単価は平方根に留める */
-function dustPriceMult(){ return Math.sqrt(dustMult()); }
 function hasPerk(id){ return !!(S.dustPerks && S.dustPerks[id]); }
 /* Sprint 4: レベル制の星屑特典（S.dustPerks[id] が数値ならそのレベル、
    旧来の true は Lv1 として読む） */
@@ -46,19 +46,16 @@ function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
 function extraMult(){ return resMult() * extraMultBase(); }
 function extraMultBase(){ return perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
-/* 工程中心（2026-10-27）: 倍率は3系統に分ける。
-   ・工程別: 自分の工程の設備・担当スタッフ（育成・部署Lv）・反復研究
-   ・会社全体: 星屑・星屑特典・技術遺産・チャレンジ報酬（全工程に同じだけ効く）
-   ・一時的: やる気MAX（初リリースまで）・ご褒美・フィーバー（実装のみ）
-   会社全体と一時的な倍率は全工程に同じだけ掛かるので、どこが詰まるかは
-   工程別の投資だけで決まる。どこに投資するかがこのゲームの中心 */
+/* 倍率: 全DP（強化）× 会社全体（星屑・特典・技術遺産・チャレンジ報酬）× やる気MAX × 反復研究（工程ごと）。
+   全DP と会社全体は実装と全工程に同じだけ効くので、強化はどれを買っても目に見えて速くなり、
+   どこが詰まるかは設備の速度と担当スタッフ（足し算）で決まる */
 function companyMult(){ return dustMult() * extraMultBase(); }
-function stageMult(stage){ return companyMult() * firstBoost() * repMult(stage); }
+function stageMult(stage){ return dpMult(S.upgrades) * companyMult() * firstBoost() * repMult(stage); }
 function qaRate(){
   return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult("test");
 }
 function testRate(){ return (BAL.stageBaseRate + BAL.equipDP.tester*(S.upgrades.tester||0) + staffSums().testDP) * stageMult("test"); }
-function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*(S.upgrades.ci||0) + BAL.equipDP.pack*(S.upgrades.pack||0)) * buildEquipMult(S.upgrades) * stageMult("build"); }
+function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*(S.upgrades.ci||0) + BAL.equipDP.pack*(S.upgrades.pack||0)) * stageMult("build"); }
 function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.bot*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
 function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
@@ -67,14 +64,14 @@ function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 
    Sprint 1 の ×1.5 では帯の無操作は約11〜12分かかっていた (C2-P0-2) */
 function firstBoost(){ return S.totals.releases === 0 ? 3.4 : 1; }
 function productionRate(){
-  return (BAL.basePerMin + botRate() + staffSums().prog) * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
+  return (BAL.basePerMin + botRate() + staffSums().prog) * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult();
 }
 /* 第2ラインの素の生産量。倍率は produceDP 側で掛かる（以前は line2Rate を
    そのまま produceDP に渡していたため、アップグレード×星屑の倍率が二重に掛かっていた） */
 function line2BaseRate(){
   return (BAL.line2BaseRate + 0.8 * staffSums().progW) * (S.research.res_eff2 ? 1.5 : 1);
 }
-function line2Rate(){ return line2BaseRate() * implMult(S.upgrades) * dustMult() * extraMult(); }
+function line2Rate(){ return line2BaseRate() * dpMult(S.upgrades) * dustMult() * extraMult(); }
 function bugFactor(){
   return S.bugStock > 8 ? Math.max(0.5, 1 - (S.bugStock - 8) * 0.02) : 1;
 }
@@ -311,7 +308,15 @@ let clickBucket = CLINK.bucketMax, clickBucketAt = Date.now();
 let autoProdEMA = 0;        /* 自動生産レート (DP/秒) の指数移動平均 */
 let autoProdSecAcc = 0;     /* 直近1秒の自動生産の積算（tick で EMA へ） */
 let prodMuted = false;      /* true の間の produceDP は「入力由来」: 自動生産に数えず、フィーバー生産倍率も掛けない */
-function clickBaseDP(){ return clickPower() + autoProdEMA * CLINK.linkRate; }
+/* 1クリックの基礎（倍率前）= 素の威力 ＋ 自動生産の linkRate 分。クリックには produceDP などで
+   生産倍率が掛かるので、
+   ・連動分は倍率を割り戻して足す（二重に掛けると周回が進むほどクリックが全てを代替する）
+   ・素の威力は星屑倍率を平方根でだけ受ける（手作業の比重は周回とともに下がり、自動化・経営へ移る）
+   どちらも理念書3「労働には対価、ただし全ては代替しない」。連動分があるので終盤でも必ず効く */
+function clickProdMult(){ return dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult(); }
+function clickBaseDP(){ return clickPower() / Math.sqrt(dustMult()) + autoProdEMA * CLINK.linkRate / Math.max(1e-9, clickProdMult()); }
+/* 表示用: 倍率込みで実際に進む 1クリックの DP（帯の浮き文字・コンボ表示・パネル） */
+function clickShownDP(){ return clickBaseDP() * clickProdMult(); }
 function clickBucketTake(){
   const now = Date.now();
   const rate = feverActive() ? CLINK.bucketPerSecFever : CLINK.bucketPerSec;
@@ -348,7 +353,7 @@ function activateFever(){
 }
 function produceDP(amount, target){
   const fromInput = prodMuted;
-  const aBase = amount * implMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
@@ -483,8 +488,8 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
-  let rp = BAL.rpBase[p.size];
+  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
@@ -522,7 +527,7 @@ function releaseProject(){
   if(ipOk) coins = Math.round(coins * 0.3);
   recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
-  addLog("🎉 リリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬 "+requestBonus);
+  addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙 / +"+rp+"🔬 "+requestBonus);
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   say("『"+p.name+"』リリースできたにゃ〜！ +"+coins+"コイン");
@@ -538,8 +543,8 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * BAL.line2CoinRate * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
-  let rp = BAL.rpBase[p.size];
+  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
+  let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
@@ -548,12 +553,12 @@ function releaseProject2(){
   recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
   S.flags.line2Released = true;
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
-  addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+coins+"🪙 / +"+rp+"🔬");
+  addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙 / +"+rp+"🔬");
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   SoundKit.play("releaseFanfare");
   pulseMilestone();
-  const np = settleProject(genProject(null, L.genre));
+  const np = settleProject(genProject(null, L.genre, line2Rate()));
   L.project = np; L.projectDP = 0; L.commitMark = 0;
   addLog("第2ラインの次のプロジェクト『"+np.name+"』を用意した（"+np.size+"）");
   checkStamps();
@@ -565,9 +570,15 @@ function startProjectSoft(){
   // 依頼の予約ジャンルがあれば、それを次作品に適用して予約を消費する
   let genreId = null;
   if(S.nextRequestGenre){ genreId = S.nextRequestGenre; S.nextRequestGenre = null; }
+  const prevScale = (S.project && S.project.scale) || 1;
   const nr = settleProject(genProject(null, genreId));
   S.project = nr; S.projectDP = 0; S.commitMark = 0;
   attachModules(S.project);   /* Wave H */
-  addLog("次のプロジェクト『"+nr.name+"』を用意した（"+nr.size+"）");
+  addLog("次のプロジェクト『"+nr.name+"』を用意した（"+nr.size+" / "+fmt(nr.totalDP)+"DP）");
+  /* 仕事の桁が上がった瞬間は解放ジャンプとして知らせる（理念書4） */
+  if((nr.scale || 1) > prevScale){
+    addLog("📈 仕事の桁が上がった！ 作品の規模も報酬も ×" + fmt(nr.scale) + "（いまの会社の速さに見合う仕事が来るようになった）");
+    say("仕事の桁が上がったにゃ！ ×" + fmt(nr.scale) + " の大仕事だよ");
+  }
 }
 

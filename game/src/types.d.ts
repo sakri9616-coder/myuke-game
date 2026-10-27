@@ -33,6 +33,7 @@ interface Project {
   modules?: ProjectModule[];
   ip?: boolean;
   planLv?: number;   // 企画を練った回数（0〜3）
+  scale?: number;    // 仕事の桁（作品の規模と報酬の倍率・1/2/5/10…。旧セーブは無し＝1）
   deathMarch?: boolean;
   [k: string]: any;
 }

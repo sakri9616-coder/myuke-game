@@ -6,8 +6,22 @@ function unlockedGenres(){
 const IDEA_COST = { TUT:0, XS:0, S:2, M:5, L:10 };
 /* サイズ抽選は「現在の実効スループットで何分かかるか」で行う（目標 40分〜3時間）。
    大きすぎるサイズを引いた直後は次に S 以下を保証する（ピティ）。 */
-function drawSizeByTime(){
-  const rate = Math.max(1, Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()));
+/* 仕事の桁（スケール対価・2026-10-27）: 生産が伸びても作品の大きさが据え置きだと、作品が一瞬で
+   終わり、報酬も伸びた数字に見合わない（sakuri「インフレした数字を正しいスケール対価で扱えない」）。
+   そこで会社の実効スループットに合わせて、作品の規模（DP）と報酬（コイン・研究P）を
+   1→2→5→10→20→50… 倍の「桁」で上げる。桁が上がるのは着工時だけで、進行中の作品は変わらない。
+   M 作品が scaleRefMin 分を切る速さになるまでは 1 倍（序盤は v2.8.0 と同じ） */
+function effThroughput(){ return Math.max(1, Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate())); }
+function workScaleFor(rate){
+  const x = rate * BAL.scaleRefMin / BAL.sizes.M;
+  if(x < 2) return 1;
+  const e = Math.floor(Math.log10(x)), m = x / Math.pow(10, e);
+  return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * Math.pow(10, e);
+}
+/* いまの仕事の桁（進行中の作品の桁。イベント報酬もこれに合わせる） */
+function workScale(){ return (S.project && S.project.scale) || 1; }
+function drawSizeByTime(scale = 1){
+  const rate = effThroughput() / scale;
   const weighted = ["XS","S","S","M","M","L"];
   const ok = weighted.filter(s => { const m = BAL.sizes[s] / rate; return m >= 40 && m <= 180; });
   if(S.bigDrawStreak >= 1){
@@ -28,7 +42,7 @@ function drawSizeByTime(){
    Lv が上がるほど重い（totalDP/20 × 次のLv）。どの作品に練り込むかを選ぶのが判断になる */
 const PLAN_MAX = 3;
 function planLv(p){ return (p && p.planLv) || 0; }
-function planCost(p){ return Math.ceil(p.totalDP / 20) * (planLv(p) + 1); }
+function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
 function planPriceMult(p){ return 1 + 0.15 * planLv(p); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
 function canPlan(p, dp){ return !!p && p.size !== "TUT" && planLv(p) < PLAN_MAX && dp < p.totalDP * 0.5; }
@@ -114,11 +128,12 @@ function pickDevGenre(gs){
   for(let i = 0; i < gs.length; i++){ r -= ws[i]; if(r <= 0) return gs[i]; }
   return gs[gs.length - 1];
 }
-function genProject(sizeOverride, genreId?){
+function genProject(sizeOverride, genreId?, scaleRate?){   /* scaleRate: 桁を決めるスループット（第2ラインは自分の生産速度） */
   const gs = unlockedGenres();
   const genre = genreId ? GENRES.find(g=>g.id===genreId) : pickDevGenre(gs);
   const subj = SUBJECTS[Math.floor(Math.random()*SUBJECTS.length)];
-  const size = sizeOverride || drawSizeByTime();
+  const scale = sizeOverride === "TUT" ? 1 : workScaleFor(scaleRate || effThroughput());
+  const size = sizeOverride || drawSizeByTime(scaleRate ? 1 : scale);   /* 第2ラインの規模の抽選は従来どおり第1ラインの速さで */
   const featPool = genre.feats.slice();
   const nFeat = 3 + Math.floor(Math.random()*3);
   const feats = [];
@@ -127,7 +142,7 @@ function genProject(sizeOverride, genreId?){
   }
   return {
     name: composeName(subj, genre), genre: genre.id, genreName: genre.name,
-    desc: subj.desc, size, totalDP: BAL.sizes[size],
+    desc: subj.desc, size, totalDP: BAL.sizes[size] * scale, scale,
     feats, doneFeats: 0, startedAt: Date.now(), bugs: 0, napsAtStart: S.totals.naps,
     ideaCost: IDEA_COST[size] || 0, planning: (IDEA_COST[size] || 0) > 0,
     icon: Math.floor(Math.random()*8), activeSec: 0
@@ -138,6 +153,6 @@ function startProject(sizeOverride, genreId?){
   S.project = settleProject(genProject(sizeOverride, genreId));
   attachModules(S.project);   /* Wave H: L 作品にモジュール（第1ラインのみ） */
   S.projectDP = 0; S.commitMark = 0;
-  addLog("新しいプロジェクト『"+S.project.name+"』を開始（"+S.project.size+" / "+S.project.totalDP+"DP）");
+  addLog("新しいプロジェクト『"+S.project.name+"』を開始（"+S.project.size+" / "+fmt(S.project.totalDP)+"DP）");
   say("新プロジェクト『"+S.project.name+"』、はじめるにゃ。");
 }

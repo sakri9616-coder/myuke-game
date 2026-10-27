@@ -666,7 +666,7 @@ function renderPanel(){
     h += "<h3>👆 応援クリック</h3>";
     /* IA: 威力は文章でなく大きな数字で。説明は1行だけに圧縮 */
     h += "<div class='statgrid'>" +
-      statBlock("1クリックの威力", clickBaseDP().toFixed(2), "DP") +
+      statBlock("1クリックの威力", fmtClickDP(clickShownDP()), "DP") +
       statBlock("コンボ上限", "×" + (1 + comboCapBonus()).toFixed(2), "") +
       statBlock("クリティカル", Math.round(critRate()*100) + "%", "当たると ×10") +
       statBlock("通算クリック", fmt(S.totals.clicks), "回") +

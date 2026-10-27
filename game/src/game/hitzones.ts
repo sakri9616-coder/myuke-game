@@ -123,7 +123,7 @@ if(stripCv){
         const bp = stripBugXY(bugEvent.bugs[i]);
         if(Math.hypot(ux - bp.x, uy - bp.y) <= 13){
           splatBug(i, bp.x, bp.y);
-          addStripFloater(bp.x, bp.y - 12, "+6🪙", "#5aa469");
+          addStripFloater(bp.x, bp.y - 12, "+" + fmt(6 * workScale()) + "🪙", "#5aa469");
           renderHeader();
           return;
         }
@@ -208,7 +208,7 @@ if(stripCv){
     }
     const crit = cheerClick(ux, uy, part);
     addStripSpark(ux, uy, crit);
-    if(!crit) addStripFloater(ux, uy - 9, "+" + (clickBaseDP() * comboMult()).toFixed(1) + "DP");
+    if(!crit) addStripFloater(ux, uy - 9, "+" + fmtClickDP(clickShownDP() * comboMult()) + "DP");
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
       if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); say("ん。…悪くないにゃ"); }
