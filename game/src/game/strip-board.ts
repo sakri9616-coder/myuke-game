@@ -77,7 +77,9 @@ function drawStripBoardSideTabs(bx, top){
   sctx.save();
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.textAlign = "left"; sctx.textBaseline = "middle";
-  const coinTxt = "🪙 " + fmt(Math.floor(S.coins));
+  /* 2026-10-27: 作りながら入るコインの流れ（🪙/秒）を残高の横に出す */
+  const flowTxt = coinFlowEMA >= 0.05 ? "  +" + (coinFlowEMA < 10 ? coinFlowEMA.toFixed(1) : fmt(Math.round(coinFlowEMA))) + "/秒" : "";
+  const coinTxt = "🪙 " + fmt(Math.floor(S.coins)) + flowTxt;
   const prodTxt = "生産 +" + Math.round((concProdMult() - 1) * 100) + "%";
   const brainW = sctx.measureText("🧠").width, meterW = 20;
   const coinW = sctx.measureText(coinTxt).width + 10;

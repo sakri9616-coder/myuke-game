@@ -132,6 +132,18 @@ if(stripCv){
     }
     /* 在庫バグ (常に帯を這う) も手で潰せる */
     if(stripStockBugClick(ux, uy)){ renderHeader(); return; }
+    /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）、山そのものは手作業で押し切る
+       （v2.12.1・sakuri「ゴリ押し（クリック）でも解消できるように」）。詰まっていない山は素通り。
+       おやつ箱などの家具と重なっても、詰まっている間は山を先に判定する */
+    const pileHits = (stripHitRects.piles || []).filter(pr => ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h);
+    const coneHit = pileHits.find(pr => pr.cone), pileHit = pileHits.find(pr => !pr.cone);
+    if(coneHit){ openBottleneckFixPanel(); return; }
+    if(pileHit){
+      const moved = handworkClick(pileHit.stage);
+      addStripSpark(ux, uy, false);
+      if(moved > 0) addStripFloater(ux, uy - 9, "+" + fmtClickDP(moved) + "DP 手作業");
+      return;
+    }
     /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
     if(stripHitRects.shelf){
       const sr = stripHitRects.shelf;
@@ -175,14 +187,6 @@ if(stripCv){
       const rr = stripHitRects[rkey];
       if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
         openTabPanel(tab);
-        return;
-      }
-    }
-    /* 可視生産: 詰まった (赤い) 山のクリックで対策パネルを開く。
-       赤くない山は素通り (応援クリック側へ落とす) */
-    for(const pr of (stripHitRects.piles || [])){
-      if(ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h){
-        openBottleneckFixPanel();
         return;
       }
     }
