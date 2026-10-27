@@ -99,7 +99,7 @@ function spawnFeatNote(line){
     tx1 = bar.x + Math.round(bar.w * (slot + 1) / (p.feats.length + 1)) - 2.5;
     ty1 = bar.y - 1;
   }
-  stripFlow.push({ kind: "note", line,
+  stripFlow.push({ kind: "note", line, ni: slot % 4,
     col: FLOW_CARD_COLS[slot % FLOW_CARD_COLS.length],
     x0: bcx + 4, y0: G - 32,
     x1: tx1, y1: ty1,

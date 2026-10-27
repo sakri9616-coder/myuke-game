@@ -89,6 +89,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const nFeats = p.feats ? p.feats.length : 0;
     for(let k = 0; k < Math.min(p.doneFeats, nFeats); k++){
       const nx = bx + 18 + k * 6.5, ny = top + 2.5;
+      if(sDrawSprite("icon_note_" + (k % 4), nx + 2.5, ny + 5.5, 1)) continue;
       sR(nx, ny, 5, 5, FLOW_CARD_COLS[k % FLOW_CARD_COLS.length]);
       sR(nx, ny, 5, 1.2, "#00000022");
     }
@@ -215,7 +216,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     stripHitRects.memo = { x: lx, y: ry, w: lw, h: rh };
   } else if(p && bn){
     sctx.fillStyle = "#d9534f";
-    sctx.fillText("⚠ 第" + bnAll.line + "ラインが詰まり中", lx, rcy);
+    /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
+    const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
+    sctx.fillText(fitMemoText("⚠ " + stName + "が詰まり中" + (bnAll.line ? "（第" + bnAll.line + "ライン）" : ""), lw), lx, rcy);
   } else if(p && p.feats && p.feats.length){
     const done = Math.min(p.doneFeats || 0, p.feats.length);
     const txt = done < p.feats.length

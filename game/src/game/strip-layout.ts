@@ -327,6 +327,7 @@ function drawStripGitLog(log, x, yTop, w){
   }
 }
 function drawStripPCScreen(cx, gy){
+  drawStripIdeScreen(cx - 1, gy - 15, 1);   /* 高機能IDE の段 (画面の中身) */
   drawStripProgressScreen(cx - 11, gy - 25, cx - 9, gy - 15, 18);
 }
 /* モニタ面の共通描画: ジャンル色の小箱 (ix, iy) と進捗バー (bx, by, 幅 bw)、
@@ -354,6 +355,7 @@ function drawStripProgressScreen(ix, iy, bx, by, bw){
    y24..34) は、みゅけを (cx+6, G-2) に ×2 で描くと帯座標で (cx-40..cx-2, G-34..G-14)
    になる。バーは彼女の体 (x cx-16〜) に被らない左寄せにする */
 function drawStripCodeScreen(cx, G){
+  drawStripIdeScreen(cx - 20, G - 14, 2);   /* ポーズ内モニタ (原寸 20×10 を2倍) */
   drawStripProgressScreen(cx - 37, G - 31, cx - 37, G - 20, 20);
 }
 function drawStripZ(x, y){
