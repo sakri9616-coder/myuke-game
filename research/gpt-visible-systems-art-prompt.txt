@@ -1,0 +1,28 @@
+You are the pixel-art artist for the desktop idle game 『みゅけ、きょうも開発中』 (repo root: current directory). The human artist (sakuri) draws all CHARACTER art (みゅけ, staff cats, the duck). You author ENVIRONMENT, PROP, ICON and EFFECT pixel art. The owner's rule: the game must never draw graphics with code, so every visible thing needs real pixel art — your sprites replace code-drawn rectangles and make every game system visible.
+
+READ FIRST (in this order):
+1. research/VISIBLE_SYSTEMS_ART_ORDER.md — THIS ORDER. Section 3 lists every sprite: exact name, exact pixel size, content, and where it is used. Follow it exactly.
+2. research/OFFICE_ART_DIRECTION.md — the art direction (a small programmer's office; laminate, slate metal, whiteboard, cardboard; warm cats + cool equipment).
+3. research/ENV_ART_STAGE3_MANIFEST.md and graphics/env-sprites-stage3.js — the previous environment pack: data format, palette-reuse discipline and manifest style are your template.
+4. graphics/sprites.js — the game's sprite data and global palette. Study the existing small props (prop_ship, icon_box, prop_coffee, prop_toolbox, prop_phone, prop_server_rack, prop_chair, duck_idle) for scale, outline habits and flat-color style at tiny sizes. REUSE existing palette characters; propose zero new colors if at all possible.
+
+DELIVERABLES (art only — do NOT edit graphics/sprites.js, any game/ source, or any other existing file):
+1. graphics/env-sprites-visible.js exporting window.MIYUKE_ENV_SPRITES_VIS in the SAME data format as graphics/env-sprites-stage3.js ({ palette, sprites: { name: string[] } }, '.' = transparent, equal-width rows, every row exactly the stated width, exactly the stated number of rows). One header comment per sprite: size, anchor (bottom-center for grounded props) and what it is for.
+2. PNG previews rendered from your data with a small node renderer (mirror graphics/render-env-preview3.cjs; standard library only) into graphics/env-preview-vis/<name>.png at 4x nearest-neighbor on #808080, plus graphics/env-preview-vis/contact-sheet.png showing every sprite with its name. The renderer must also validate sizes, margins and palette reuse and print the result.
+3. research/VISIBLE_SYSTEMS_ART_MANIFEST.md — per sprite: name, pixel size, anchor, what it shows, palette characters used, and any NEW colors proposed (hex + suggested char) with justification. Aim for zero new colors.
+
+SPRITE SET — the complete list is section 3 of research/VISIBLE_SYSTEMS_ART_ORDER.md (groups A, B, C, D). Draw every NEW name listed there; entries marked 既存 (existing) need no new art. Naming for confetti: fx_confetti_0_a … fx_confetti_4_a (3x2, front face) and fx_confetti_0_b … fx_confetti_4_b (1x2, edge-on, one shade darker), colors 0..4 = red, yellow, green, blue, pink (nearest existing palette colors). Finish each group completely before starting the next, in the order A, B, C, D.
+
+CONSISTENCY RULES:
+- State variants of one object (prop_backlog_0/_1/_2, prop_signal_green/_yellow/_red, prop_keyboard_1/_2/_3, screen_ide_0/_1/_2, prop_monitor_sub_1/_2, prop_chair_0/prop_chair_2 vs the existing prop_chair, prop_autotester_1/_2, prop_packer_1/_2, prop_debt_pile_1/_2/_3) share the same canvas, the same ground row and the same silhouette footprint where it makes sense, so swapping them in place never jumps. Higher levels must read as clearly "better / bigger / more" at a glance from 1 meter away.
+- prop_chair_0 and prop_chair_2 are drawn at the SAME pixel density as the existing prop_chair (32x36 canvas, the game draws chairs at 2x). Every other sprite is drawn at 1x, matching the existing env props.
+- prop_signal_*: the three variants are pixel-identical except the lamp color (green G/g, yellow Y/y, red R/H families).
+- screen_ide_*: fully opaque 20x10 screen content with no frame (it is pasted inside an existing monitor). No letters; suggest code with short colored line segments.
+- bot_*: a small round robot kitten colleague (cat ears, a face screen with two dot eyes), cute and simple, slate + cream with one warm accent. bot_walk_a/_b are a two-frame walk; bot_carry carries an icon_box-style cardboard box on its head. Same 24x20 canvas, same ground row (rows 18-19) as duck_idle.
+- fx_* effect sprites have no margin rule and no ground row.
+
+MARGIN RULE for all grounded props and icons: keep a 2px transparent margin on the top, left and right (the game's sprite validator requires it); content may touch the bottom edge (grounded). screen_ide_* and fx_* are exempt.
+
+STYLE RULES (from sakuri's art): flat colors, firm silhouettes, outlines in the palette's dark brown/slate family (not pure black), no gradients, no anti-aliasing, no text or letters inside the art, cute-but-office, at most one warm accent per item.
+
+Do not run the game, do not bump versions, do not commit. When done, print a short summary: sprites finished (with sizes), previews written, validation result, new colors proposed (ideally none), anything trimmed and why.
