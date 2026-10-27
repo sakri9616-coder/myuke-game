@@ -9,7 +9,6 @@ const ROLE = (function(){
   return r === "viewer" ? "viewer" : "owner";   /* 既定は帯 (Tauri の無い検証環境も owner) */
 })();
 const IS_VIEWER = ROLE === "viewer";
-const RUNS_SIM = !IS_VIEWER;   /* owner だけが tick/save/load を持つ */
 window.__MIYUKE_ROLE__ = ROLE;
 let menuAwake = false;   /* owner の認識: menu が生きているか (heartbeat 5秒以内) */
 let menuLastBeat = 0;    /* owner が最後に menu の heartbeat を受けた時刻 */
@@ -44,7 +43,7 @@ function freshState(): GameState {
     /* Sprint 2 追加分（旧セーブには無いので load() の既定値マージで補完される）:
        sound は null = 未設定（フル=ON / 帯=OFF の自動）。lastSession は前回セッションの
        あらすじ（おかえりセレモニー用）。lastGiftAt は夢のお土産の最終付与時刻 */
-    settings:{ pauseInput:false, sound:null, soundVol:0.5, inputCount:false, stripSize:1, stripSizeV:2 },
+    settings:{ pauseInput:false, sound:null, soundVol:0.5, inputCount:false, stripSize:1, stripSizeV:2, reduceMotion:false },
     lastSession:null, lastGiftAt:0,
     /* v2.4.0: 家具の並び（帯幅に対する比率 0..1）。空 = 既定配置。
        帯の「✥ 並べ替え」モードでドラッグして変更する */
@@ -85,7 +84,7 @@ function writeSaveFile(json: string){
   if(!T || !T.core || !T.core.invoke) return;
   try{
     const p = T.core.invoke("save_game", { data: json });
-    if(p && p.catch) p.catch(function(){});
+    if(p && p.catch) p.catch(function(err){ console.error("[miyuke] セーブファイルの書き込みに失敗", err); });
   }catch(e){}
 }
 function saveLastTick(raw: string){
@@ -101,8 +100,42 @@ function readStartupSave(): string | null {
   if(!lsRaw) return fileRaw;
   return saveLastTick(lsRaw) > saveLastTick(fileRaw) ? lsRaw : fileRaw;
 }
+/* 起動時のセーブが読めなかったとき true。読めなかった元のセーブ (ファイルと
+   localStorage) を新規状態で上書きしないよう、save() を止めておく。
+   セーブの読み込み成功・初期化で解除される */
+let saveBlocked = false;
+/* セーブ由来の文字列はメニューの innerHTML に入るので、HTML として意味を持つ文字を
+   全角に置き換えておく (ゲームが作る文字列にはこれらの半角文字は出てこない)。
+   配布されたセーブに仕込まれたスクリプトが動かないようにする第1層 (第2層は表示時の esc) */
+const SAVE_UNSAFE_CHARS: Record<string, string> = { "<": "＜", ">": "＞", "&": "＆", '"': "”", "'": "’", "`": "‘" };
+function sanitizeSaveData(v: any, depth = 0): any {
+  if(typeof v === "string") return v.replace(/[<>&"'`]/g, c => SAVE_UNSAFE_CHARS[c]);
+  if(depth > 12 || v === null || typeof v !== "object") return v;
+  if(Array.isArray(v)) return v.map(x => sanitizeSaveData(x, depth + 1));
+  const out = {};
+  for(const k of Object.keys(v)){
+    if(k === "__proto__" || k === "constructor" || k === "prototype") continue;
+    out[k] = sanitizeSaveData(v[k], depth + 1);
+  }
+  return out;
+}
+/* innerHTML に文字列を差し込むときの HTML エスケープ (表示側の第2層) */
+const ESC_MAP: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+function esc(v: any): string {
+  return String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, c => ESC_MAP[c]);
+}
+/* 配列の中身が想定どおりのオブジェクトだけを残す (null や数値の混入で tick が毎秒落ちないように) */
+function objectsOnly(arr: any): any[] {
+  return Array.isArray(arr) ? arr.filter(x => x && typeof x === "object" && !Array.isArray(x)) : [];
+}
+/* onclick='trainStaff(id)' のように属性へ入る id は、必ず有限の整数にする */
+function intOr(v: any, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
 function save(){
   if(IS_VIEWER) return;   /* 単一書き手: viewer はセーブに一切触らない (第2層ガード) */
+  if(saveBlocked) return;
   try{
     S.lastTick = Date.now();
     if(sessBase){
@@ -114,22 +147,53 @@ function save(){
       };
     }
     const json = JSON.stringify(S);
-    try{ localStorage.setItem(SAVE_KEY, json); }catch(e){}
+    try{ localStorage.setItem(SAVE_KEY, json); }catch(e){ console.error("[miyuke] localStorage への保存に失敗", e); }
     writeSaveFile(json);
-  }catch(e){}
+  }catch(e){ console.error("[miyuke] save に失敗", e); }
 }
 /* rawText を渡せばそれを読む (セーブの読み込み機能)。省略時は起動時のセーブ */
 function load(rawText?: string){
   if(IS_VIEWER) return false;   /* viewer は load もしない (レプリカはスナップショット由来) */
+  /* 読み込みは「全部成功したときだけ反映」にする。途中の移行処理で例外が出たら
+     元の状態に戻す (以前は S が半端に置き換わったまま false を返し、次の自動
+     セーブで正常なセーブまで上書きしていた) */
+  const prevS = S, prevTierSeen = officeTierSeen;
+  const startup = rawText === undefined;
+  let raw = null;
   try{
-    const raw = rawText !== undefined ? rawText : readStartupSave();
+    raw = startup ? readStartupSave() : rawText;
     if(!raw) return false;
-    const data = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("save is not an object");
+    const data = sanitizeSaveData(parsed);
     const f = freshState();
     /* 注意: Object.assign(f, data) で f.today 等は data 側に差し替わるため、
        既定値オブジェクトを先に退避してからマージする（新フィールドの補完用） */
     const defToday = f.today, defTotals = f.totals, defSettings = f.settings, defLine2 = f.line2;
     S = Object.assign(f, data);
+    /* v1 からある基本フィールドも型を確かめる (null の混入で起動不能にならないように) */
+    for(const k of ["upgrades", "research", "stamps", "flags", "clickUp", "depts"])
+      if(!S[k] || typeof S[k] !== "object" || Array.isArray(S[k])) S[k] = {};
+    S.requests = objectsOnly(S.requests);
+    S.shelf = objectsOnly(S.shelf);
+    S.log = objectsOnly(S.log);
+    S.ips = objectsOnly(S.ips);
+    S.subs = objectsOnly(S.subs);
+    S.staff = objectsOnly(S.staff);
+    S.executives = objectsOnly(S.executives);
+    S.execAlumni = objectsOnly(S.execAlumni);
+    if(!Array.isArray(S.recentNames)) S.recentNames = [];
+    for(const st of S.staff){ st.id = intOr(st.id, 0); st.lv = Math.max(1, intOr(st.lv, 1)); }
+    for(const sub of S.subs) sub.id = intOr(sub.id, 0);
+    if(S.activeRequest !== null && (typeof S.activeRequest !== "object" || Array.isArray(S.activeRequest))) S.activeRequest = null;
+    if(S.bigDeal !== null && S.bigDeal !== undefined && (typeof S.bigDeal !== "object" || Array.isArray(S.bigDeal))) S.bigDeal = null;
+    for(const k of ["project"]) if(S[k] !== null && (typeof S[k] !== "object" || Array.isArray(S[k]) || !Array.isArray(S[k].feats))) S[k] = null;
+    if(S.lastSession){
+      const ls = S.lastSession;
+      S.lastSession = (typeof ls === "object")
+        ? { releases: intOr(ls.releases, 0), coinsEarned: intOr(ls.coinsEarned, 0), ms: intOr(ls.ms, 0), endedAt: intOr(ls.endedAt, 0) }
+        : null;
+    }
     S.today = Object.assign(defToday, data.today||{});
     S.totals = Object.assign(defTotals, data.totals||{});
     S.settings = Object.assign(defSettings, data.settings||{});
@@ -236,8 +300,19 @@ function load(rawText?: string){
                 seen: (data.tut.seen && typeof data.tut.seen === "object") ? data.tut.seen : {},
                 skipped: !!data.tut.skipped };
     }
+    if(S.line2 && S.line2.project && (typeof S.line2.project !== "object" || !Array.isArray(S.line2.project.feats))) S.line2.project = null;
+    saveBlocked = false;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    console.error("[miyuke] セーブの読み込みに失敗（元の状態に戻した）", e);
+    S = prevS; officeTierSeen = prevTierSeen;
+    if(startup && raw){
+      /* 起動時のセーブが壊れていた: 元のセーブを退避し、新規状態で上書きしない */
+      try{ localStorage.setItem(SAVE_KEY + "-bad", raw); }catch(err){}
+      saveBlocked = true;
+    }
+    return false;
+  }
 }
 function addLog(text){
   const d = new Date();

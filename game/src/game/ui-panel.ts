@@ -118,6 +118,7 @@ function paintTabs(){
       const id = (x as HTMLElement).dataset && (x as HTMLElement).dataset.tab;
       const locked = tutTabLocked(id);
       x.className = (id === currentTab ? "on" : "") + (locked ? " locked" : "");
+      x.setAttribute("aria-selected", id === currentTab ? "true" : "false");
       let lk = null;
       for(const c of x.children) if(c.className === "tab-lockic") lk = c;
       if(locked && !lk){
@@ -164,7 +165,7 @@ function renderEditorBreadcrumb(){
   const context = (IS_VIEWER && !viewerSynced) ? "同期中…"
     : tutTabLocked(currentTab) ? "🔒 解放条件"
     : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
-    : currentTab === "research" ? fmt(S.rp) + " RP"
+    : currentTab === "research" ? "研究P " + fmt(S.rp)
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
   if(tabEl.textContent !== label) tabEl.textContent = label;
@@ -176,6 +177,7 @@ function renderPanel(){
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
      誤認させない (freshState のゼロを本物の状態として見せない。設計 §3.2) */
   if(IS_VIEWER && !viewerSynced){
+    panelLastHTML = null;
     el.innerHTML = "<div class='note' style='margin-top:14px'>🐱 帯と同期中…（帯ウィンドウから状態が届くまでお待ちください）</div>";
     return;
   }
@@ -183,6 +185,7 @@ function renderPanel(){
      ビジュアル条件 (アイコン+メーター+現在/必要数) のパネルを出す。
      タブ自体は常に見えている (存在を隠さない) */
   if(tutTabLocked(currentTab)){
+    panelLastHTML = null;
     el.innerHTML = tutLockPanelHTML(currentTab);
     updateTabBadges();
     paintTabs();
@@ -214,10 +217,10 @@ function renderPanel(){
       h += "<div class='hero-top'>" +
         (p.planning ? "<span class='hero-pct'>💡</span>"
                     : "<span class='hero-pct'>" + pct + "<small>%</small></span>") +
-        "<span class='hero-name'>『" + p.name + "』</span>" +
-        "<span class='tagchip'>" + p.genreName + "</span>" +
-        "<span class='tagchip'>" + p.size + " / " + fmt(p.totalDP) + "DP</span>" +
-        (p.desc ? "<span class='note' style='font-size:12px'>" + p.desc + "</span>" : "") + "</div>";
+        "<span class='hero-name'>『" + esc(p.name) + "』</span>" +
+        "<span class='tagchip'>" + esc(p.genreName) + "</span>" +
+        "<span class='tagchip'>" + sizeLabel(p.size) + " / " + fmt(p.totalDP) + "DP</span>" +
+        (p.desc ? "<span class='note' style='font-size:12px'>" + esc(p.desc) + "</span>" : "") + "</div>";
       h += "<div id='proj-label' style='margin-top:8px;font-size:12px;color:var(--sub)'>現在のプロジェクト進捗</div>" +
         "<div class='meter' id='proj-meter' style='background-size:" + segPct + "% 100%'><i id='proj-bar' style='width:" + pct + "%'></i></div>";
       if(p.planning) h += "<div class='bn' style='margin-top:7px'>💡 企画中： アイデア あと " + Math.max(0,(p.ideaCost||0)-Math.floor(S.ideas)) +
@@ -263,7 +266,7 @@ function renderPanel(){
             const q = moduleQuality(m), done = moduleComplete(m);
             const pct = Math.min(150, Math.round(m.inv / m.need * 100));
             h += "<div style='display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px'>" +
-              "<span style='min-width:96px'>" + (done ? "✅" : "🧩") + " " + m.name + "</span>" +
+              "<span style='min-width:96px'>" + (done ? "✅" : "🧩") + " " + esc(m.name) + "</span>" +
               (m.out ? "<span class='tag'>外注・品質 0.8</span>"
                      : "<span style='flex:1;background:#1a1a1a;border:1px solid var(--line);height:8px'><span style='display:block;height:100%;width:" + Math.min(100, pct / 1.5) + "%;background:" + (done ? "#58a64a" : "#4a90c2") + "'></span></span>" +
                        "<span style='min-width:86px'>投資 " + pct + "%・品質 " + q.toFixed(2) + "</span>" +
@@ -286,8 +289,8 @@ function renderPanel(){
       const q = S.line2.project;
       const qp = Math.min(100, Math.round(S.line2.projectDP / q.totalDP * 100));
       h += "<div class='staffcard' style='margin-top:8px'><div class='sc-img'>🏭</div><div class='sc-main'>" +
-        "<div class='sc-top'><span class='nm'>第2ライン『" + q.name + "』</span>" +
-        "<span class='tagchip'>" + q.genreName + "</span>" +
+        "<div class='sc-top'><span class='nm'>第2ライン『" + esc(q.name) + "』</span>" +
+        "<span class='tagchip'>" + esc(q.genreName) + "</span>" +
         "<span class='tagchip'>特化: " + (S.line2.genre ? (GENRES.find(g=>g.id===S.line2.genre)||{}).name : "なし") + "</span></div>" +
         "<div class='meter' style='margin-top:5px'><i style='width:" + qp + "%'></i></div></div>" +
         "<span class='sc-pct'>" + qp + "%</span></div>";
@@ -297,7 +300,7 @@ function renderPanel(){
       "<div class='note' style='font-size:12px'>みゅけはデスクトップ下部の帯に住んでいます。帯のみゅけをクリックで「応援クリック」（進捗バースト＋コンボ）や反応が楽しめます。" +
       "設定で「OS入力カウント」を ON にすると、あなたのタイピングやカーソル移動が開発ブーストになります（数えるのは回数と距離だけ）。金色の魚やバグの群れが帯に出たらクリックで捕まえよう（逃がしてもペナルティなし）。</div>");
     let logHTML = "<div class='log'>";
-    for(const e of S.log.slice(0,18)) logHTML += "<div><span class='tm'>" + e.tm + "</span> " + e.text + "</div>";
+    for(const e of S.log.slice(0,18)) logHTML += "<div><span class='tm'>" + esc(e.tm) + "</span> " + esc(e.text) + "</div>";
     logHTML += "</div>";
     h += foldSec("log", false, "📓 日報ログ", S.log.length ? "全 " + S.log.length + " 件" : "", logHTML);
   }
@@ -337,7 +340,7 @@ function renderPanel(){
       const tc = trainCost(st), maxed = st.lv >= STAFF_MAX_LV;
       h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
         "<div class='sc-main'><div class='sc-top'><span class='sock sm'>" + (ROLE_ICONS[st.role]||"🐱") + "</span>" +
-        "<span class='nm'>" + st.name + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
+        "<span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
         (deptChief(st.role) === st ? "<span class='tagchip'>⭐部長</span>" : "") +
         "<small>" + COAT_NAMES[st.coat] + "・" + def.name + "</small></div>" +
         "<div class='sc-eff'>" + eff + "</div></div>" +
@@ -361,7 +364,7 @@ function renderPanel(){
         const maxed = lv >= DEPT_MAX_LV;
         deptHTML += "<div class='item buy slim'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
           " <span class='tagchip'>Lv" + lv + "</span> <span class='tagchip'>在籍 " + n + "人</span>" +
-          (chief ? " <span class='tagchip'>⭐部長 " + chief.name + " Lv" + chief.lv + "</span>" : "") +
+          (chief ? " <span class='tagchip'>⭐部長 " + esc(chief.name) + " Lv" + chief.lv + "</span>" : "") +
           "<div class='ds'>所属全員の出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → 強化で ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
           (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")")) + "</div>";
       }
@@ -376,7 +379,7 @@ function renderPanel(){
       for(const sub of (S.subs || [])){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
-        subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + sub.name + "</span>" +
+        subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
           " <span class='tagchip'>得意: " + gname + "</span> <span class='tagchip'>規模Lv" + sub.lv + "</span> <span class='tagchip'>人員 " + sub.staff + "人</span>" +
           "<div class='ds'>売上 +" + r.coins.toFixed(1) + "🪙/分 ・ 生産 +" + r.dp.toFixed(1) + " DP/分 ・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + subFocus(sub).toFixed(2) + "）" +
@@ -450,7 +453,7 @@ function renderPanel(){
       const vLeft = Math.max(0, Math.ceil(((S.vendorReadyAt || 0) - Date.now()) / 60000));
       h += "<div style='margin:7px 0'><button onclick='outsourceBugs()' " +
         (vLeft > 0 || (vc.bugs <= 0 && vc.debtCut <= 0) || S.coins < vc.coins ? "disabled" : "") +
-        ">🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙</button>" +
+        ">" + (vc.bugs <= 0 && vc.debtCut <= 0 ? "🧳 バグ外注（片付けるバグも負債もないにゃ）" : "🧳 バグ外注（バグ全消し＋負債 -" + vc.debtCut + "） " + fmt(vc.coins) + "🪙") + "</button>" +
         (vLeft > 0 ? " <span class='note'>ベンダー対応中… あと約 " + vLeft + " 分</span>" : "") + "</div>";
     }
     /* IA: 信号機図とレート表を1本の帯に統合 (図が主役・数字は大きく)。
@@ -461,7 +464,7 @@ function renderPanel(){
       const stgs = stageStatus();
       const lampCol = l => l === "red" ? "#d9534f" : l === "yellow" ? "#e8b93a" : "#5aa469";
       const cell = (s, val, unit, sub) =>
-        "<div class='ratecell pipe-" + s.lamp + "'><div class='rh'><span class='lampdot' style='background:" + lampCol(s.lamp) + "'></span>" + s.name + "</div>" +
+        "<div class='ratecell pipe-" + s.lamp + "'><div class='rh'><span class='lampdot' style='background:" + lampCol(s.lamp) + "'></span>" + esc(s.name) + "</div>" +
         "<div class='rv'>" + val + " <small>" + unit + "</small></div>" +
         "<span class='lampbar'><i class='" + (s.lamp === "red" ? "bnbar" : "") + "' style='width:" + Math.round(Math.min(1, s.frac || 0) * 100) + "%'></i></span>" +
         "<div class='rs'>" + sub + "</div></div>";
@@ -563,7 +566,7 @@ function renderPanel(){
         "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+pv.curMult.toFixed(2)+" → <b>×"+pv.nextMult.toFixed(2)+"</b>（実績 "+fmt(S.runDP)+" DP）</div></div>"+
         prestigeBtn + "</div>"+
-        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
+        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.map(esc).join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div></div>";
       h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
@@ -572,7 +575,7 @@ function renderPanel(){
         (pv.subGain > 0 ? kv("うち子会社ぶん", "星屑 +"+pv.subGain+" 個（グループEXIT: 子会社も売却）") : "") +
         kv("EXIT回数", S.prestiges+" 回") +
         kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
-        "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.join("・")+"</div>" +
+        "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.map(esc).join("・")+"</div>" +
         "<div style='margin:7px 0'>"+prestigeBtn+"</div>" +
         "<div class='stagehead'>⭐ 星屑ショップ（所持 "+fmt(S.dust)+")</div>" + dustBody;
       h += foldSec("prestige", false, "🏢 EXIT（事業売却） ・ ⭐ 星屑ショップ", "星屑 +"+pv.gain+" 個ぶん", preBody);
@@ -647,7 +650,7 @@ function renderPanel(){
         GENRES.map(g => "<button onclick='setDevGenrePref(\"" + g.id + "\")'" + (S.devGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button>").join(" ") + "</div>";
       if((S.ips || []).length){
         trBody += "<div class='stagehead'>🏷 自社IP（" + S.ips.length + " / 3）</div>" + S.ips.map(ip =>
-          kv("『" + ip.name + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
+          kv("『" + esc(ip.name) + "』", "ロイヤリティ 残り約 " + Math.max(0, Math.ceil(48 - ((S.residentSec || 0) - (ip.bornSec || 0)) / 3600)) + " 時間")).join("");
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }
@@ -669,7 +672,8 @@ function renderPanel(){
       h += "<div class='kv'><span>⚡ オーバークロック</span><b>" +
         (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×3）"
              : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります・蓄熱で生産 +" + Math.round(FEVER.passiveMax * g) + "%）")) + "</b></div>";
-      if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">⚡ オーバークロック発動（30秒）</button>";
+      /* 押せない理由をボタン自体に書く (ゲージが満タンになると押せる) */
+      if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
     h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
     h += "<div class='buygrid'>";
@@ -692,10 +696,10 @@ function renderPanel(){
     /* IA: 作品は背表紙カードのグリッドで (1行リストの縦伸びを解消) */
     h += "<div class='shelfgrid'>";
     for(const w of S.shelf){
-      h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+w.name+"』</span></div>"+
-        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+w.genreName+"</span><span class='tagchip'>"+w.size+"</span>"+(w.line2?"<span class='tagchip'>🏭 第2ライン</span>":"")+"</div>"+
-        (w.highlight ? "<div class='wc-hl'>✨ "+w.highlight+"</div>" : "")+
-        "<div class='wc-stats'>"+w.date+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
+      h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+esc(w.name)+"』</span></div>"+
+        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.line2?"<span class='tagchip'>🏭 第2ライン</span>":"")+"</div>"+
+        (w.highlight ? "<div class='wc-hl'>✨ "+esc(w.highlight)+"</div>" : "")+
+        "<div class='wc-stats'>"+esc(w.date)+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
     }
     h += "</div>";
   }
@@ -704,15 +708,15 @@ function renderPanel(){
       (salesReps().length ? "。💼 営業がいるので、枠が空くと自動で取ってきます" : "") + "。大型案件とティア3には<b>納期</b>があります（過ぎるとボーナス消滅）</div>";
     if(S.bigDeal){
       const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
-      h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + bd.client + "</span>" +
-        "<div class='ds'>「" + bd.genreName + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
+      h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + esc(bd.client) + "</span>" +
+        "<div class='ds'>「" + esc(bd.genreName) + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
         "<span><button class='primary' onclick='acceptBigDeal()' " + (S.activeRequest ? "disabled" : "") + ">受ける</button> " +
         "<button onclick='declineBigDeal()'>見送る</button></span></div></div>";
     }
     if(S.activeRequest){
       const r = S.activeRequest;
-      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + r.client + "</span>" +
-        "<div class='ds'>次の作品（" + r.genreName + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
+      h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + esc(r.client) + "</span>" +
+        "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
         (r.repName ? " ・ 担当: " + r.repName : "") +
@@ -720,7 +724,7 @@ function renderPanel(){
         "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";
     }
     S.requests.forEach((r,i)=>{
-      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + r.client + "</span><div class='ds'>" + r.text + "</div></div>" +
+      h += "<div class='item buy slim'><div><span class='sock'>📨</span><span class='nm'>" + esc(r.client) + "</span><div class='ds'>" + esc(r.text) + "</div></div>" +
         "<button onclick='acceptRequest(" + i + ")' " + (S.activeRequest && S.activeRequest.big ? "disabled" : "") + ">受ける</button></div>";
     });
     if(!S.requests.length && !S.activeRequest) h += "<button onclick='genRequests();save();renderPanel()'>依頼を探す</button>";
@@ -788,7 +792,7 @@ function renderPanel(){
         const pr = st.prog(S);
         progTxt = "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
       }
-      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+st.name+(got?"<br><small>"+got+"</small>":progTxt)+"</span>";
+      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
     }
     const totalsHTML = kv("タイピング", fmt(T.keys)+" 回") + kv("カーソル移動", (T.cursorPx/3779/1000).toFixed(2)+" km") +
       kv("コード", fmt(T.lines)+" 行") + kv("叩いたバグ", fmt(T.bugsSquashed)+" 匹") +
@@ -805,7 +809,7 @@ function renderPanel(){
     h += "<div class='item buy slim'><div><span class='sock'>🎵</span><span class='nm'>サウンド</span><div class='ds'>Web Audio 合成の効果音。帯で鳴ります（メニューの開閉には連動しません）</div></div>"+
       "<button class='switch"+(SoundKit.enabled()?" on":"")+"' onclick='toggleSound()'>"+(SoundKit.enabled()?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🎚️</span><span class='nm'>音量</span><div class='ds'>効果音の大きさ</div></div>"+
-      "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' style='width:110px'></div>";
+      "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' aria-label='効果音の音量' style='width:110px'></div>";
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
       "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
@@ -814,7 +818,7 @@ function renderPanel(){
       let sizeBtns = "";
       for(const pct of [70, 85, 100, 115, 130]){
         sizeBtns += "<button onclick='setStripSize(" + (pct / 100) + ")'" +
-          (pct === curPct ? " class='switch on' disabled" : "") + ">" + pct + "%</button>";
+          (pct === curPct ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">" + pct + "%</button>";
       }
       h += "<div class='item buy slim'><div><span class='sock'>🔍</span><span class='nm'>帯の大きさ</span><div class='ds'>帯の高さと、みゅけや家具の表示サイズが変わります</div></div>"+
         "<span style='display:flex;gap:4px'>" + sizeBtns + "</span></div>";
@@ -822,7 +826,9 @@ function renderPanel(){
     h += "<div class='item buy slim'><div><span class='sock'>✥</span><span class='nm'>家具の並び</span><div class='ds'>並べ替えモード中は、帯の家具も小物もドラッグで好きな場所へ動かせます（机や棚の上に重ね置きもできます）</div></div>"+
       "<span style='display:flex;gap:4px'><button onclick='toggleLayoutEdit()'>並べ替えモード</button><button onclick='resetLayout()'>初期配置に戻す</button></span></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🧲</span><span class='nm'>並べ替えのスナップ</span><div class='ds'>ドラッグ中、近くの家具の中心へ弱く吸着します</div></div>"+
-      "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
+      "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()' aria-pressed='"+(S.settings.snapLayout?"true":"false")+"'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
+    h += "<div class='item buy slim'><div><span class='sock'>🌙</span><span class='nm'>点滅を減らす</span><div class='ds'>帯の点滅（企画中・雇える・ゲージ満タンなどの合図）を点けっぱなしにします。OS の「視差効果を減らす」が ON のときも自動で控えます</div></div>"+
+      "<button class='switch"+(S.settings.reduceMotion?" on":"")+"' onclick='toggleReduceMotion()' aria-pressed='"+(S.settings.reduceMotion?"true":"false")+"'>"+(S.settings.reduceMotion?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>⏸️</span><span class='nm'>入力カウントを一時停止</span><div class='ds'>タイピング／カーソルの集計を止めます（基本進捗は続きます）</div></div>"+
       "<button onclick='togglePause()'>"+(S.settings.pauseInput?"再開する":"停止する")+"</button></div>";
     /* Phase 2: OS全体の入力カウント（既定OFF） */
@@ -880,10 +886,39 @@ function renderPanel(){
     miscHTML += "<div class='note'>バージョン: " + GAME_VERSION + "（Strip Canon: 部屋シーン廃止・帯の家具化／Phase 2: OS全体の入力カウント／v2.3.5: GitHub 自動アップデート）</div>";
     h += foldSec("setmisc", false, "⚠️ その他・危険ゾーン", GAME_VERSION, miscHTML);
   }
-  el.innerHTML = h;
+  setPanelHTML(el, h);
   if(currentTab === "proj") updateComboUI();   /* 再描画で消えたコンボ表示を戻す */
   updateTabBadges();
   paintTabs();
+}
+/* パネルの作り直し。
+   - 中身が前回と同じなら DOM を触らない (フォーカスもアニメも保たれる)
+   - スライダーをドラッグしている最中は作り直さない (つまみが手から外れないように)
+   - キーボードでフォーカスしていたボタンは、作り直した後も同じボタンへ戻す
+     (5秒ごとの再描画でフォーカスが body へ飛び、キーボードだけでは買えなかった) */
+let panelLastHTML = null, panelPointerDown = false;
+try{
+  document.addEventListener("pointerdown", () => { panelPointerDown = true; }, true);
+  document.addEventListener("pointerup", () => { panelPointerDown = false; }, true);
+}catch(e){}
+function setPanelHTML(el, h){
+  if(h === panelLastHTML && el.innerHTML) return;
+  const a = document.activeElement as HTMLElement | null;
+  const inPanel = !!(a && a !== document.body && typeof el.contains === "function" && el.contains(a));
+  if(inPanel && a.tagName === "INPUT" && panelPointerDown) return;
+  let focusKey = null;
+  if(inPanel && a.tagName === "BUTTON"){
+    const sig = a.getAttribute("onclick") || a.textContent;
+    const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === sig);
+    focusKey = { sig, idx: Math.max(0, same.indexOf(a)) };
+  }
+  el.innerHTML = h;
+  panelLastHTML = h;
+  if(focusKey){
+    const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
+    const target = same[Math.min(focusKey.idx, same.length - 1)];
+    if(target && typeof target.focus === "function") target.focus();
+  }
 }
 /* メニュー刷新 P1: タブバッジ（買えるものがある/新しい依頼があるタブに赤ドット。
    判定は既存の afford 系ヘルパの流用のみ。失敗しても描画を止めないよう握りつぶす） */
@@ -918,6 +953,7 @@ function updateTabBadges(){
         if(!bd){ bd = document.createElement("span"); b.appendChild(bd); }
         bd.className = "tab-badge";
         bd.textContent = want[id] > 1 ? String(want[id]) : "";
+        bd.setAttribute("aria-label", id === "requests" ? "新しい依頼があります" : "買えるものがあります");   /* 色だけで伝えない */
         bd.style.display = "";
       } else if(bd){ bd.style.display = "none"; }
     }

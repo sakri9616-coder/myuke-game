@@ -57,7 +57,7 @@ function foundSub(genreId){
   S.subs.push(sub);
   normalizeAlloc();
   SoundKit.play("purchase");
-  addLog("🏢 子会社「"+name+"」を設立！（-"+cost+"🪙）得意は"+g.name+"、人員 5 人で発足");
+  addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
   say("子会社「"+name+"」ができたにゃ！ グループ経営のはじまりだね");
   save(); renderPanel();
 }
@@ -67,7 +67,7 @@ function addSubStaff(id, n){
   const total = subHeadCostN(sub, n);
   if(S.coins < total){ say("コインが足りないにゃ…"); return; }
   S.coins -= total; sub.staff += n;
-  addLog("🏢 "+sub.name+" に "+n+" 人を採用（人員 "+sub.staff+" 人）（-"+total+"🪙）");
+  addLog("🏢 "+sub.name+" に "+n+" 人を採用（人員 "+sub.staff+" 人）（-" + fmt(total) + "🪙）");
   save(); renderPanel();
 }
 function scaleSub(id){
@@ -77,7 +77,7 @@ function scaleSub(id){
   const cost = subScaleCost(sub);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; sub.lv++;
-  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-"+cost+"🪙）");
+  addLog("🏢 "+sub.name+" が規模Lv"+sub.lv+" に（出力 ×"+subLvMult(sub).toFixed(1)+"）（-" + fmt(cost) + "🪙）");
   say(sub.name+"が大きくなったにゃ！");
   save(); renderPanel();
 }
@@ -222,13 +222,13 @@ function execSelectHTML(){
     "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:4px'>";
   for(const c of cands){
     const sel = pendingExecPick === undefined ? c === cands[0] : pendingExecPick === c.id;
-    hh += "<button onclick='pickExec(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">🎗 " + c.name + "（" + roleName(c.role) + "）</button>";
+    hh += "<button onclick='pickExec(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">🎗 " + esc(c.name) + "（" + roleName(c.role) + "）</button>";
   }
   hh += "<button onclick='pickExec(null)'" + (pendingExecPick === null ? " class='primary'" : "") + ">引き継がない</button></div>";
   if((S.executives || []).length >= 3 && pendingExecPick !== null){
     hh += "<div style='font-size:12px;margin-top:5px'>役員は満席です。入れ替える相手を選んでください（選ばなければ候補は記録に卒業します）</div>" +
       "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
-    S.executives.forEach((e, i) => { hh += "<button onclick='pickSwap(" + i + ")'" + (pendingExecSwap === i ? " class='primary'" : "") + ">" + e.name + " と入替</button>"; });
+    S.executives.forEach((e, i) => { hh += "<button onclick='pickSwap(" + i + ")'" + (pendingExecSwap === i ? " class='primary'" : "") + ">" + esc(e.name) + " と入替</button>"; });
     hh += "<button onclick='pickSwap(-1)'" + (pendingExecSwap === undefined || pendingExecSwap === -1 ? " class='primary'" : "") + ">入れ替えない</button></div>";
   }
   if(hasPerk("veteran")){
@@ -238,7 +238,7 @@ function execSelectHTML(){
         "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:3px'>";
       for(const c of rest){
         const sel = pendingVetPick === undefined ? c === rest[0] : pendingVetPick === c.id;
-        hh += "<button onclick='pickVet(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">" + c.name + "（Lv" + c.lv + "・" + roleName(c.role) + "）</button>";
+        hh += "<button onclick='pickVet(" + c.id + ")'" + (sel ? " class='primary'" : "") + ">" + esc(c.name) + "（Lv" + c.lv + "・" + roleName(c.role) + "）</button>";
       }
       hh += "</div>";
     }

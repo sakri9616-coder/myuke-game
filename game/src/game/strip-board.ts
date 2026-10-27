@@ -11,19 +11,24 @@
    同一: frac = projectDP/totalDP、% は floor、目盛りは k/(feats+1) の節目位置 */
 const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108 };
 /* ボードの吊りメモ札（幅150）。はみ出す文は … で切る */
-function drawStripMemoTag(mx0, my0, memoTxt){
-  const mw = 150;
+function drawStripMemoTag(mx0, my0, memoTxt, width?){
+  const mw = width || 150;
   const memoGold = !!S.bigDeal;   /* Phase C: 大型案件の間はメモが金色に明滅（色＋動きの二経路） */
   sR(mx0, my0, mw, 16, memoGold ? "#d9a41a" : "#8a6a44");
-  sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && frame % 50 < 25 ? "#ffe9a8" : "#fff5e6");
+  sR(mx0 + 1.5, my0 + 1.5, mw - 3, 13, memoGold && blinkOn(50, 25) ? "#ffe9a8" : "#fff5e6");
   sR(mx0 + 5, my0 - 0.5, 3, 3, "#e2543e");
   sctx.save();
   sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
   sctx.textAlign = "left"; sctx.textBaseline = "middle"; sctx.fillStyle = "#4a3b2c";
   let mt = memoTxt;
   if(sctx.measureText(mt).width > mw - 10){
-    while(mt.length > 1 && sctx.measureText(mt).width > mw - 13) mt = mt.slice(0, -1);
-    mt += "…";
+    /* 末尾の「（あと 28🪙）」のような括弧書きは、目的の達成に要る数字なので残し、
+       前半を … で詰める */
+    const open = mt.lastIndexOf("（");
+    const tail = (open > 0 && mt.endsWith("）")) ? mt.slice(open) : "";
+    let head = tail ? mt.slice(0, open) : mt;
+    while(head.length > 1 && sctx.measureText(head + "…" + tail).width > mw - 13) head = head.slice(0, -1);
+    mt = head + "…" + tail;
   }
   sctx.fillText(mt, mx0 + 5, my0 + 8.4);
   sctx.restore();
@@ -110,7 +115,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   }
   /* 作品アイコン (棚に載る箱と同色 = 「この色の箱が増える」の予告編) */
   const col = p ? SHELF_BOX_COLS[(typeof p.icon === "number" ? p.icon : 0) % SHELF_BOX_COLS.length] : "#9a8f85";
-  if(!m.planning || frame % 12 < 7){   /* 企画中はモニタと同じ点滅 */
+  if(!m.planning || blinkOn(12, 7)){   /* 企画中はモニタと同じ点滅 */
     sR(ix + 1.5, iy + 1.5, 12, 12, col);
     sR(ix + 1.5, iy + 4.5, 12, 1.2, "#00000033");
   }
@@ -151,7 +156,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(p){
     /* 右端スロット: ピル2つ (幅を測って名前の上限を決める) */
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-    const sizeTxt = p.size + " / " + fmt(p.totalDP) + "DP";
+    /* 規模だけを出す (必要 DP は2行目の「現在 / 必要 DP」と重複していて、作品名が
+       1〜2文字まで削られていた) */
+    const sizeTxt = sizeLabel(p.size);
     const sizeW = sctx.measureText(sizeTxt).width + 6;
     /* 第2ウェーブ L: ジャンルピルに市場の流れと IP 指定を足す */
     const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") : "";
@@ -202,7 +209,10 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     if(r2){
       let lim = iw - 6;
       if(!m.planning) lim -= sctx.measureText(dpTxt).width + 7 + sctx.measureText(prodTxt).width + 7;
-      while(r2.length > 1 && sctx.measureText(r2).width > lim) r2 = r2.slice(0, -1);
+      if(sctx.measureText(r2).width > lim){   /* 切ったことが分かるよう … を付ける */
+        while(r2.length > 1 && sctx.measureText(r2 + "…").width > lim) r2 = r2.slice(0, -1);
+        r2 += "…";
+      }
       sctx.fillText(r2, ix + 2, iy + 20.5);
     }
     if(!m.planning){
@@ -263,7 +273,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
      いる間は赤く明滅する（動き＋色の二経路） */
   if(!small && p && p.modules && p.modules.length){
     const waiting = !modulesDone(p) && S.wip.tested >= 30;
-    const blink = waiting && (Math.floor(stripNow / 400) % 2 === 0);
+    const blink = waiting && (motionReduced() || Math.floor(stripNow / 400) % 2 === 0);
     const cw = 66;
     sctx.save();
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
@@ -312,7 +322,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   if(!tutTabLocked("staff") && sDrawSprite("prop_phone", phonePl.cx, phonePl.baseY, 1)){
     stripObjArt.phone = { name: "prop_phone", gx: phonePl.cx, gy: phonePl.baseY, s: 1 };
     stripHitRects.phone = { x: phonePl.cx - 12, y: phonePl.baseY - 24, w: 24, h: 24 };
-    if(S.staff.length < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins) && frame % 50 < 30){
+    if(S.staff.length < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins) && blinkOn(50, 30)){
       /* 雇用可能の合図: 電話の右上に付く小さな金バッジ (上下の帯状ラインは
          ホバーの輪と紛れるため v2.4.7 で廃止) */
       sR(phonePl.cx + 7.5, phonePl.baseY - 27.5, 4.4, 4.4, "#ffd94d");
@@ -326,8 +336,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     drawStripMemoTag(memoPl.cx - 75, memoPl.baseY - 16, memoTxt);
   }
   if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo"){
-    sR(bx + 14, top + bh - 1, 2, 3, "#604B40"); sR(bx + 138, top + bh - 1, 2, 3, "#604B40");
-    drawStripMemoTag(bx + 4, top + bh + 2, memoTxt);
+    /* ボードに吊るす時は、右下の真鍮タグ (コイン残高) に重ならない幅にする
+       (以前は末尾 22 単位がタグの下に隠れ、「あと ○🪙」が読めなかった) */
+    const tagX0 = bx + bw - 4 - 68, mw = tagX0 - (bx + 4) - 4;
+    sR(bx + 14, top + bh - 1, 2, 3, "#604B40"); sR(bx + 4 + mw - 14, top + bh - 1, 2, 3, "#604B40");
+    drawStripMemoTag(bx + 4, top + bh + 2, memoTxt, mw);
   }
   {
     const tw = 68, tx0 = bx + bw - 4 - tw, ty0 = top + bh + 2;

@@ -35,7 +35,17 @@ const SoundKit = (function(){
       actx = new AC();
       master = actx.createGain();
       master.gain.value = volume();
-      master.connect(actx.destination);
+      /* 同時に鳴った音の合算で割れないよう、出口にリミッターを挟む
+         (単発の音量には効かない程度の閾値: 単発のピークは -10dBFS 前後) */
+      let out: AudioNode = actx.destination;
+      try{
+        const lim = actx.createDynamicsCompressor();
+        lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20;
+        lim.attack.value = 0.003; lim.release.value = 0.1;
+        lim.connect(actx.destination);
+        out = lim;
+      }catch(e){}
+      master.connect(out);
     }catch(e){ actx = null; }
     return actx;
   }
@@ -74,7 +84,9 @@ const SoundKit = (function(){
       const f = actx.createBiquadFilter();
       f.type = o.ftype || "lowpass"; f.frequency.value = o.ffreq || 1200; f.Q.value = o.q || 0.8;
       const g = actx.createGain();
-      g.gain.setValueAtTime(o.vol || 0.4, t0);
+      /* いきなり最大音量で始めるとプチッと鳴るので 3ms で立ち上げる */
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(o.vol || 0.4, t0 + 0.003);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
       src.connect(f); f.connect(g); g.connect(master);
       src.start(t0); src.stop(t0 + dur + 0.05);
@@ -98,13 +110,22 @@ const SoundKit = (function(){
     /* 金の魚: キラッと上がるスライド＋高音の余韻 */
     fishCatch(){ tone({ f0: 420, f1: 1250, dur: 0.16, vol: 0.34 }); tone({ f0: 1760, dur: 0.1, vol: 0.16, delay: 0.12 }); },
     /* おやつ: もぐもぐ2口ぶんの柔らかい音 */
-    snack(){ tone({ f0: 210, f1: 160, dur: 0.09, vol: 0.38 }); tone({ f0: 190, f1: 150, dur: 0.1, vol: 0.38, delay: 0.13 }); }
+    snack(){ tone({ f0: 210, f1: 160, dur: 0.09, vol: 0.38 }); tone({ f0: 190, f1: 150, dur: 0.1, vol: 0.38, delay: 0.13 }); },
+    /* 買えるようになった: 購入音とは別の、控えめな1音 (何も買っていないのに「買った」音が鳴らないように) */
+    ready(){ tone({ f0: 1319, f1: 1568, dur: 0.12, type: "sine", vol: 0.14 }); }
   };
+  /* 同じ音が同じ瞬間に何度も重なると音割れするので、短い間隔の連打は1回にまとめる
+     (応援クリックはコンボの手応えを残すため間隔を短く) */
+  const lastPlayedAt = {};
+  const MIN_GAP_MS = { click: 25 };
   function play(name, opts?){
     try{
       if(!enabled()) return;
       if(!gestured || !actx) return;   /* 操作前・未生成なら無音（エラーにしない） */
       if(actx.state === "suspended"){ try{ actx.resume(); }catch(e){} }
+      const now = Date.now();
+      if(now - (lastPlayedAt[name] || 0) < (MIN_GAP_MS[name] || 60)) return;
+      lastPlayedAt[name] = now;
       if(CUES[name]) CUES[name](opts || {});
     }catch(e){}
   }

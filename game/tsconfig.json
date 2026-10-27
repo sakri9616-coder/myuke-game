@@ -5,6 +5,13 @@
     "moduleDetection": "legacy",
     "noEmit": true,
     "strict": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitThis": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "useUnknownInCatchVariables": true,
+    "noUnusedParameters": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts"]

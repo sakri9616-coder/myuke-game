@@ -36,7 +36,7 @@ const VERBS = {
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
-  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout,
+  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout, toggleReduceMotion: toggleReduceMotion,
   tutSkipGuide: tutSkipGuide, tutResetGuide: tutResetGuide, tutVisitTab: tutVisitTab,
   updCheckManual: updCheckManual, updDownload: updDownload,
   updRelaunch: updRelaunch, updDismiss: updDismiss,
@@ -88,7 +88,9 @@ function dispatchMenuCommand(m){
     }
     bumpRev(); sendSnapshotNow();   /* 実行直後は即時スナップショット (設計 §3.4) */
   };
-  const fn = m && VERBS[m.verb];
+  /* 自前のプロパティだけを許す ("constructor" などの継承プロパティで関数を引かない) */
+  const fn = m && typeof m.verb === "string" && Object.prototype.hasOwnProperty.call(VERBS, m.verb) ? VERBS[m.verb] : null;
+  SoundKit.unlock();   /* メニューでの操作もユーザー操作として扱い、帯の音を鳴らせるようにする */
   if(!fn){ reply(false, null, "unknown verb: " + (m && m.verb)); return; }
   try{
     const r = fn.apply(null, Array.isArray(m.args) ? m.args : []);
@@ -96,7 +98,7 @@ function dispatchMenuCommand(m){
       r.then(v => reply(true, cmdPayload(v)),
              e => reply(false, null, String((e && e.message) || e)));
     } else reply(true, cmdPayload(r));
-  }catch(e){ reply(false, null, String((e && e.message) || e)); }
+  }catch(e){ reply(false, null, String((e instanceof Error && e.message) || e)); }
 }
 /* menu 内の入力 (キー回数・カーソル距離だけ) を帯のブースト材料へ合流させる。
    ゲート (一時停止 / OS集計との二重計数防止) は帯が一元管理する (設計 §3.5) */
@@ -118,6 +120,7 @@ function initOwnerProtocol(){
   on("menu-heartbeat", () => { menuLastBeat = Date.now(); menuAwake = true; });
   on("menu-cmd", (ev) => { dispatchMenuCommand(ev && ev.payload); });
   on("menu-input", (ev) => { feedMenuInput(ev && ev.payload); });
+  on("save-now", () => { save(); });   /* トレイの「終了」直前に Rust が送る (最後の進行を書き残す) */
   on("viewer-trap", (ev) => { try{ console.warn("[miyuke] viewer save-trap:", JSON.stringify(ev && ev.payload)); }catch(e){} });
   /* 2Hz の定期送信。heartbeat が 5 秒途絶えたら menu は消えた/固まったものとして止める */
   setInterval(() => {
@@ -204,6 +207,10 @@ function makeVerbStub(verb){
       if(!hp.can){ showViewerNote("持株化の条件がまだ揃っていないにゃ"); return; }
       if(!confirm("ホールディングス化しますか？\n星団 " + hp.gain + " 個を得ます。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
     }
+    if(verb === "resetLayout"){
+      /* 手で並べた配置が消えるので確認する (帯側では confirm を出さない) */
+      if(!confirm("家具と小物の並びを初期配置に戻しますか？\n手で動かした配置は消えます")) return;
+    }
     if(verb === "outsourceBugs"){
       /* 外注の確認は menu 側で済ませる (帯側では confirm を出さない) */
       const bugs = Math.floor(S.bugStock), debtCut = Math.floor((S.debt || 0) * 0.4);
@@ -288,7 +295,8 @@ function applySnapshot(snap){
   if(returnShownAt && Date.now() - returnShownAt > 4 * 60000){ returnShownAt = 0; closeReturnCard(); }
   viewerSynced = true;
   renderHeader();
-  if(snap.rev !== viewerRev){ viewerRev = snap.rev; renderPanel(); }
+  /* 隠れている間はパネルを作り直さない (再表示時は menu-ready → 新しいスナップショットで描く) */
+  if(snap.rev !== viewerRev && !document.hidden){ viewerRev = snap.rev; renderPanel(); }
 }
 function notifySaveTrap(kind){
   const T = window.__TAURI__;
@@ -341,7 +349,9 @@ function initViewer(){
     }
   };
   emitBc("menu-ready");   /* 帯と Rust の両方が拾う (帯: 即スナップショット / Rust: open-tab 再送) */
-  setInterval(() => { emitBc("menu-heartbeat"); }, 2000);
+  /* 隠れている間は heartbeat を止める: 帯は5秒で「menu は寝ている」と判断し、
+     2Hz のスナップショット送信を止める (閉じたメニューのために同期し続けない) */
+  setInterval(() => { if(!document.hidden) emitBc("menu-heartbeat"); }, 2000);
   /* 再表示直後の取りこぼし防止: 見える状態に戻ったら ready を送り直す (冪等) */
   try{
     document.addEventListener("visibilitychange", () => { if(!document.hidden) emitBc("menu-ready"); });

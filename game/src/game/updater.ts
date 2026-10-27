@@ -43,7 +43,7 @@ function paintUpd(){
       else btn = "<button onclick='updRelaunch()'>再起動して更新を完了する</button>";
       card.innerHTML =
         "<div class='rc-head'><span>🆕 アップデートがあります</span>" +
-        "<button class='rc-close' onclick='updDismiss()'>✕</button></div>" +
+        "<button class='rc-close' onclick='updDismiss()' aria-label='このお知らせを閉じる'>✕</button></div>" +
         "<div>新しいバージョン <b>" + updVerLabel() + "</b> が出ています。" +
         (upd.status === "downloading"
           ? "（" + (upd.total > 0 ? Math.floor(upd.got / upd.total * 100) : 0) + "% ダウンロード済み）"
@@ -84,6 +84,7 @@ async function updDownload(){
   upd.status = "downloading"; upd.got = 0; upd.total = 0;
   paintUpd(); if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
   let lastPct = -1;
+  save();   /* Windows ではインストーラ起動でアプリが閉じるので、先に進行を書き残す */
   try{
     await upd.obj.downloadAndInstall((ev) => {
       if(!ev) return;
@@ -105,6 +106,7 @@ async function updDownload(){
   if(typeof currentTab !== "undefined" && currentTab === "settings") renderPanel();
 }
 function updRelaunch(){
+  save();   /* 再起動の前に最後の進行を書き残す */
   try{
     const T = window.__TAURI__;
     if(T && T.process && typeof T.process.relaunch === "function"){
@@ -114,12 +116,6 @@ function updRelaunch(){
   }catch(e){}
 }
 function updDismiss(){ upd.dismissed = true; paintUpd(); }
-/* 帯チップから: 管理画面の設定タブを開く（openShelfPanel と同じ open_menu 経路） */
-function updOpenSettings(){
-  if(IS_VIEWER){ switchTab("settings"); return; }
-  if(!document.body.classList.contains("strip")){ switchTab("settings"); return; }
-  tauriCmd("open_menu", { tab: "settings" });
-}
 /* 起動時: 少し待ってから無言で確認する（Updater が無ければ無操作）。
    次回リリース分: 起動時1回だけでは、起動中に公開された更新を再起動まで検出できない
    (sakuri 実機報告: 動いたり動かなかったり)。30分ごとに無言で再確認する。

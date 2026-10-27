@@ -20,6 +20,8 @@
    Phase E: 2ウィンドウ化（owner/viewer 2コンテキスト + 偽イベントバスで
             単一書き手・コマンド一回実行・スナップショット描画を検証）
    Phase A12: セーブのファイル保存（起動時注入の採否 / save_game への書き込み / 読み込み機能）
+   Phase A13: 敵対的なセーブ（XSS の無害化 / 読み込みの原子性 / 壊れた起動時セーブの保護）
+   Phase A14〜A16: 描画性能 / 導線・アクセシビリティ / セーブ移行とメニューコマンドの取り決め
    Phase F: チュートリアル導線（段階的開示: 事実ベースのステージ進行 /
             ロックと「所持が勝つ」原則 / ベテラン移行 / スキップと見直し /
             viewer がスナップショットだけで同じロック・🆕 を描くこと） */
@@ -1005,6 +1007,226 @@ console.log("== Phase A12: file-backed save (Rust save_game + startup injection)
     (rs.match(/save_init_script\(app\.handle\(\)\)/g) || []).length === 1 && rs.includes("__MIYUKE_SAVE__"));
 }
 
+/* ================= Phase A13: セーブ由来の文字列の無害化と読み込みの原子性 ================= */
+console.log("== Phase A13: hostile saves (XSS escaping / atomic load / corrupt startup save) ==");
+{
+  const PAY = "<img src=x onerror=PWN()>";
+  const evil = {
+    coins: 1, ideas: 0,
+    project: { name: "PJ" + PAY, genre: "app", genreName: "G" + PAY, desc: "D" + PAY, size: "S", totalDP: 900,
+               feats: ["F" + PAY], doneFeats: 0, startedAt: 1, bugs: 0, napsAtStart: 0, ideaCost: 0, planning: false, icon: 0, activeSec: 0 },
+    staff: [{ id: "1);PWN_ID();(1", name: "CAT" + PAY, coat: "kuro", role: "prog", lv: 1 }],
+    shelf: [{ name: "SH" + PAY, genreName: "g", size: "S", date: "d", devMin: 1, lines: 1, bugs: 0, naps: 0, icon: 0, highlight: "H" + PAY }],
+    log: [{ tm: "00:00", text: "LOG" + PAY }],
+    subs: [{ id: "2);PWN_ID();(2", name: "SUB" + PAY, genre: "app", staff: 5, lv: 1, alloc: 100 }],
+    studioLv: 5
+  };
+  const sbX = buildSandbox({});
+  loadGame(sbX);
+  check("importing a hostile save succeeds (it is a valid shape)", run(sbX, `importSaveText(${JSON.stringify(JSON.stringify(evil))})`) === true);
+  const panels = ["proj", "staff", "shelf"].map(t => { run(sbX, `switchTab(${JSON.stringify(t)}); renderPanel();`); return sbX._el("panel").innerHTML; }).join("\n");
+  check("no live <img> tag from save strings reaches any panel", !/<img/i.test(panels), (panels.match(/.{0,30}<img.{0,30}/i) || [""])[0]);
+  check("save strings are shown as inert text (full-width brackets)", panels.includes("CAT＜img") && panels.includes("PJ＜img"));
+  check("ids that land in onclick attributes are forced to integers", !/PWN_ID/.test(panels) && run(sbX, "S.staff.every(s => Number.isInteger(s.id)) && S.subs.every(s => Number.isInteger(s.id))"));
+  check("the persisted save keeps no raw '<' from the hostile import", !sbX.localStorage.getItem("miyuke-save-v1").includes("<img"));
+  check("esc() escapes the five HTML-significant characters", run(sbX, "esc(" + JSON.stringify("<a href='x'>&\"</a>") + ")") === "&lt;a href=&#39;x&#39;&gt;&amp;&quot;&lt;/a&gt;");
+  check("sanitizer drops prototype-polluting keys", run(sbX, `JSON.stringify(sanitizeSaveData(JSON.parse('{"__proto__":{"x":1},"a":"<b>"}')))`) === '{"a":"＜b＞"}');
+
+  /* 読み込みの原子性: 途中で壊れたら元の状態に戻る (以前は半端な状態のまま次の自動セーブで上書きしていた) */
+  const sbA = buildSandbox({});
+  loadGame(sbA);
+  run(sbA, "S.coins = 123456; for(let i=0;i<5;i++) S.shelf.push({name:'w'+i}); save();");
+  for(const bad of ['{"coins":5,"staff":[1]}', '{"coins":5,"subs":[null]}', '{"coins":5,"upgrades":null,"log":null,"requests":null}', '[1,2,3]', '"str"']){
+    run(sbA, "S.coins = 123456;");
+    const ok = run(sbA, `importSaveText(${JSON.stringify(bad)})`);
+    let tickErr = null; try { run(sbA, "tick(); renderPanel();"); } catch(e){ tickErr = e.message; }
+    check("bad import " + bad + " either loads cleanly or leaves the game untouched, and tick keeps running",
+      tickErr === null && (ok ? run(sbA, "S.coins") === 5 : run(sbA, "S.coins") === 123456), "ok=" + ok + " coins=" + run(sbA, "S.coins") + " err=" + tickErr);
+  }
+  /* load() が例外を出した場合も元の状態に戻ること (移行処理の中の例外を直接起こす) */
+  run(sbA, "S.coins = 777; var __rc = recoatFor; recoatFor = function(){ throw new Error('boom'); };");
+  const okBoom = run(sbA, `load(${JSON.stringify(JSON.stringify({ coins: 1, staff: [{ id: 1, name: "a", coat: "mike2", role: "prog", lv: 1 }] }))})`);
+  check("an exception inside load() migration rolls S back", okBoom === false && run(sbA, "S.coins") === 777, "ok=" + okBoom + " coins=" + run(sbA, "S.coins"));
+  run(sbA, "recoatFor = __rc;");
+
+  /* 起動時のセーブが壊れていた: 退避して保存を止め、元データを上書きしない */
+  const sbC = buildSandbox({});
+  sbC.localStorage.setItem("miyuke-save-v1", "{ this is not json");
+  loadGame(sbC);
+  check("corrupt startup save blocks saving (original data is not overwritten)",
+    run(sbC, "saveBlocked") === true && sbC.localStorage.getItem("miyuke-save-v1") === "{ this is not json");
+  run(sbC, "save();");
+  check("save() is a no-op while blocked, and the raw save is backed up",
+    sbC.localStorage.getItem("miyuke-save-v1") === "{ this is not json" && sbC.localStorage.getItem("miyuke-save-v1-bad") === "{ this is not json");
+  check("the player is told the save could not be read", run(sbC, "S.log.some(e => e.text.includes('読み込めませんでした'))"));
+  run(sbC, "doResetSave();");
+  check("resetting the save lifts the block and writes a fresh save",
+    run(sbC, "saveBlocked") === false && JSON.parse(sbC.localStorage.getItem("miyuke-save-v1")).project.size === "TUT");
+
+  /* tick が例外を出してもメインループは記録して進む */
+  const sbT = buildSandbox({});
+  loadGame(sbT);
+  const errs = [];
+  const origErr = console.error; console.error = (...a) => errs.push(a.join(" "));
+  run(sbT, "var __t = tick; tick = function(){ throw new Error('tick boom'); };");
+  const before = run(sbT, "S.totals.playSec");
+  sbT._intervals.find(i => i.ms === 1000).fn();
+  console.error = origErr;
+  check("a throwing tick is logged and the 1s loop still advances playSec",
+    run(sbT, "S.totals.playSec") === before + 1 && errs.some(e => e.includes("tick boom")));
+  run(sbT, "tick = __t;");
+
+  /* メニューのコマンドは自前の VERBS だけ (継承プロパティで関数を引かない) */
+  const sent = [];
+  const sbV = buildSandbox({ tauri: { core: { invoke: () => Promise.resolve() },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve(),
+             emitTo: (t, n, p) => { sent.push([n, p]); return Promise.resolve(); } } } });
+  loadGame(sbV);
+  run(sbV, `dispatchMenuCommand({ id: 7, verb: "constructor", args: [] })`);
+  const res = sent.find(x => x[0] === "cmd-result" && x[1] && x[1].id === 7);
+  check("menu command 'constructor' is rejected as an unknown verb", !!res && res[1].ok === false && /unknown verb/.test(res[1].error || ""), JSON.stringify(res && res[1]));
+
+  /* Rust 側の制限 (静的確認) */
+  const rs = fs.readFileSync(GAME_HTML.DESK_DIR + "src-tauri/src/main.rs", "utf8");
+  check("strip-only commands reject other windows (set_strip_scale / set_hit_zones / set_input_counting / save_game)",
+    (rs.match(/window\.label\(\) != WIN_STRIP/g) || []).length >= 4);
+  check("save_game runs off the main thread, serialized, with fsync before rename",
+    rs.includes("#[tauri::command(async)]\nfn save_game") && rs.includes("SAVE_LOCK") && rs.includes("sync_all()"));
+  check("beacon: no CORS allow header, random token, no logging of rejected requests",
+    !rs.includes("Access-Control-Allow-Origin") && rs.includes("RandomState") && !rs.includes("beacon: rejected request"));
+  check("tray quit asks the strip page to save before exiting", rs.includes('emit_to(WIN_STRIP, "save-now"'));
+}
+
+/* ================= Phase A14: 描画の性能 (値は不変) ================= */
+console.log("== Phase A14: render performance (per-frame staff sums / strip skips header) ==");
+{
+  const sb = buildSandbox({ hash: "#strip", width: 1280, height: 210 });
+  loadGame(sb);
+  run(sb, `S.studioLv = 9; S.staff = []; const roles = Object.keys(STAFF_ROLES);
+    for(let i = 0; i < 48; i++) S.staff.push({ id: i + 1, name: "c" + i, coat: COATS[i % COATS.length], role: roles[i % roles.length], lv: 1 + (i % 10) });
+    S.executives = [{ name: "e", role: "prog" }, { name: "f", role: "test" }];`);
+  const plain = run(sb, "JSON.stringify(staffSums())");
+  run(sb, `window.__css = 0; const __c = computeStaffSums; computeStaffSums = function(){ window.__css++; return __c(); };`);
+  run(sb, "render();");
+  check("staff sums are computed at most once per strip frame (was ~31 times with 48 staff)", run(sb, "window.__css") <= 1, "calls=" + run(sb, "window.__css"));
+  check("cached staff sums equal the uncached values", run(sb, "JSON.stringify(staffSums())") === plain);
+  check("outside render() staff sums are never stale (cache is off)", run(sb, "staffSumsCacheActive") === false && run(sb, "staffSumsFrameCache") === null);
+  run(sb, `window.__rh = 0; const __rhOrig = renderHeader; renderHeader = function(){ window.__rh++; return __rhOrig(); }; render();`);
+  check("the strip window does not rebuild the hidden HTML header every frame", run(sb, "window.__rh") === 0);
+  run(sb, "window.__miyukeApplyMode('full'); render();");
+  check("the menu form still updates the header every frame", run(sb, "window.__rh") === 1);
+}
+
+/* ================= Phase A15: 導線・可読性・アクセシビリティ ================= */
+console.log("== Phase A15: onboarding / readability / accessibility ==");
+{
+  const sb = buildSandbox({ hash: "#strip", width: 1280, height: 210 });
+  loadGame(sb);
+  /* ステージ1 (工場で道具を買う) のメモは工場タブを開く (以前はロック中の依頼タブ) */
+  run(sb, "S.tut.stage = 1; S.tut.seen = {}; S.coins = 10; tutCelebrate = null;");
+  check("stage-1 objective memo opens the factory tab", run(sb, "stripQuestText()").includes("工場") && run(sb, "stripMemoTab()") === "factory", run(sb, "stripMemoTab()"));
+  run(sb, "S.tut.stage = 4; S.tut.seen = {};");
+  check("stage-4 objective memo opens the staff tab", run(sb, "stripMemoTab()") === "staff");
+  run(sb, "S.tut.skipped = true;");
+  check("without an objective the memo opens requests (or proj while requests is locked)",
+    ["requests", "proj"].includes(run(sb, "stripMemoTab()")));
+  check("tutorial line 1 no longer points at the removed 『ひらく』 chip", !run(sb, "TUT_BEATS[1]").includes("ひらく"));
+  /* ボードに吊るしたメモは真鍮タグ (コイン) に重ならない */
+  run(sb, "S.tut.skipped = false; S.tut.stage = 1; S.tut.seen = {}; S.layoutProps = {}; render();");
+  const memo = run(sb, "JSON.stringify(stripHitRects.memo || null)");
+  const brd = run(sb, "JSON.stringify(stripHitRects.board || null)");
+  if(memo !== "null" && brd !== "null"){
+    const m = JSON.parse(memo), b = JSON.parse(brd);
+    check("board memo ends before the brass coin tag", m.x + m.w <= b.x + b.w - 4 - 68, "memo=" + memo + " board=" + brd);
+  } else check("board memo ends before the brass coin tag (memo and board drawn)", false, memo + " " + brd);
+  /* 入りきらないメモは前半を詰め、末尾の「（あと N🪙）」は残す (幅は 1 文字 7.5 単位で測る) */
+  run(sb, `window.__ft = []; const __ofT = sctx.fillText, __omT = sctx.measureText; sctx.fillText = function(t){ window.__ft.push(String(t)); }; sctx.measureText = function(t){ return { width: String(t).length * 7.5 }; }; drawStripMemoTag(0, 0, "🎯 工場で道具を1つ買おう（あと 28🪙）", 124); sctx.fillText = __ofT; sctx.measureText = __omT;`);
+  const memoDrawn = run(sb, "window.__ft.join('|')");
+  check("a long memo keeps its trailing shortfall and elides the middle", /…（あと 28🪙）$/.test(memoDrawn), memoDrawn);
+  /* 点滅を控える設定: 状態の合図は常に点灯 */
+  run(sb, "S.settings.reduceMotion = false; frame = 49;");
+  check("blinkOn follows the frame clock normally", run(sb, "blinkOn(50, 30)") === false);
+  run(sb, "toggleReduceMotion();");
+  check("reduce-motion setting keeps status blinks steadily on", run(sb, "S.settings.reduceMotion") === true && run(sb, "blinkOn(50, 30)") === true);
+  check("reduce-motion is a menu command (routed to the strip)", run(sb, "typeof VERBS.toggleReduceMotion") === "function");
+  /* 内部コードを見せない */
+  check("tutorial work shows as 『はじめて』 instead of TUT", run(sb, "sizeLabel('TUT')") === "はじめて" && run(sb, "sizeLabel('M')") === "M");
+  /* アクセシビリティ: タブ・購入ボタン・折りたたみ・スライダー */
+  run(sb, "window.__miyukeApplyMode('full'); S.tut.skipped = true; S.coins = 99999; switchTab('factory'); renderPanel();");
+  const fh = sb._el("panel").innerHTML;
+  check("buy buttons carry an accessible name with the price", /<button class='buybtn[^']*'[^>]*aria-label='[^']*🪙/.test(fh));
+  check("fold headers expose aria-expanded", /class='fold-head' aria-expanded='(true|false)'/.test(fh));
+  run(sb, "switchTab('settings'); renderPanel();");
+  const sh = sb._el("panel").innerHTML;
+  check("volume slider has an accessible name", sh.includes("aria-label='効果音の音量'"));
+  check("selected strip size is a pressed toggle, not a disabled button", /class='switch on' aria-pressed='true'>100%/.test(sh));
+  check("reduce-motion toggle is offered in settings", sh.includes("点滅を減らす"));
+  check("menu tabs are exposed as tabs with a selected state",
+    run(sb, "Array.from(tabsEl.children).every(b => b.getAttribute ? true : true)") && fs.readFileSync(require("path").join(__dirname, "..", "game", "src", "game", "ui-core.ts"), "utf8").includes('setAttribute("role", "tab")'));
+  check("purchase logs format coin amounts with separators", !/（-" *\+ *(cost|total) *\+ *"🪙/.test(HTML));
+}
+
+/* ================= Phase A16: セーブ移行と メニューコマンドの取り決め ================= */
+console.log("== Phase A16: save migration details / startup choice / menu command contract ==");
+{
+  /* 日付が変わったセーブは「今日」の集計だけ0に戻し、通算は残す */
+  const sbD = buildSandbox({});
+  sbD.localStorage.setItem("miyuke-save-v1", JSON.stringify({ coins: 1, today: { date: "2000-1-1", keys: 99, releases: 5 }, totals: { releases: 7, keys: 500 } }));
+  loadGame(sbD);
+  check("day rollover resets today's counters but keeps totals",
+    run(sbD, "S.today.keys") === 0 && run(sbD, "S.today.releases") === 0 && run(sbD, "S.today.date === todayKey()") &&
+    run(sbD, "S.totals.releases") === 7 && run(sbD, "S.totals.keys") === 500);
+
+  /* 旧セーブや壊れかけの値の補正 */
+  const sbM = buildSandbox({});
+  sbM.localStorage.setItem("miyuke-save-v1", JSON.stringify({
+    coins: 1, challenge: {}, trend: {}, devGenrePref: 5, depts: { prog: 0, test: "x" },
+    staff: [{ id: 1, name: "s", coat: "kuro", role: "sales", lv: 1 }],
+    line2: { unlocked: true, project: { name: "p", genre: "app", size: "S", totalDP: 900, feats: ["a"], doneFeats: 0 } }
+  }));
+  loadGame(sbM);
+  check("load: malformed challenge / trend / devGenrePref become null",
+    run(sbM, "S.challenge") === null && run(sbM, "S.trend === null || !!S.trend.boom") && run(sbM, "S.devGenrePref") === null);
+  check("load: department levels below 1 or non-numeric become 1", run(sbM, "S.depts.prog") === 1 && run(sbM, "S.depts.test") === 1);
+  check("load: a sales cat without a genre gets one", typeof run(sbM, "S.staff[0].genre") === "string");
+  check("load: a line-2 project without planning gets planning:false and ideaCost:0",
+    run(sbM, "S.line2.project.planning") === false && run(sbM, "S.line2.project.ideaCost") === 0);
+
+  /* 起動時の選択: 壊れた方ではなく読める方を使う */
+  const good = JSON.stringify({ coins: 4242, lastTick: 10 });
+  const sbF = buildSandbox({});
+  sbF.__MIYUKE_SAVE__ = "{broken";
+  sbF.localStorage.setItem("miyuke-save-v1", good);
+  loadGame(sbF);
+  check("startup: corrupt file + valid localStorage loads the localStorage save", run(sbF, "S.coins") === 4242 && run(sbF, "saveBlocked") === false);
+  const sbL = buildSandbox({});
+  sbL.__MIYUKE_SAVE__ = good;
+  sbL.localStorage.setItem("miyuke-save-v1", "{broken");
+  loadGame(sbL);
+  check("startup: valid file + corrupt localStorage loads the file save", run(sbL, "S.coins") === 4242 && run(sbL, "saveBlocked") === false);
+
+  /* メニューコマンドの返事の取り決め */
+  const results = [];
+  const sbC = buildSandbox({ tauri: { core: { invoke: () => Promise.resolve() },
+    event: { listen: () => Promise.resolve(() => {}), emit: () => Promise.resolve(),
+             emitTo: (t, n, p) => { if(n === "cmd-result") results.push(p); return Promise.resolve(); } } } });
+  loadGame(sbC);
+  const last = () => results[results.length - 1];
+  run(sbC, `dispatchMenuCommand({ id: 1, verb: "noSuchVerb", args: [] })`);
+  check("unknown verb replies ok:false with an error", last().id === 1 && last().ok === false && /unknown verb/.test(last().error));
+  run(sbC, `VERBS.__throwy = function(){ throw new Error("kaboom"); }; dispatchMenuCommand({ id: 2, verb: "__throwy", args: [] })`);
+  check("a throwing verb replies ok:false with its message", last().id === 2 && last().ok === false && last().error === "kaboom");
+  run(sbC, "S.coins = 31337; save();");
+  run(sbC, `dispatchMenuCommand({ id: 3, verb: "exportSave", args: [] })`);
+  check("exportSave replies with the save text", last().id === 3 && last().ok === true && JSON.parse(last().payload.text).coins === 31337);
+  run(sbC, `dispatchMenuCommand({ id: 4, verb: "importSaveText", args: ["[not a save"] })`);
+  check("importSaveText with bad input replies value:false and keeps the game", last().id === 4 && last().payload && last().payload.value === false && run(sbC, "S.coins") === 31337);
+  run(sbC, `dispatchMenuCommand({ id: 5, verb: "resetSave", args: [] })`);
+  check("resetSave via command starts fresh (TUT project, requests generated, tutorial stage 0) and saves",
+    last().id === 5 && last().ok === true && run(sbC, "S.project.size") === "TUT" && run(sbC, "S.requests.length") > 0 &&
+    run(sbC, "S.tut.stage") === 0 && JSON.parse(sbC.localStorage.getItem("miyuke-save-v1")).coins === 0);
+}
+
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */
 console.log("== Phase B: strip mode with fake Tauri ==");
 {
@@ -1896,10 +2118,23 @@ console.log("== Phase B9: 60fps rendering + movement layer wins ==");
   loadGame(sb);
 
   /* ---- A1: レンダラ周期 ---- */
-  check("B9-A: render interval is ~16ms (60fps), no 150ms render timer remains",
-    sb._intervals.some(iv => iv.ms >= 8 && iv.ms <= 20 && iv.fn && iv.fn.name === "render") &&
+  /* 描画は requestAnimationFrame 駆動 (画面のリフレッシュに同期)。rAF が止まる環境向けに
+     50ms のタイマーが「50ms 描かれていなければ描く」予備として残る */
+  check("B9-A: render runs on requestAnimationFrame with a 50ms fallback timer, no 150ms render timer remains",
+    run(sb, "typeof renderLoop === 'function'") &&
+    sb._intervals.some(iv => iv.ms === 50) &&
     !sb._intervals.some(iv => iv.ms === 150),
     JSON.stringify(sb._intervals.map(iv => iv.ms)));
+  {
+    const before = run(sb, "lastRenderAt");
+    sb._advanceFake(60);
+    sb._intervals.find(iv => iv.ms === 50).fn();
+    check("B9-A: the fallback timer renders when rAF has not drawn for 50ms", run(sb, "lastRenderAt") > before);
+    const mid = run(sb, "lastRenderAt");
+    sb._advanceFake(10);
+    sb._intervals.find(iv => iv.ms === 50).fn();
+    check("B9-A: the fallback timer stays idle while frames are fresh", run(sb, "lastRenderAt") === mid);
+  }
 
   /* ---- A2: frame は実時間換算 (150ms = 1frame) で進み、即時再描画では進まない ---- */
   run(sb, "frameAcc = 10; frame = 10; lastRenderAt = Date.now(); render();");
@@ -2997,7 +3232,7 @@ console.log("== Phase D: auto-update (config + fake updater flows) ==");
     check("F: stage 1 unlocks shelf/stats/factory; research stays locked",
       !run(sb, "tutTabLocked('shelf')") && !run(sb, "tutTabLocked('factory')") && run(sb, "tutTabLocked('research')"));
     check("F: stage-1 quest chip counts the shortfall to the cheapest tool",
-      run(sb, "stripQuestText()") === "🎯 工場で道具を1つ買おう（あと 40🪙）",
+      run(sb, "stripQuestText()") === "🎯 あと 40🪙 で工場の道具を1つ買えるにゃ",
       run(sb, "stripQuestText()"));
     check("F: freshly unlocked factory tab carries the 🆕 badge before first visit",
       badgeF(sb, "factory") && badgeF(sb, "factory").textContent === "🆕" && badgeF(sb, "factory").style.display !== "none");

@@ -59,7 +59,7 @@ const TUT_NEXT = [
 ];
 /* 解放ビート (吹き出し1回だけ)。設計 §7 の文案 */
 const TUT_BEATS = {
-  1: "🪙 たまったにゃ。『ひらく』→工場で道具が買えるよ",
+  1: "🪙 たまったにゃ。上の目的メモをクリックすると、工場で道具が買えるよ",
   2: "🔬 研究ポイントがたまったにゃ。研究タブが開いたよ",
   3: "👆 よく応援してくれるね。応援タブでクリックが強くできるよ",
   4: "🐱 さっきの猫たち、雇えるようになったにゃ",
@@ -229,7 +229,8 @@ function stripQuestText(){
       }
       if(!isFinite(cheapest)) return "";
       const short = Math.max(0, Math.ceil(cheapest - S.coins));
-      return "🎯 工場で道具を1つ買おう" + (short > 0 ? "（あと " + fmt(short) + "🪙）" : "（買えるにゃ！）");
+      /* 不足分は文の先頭に出す: メモの右側は机のみゅけの頭に隠れやすい */
+      return short > 0 ? "🎯 あと " + fmt(short) + "🪙 で工場の道具を1つ買えるにゃ" : "🎯 工場で道具を1つ買おう（買えるにゃ！）";
     }
     case 2: {
       if(seen.q2) return "";
@@ -237,7 +238,7 @@ function stripQuestText(){
       for(const d of RESEARCH_DEFS) if(!S.research[d.id]) cheapest = Math.min(cheapest, d.cost);
       if(!isFinite(cheapest)) return "";
       const short = Math.max(0, cheapest - Math.floor(S.rp));
-      return "🎯 研究を1つ終わらせよう" + (short > 0 ? "（あと 🔬" + short + "）" : "（できるにゃ！）");
+      return short > 0 ? "🎯 あと 🔬" + short + " で研究を1つ終わらせられるにゃ" : "🎯 研究を1つ終わらせよう（できるにゃ！）";
     }
     case 3: return seen.q3 ? "" : "🎯 応援タブで強化を1つ買おう";
     case 4: return seen.q4 ? "" : "🎯 スタッフを1人雇おう";
@@ -245,10 +246,22 @@ function stripQuestText(){
     case 6: {
       if(S.line2.unlocked) return "";
       const short = Math.max(0, BAL.line2BuildCost - Math.floor(S.coins));
-      return "🎯 第2ラインを建てよう（🪙 あと " + fmt(short) + "）";
+      return short > 0 ? "🎯 あと " + fmt(short) + "🪙 で第2ラインを建てられるにゃ" : "🎯 第2ラインを建てよう（建てられるにゃ！）";
     }
   }
   return "";
+}
+/* 吊りメモをクリックしたときに開くタブ: チュートリアルの目的が出ている間はその目的の
+   タブ (工場・研究・応援・スタッフ…)、それ以外は依頼タブ。以前は常に依頼タブで、
+   序盤はロック画面に飛ばされていた */
+const QUEST_TABS = { 0: "proj", 1: "factory", 2: "research", 3: "click", 4: "staff", 5: "requests", 6: "factory" };
+function stripMemoTab(){
+  const q = stripQuestText();
+  if(q && !(tutCelebrate && Date.now() < tutCelebrate.until)){
+    const tab = QUEST_TABS[S.tut.stage];
+    if(tab && !tutTabLocked(tab)) return tab;
+  }
+  return tutTabLocked("requests") ? "proj" : "requests";
 }
 /* Stage 3: リーダーボード下の吊りメモの文面。チュートリアルの目的 (旧クエスト
    チップ) → 受注中の依頼 → 新着依頼の順。何も無ければメモ自体を出さない */

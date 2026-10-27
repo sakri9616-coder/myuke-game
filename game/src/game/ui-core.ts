@@ -8,6 +8,8 @@ const tabsEl = document.getElementById("tabs");
 for(const [id,label] of TABS){
   const btn = document.createElement("button");
   btn.textContent = label; btn.dataset.tab = id;
+  btn.setAttribute("role", "tab");
+  btn.setAttribute("aria-selected", id === currentTab ? "true" : "false");
   const mark = document.createElement("span");
   mark.className = "editor-tabmark"; mark.setAttribute("aria-hidden", "true");
   btn.appendChild(mark);
@@ -16,6 +18,8 @@ for(const [id,label] of TABS){
   tabsEl.appendChild(btn);
 }
 function fmt(n){ return Math.floor(n).toLocaleString("ja-JP"); }
+/* 作品の規模の表示名 (内部コード TUT はプレイヤーに見せない) */
+function sizeLabel(size){ return size === "TUT" ? "はじめて" : size; }
 /* Sprint 2: HUD の数字は実値へイージングで追いつく（線形な即時更新は「機械的で
    死んで見える」ので、増減どちらも少し遅れて滑らかに収束させる） */
 const hudShown = { coins: null, ideas: null, packages: null, bugs: null, rp: null, dust: null };
@@ -61,9 +65,11 @@ function affordInfo(key, cost, cur){
   const prev = affordPrev[key];
   if(prev && prev !== "afford" && st === "afford"){
     affordPulseAt[key] = Date.now();
-    let strip = false;
-    try{ strip = document.body.classList.contains("strip"); }catch(e){}
-    if(!strip) SoundKit.play("purchase");
+    /* メニューが見えている時だけ、控えめな「買えるよ」の音を鳴らす
+       (閉じて隠れているメニューの裏で鳴らさない) */
+    let audible = false;
+    try{ audible = !document.body.classList.contains("strip") && !document.hidden; }catch(e){}
+    if(audible) SoundKit.play("ready");
   }
   affordPrev[key] = st;
   return { afford, deficit, almost: st === "almost",
@@ -78,18 +84,27 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
     "<span class='pricetag'>" + fmt(cost) + unit + "</span>";
   let cls = "buybtn";
   if(a.almost){ label += " <span class='ahint'>あと " + fmt(a.deficit) + unit + "</span>"; cls += " almost"; }
-  if(a.pulse) cls += " afford-now";
+  /* 再描画でボタンが作り直されてもパルスが頭から始まり直さないよう、経過時間ぶん位相をずらす */
+  let pulseStyle = "";
+  if(a.pulse){ cls += " afford-now"; pulseStyle = " style='animation-delay:-" + Math.max(0, Date.now() - (affordPulseAt[key] || 0)) + "ms'"; }
   const dis = (!a.afford || extraDisabled) ? " disabled" : "";
-  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + ">" + label + "</button>";
+  /* 読み上げ名: 価格だけ (「46🪙」) では何のボタンか分からないので、操作と不足分も添える */
+  const aria = (prefix ? prefix.replace(/<[^>]*>/g, "") : "購入") + " " + fmt(cost) + unit + (a.almost ? "（あと " + fmt(a.deficit) + unit + "）" : "");
+  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + " aria-label='" + esc(aria) + "'>" + label + "</button>";
+}
+/* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
+function setTextIfChanged(id, text){
+  const el = document.getElementById(id);
+  if(el && el.textContent !== text) el.textContent = text;
 }
 function renderHeader(){
   renderEditorBreadcrumb();
-  document.getElementById("r-coins").textContent = fmt(hudNum("coins", S.coins));
-  document.getElementById("r-ideas").textContent = fmt(hudNum("ideas", S.ideas));
-  document.getElementById("r-pkg").textContent = fmt(hudNum("packages", S.packages));
-  document.getElementById("r-bugs").textContent = fmt(hudNum("bugs", S.bugStock));
-  document.getElementById("r-rp").textContent = fmt(hudNum("rp", S.rp));
-  document.getElementById("r-dust").textContent = fmt(hudNum("dust", S.dust));
+  setTextIfChanged("r-coins", fmt(hudNum("coins", S.coins)));
+  setTextIfChanged("r-ideas", fmt(hudNum("ideas", S.ideas)));
+  setTextIfChanged("r-pkg", fmt(hudNum("packages", S.packages)));
+  setTextIfChanged("r-bugs", fmt(hudNum("bugs", S.bugStock)));
+  setTextIfChanged("r-rp", fmt(hudNum("rp", S.rp)));
+  setTextIfChanged("r-dust", fmt(hudNum("dust", S.dust)));
   const cb = document.getElementById("conc-bar");
   if(cb) cb.style.width = Math.round(S.concentration)+"%";
   const pb = document.getElementById("proj-bar");

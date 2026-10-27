@@ -237,6 +237,16 @@ function stripHoverRect(){
 /* 描画中の主要スプライトの配置レジストリ (ホバーの輪を「その絵の形」に合わせる
    ため、描画関数が自分のスプライト名と置き場所を記録する) */
 let stripObjArt: Record<string, any> = {}, stripStaffArt = [];
+/* 点滅を控える: OS の「視差効果を減らす」か、設定の「点滅を減らす」が ON のとき。
+   状態を知らせる点滅 (企画中・雇える・ゲージ満タン等) は点けっぱなしにする
+   (色で伝わるので情報は欠けない。WCAG 2.2.2: 5秒を超えて続く点滅を止められること) */
+let reducedMotionMQ = null;
+try{ reducedMotionMQ = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null; }catch(e){}
+function motionReduced(){
+  return !!((S.settings && S.settings.reduceMotion) || (reducedMotionMQ && reducedMotionMQ.matches));
+}
+/* frame % period < on と同じ点滅。控える設定のときは常に点灯 */
+function blinkOn(period, on){ return motionReduced() || frame % period < on; }
 const spriteHaloCache = {};
 function yellowSpriteOf(name){
   if(name in spriteHaloCache) return spriteHaloCache[name];

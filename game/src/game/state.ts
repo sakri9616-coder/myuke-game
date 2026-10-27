@@ -1,5 +1,5 @@
 /* ---------- 状態マシン ---------- */
-let catState = "code", stateUntil = Date.now() + 4000, annoy = 0, lastInputAt = Date.now();
+let catState = "code", stateUntil = Date.now() + 4000, lastInputAt = Date.now();
 /* アニメーション用: 現在の状態に入った時刻（ランタイムのみ・セーブしない） */
 let stateEnteredAt = Date.now();
 const PLAY_STATES = ["yarn","groom","watch","chase","zoomies","duckplay","treasure"];
@@ -167,7 +167,7 @@ function updateComboUI(){
       "DP（連続でコンボ、たまにクリティカル×10）";
   }
 }
-function cheerClick(bx, by, part){
+function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し側 (hitzones) が担う */
   const now = Date.now();
   comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;
   lastClickAt = now;

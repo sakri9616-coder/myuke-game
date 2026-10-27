@@ -175,7 +175,7 @@ function moduleOutsourceCore(i){
   const cost = moduleOutCost(m);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; m.out = true; m.done = true;
-  addLog("🧩 モジュール『" + m.name + "』を外注した（-" + cost + "🪙・品質 0.8）");
+  addLog("🧩 モジュール『" + m.name + "』を外注した（-" + fmt(cost) + "🪙・品質 0.8）");
   say("『" + m.name + "』は外注したにゃ。無難な出来になるよ");
   save(); renderPanel();
 }
