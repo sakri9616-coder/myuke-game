@@ -195,7 +195,7 @@ interface StripHitRects {
 /* 帯の並べ替えモードで掴める物 */
 interface LayoutItem { id: string; label: string; cx: number; w: number; h: number; top: number; on?: boolean; prop?: boolean }
 
-interface ResearchDef { id: string; name: string; cost: number; desc: string; tier?: number; requires?: string; repeatable?: boolean }
+interface ResearchDef { id: string; name: string; cost: number; desc: string; tier?: number; requires?: string; repeatable?: boolean; stage?: string }
 
 interface AnimDef {
   frames: string[];

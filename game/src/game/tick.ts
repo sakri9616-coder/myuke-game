@@ -64,7 +64,7 @@ function tick(){
   if((S.upgrades.bot||0) > 0) produceDP(botRate()/60, "l1");
   if(ss.prog > 0) produceDP(ss.prog/60, "l1");
   // 第2ラインの生産
-  if(S.line2.unlocked && S.line2.project) produceDP(line2Rate()/60, "l2");
+  if(S.line2.unlocked && S.line2.project) produceDP(line2BaseRate()/60, "l2");
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
   if(S.subs && S.subs.length){
     let subCoin = 0, subDP = 0;

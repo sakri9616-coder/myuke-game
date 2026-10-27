@@ -754,9 +754,8 @@ function renderPanel(){
     }
     if(resCards) h += "<div class='buygrid'>"+resCards+"</div>";
     else h += "<div class='note' style='font-size:12px'>🎓 残りの研究はありません（反復研究だけが残っています）</div>";
-    const rlv = (S.researchLv && S.researchLv.res_report) || 0;
-    const rcost = repeatResearchCost(rlv);
-    if(!tier1Done() && rlv === 0){
+    const anyRep = REPEAT_RESEARCHES.some(d => repLv(d.id) > 0);
+    if(!tier1Done() && !anyRep){
       /* チュートリアル導線: 反復研究はティア1制覇までシルエット
          (条件はティア1の完了バーで絵で示す) */
       const t1 = RESEARCH_DEFS.filter(d => !d.tier);
@@ -765,9 +764,18 @@ function renderPanel(){
         [["🔬", doneN, t1.length, "ティア1研究の完了"]],
         "ひととおり研究が終わると、磨き上げができるにゃ");
     } else {
-      h += "<div class='item buy slim' data-fix='res:res_report'><div><span class='sock sm'>🔁</span><span class='nm'>"+REPEAT_RESEARCH.name+"</span> <span class='lvbadge'>Lv"+rlv+"</span>"+
-        "<div class='ds'>"+REPEAT_RESEARCH.desc+"（現在 生産 +"+(rlv*2)+"%）</div></div>"+
-        buyBtn("res:res_report", rcost, "rp", "buyResearch(\"res_report\")", false, "研究 ")+"</div>";
+      /* 工程別の反復研究。いま詰まっている工程の行に「詰まり中」を付ける */
+      const bn = bottleneckStage();
+      const bnStage = bn.isBn ? bn.worst.id : "impl";
+      let rep = "";
+      for(const d of REPEAT_RESEARCHES){
+        const lv = repLv(d.id);
+        rep += "<div class='item buy slim' data-fix='res:"+d.id+"'><div><span class='sock sm'>🔁</span><span class='nm'>"+d.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
+          (d.stage === bnStage ? " <span class='tagchip'>⚠ 詰まり中</span>" : "")+
+          "<div class='ds'>"+d.desc+"（現在 +"+(lv*5)+"%）</div></div>"+
+          buyBtn("res:"+d.id, repeatResearchCost(lv), "rp", "buyResearch(\""+d.id+"\")", false, "研究 ")+"</div>";
+      }
+      h += "<div class='buygrid'>"+rep+"</div>";
     }
     if(resDone) h += foldSec("resdone", false, "✅ 完了した研究", resDoneN+" 件", "<div class='feats'>"+resDone+"</div>");
   }

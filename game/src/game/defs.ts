@@ -265,12 +265,24 @@ const RESEARCH_DEFS: ResearchDef[] = [
   { id:"res_play2",   name:"一人遊び：宝探し",     cost:6, tier:2, desc:"一人遊びに「宝探し」が増える（アイデア多め、たまにコイン）" },
   { id:"res_bot2",    name:"ボットAI学習",         cost:8, tier:2, requires:"res_bottrain", desc:"子ねこボットの効率がさらに +50%" }
 ];
-/* Sprint 4: 反復研究（RP の恒常シンク）。レベルは S.researchLv に持つ */
-const REPEAT_RESEARCH: ResearchDef = { id:"res_report", name:"効率化レポート", cost:10, repeatable:true,
-  desc:"生産 +2%/Lv（何度でも研究でき、価格は 1.6 倍ずつ上がります）" };
+/* Sprint 4: 反復研究（RP の恒常シンク）。レベルは S.researchLv に持つ。
+   工程別の4本（sakuri 決定 2026-10-27）: 詰まっている工程を研究で伸ばす選択にする。
+   実装の id は旧「効率化レポート」の res_report を引き継ぐ（旧セーブのレベルは実装に入る） */
+const REPEAT_RESEARCHES: ResearchDef[] = [
+  { id:"res_report",  stage:"impl",  name:"実装の効率化レポート", cost:10, repeatable:true, desc:"実装 +5%/Lv" },
+  { id:"res_rep_test",  stage:"test",  name:"テスト手順書",       cost:10, repeatable:true, desc:"テスト速度と QA +5%/Lv" },
+  { id:"res_rep_build", stage:"build", name:"ビルド高速化メモ",   cost:10, repeatable:true, desc:"ビルド速度 +5%/Lv" },
+  { id:"res_rep_ship",  stage:"ship",  name:"出荷動線の見直し",   cost:10, repeatable:true, desc:"出荷速度 +5%/Lv" }
+];
+const REPEAT_RESEARCH = REPEAT_RESEARCHES[0];
 function repeatResearchCost(lv){ return Math.ceil(REPEAT_RESEARCH.cost * Math.pow(1.6, lv)); }
+function repLv(id){ return (S.researchLv && S.researchLv[id]) || 0; }
+function repMult(stage){
+  const def = REPEAT_RESEARCHES.find(r => r.stage === stage);
+  return 1 + 0.05 * (def ? repLv(def.id) : 0);
+}
 function tier1Done(){ return RESEARCH_DEFS.filter(r => !r.tier).every(r => S.research[r.id]); }
-function resMult(){ return 1 + 0.02 * ((S.researchLv && S.researchLv.res_report) || 0); }
+function resMult(){ return repMult("impl"); }   /* 実装ぶん（extraMult 経由で実装・第2ライン・クリックに掛かる） */
 
 /* ---------- 実績 ---------- */
 const STAMP_DEFS = [
