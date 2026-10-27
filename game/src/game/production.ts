@@ -478,8 +478,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
   S.rp += rp;
   S.totals.releases++; S.today.releases++;
   S.vendorUses = 0;    /* v2.12.1: バグ外注の続け頼みの割増はリリースで戻る */
-  ipRoyaltyOnShip();   /* v2.12.1: 既存の自社IPのロイヤリティとトレンドは出荷の本数で回る（この作品の IP 成立はこの後） */
-  trendOnShip();
+  trendOnShip();   /* v2.12.1: トレンドは出荷の本数で回る（自社IP は段階1から毎秒のシリーズ売上） */
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
   applyShipQuality(p);
   const entry = {
@@ -505,13 +504,53 @@ function basePriceCoins(p, line2){
   return c;
 }
 let coinFlowFrac = 0, coinFlowSecAcc = 0, coinFlowEMA = 0;   /* 端数・この1秒の流入・🪙/秒 の平滑値（表示用） */
+function creditFlowCoins(c){
+  coinFlowSecAcc += c;
+  coinFlowFrac += c;
+  if(coinFlowFrac >= 1){ const n = Math.floor(coinFlowFrac); coinFlowFrac -= n; S.coins += n; S.totals.coinsEarned += n; }
+}
 function payFlow(p, a, line2){
   if(!p || p.ip || a <= 0 || !(p.totalDP > 0)) return;
   const c = basePriceCoins(p, line2) * FLOW_SHARE * a / p.totalDP;
   p.flowPaid = (p.flowPaid || 0) + c;
-  coinFlowSecAcc += c;
-  coinFlowFrac += c;
-  if(coinFlowFrac >= 1){ const n = Math.floor(coinFlowFrac); coinFlowFrac -= n; S.coins += n; S.totals.coinsEarned += n; }
+  creditFlowCoins(c);
+}
+/* ---------- 作品棚の毎秒売上（再設計 段階1・2026-10-27 sakuri 承認）----------
+   出した作品は棚に並んで売れ続ける: リリースの瞬間に 値段 × CAT.ratePerMin /分 で売れ始め、
+   次の作品が出るたびに ×CAT.decay（新作に客が移る）。棚に並ぶのは新しい順に CAT.max 本。
+   自社IP になった作品はシリーズとして減衰せず、値段 × CAT.seriesPerMin /分 を EXIT まで稼ぐ
+   （v2.12.1 の「出荷1本ごとのロイヤリティ」を置き換え。仕事の桁に追従するのは従来どおり）。
+   収入が「リリースの山」だけだと、作る速さの遅い放置プレイでは買い物→収入の複利がほとんど回らなかった。
+   棚とシリーズは会社の資産なので EXIT で消える */
+/* sim 実測（game-sim・3シード、段階1）: 0.015 では放置の停滞が 70分、0.04 で 66分、0.08 で 29分。
+   秒5クリックの星屑20個は 0.015〜0.08 でほぼ変わらない（15〜18分）。張り付きはリリースが速いぶん棚がすぐ入れ替わり、
+   放置はリリースの間が長いぶん棚が長く稼ぐ: 同じ作品棚が遊び方で効き方を変える */
+const CAT = { ratePerMin: 0.08, decay: 0.8, max: 12, seriesPerMin: 0.04 };
+function catalogAdd(p, price){
+  if(!Array.isArray(S.catalog)) S.catalog = [];
+  for(const e of S.catalog) e.r *= CAT.decay;
+  S.catalog.unshift({ n: p.name, r: price * CAT.ratePerMin / 60 });
+  if(S.catalog.length > CAT.max) S.catalog.length = CAT.max;
+}
+function seriesRate(ip){ return ip.price * CAT.seriesPerMin / 60 * Math.max(1, workScale() / (ip.scale || 1)); }
+/* 🪙/秒（棚＋シリーズ） */
+function catalogRate(){
+  let r = 0;
+  for(const e of (S.catalog || [])) r += e.r || 0;
+  for(const ip of (S.ips || [])) r += seriesRate(ip);
+  return r;
+}
+/* いまの自動収入 🪙/秒（作りながらの入金・棚・シリーズ・子会社。リリースの山は含めない） */
+function incomePerSec(){
+  let r = Math.max(coinFlowEMA, catalogRate());
+  for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
+  return r;
+}
+/* イベント報酬: 収入の sec 秒ぶん。従来の式 floor を下回らない */
+function rewardCoins(sec, floor){ return Math.max(floor, Math.round(sec * incomePerSec())); }
+function tickCatalog(){
+  const c = catalogRate();
+  if(c > 0) creditFlowCoins(c);
 }
 /* 1秒ティックから呼ぶ: 🪙/秒 の表示値を更新 */
 function tickCoinFlow(){ coinFlowEMA = coinFlowEMA * 0.8 + coinFlowSecAcc * 0.2; coinFlowSecAcc = 0; }
@@ -522,7 +561,7 @@ function releaseProject(){
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   /* Sprint 4: ティア2研究のジャンル深化（AI=研究P+1。ゲームのコイン+30% は basePriceCoins） */
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
-  const ipBase = coins;   /* 第2ウェーブ L: ロイヤリティの元本 = 依頼ボーナスを含まない通常価格 */
+  const ipBase = coins;   /* 第2ウェーブ L: シリーズ売上と棚売上の元本 = 依頼ボーナスを含まない通常価格 */
   let requestBonus = "";
   if(S.activeRequest && S.activeRequest.genre === p.genre){
     /* Phase C: ボーナス率は依頼のティアで決まる（手動受注は従来どおり +60%）。
@@ -551,7 +590,7 @@ function releaseProject(){
     maybeAutoAcquire();   /* Phase C: 枠が空いたら営業が次を取ってくる */
   }
   /* 第2ウェーブ L: IP が成立する出荷は即時の入金が売却額の30%になる
-     （残りはロイヤリティ。成立しない指定作は通常どおり全額） */
+     （残りはシリーズの毎秒売上。成立しない指定作は通常どおり全額） */
   const ipOk = ipConvertible(p);
   if(ipOk) coins = Math.round(coins * 0.3);
   else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);   /* IP 狙いの空振り: 作り込みが中途半端 */
@@ -559,6 +598,7 @@ function releaseProject(){
   const bonusNow = Math.max(0, coins - flowed);
   recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
+  if(!ipOk) catalogAdd(p, ipBase);   /* 再設計 段階1: 棚に並んで売れ続ける（IP はシリーズとして別に稼ぐ） */
   S.coins += bonusNow - coins;   /* recordRelease が全額を足すので、入金済みの分を戻す */
   S.totals.coinsEarned += bonusNow - coins;
   coins = bonusNow;
@@ -590,6 +630,7 @@ function releaseProject2(){
   recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
   S.flags.line2Released = true;
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
+  if(!ipOk2) catalogAdd(p, ipBase2);
   S.coins += bonus2 - coins; S.totals.coinsEarned += bonus2 - coins;
   coins = bonus2;
   addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed2 > 0 ? "（作りながら +"+fmt(flowed2)+"🪙 入金済み）" : "")+" / +"+rp+"🔬");

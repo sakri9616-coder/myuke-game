@@ -17,7 +17,7 @@ let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリ�
 function bumpRev(){ snapRev++; }
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.12.2";   /* 表示ラベルの単一の出所 (v2.12.2: 数字を万進法で表示。再設計の段階0。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.13.0";   /* 表示ラベルの単一の出所 (v2.13.0: 作品棚の毎秒売上・自社IP のシリーズ化。再設計の段階1。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -61,6 +61,8 @@ function freshState(): GameState {
     /* 第2ウェーブ L 追加分: 市場トレンド { boom, slump, nextBoom, nextSlump,
        cycleSec, announceAt }・開発ジャンルの方針・自社IP・常駐秒カウンタ */
     trend:null, devGenrePref:null, ips:[], residentSec:0,
+    /* 再設計 段階1 追加分: 作品棚の毎秒売上 [{ n: 作品名, r: 🪙/秒 }]（新しい順・EXIT で消える） */
+    catalog:[],
     /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
     executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
@@ -178,6 +180,7 @@ function load(rawText?: string){
     S.shelf = objectsOnly(S.shelf);
     S.log = objectsOnly(S.log);
     S.ips = objectsOnly(S.ips);
+    S.catalog = objectsOnly(S.catalog).filter(e => typeof e.r === "number" && isFinite(e.r) && e.r >= 0);
     S.subs = objectsOnly(S.subs);
     S.staff = objectsOnly(S.staff);
     S.executives = objectsOnly(S.executives);

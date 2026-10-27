@@ -669,7 +669,7 @@ function renderPanel(){
         GENRES.map(g => "<button onclick='setDevGenrePref(\"" + g.id + "\")'" + (S.devGenrePref === g.id ? " class='primary'" : "") + ">" + g.name + "</button>").join(" ") + "</div>";
       if((S.ips || []).length){
         trBody += "<div class='stagehead'>🏷 自社IP（" + S.ips.length + " / 3）</div>" + S.ips.map(ip =>
-          kv("『" + esc(ip.name) + "』", "ロイヤリティ あと出荷 " + ipShipsLeft(ip) + " 本ぶん")).join("");
+          kv("『" + esc(ip.name) + "』", "シリーズ売上 +" + fmtRate(seriesRate(ip)) + "🪙/秒")).join("");
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }

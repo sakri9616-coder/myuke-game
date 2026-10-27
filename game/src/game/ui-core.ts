@@ -33,6 +33,8 @@ function fmt(n){
 }
 /* クリックの DP 表示: 小さいうちは小数1桁、100 以上は桁区切りの整数 */
 function fmtClickDP(n){ return n < 100 ? n.toFixed(1) : fmt(n); }
+/* 毎秒の量の表示: 10 未満は小数1桁 */
+function fmtRate(n){ return n < 10 ? n.toFixed(1) : fmt(Math.round(n)); }
 /* 作品の規模の表示名 (内部コード TUT はプレイヤーに見せない) */
 function sizeLabel(size){ return size === "TUT" ? "はじめて" : size; }
 /* Sprint 2: HUD の数字は実値へイージングで追いつく（線形な即時更新は「機械的で
