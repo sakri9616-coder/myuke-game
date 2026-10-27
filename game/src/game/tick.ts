@@ -59,13 +59,18 @@ function tick(){
      アキュムレータへ供給する (演出専用。応援クリックの produceDP は
      tick の外で起きるため、この差分には混ざらない = 設計 #11) */
   const _fc1 = S.wip.code, _fc2 = S.line2.wip.code;
+  /* 企画会議中は、そのラインの自動の実装が止まる（後工程と応援クリックは止まらない） */
+  const meet1 = inPlanMeet(S.project), meet2 = inPlanMeet(S.line2.project);
+  if(meet1) S.project.planMeetSec = Math.max(0, S.project.planMeetSec - 1);
+  if(meet2) S.line2.project.planMeetSec = Math.max(0, S.line2.project.planMeetSec - 1);
+  if(meet1 && !inPlanMeet(S.project)){ addLog("💡 『" + S.project.name + "』の企画会議が終わった。実装を再開"); say("企画、まとまったにゃ！ 実装再開！"); }
   // 基本進捗 (DP/分 → /秒)。プログラミング系の状態でのみ進む
-  if(coding) produceDP(BAL.basePerMin/60, "l1");
+  if(coding && !meet1) produceDP(BAL.basePerMin/60, "l1");
   // 子ねこボットとプログラマ猫は状態によらず働く
-  if((S.upgrades.bot||0) > 0) produceDP(botRate()/60, "l1");
-  if(ss.prog > 0) produceDP(ss.prog/60, "l1");
+  if((S.upgrades.bot||0) > 0 && !meet1) produceDP(botRate()/60, "l1");
+  if(ss.prog > 0 && !meet1) produceDP(ss.prog/60, "l1");
   // 第2ラインの生産
-  if(S.line2.unlocked && S.line2.project) produceDP(line2BaseRate()/60, "l2");
+  if(S.line2.unlocked && S.line2.project && !meet2) produceDP(line2BaseRate()/60, "l2");
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
   if(S.subs && S.subs.length){
     let subCoin = 0, subDP = 0;
