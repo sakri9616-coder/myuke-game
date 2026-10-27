@@ -305,24 +305,37 @@
   /* 再設計 段階4: スタッフタブの部署ごとの列（見出し・所属の猫・雇用）。上に次の社格の予告 */
   .rankbox{padding:9px 12px;}
   .rankbox .nm{font-size:14.5px;}
-  .deptcols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:6px;margin:6px 0;
-    align-items:start;overflow-x:auto;padding-bottom:2px;}
-  .deptcol{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .deptcols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:0;margin:6px 0;
+    align-items:stretch;overflow-x:auto;padding-bottom:2px;}
+  .deptcol{display:flex;flex-direction:column;gap:3px;min-width:0;padding:0 4px;}
+  .deptcol+.deptcol{border-left:1.5px solid var(--ink-soft);}
   .deptcol.locked{opacity:.6;}
-  .deptcard{flex-direction:column;align-items:stretch;gap:4px;padding:5px 6px;border-width:2px;border-radius:8px;}
-  .deptcard .sc-row{display:flex;align-items:center;gap:6px;}
-  .deptcard .sc-img{width:32px;height:30px;border-width:2px;border-radius:6px;font-size:16px;}
-  .deptcard .sc-img img{max-width:30px;max-height:28px;}
-  .deptcard .sc-top{gap:4px;flex-wrap:nowrap;}
-  .deptcard .sc-top .nm{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .deptcard .lvbadge{font-size:10px;padding:0 3px;}
-  .deptcard .sc-eff{font-size:10.5px;line-height:1.3;}
-  .deptcard .sc-desc{min-height:2.6em;}
-  .deptcard .sc-btns{display:flex;flex-wrap:wrap;gap:4px;}
-  .deptcard .sc-btns .buybtn{flex:1 1 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
-  .deptcard .sc-btns .pricetag{font-size:10.5px;padding:0 4px;}
-  .deptcard .sc-btns .tagchip{font-size:10.5px;}
-  .deptcol-head{border-top-width:4px;border-top-color:var(--wood);}
+  /* 部署の見出し = 工場の工程カード（.ratecell）と同じ作り */
+  .depthead{background:var(--paper-2);border:2.5px solid var(--ink-soft);border-top:4px solid var(--wood);
+    border-radius:10px;padding:5px 7px;margin-bottom:2px;}
+  .depthead .rh{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;}
+  .depthead .rh .nm{flex:1 1 auto;}
+  .depthead .dlv{font-size:11px;color:var(--sub);font-weight:800;}
+  .depthead .rv{font-size:17px;font-weight:800;line-height:1.3;}
+  .depthead .rv small{font-size:10px;color:var(--sub);font-weight:700;}
+  .depthead .lampbar{width:100%;margin:2px 0;}
+  .depthead .rs{font-size:10.5px;color:var(--sub);font-weight:700;line-height:1.35;}
+  .dh-btns{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+  .dh-btns .buybtn{flex:1 1 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
+  .dh-btns .pricetag,.catrow .pricetag{font-size:10.5px;padding:0 4px;}
+  /* 所属の猫 = 1行の軽い行 */
+  .catrow{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:5px;align-items:center;
+    padding:2px 3px;border-radius:6px;}
+  .catrow:hover{background:var(--paper-2);}
+  .catrow .sc-img{grid-row:1 / 3;width:26px;height:26px;border-width:1.5px;border-radius:5px;font-size:13px;}
+  .catrow .sc-img img{max-width:24px;max-height:24px;}
+  .catrow .sc-top{gap:3px;flex-wrap:nowrap;min-width:0;}
+  .catrow .sc-top .nm{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .catrow .lvbadge{font-size:9.5px;padding:0 3px;}
+  .cr-bot{display:flex;align-items:center;gap:4px;min-width:0;}
+  .catrow .sc-eff{flex:1 1 auto;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;}
+  .catrow .buybtn{flex:0 0 auto;font-size:10px;padding:0 3px;}
+  .catrow .tagchip{font-size:10px;}
   /* 購入ボタンはカード/行の中で潰さない (価格タグが割れるのを防ぐ) */
   .buy>button, .staffcard>button{flex:0 0 auto;}
   .buybtn .buy-act{white-space:nowrap;}
@@ -554,8 +567,13 @@
   body:not(.strip) .sc-img{background:var(--ide-paper);border-color:var(--ide-line);
     box-shadow:inset 0 2px 0 rgba(70,49,38,.15);}
   body:not(.strip) .sc-eff{color:var(--ide-sub);}
-  body:not(.strip) .deptcol-head{border-top:3px solid var(--ide-status);}
-  body:not(.strip) .staffcard.deptcard{padding:5px 6px;gap:4px;}
+  body:not(.strip) .depthead{background:var(--ide-panel2);border:1px solid var(--ide-line);border-top:2px solid var(--syn-green);border-radius:3px;}
+  body:not(.strip) .depthead .rh{color:var(--syn-purple);}
+  body:not(.strip) .depthead .rv{font-family:var(--mono);color:var(--syn-num);}
+  body:not(.strip) .depthead .rv small,body:not(.strip) .depthead .rs,body:not(.strip) .depthead .dlv{color:var(--ide-sub);}
+  body:not(.strip) .deptcol+.deptcol{border-left:1px solid var(--ide-line);}
+  body:not(.strip) .catrow:hover{background:var(--ide-panel2);}
+  body:not(.strip) .catrow .sc-top .nm{color:var(--syn-str);}
   body:not(.strip) .sc-pct{font-family:var(--mono);}
   body:not(.strip) .workcard{background:var(--ide-panel);border-color:var(--ide-line);
     box-shadow:0 2px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);}
