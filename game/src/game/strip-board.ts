@@ -228,6 +228,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     if(meet){
       sctx.fillStyle = "#b07a1e";
       sctx.fillText(fitMemoText("💡 企画会議中（実装停止 あと " + fmtMinSec(p.planMeetSec) + "）", rw), ix + iw - 3, rcy);
+    } else if(p.ip && m.frac >= 0.7){
+      /* IP ねらいの終盤は、出荷時のバグ数（0 で成立）を出す */
+      const nb = Math.floor(S.bugStock);
+      sctx.fillStyle = nb > 0 ? "#d9534f" : "#3f8f4a";
+      sctx.fillText(fitMemoText(nb > 0 ? "🏷 IP: バグ " + nb + " 匹を0に！" : "🏷 IP: バグ0 で成立ライン", rw), ix + iw - 3, rcy);
     } else if(bn){
       /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
       const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
