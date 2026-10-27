@@ -114,6 +114,18 @@ else
   fi
 fi
 
+# 3b) game-sim gates（改訂3・本物のゲームコード）。再設計の段階0では移行期間として WARNING 扱い。
+#     段階1で改訂3を満たしたら FAIL 扱いに切り替え、旧 balance-sim のゲートを退役させる
+run_step gamesim node "$ROOT/tools/game-sim.js" gates 3
+GS_FAILS="$(grep -c "^  FAIL " "$TMP/gamesim.out" || true)"
+if ! grep -q "ゲート改訂3" "$TMP/gamesim.out"; then
+  echo "GAMESIM: WARNING (no gate table, see step log)" >> "$LOG"; WARNINGS="$WARNINGS gamesim-missing;"
+elif [ "$GS_FAILS" != "0" ]; then
+  echo "GAMESIM: WARNING ($GS_FAILS gate(s) FAIL under 改訂3: $(grep "^  FAIL " "$TMP/gamesim.out" | awk '{print $2}' | tr '\n' ' '))" >> "$LOG"; WARNINGS="$WARNINGS gamesim-gates;"
+else
+  echo "GAMESIM: PASS (改訂3)" >> "$LOG"
+fi
+
 # 4) strip-fresh first-release measurement
 run_step fresh node "$ROOT/tools/strip-fresh-measure.js"
 FRESH_LINE="$(grep "SUMMARY" "$TMP/fresh.out" | head -1 || true)"

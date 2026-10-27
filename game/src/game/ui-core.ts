@@ -17,7 +17,20 @@ for(const [id,label] of TABS){
   btn.onclick = ()=>{ switchTab(id); };
   tabsEl.appendChild(btn);
 }
-function fmt(n){ return Math.floor(n).toLocaleString("ja-JP"); }
+/* 万進法の表示（再設計 段階0）: 1万未満は従来どおり桁区切りの整数。1万からは 4 桁ごとに単位を
+   切り替え、有効数字 3〜4 桁で出す（1.23万・45.6億・789兆…無量大数）。その先は 1.23e72。
+   桁区切りのまま並べると兆を超えたあたりで帯に収まらなくなるため。単位の名前自体が成長の手応えになる */
+const MAN_UNITS = ["", "万", "億", "兆", "京", "垓", "秭", "穣", "溝", "澗", "正", "載", "極", "恒河沙", "阿僧祇", "那由他", "不可思議", "無量大数"];
+function fmt(n){
+  if(!isFinite(n)) return String(n);
+  if(n < 0) return "-" + fmt(-n);
+  if(n < 1e4) return Math.floor(n).toLocaleString("ja-JP");
+  const k = Math.min(MAN_UNITS.length - 1, Math.floor(Math.log10(n) / 4));
+  const v = n / Math.pow(10, 4 * k);
+  if(v >= 1e4) return String(Math.floor(n / Math.pow(10, Math.floor(Math.log10(n)) - 2)) / 100) + "e" + Math.floor(Math.log10(n));
+  const d = v < 10 ? 2 : v < 100 ? 1 : 0;
+  return String(Math.floor(v * Math.pow(10, d)) / Math.pow(10, d)) + MAN_UNITS[k];
+}
 /* クリックの DP 表示: 小さいうちは小数1桁、100 以上は桁区切りの整数 */
 function fmtClickDP(n){ return n < 100 ? n.toFixed(1) : fmt(n); }
 /* 作品の規模の表示名 (内部コード TUT はプレイヤーに見せない) */
