@@ -54,8 +54,8 @@ function stageMult(stage){ return dpMult(S.upgrades) * companyMult() * firstBoos
 function qaRate(){
   return (qaPerMin(S.upgrades) + (S.research.res_duckplay ? 0.2 : 0) + staffSums().qa) * stageMult("test");
 }
-function testRate(){ return (BAL.stageBaseRate + BAL.equipDP.tester*(S.upgrades.tester||0) + staffSums().testDP) * stageMult("test"); }
-function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*(S.upgrades.ci||0) + BAL.equipDP.pack*(S.upgrades.pack||0)) * stageMult("build"); }
+function testRate(){ return (BAL.stageBaseRate + BAL.equipDP.tester*upEff(S.upgrades, "tester") + staffSums().testDP) * stageMult("test"); }
+function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*upEff(S.upgrades, "ci") + BAL.equipDP.pack*upEff(S.upgrades, "pack")) * stageMult("build"); }
 function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.bot*(S.upgrades.bot||0) + staffSums().ship) * stageMult("ship"); }
 function botRate(){ return 2 * (S.upgrades.bot||0) * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
@@ -488,7 +488,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
 function releaseProject(){
   const p = S.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
+  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * modulePriceMult(p) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30% / AI=研究P+1） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
@@ -544,7 +544,7 @@ function releaseProject(){
 function releaseProject2(){
   const L = S.line2, p = L.project;
   const devMin = projectDevMin(p);
-  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * BAL.line2CoinRate * (1 + 0.10*(S.upgrades.ci||0)) * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
+  let coins = Math.round(BAL.coinBase[p.size] * (p.scale || 1) * BAL.line2CoinRate * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre));
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   if(p.genre === "game" && S.research.res_game2) coins = Math.round(coins * 1.3);
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
