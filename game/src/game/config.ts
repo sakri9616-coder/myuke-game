@@ -18,10 +18,13 @@ const BAL = {
   coinBase:  { TUT:60,  XS:90,  S:150, M:340,  L:750 },
   rpBase:    { TUT:1,   XS:1,   S:1,   M:2,    L:4 },
   bugPerDP: 0.012,          // DPあたりのバグ混入
+  inputBugRate: 0.3,        // 応援クリック・入力ブースト由来の DP のバグ混入倍率
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
   prestigeDPPerDust: 8000,  // 星屑1個ぶんのDP（第2ウェーブ I: 12,000→8,000 で EXIT を小刻み化）
-  dustBonus: 0.04,          // 星屑1個の永続ボーナス(+4% DP/コイン)
+  dustSoftcap: 20,          // 1回の売却でこの個数を超えた分は平方根で伸びる（星屑×倍率の複利暴走を止める）
+  dustBonus: 0.04,          // 星屑1個の永続ボーナス(+4% ライン全体の生産。作品単価には平方根で効く: dustPriceMult)
+  dustMultSoftcap: 30,      // 通算星屑がこれを超えた分は、倍率に平方根で効く
   stageBaseRate: 30,        // テスト/ビルド/出荷の基本スループット DP/分
   line2BaseRate: 4,         // 第2ラインの基本生産 DP/分
   line2BuildCost: 1500,     // 第2ライン建設費 🪙

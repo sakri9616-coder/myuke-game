@@ -169,7 +169,7 @@ function buyDustPerk(id){
 function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
-  const gain = Math.floor(S.runDP / BAL.prestigeDPPerDust) + subGain;
+  const gain = dustGainFromDP(S.runDP) + subGain;
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ", "第2ライン", "応援強化"];
   if(subGain > 0) resets.push("子会社");
@@ -189,8 +189,8 @@ function prestigePreview(){
   if(S.executives && S.executives.length) keeps.push("役員 " + S.executives.map(e => "『"+e.name+"』").join(""));   /* 第2ウェーブ M */
   return {
     gain, subGain,
-    curMult: 1 + BAL.dustBonus * total,
-    nextMult: 1 + BAL.dustBonus * (total + gain),
+    curMult: dustMultFor(total),
+    nextMult: dustMultFor(total + gain),
     resets, keeps
   };
 }
@@ -325,7 +325,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   S.coins = (hasPerk("seedmoney") ? 300 : 0) + (hasPerk("piggybank") ? Math.min(500, Math.floor(coinsBefore * 0.1)) : 0);
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   if(keptStaff){ S.staff = [keptStaff]; S.staffSeq = Math.max(S.staffSeq, keptStaff.id); }
-  addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round(BAL.dustBonus*S.dustTotal*100)+"%）");
+  addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round((dustMultFor(S.dustTotal) - 1)*100)+"%）");
   /* 第2ウェーブ M: 役員の就任・交代・卒業（役員枠は EXIT では消えない） */
   if(execCand){
     const snap = { name: execCand.name, coat: execCand.coat, role: execCand.role };
