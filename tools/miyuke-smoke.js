@@ -1096,6 +1096,26 @@ console.log("== Phase A13: hostile saves (XSS escaping / atomic load / corrupt s
   check("tray quit asks the strip page to save before exiting", rs.includes('emit_to(WIN_STRIP, "save-now"'));
 }
 
+/* ================= Phase A14: 描画の性能 (値は不変) ================= */
+console.log("== Phase A14: render performance (per-frame staff sums / strip skips header) ==");
+{
+  const sb = buildSandbox({ hash: "#strip", width: 1280, height: 210 });
+  loadGame(sb);
+  run(sb, `S.studioLv = 9; S.staff = []; const roles = Object.keys(STAFF_ROLES);
+    for(let i = 0; i < 48; i++) S.staff.push({ id: i + 1, name: "c" + i, coat: COATS[i % COATS.length], role: roles[i % roles.length], lv: 1 + (i % 10) });
+    S.executives = [{ name: "e", role: "prog" }, { name: "f", role: "test" }];`);
+  const plain = run(sb, "JSON.stringify(staffSums())");
+  run(sb, `window.__css = 0; const __c = computeStaffSums; computeStaffSums = function(){ window.__css++; return __c(); };`);
+  run(sb, "render();");
+  check("staff sums are computed at most once per strip frame (was ~31 times with 48 staff)", run(sb, "window.__css") <= 1, "calls=" + run(sb, "window.__css"));
+  check("cached staff sums equal the uncached values", run(sb, "JSON.stringify(staffSums())") === plain);
+  check("outside render() staff sums are never stale (cache is off)", run(sb, "staffSumsCacheActive") === false && run(sb, "staffSumsFrameCache") === null);
+  run(sb, `window.__rh = 0; const __rhOrig = renderHeader; renderHeader = function(){ window.__rh++; return __rhOrig(); }; render();`);
+  check("the strip window does not rebuild the hidden HTML header every frame", run(sb, "window.__rh") === 0);
+  run(sb, "window.__miyukeApplyMode('full'); render();");
+  check("the menu form still updates the header every frame", run(sb, "window.__rh") === 1);
+}
+
 /* ================= Phase B: ストリップ + 偽 Tauri ================= */
 console.log("== Phase B: strip mode with fake Tauri ==");
 {
@@ -1987,10 +2007,23 @@ console.log("== Phase B9: 60fps rendering + movement layer wins ==");
   loadGame(sb);
 
   /* ---- A1: レンダラ周期 ---- */
-  check("B9-A: render interval is ~16ms (60fps), no 150ms render timer remains",
-    sb._intervals.some(iv => iv.ms >= 8 && iv.ms <= 20 && iv.fn && iv.fn.name === "render") &&
+  /* 描画は requestAnimationFrame 駆動 (画面のリフレッシュに同期)。rAF が止まる環境向けに
+     50ms のタイマーが「50ms 描かれていなければ描く」予備として残る */
+  check("B9-A: render runs on requestAnimationFrame with a 50ms fallback timer, no 150ms render timer remains",
+    run(sb, "typeof renderLoop === 'function'") &&
+    sb._intervals.some(iv => iv.ms === 50) &&
     !sb._intervals.some(iv => iv.ms === 150),
     JSON.stringify(sb._intervals.map(iv => iv.ms)));
+  {
+    const before = run(sb, "lastRenderAt");
+    sb._advanceFake(60);
+    sb._intervals.find(iv => iv.ms === 50).fn();
+    check("B9-A: the fallback timer renders when rAF has not drawn for 50ms", run(sb, "lastRenderAt") > before);
+    const mid = run(sb, "lastRenderAt");
+    sb._advanceFake(10);
+    sb._intervals.find(iv => iv.ms === 50).fn();
+    check("B9-A: the fallback timer stays idle while frames are fresh", run(sb, "lastRenderAt") === mid);
+  }
 
   /* ---- A2: frame は実時間換算 (150ms = 1frame) で進み、即時再描画では進まない ---- */
   run(sb, "frameAcc = 10; frame = 10; lastRenderAt = Date.now(); render();");

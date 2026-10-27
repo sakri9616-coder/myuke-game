@@ -259,6 +259,11 @@ if(stripCv){
 }
 
 function render(){
+  staffSumsCacheActive = true;
+  try{ renderFrame(); }
+  finally{ staffSumsCacheActive = false; staffSumsFrameCache = null; }
+}
+function renderFrame(){
   /* v2.3.6(予定) A: 60fps 化 (旧: setInterval 150ms ≒ 6.7fps で全員が
      カクカク滑って見えた)。移動・物理は元々 dt ベース、アニメは壁時計/
      walkClock ベースなので再生速度は変わらない。frame は実時間から
@@ -270,10 +275,20 @@ function render(){
   /* Sprint 4: コーディング位相を実時間で進める（集中力連動） */
   if(lastRenderAt) advanceCodePhase(dtR);
   lastRenderAt = nowR;
-  renderHeader();   /* Sprint 2: HUD のカウントアップをフレーム駆動で滑らかにする */
+  /* 帯ではヘッダもパネルも表示されない (display:none) ので、HUD の更新はメニュー形態だけ */
   if(document.body.classList.contains("strip")){ renderStrip(); publishHitZones(false); return; }
+  renderHeader();   /* Sprint 2: HUD のカウントアップをフレーム駆動で滑らかにする */
   /* Strip Canon: フルモードにシーンは描かない（R11: 管理側はパネルのみ）。
      みゅけの世界は帯だけ。フルではヘッダとパネルの DOM 更新のみ行う */
 }
-setInterval(render, 16);
+/* 描画は画面のリフレッシュに合わせる (requestAnimationFrame)。setInterval(16ms) だと
+   60Hz の画面で 0.4 秒ごとに1回、同じリフレッシュに2回描いて歩きがカクついていた。
+   rAF が止まる環境 (隠れた窓・WebView の事情) に備え、50ms 描かれなかったら
+   従来どおりタイマーからも描く (どちらで描いても時間ベースなので速度は同じ) */
+function renderLoop(){
+  render();
+  requestAnimationFrame(renderLoop);
+}
+requestAnimationFrame(renderLoop);
+setInterval(() => { if(Date.now() - lastRenderAt >= 50) render(); }, 50);
 

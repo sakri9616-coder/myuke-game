@@ -144,7 +144,15 @@ function buyBulkTrain(){
   say("みんな1レベル上がったにゃ！");
   save(); renderPanel();
 }
+/* スタッフ合計は1フレームの描画中に30回ほど呼ばれる (工程レート・山・ボトルネック判定…)。
+   描画中は S が変わらないので、render() の間だけ1回の計算結果を使い回す
+   (48匹＋役員の終盤で描画の JS 時間が約6割減る。値は同一) */
+let staffSumsCacheActive = false, staffSumsFrameCache = null;
 function staffSums(){
+  if(!staffSumsCacheActive) return computeStaffSums();
+  return staffSumsFrameCache || (staffSumsFrameCache = computeStaffSums());
+}
+function computeStaffSums(){
   const s = { prog:0, progW:0, qa:0, testDP:0, ship:0, rp:0, careW:0, count:0, byRole:{} };
   for(const st of S.staff){
     const m = staffOutMult(st) * deptMult(st.role), def = STAFF_ROLES[st.role];   /* Sprint 4: 熟練ボーナス込み / Phase C: 部署Lv 倍率 */

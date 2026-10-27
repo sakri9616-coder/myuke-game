@@ -86,14 +86,19 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
   const dis = (!a.afford || extraDisabled) ? " disabled" : "";
   return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + ">" + label + "</button>";
 }
+/* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
+function setTextIfChanged(id, text){
+  const el = document.getElementById(id);
+  if(el && el.textContent !== text) el.textContent = text;
+}
 function renderHeader(){
   renderEditorBreadcrumb();
-  document.getElementById("r-coins").textContent = fmt(hudNum("coins", S.coins));
-  document.getElementById("r-ideas").textContent = fmt(hudNum("ideas", S.ideas));
-  document.getElementById("r-pkg").textContent = fmt(hudNum("packages", S.packages));
-  document.getElementById("r-bugs").textContent = fmt(hudNum("bugs", S.bugStock));
-  document.getElementById("r-rp").textContent = fmt(hudNum("rp", S.rp));
-  document.getElementById("r-dust").textContent = fmt(hudNum("dust", S.dust));
+  setTextIfChanged("r-coins", fmt(hudNum("coins", S.coins)));
+  setTextIfChanged("r-ideas", fmt(hudNum("ideas", S.ideas)));
+  setTextIfChanged("r-pkg", fmt(hudNum("packages", S.packages)));
+  setTextIfChanged("r-bugs", fmt(hudNum("bugs", S.bugStock)));
+  setTextIfChanged("r-rp", fmt(hudNum("rp", S.rp)));
+  setTextIfChanged("r-dust", fmt(hudNum("dust", S.dust)));
   const cb = document.getElementById("conc-bar");
   if(cb) cb.style.width = Math.round(S.concentration)+"%";
   const pb = document.getElementById("proj-bar");

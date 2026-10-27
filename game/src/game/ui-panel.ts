@@ -176,6 +176,7 @@ function renderPanel(){
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
      誤認させない (freshState のゼロを本物の状態として見せない。設計 §3.2) */
   if(IS_VIEWER && !viewerSynced){
+    panelLastHTML = null;
     el.innerHTML = "<div class='note' style='margin-top:14px'>🐱 帯と同期中…（帯ウィンドウから状態が届くまでお待ちください）</div>";
     return;
   }
@@ -183,6 +184,7 @@ function renderPanel(){
      ビジュアル条件 (アイコン+メーター+現在/必要数) のパネルを出す。
      タブ自体は常に見えている (存在を隠さない) */
   if(tutTabLocked(currentTab)){
+    panelLastHTML = null;
     el.innerHTML = tutLockPanelHTML(currentTab);
     updateTabBadges();
     paintTabs();
@@ -880,10 +882,39 @@ function renderPanel(){
     miscHTML += "<div class='note'>バージョン: " + GAME_VERSION + "（Strip Canon: 部屋シーン廃止・帯の家具化／Phase 2: OS全体の入力カウント／v2.3.5: GitHub 自動アップデート）</div>";
     h += foldSec("setmisc", false, "⚠️ その他・危険ゾーン", GAME_VERSION, miscHTML);
   }
-  el.innerHTML = h;
+  setPanelHTML(el, h);
   if(currentTab === "proj") updateComboUI();   /* 再描画で消えたコンボ表示を戻す */
   updateTabBadges();
   paintTabs();
+}
+/* パネルの作り直し。
+   - 中身が前回と同じなら DOM を触らない (フォーカスもアニメも保たれる)
+   - スライダーをドラッグしている最中は作り直さない (つまみが手から外れないように)
+   - キーボードでフォーカスしていたボタンは、作り直した後も同じボタンへ戻す
+     (5秒ごとの再描画でフォーカスが body へ飛び、キーボードだけでは買えなかった) */
+let panelLastHTML = null, panelPointerDown = false;
+try{
+  document.addEventListener("pointerdown", () => { panelPointerDown = true; }, true);
+  document.addEventListener("pointerup", () => { panelPointerDown = false; }, true);
+}catch(e){}
+function setPanelHTML(el, h){
+  if(h === panelLastHTML && el.innerHTML) return;
+  const a = document.activeElement as HTMLElement | null;
+  const inPanel = !!(a && a !== document.body && typeof el.contains === "function" && el.contains(a));
+  if(inPanel && a.tagName === "INPUT" && panelPointerDown) return;
+  let focusKey = null;
+  if(inPanel && a.tagName === "BUTTON"){
+    const sig = a.getAttribute("onclick") || a.textContent;
+    const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === sig);
+    focusKey = { sig, idx: Math.max(0, same.indexOf(a)) };
+  }
+  el.innerHTML = h;
+  panelLastHTML = h;
+  if(focusKey){
+    const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
+    const target = same[Math.min(focusKey.idx, same.length - 1)];
+    if(target && typeof target.focus === "function") target.focus();
+  }
 }
 /* メニュー刷新 P1: タブバッジ（買えるものがある/新しい依頼があるタブに赤ドット。
    判定は既存の afford 系ヘルパの流用のみ。失敗しても描画を止めないよう握りつぶす） */

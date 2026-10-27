@@ -39,7 +39,12 @@ if(!IS_VIEWER){
   setInterval(save, 10000);
   window.addEventListener("beforeunload", save);
 }
-setInterval(()=>{ renderPanel(); }, 5000);   /* 全ロール共通の安全網 (viewer は同期表示のまま) */
+setInterval(()=>{
+  /* 全ロール共通の安全網 (viewer は同期表示のまま)。帯ではパネルが表示されず、
+     隠れているメニューでも見えないので作り直さない */
+  if(document.body.classList.contains("strip") || document.hidden) return;
+  renderPanel();
+}, 5000);
 /* 既存セーブでは寝たまま始まる（挨拶は起床時に tick が言う）。新規は従来どおり。
    viewer は挨拶しない (セリフの所有は帯。menu の吹き出しは live.say で届く) */
 if(!IS_VIEWER) say(saveBlocked ? "セーブが読めなかったにゃ…元のデータは残してあるよ。設定タブを見てね" : hadSave ? "すぅ…すぅ…" : "はじめまして、みゅけだにゃ。小さい工場もよろしくね。");

@@ -291,7 +291,8 @@ function applySnapshot(snap){
   if(returnShownAt && Date.now() - returnShownAt > 4 * 60000){ returnShownAt = 0; closeReturnCard(); }
   viewerSynced = true;
   renderHeader();
-  if(snap.rev !== viewerRev){ viewerRev = snap.rev; renderPanel(); }
+  /* 隠れている間はパネルを作り直さない (再表示時は menu-ready → 新しいスナップショットで描く) */
+  if(snap.rev !== viewerRev && !document.hidden){ viewerRev = snap.rev; renderPanel(); }
 }
 function notifySaveTrap(kind){
   const T = window.__TAURI__;
@@ -344,7 +345,9 @@ function initViewer(){
     }
   };
   emitBc("menu-ready");   /* 帯と Rust の両方が拾う (帯: 即スナップショット / Rust: open-tab 再送) */
-  setInterval(() => { emitBc("menu-heartbeat"); }, 2000);
+  /* 隠れている間は heartbeat を止める: 帯は5秒で「menu は寝ている」と判断し、
+     2Hz のスナップショット送信を止める (閉じたメニューのために同期し続けない) */
+  setInterval(() => { if(!document.hidden) emitBc("menu-heartbeat"); }, 2000);
   /* 再表示直後の取りこぼし防止: 見える状態に戻ったら ready を送り直す (冪等) */
   try{
     document.addEventListener("visibilitychange", () => { if(!document.hidden) emitBc("menu-ready"); });
