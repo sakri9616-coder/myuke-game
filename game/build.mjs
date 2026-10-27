@@ -24,7 +24,9 @@ export const GAME_SOURCES = [
   "ui-core", "ui-panel", "ui-misc", "os-input", "updater", "input", "sync", "main"
 ];
 
-const read = p => fs.readFileSync(p, "utf8");
+/* 改行は LF に揃えて読む (Windows の CI は core.autocrlf で CRLF をチェックアウトするため、
+   揃えないとテンプレートの差し込み位置が見つからない。生成物も OS によらず同じになる) */
+const read = p => fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 /* 型注釈を同じ幅の空白に置き換えるだけの変換 (ts-blank-space)。行・桁・コメントは
    ソースのまま残るので、実行時エラーの位置がソースと一致する。型チェックは
    npm run typecheck が担う (enum や namespace のような実行時コードを生む構文は使わない) */
