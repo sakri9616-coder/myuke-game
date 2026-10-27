@@ -169,7 +169,7 @@ function splatBug(i, bx, by){
     prodMuted = true;
     produceDP(dp, "l1");
     prodMuted = false;
-    addFloater(bx, by - 16, "+" + dp.toFixed(0) + "DP", "#e2543e");
+    addFloater(bx, by - 16, "+" + fmtDec(dp, 0) + "DP", "#e2543e");
   }
   addFloater(bx, by - 8, "+" + fmt(squash) + "🪙", "#5aa469");
   if(bugEvent.bugs.length === 0){
@@ -199,7 +199,7 @@ function tickHeat(){
   heatClicksThisSec = 0;
   const lv = heatLv();
   if(lv > before && document.body.classList.contains("strip"))
-    addStripFloater(miyukeStrip.x > 0 ? miyukeStrip.x : stripVW / 2, STRIP_GROUND - 64, "🔥 応援の熱 Lv" + lv + "（×" + heatMult().toFixed(2) + "）", "#e2543e");
+    addStripFloater(miyukeStrip.x > 0 ? miyukeStrip.x : stripVW / 2, STRIP_GROUND - 64, "🔥 応援の熱 Lv" + lv + "（×" + fmtDec(heatMult(), 2) + "）", "#e2543e");
 }
 
 /* 応援係（再設計 段階2）: 1秒に cheersPerSec 回ぶん、素の応援（コンボ・会心・熱なし）を実装工程へ送る。
@@ -232,9 +232,9 @@ function updateComboUI(){
   if(document.body.classList.contains("strip")) return;
   const el = document.getElementById("combo-info");
   if(!el) return;
-  const heat = heatLv() > 0 ? "・🔥熱 Lv" + heatLv() + " ×" + heatMult().toFixed(2) : "";
+  const heat = heatLv() > 0 ? "・🔥熱 Lv" + heatLv() + " ×" + fmtDec(heatMult(), 2) : "";
   if(comboN >= 2){
-    el.textContent = "👆 応援コンボ ×" + comboMult().toFixed(1) + "（" + comboN + "連続）" + heat + " 1クリック +" +
+    el.textContent = "👆 応援コンボ ×" + fmtDec(comboMult(), 1) + "（" + comboN + "連続）" + heat + " 1クリック +" +
       fmtClickDP(clickShownDP() * comboMult() * heatMult()) + "DP";
   } else {
     el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + fmtClickDP(clickShownDP()) +
@@ -328,7 +328,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
         addStripFloaterSum(bx, by - 22, "adv", direct + carried, v => "+" + fmtClickDP(v) + "DP すすんだ！", "#e8873a");
     }
     if(crit){
-      addFloater(bx, by - 12, "CRITICAL! +" + gain.toFixed(0) + "DP", "#d9534f");
+      addFloater(bx, by - 12, "CRITICAL! +" + fmtDec(gain, 0) + "DP", "#d9534f");
       say("クリティカル応援！！ すごいパワーだにゃ！");
     }
   }

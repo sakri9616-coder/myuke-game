@@ -365,9 +365,9 @@ function renderStrip(){
       sctx.textBaseline = "bottom";
       sctx.lineWidth = 2;
       sctx.strokeStyle = "#fff8ec";
-      sctx.strokeText("💡×" + im.toFixed(1), gx, G - 45);
+      sctx.strokeText("💡×" + fmtDec(im, 1), gx, G - 45);
       sctx.fillStyle = "#4a3b2c";
-      sctx.fillText("💡×" + im.toFixed(1), gx, G - 45);
+      sctx.fillText("💡×" + fmtDec(im, 1), gx, G - 45);
       sctx.restore();
     }
     stripHitRects.fever = { x: gx - 7, y: G - 52, w: 14, h: 52 };

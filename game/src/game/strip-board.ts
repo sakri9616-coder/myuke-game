@@ -230,7 +230,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       /* IP ねらいの終盤は、出荷時のバグ数（0 で成立）を出す */
       const nb = Math.floor(S.bugStock);
       sctx.fillStyle = nb > 0 ? "#d9534f" : "#3f8f4a";
-      sctx.fillText(fitMemoText(nb > 0 ? "🏷 IP: バグ " + nb + " 匹を0に！" : "🏷 IP: バグ0 で成立ライン", rw), ix + iw - 3, rcy);
+      sctx.fillText(fitMemoText(nb > 0 ? "🏷 IP: バグ " + fmt(nb) + " 匹を0に！" : "🏷 IP: バグ0 で成立ライン", rw), ix + iw - 3, rcy);
     } else if(bn){
       /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
       const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
@@ -260,7 +260,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       const done = moduleComplete(md);
       sDrawNine("ui_chip_" + (blink ? "alert" : done ? "done" : "todo") + "_9", cxp, cyp, cw, 11, 3, 3);
       sctx.fillStyle = "#f5efe2";
-      const label = md.name + " " + (md.out ? "外注" : done ? "★" + moduleQuality(md).toFixed(1) : Math.min(100, Math.floor(md.inv / md.need * 100)) + "%");
+      const label = md.name + " " + (md.out ? "外注" : done ? "★" + fmtDec(moduleQuality(md), 1) : Math.min(100, Math.floor(md.inv / md.need * 100)) + "%");
       sctx.fillText(label, cxp + cw / 2, cyp + 5.8);
     });
     sctx.restore();

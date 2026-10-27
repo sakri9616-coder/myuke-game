@@ -103,7 +103,7 @@ function buyDept(role){
   S.coins -= cost;
   S.depts[role] = deptLv(role) + 1;
   SoundKit.play("purchase");
-  addLog(DEPTS[role].icon + " " + DEPTS[role].name + " が Lv" + S.depts[role] + " に（出力 ×" + deptMult(role).toFixed(2) + "）（-" + fmt(cost) + "🪙）");
+  addLog(DEPTS[role].icon + " " + DEPTS[role].name + " が Lv" + S.depts[role] + " に（出力 ×" + fmtDec(deptMult(role), 2) + "）（-" + fmt(cost) + "🪙）");
   say(DEPTS[role].name + "を強化したにゃ！ みんなの出力が上がるよ");
   save(); renderPanel();
 }
@@ -341,7 +341,7 @@ function convertKnow(){
     const before = knowLv(x.g);
     S.genreKnow[x.g] = (S.genreKnow[x.g] || 0) + x.add;
     const gd = GENRES.find(g => g.id === x.g);
-    parts.push((gd ? gd.name : x.g) + " +" + x.add.toFixed(1) + (knowLv(x.g) > before ? "（Lv" + knowLv(x.g) + "）" : ""));
+    parts.push((gd ? gd.name : x.g) + " +" + fmtDec(x.add, 1) + (knowLv(x.g) > before ? "（Lv" + knowLv(x.g) + "）" : ""));
   }
   addLog("📚 余った研究P がジャンル知見になった: " + parts.join("・"));
 }

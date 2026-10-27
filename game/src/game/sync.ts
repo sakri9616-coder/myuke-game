@@ -255,7 +255,7 @@ function makeVerbStub(verb){
          出ると帯のスレッドが止まって全体が固まる)。文面は帯側 doPrestige と同一 */
       const pv = prestigePreview();
       if(pv.gain < 3){ showViewerNote("売却には星屑3個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
-      if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + pv.curMult.toFixed(2) + " → ×" + pv.nextMult.toFixed(2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
+      if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + fmtDec(pv.curMult, 2) + " → ×" + fmtDec(pv.nextMult, 2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
       args.push(execSelArg(), vetSelArg(), swapSelArg());   /* 第2ウェーブ M: 役員とベテランの選択を帯へ渡す */
     }
     if(verb === "doHoldings"){
