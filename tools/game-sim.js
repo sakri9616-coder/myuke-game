@@ -212,10 +212,10 @@ function simulate(opts){
       /* 停滞: 新しい軸や節目（社格・設備の節目・研究・仕事の桁・売却）がない区間の最長 */
       const ns = run("botJumpSig()");
       if(ns !== sig){ R.jumps.push(t); if(t - lastJump > R.maxGapMin){ R.maxGapMin = t - lastJump; R.maxGapAt = [lastJump, t, sig, ns]; } sig = ns; lastJump = t; }
-      /* 2社目以降は前回の売却益の1.5倍に届いてから売る（段階3: 星屑の倍率で次の会社が速く育つので、
-         20個で売り続けると数分ごとの売却になる。売りどきメーターを見て待つ遊び方の近似） */
-      const need = exitAt ? Math.max(exitAt, Math.ceil((R.exits.length ? R.exits[R.exits.length - 1].gain : 0) * 1.5)) : 0;
-      if(exitAt && gain >= need){
+      /* 売却は星屑 exitAt 個（売りどき）で行う。インフレ修正（2026-10-27）で星屑1個ぶんの企業価値が星屑倍率に連れて上がるようになり、
+         20個で売り続けても数分ごとの売却にはならない（以前は前回の1.5倍まで待つ近似にしていた） */
+      const need = exitAt;
+      if(exitAt && gain >= need && !(opts.maxExits && R.exits.length >= opts.maxExits)){
         run("doPrestigeCore('__none', '__auto', -1)");
         run("botDust()");
         R.exits.push({ t, gain });
@@ -265,6 +265,8 @@ function gates(seeds){
   const long = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20 });
   rows.push(["G7", "7日目以降の0リリース日 = 0（放置10日）", long.zeroReleaseDays + "日", long.zeroReleaseDays === 0]);
   rows.push(["G8", "最大値 < 1e250（放置10日の通算コイン）", long.maxCoins.toExponential(2), long.maxCoins < 1e250]);
+  const g9 = subLoop();
+  rows.push(["G9", "子会社を作っては売り続けても星屑が暴走しない（4時間で < 1,000個）", g9.toExponential(2), isFinite(g9) && g9 < 1000]);
   return { rows, cl, pa, long, g5 };
 }
 /* G5: 1社目を売らずに W 分。最後の 60 分の稼ぎで一番大きい収入源が、寄せた先と一致するか。
@@ -281,6 +283,18 @@ function g5Builds(){
     out.push({ src, main, rank: r.rank, last60: Object.fromEntries(Object.keys(end).map(k => [k, Math.round((end[k] || 0) - (st[k] || 0))])) });
   }
   return out;
+}
+/* G9（2026-10-27 インフレ修正）: 1社目を星屑20個で売ったあと、本社は売らずに子会社を6社まで作り、人員を足し、
+   星屑の5%以上の値がついた子会社から売る。修正前はこれだけで十数分で星屑が Infinity に届いた（sakuri のセーブ） */
+function subLoop(){
+  const r = simulate({ profile: "passive", days: 1, minPerDay: 240, seed: 1, exitAt: 20, maxExits: 1,
+    onMinute: (t, run) => {
+      if(run("S.prestiges") < 1 || run("S.studioLv") < 5) return;
+      run(`(() => { for(let i = 0; i < 20 && (S.subs || []).length < 6 && S.coins >= foundCost(); i++) foundSub(unlockedGenres()[0].id);
+        for(const s of (S.subs || [])) for(let i = 0; i < 50 && S.coins >= subHeadCost(s); i++) addSubStaff(s.id, 1);
+        for(const s of (S.subs || []).slice()) if(subDustValue(s) >= Math.max(1, dustTotal() * 0.05)) sellSubCore(s.id); })()`);
+    } });
+  return r.dustTotal;
 }
 function simGainAt(r, t){ let g = 0; for(const l of r.log) if(l.t <= t) g = l.gain; return g; }
 

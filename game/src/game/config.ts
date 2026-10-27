@@ -27,6 +27,8 @@ const BAL = {
   qaBasePerMin: 0.6,        // テスト工程の基本処理能力 バグ/分
   commitEvery: 100,         // 何DPごとにコミット演出
   valuePerDust: 7e6,        // 再設計 段階3: 星屑1個ぶんの企業価値（1時間の自動収入 🪙）。旧: 開発量 DP で数えていた（prestigeDPPerDust）
+  dustValueExp: 2.7,        // 星屑1個ぶんの企業価値 = valuePerDust × 星屑倍率^これ（production.ts の dustValueUnit。インフレ修正）。
+                            // sim（放置10日・20個で売る）: 2.5 で2社目以降が7分まで縮み、3.0 で売却が1日1回未満に止まる。2.7 で 2社目以降 約20〜40分
   dustSoftcap: 20,          // 1回の売却でこの個数を超えた分は dustGainExp 乗で伸びる
   dustGainExp: 0.5,         // （平方根。0.6 以上だと sim の active で 30 日に星屑 8,000 個超まで暴走した）
   dustPriceExp: 0.5,        // 作品単価には星屑倍率の dustPriceExp 乗で効く
