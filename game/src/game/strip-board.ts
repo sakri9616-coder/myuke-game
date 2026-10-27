@@ -208,7 +208,8 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   }
   /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */
   const bar = mainBoardBar(bx);
-  drawBoardBar(bar.x, bar.y, bar.w, bar.h, m.frac, bn ? "red" : (m.planning ? "yellow" : "green"), m.ticks);
+  const meet = inPlanMeet(p);   /* 企画会議中はバーを黄色にして、実装が止まっていることを見せる */
+  drawBoardBar(bar.x, bar.y, bar.w, bar.h, m.frac, bn ? "red" : (m.planning || meet ? "yellow" : "green"), m.ticks);
   /* r3: 進捗の実数 (旧表示「現在 / 必要 DP」を残す) + 機能の進み具合。
      企画中は着工までの案内、詰まり中は右側が詰まりの工程名になる */
   const rcy = iy + 32.5;
@@ -224,7 +225,15 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const rx0 = ix + 2 + sctx.measureText(dpTxt).width + 8, rw = ix + iw - 3 - rx0;
     sctx.font = "7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "right";
-    if(bn){
+    if(meet){
+      sctx.fillStyle = "#b07a1e";
+      sctx.fillText(fitMemoText("💡 企画会議中（実装停止 あと " + fmtMinSec(p.planMeetSec) + "）", rw), ix + iw - 3, rcy);
+    } else if(p.ip && m.frac >= 0.7){
+      /* IP ねらいの終盤は、出荷時のバグ数（0 で成立）を出す */
+      const nb = Math.floor(S.bugStock);
+      sctx.fillStyle = nb > 0 ? "#d9534f" : "#3f8f4a";
+      sctx.fillText(fitMemoText(nb > 0 ? "🏷 IP: バグ " + nb + " 匹を0に！" : "🏷 IP: バグ0 で成立ライン", rw), ix + iw - 3, rcy);
+    } else if(bn){
       /* 工程名で言う (旧表示は第2ラインが無いと「第nullライン」になっていた) */
       const stName = { plan: "企画", code: "実装", test: "テスト", build: "ビルド", ship: "出荷" }[bnAll.stage] || "工程";
       sctx.fillStyle = "#d9534f";

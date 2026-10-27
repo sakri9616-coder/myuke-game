@@ -380,6 +380,11 @@ function produceDP(amount, target){
     say("バグが出たにゃ。あたしが勝手に叩くから大丈夫だよ");
   }
 }
+/* 企画会議中に止まった自動の実装ぶんを、星屑の元（runDP）にだけ数える（仕掛品には積まない）。
+   会議も開発の仕事なので、練ったせいで会社の価値が減ることはない */
+function creditMeetDP(amount){
+  S.runDP += amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+}
 /* 工程中心（2026-10-27）: 応援は「みゅけが手で運ぶ」。溜まった仕掛品を下流から
    （ビルド済み → テスト済み → 実装済みの順に）手で出荷まで運び、その場で進捗に計上する。
    運べた量（DP）を返す。仕掛品が無ければ 0。新しい DP は生まないので星屑の元（runDP）には
@@ -525,6 +530,7 @@ function releaseProject(){
      （残りはロイヤリティ。成立しない指定作は通常どおり全額） */
   const ipOk = ipConvertible(p);
   if(ipOk) coins = Math.round(coins * 0.3);
+  else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);   /* IP 狙いの空振り: 作り込みが中途半端 */
   recordRelease(p, coins, rp, devMin, S.projectDP, S.totals.naps - p.napsAtStart, false);
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
   addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙 / +"+rp+"🔬 "+requestBonus);
@@ -550,6 +556,7 @@ function releaseProject2(){
   const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
   const ipOk2 = ipConvertible(p);
   if(ipOk2) coins = Math.round(coins * 0.3);   /* 第2ウェーブ L: 第2ラインも即時は30% */
+  else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);
   recordRelease(p, coins, rp, devMin, L.projectDP, 0, true);
   S.flags.line2Released = true;
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */

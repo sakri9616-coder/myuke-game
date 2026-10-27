@@ -519,16 +519,29 @@ function rotateTrend(){
 }
 function setDevGenrePref(id){ S.devGenrePref = id || null; save(); renderPanel(); }
 /* 自社IP: M/L の作品をパネルで指定し、バグ0で出荷すると成立する。
-   即時に価格の30%、その後は価格の 0.1%/分 のロイヤリティが
-   12時間ごとに半減しながら48時間入る（生涯で約 ×1.65） */
+   即時に価格の30%、その後は価格の IP_ROYALTY_PER_MIN/分 のロイヤリティが
+   12時間ごとに半減しながら48時間入る（生涯で約 ×2.3）。
+   2026-10-27 作り直し（sakuri「手動で操作する意味がない。バグがないときのボーナス程度」）:
+   旧仕様は指定しても損がなく、指定できるなら常に指定するだけだった。いまは賭けにした。
+   ・IP 作品は作り込みが要る: 指定した瞬間に作品の規模が ×IP_SIZE_MULT（値段の元は据え置き）
+   ・出荷時にバグが残っていると IP 化は空振りし、作り込みが中途半端で価格 ×IP_FAIL_MULT
+   ・成立した IP は会社の資産で、EXIT で消える（売却が近いなら狙わない）
+   バグを0にして出荷できる見込み（QA の余力・帯のバグを手で叩く労働）と、売却までの残り時間を
+   読んで狙うかを決める。損益分岐の成立率は sim の Wave L に出す */
+const IP_SIZE_MULT = 1.5, IP_FAIL_MULT = 0.8, IP_ROYALTY_PER_MIN = 0.0015;
+function canDesignateIP(p, dp){ return !!p && !p.ip && !p.planning && (p.size === "M" || p.size === "L") && dp < p.totalDP * 0.5 && (S.ips || []).length < 3; }
 function designateIP(which){
-  const p = which === "l2" ? (S.line2 && S.line2.project) : S.project;
+  const l2 = which === "l2";
+  const p = l2 ? (S.line2 && S.line2.project) : S.project;
+  const dp = l2 ? S.line2.projectDP : S.projectDP;
   if(!p || p.ip) return;
   if(p.size !== "M" && p.size !== "L"){ say("自社IPにできるのは M / L の作品だけにゃ"); return; }
   if((S.ips || []).length >= 3){ say("自社IPは同時に3つまでにゃ"); return; }
+  if(dp >= p.totalDP * 0.5){ say("IPにするなら、半分できる前に決めないとにゃ"); return; }
   p.ip = true;
-  addLog("🏷 『"+p.name+"』を自社IPに指定（バグ0で出荷すると IP 化します）");
-  say("『"+p.name+"』、自社IPねらいでいくにゃ！");
+  p.totalDP = Math.round(p.totalDP * IP_SIZE_MULT);
+  addLog("🏷 『"+p.name+"』を自社IPねらいに（作り込みで規模 ×"+IP_SIZE_MULT+" → "+fmt(p.totalDP)+"DP。バグ0で出荷すれば IP 化、バグが残ると価格 ×"+IP_FAIL_MULT+"）");
+  say("『"+p.name+"』、自社IPねらいでいくにゃ！ 出荷のときはバグ0にしないとね");
   save(); renderPanel();
 }
 /* 成立判定と登録だけを行う。即時の入金は release 側で「売却額の30%」に
@@ -538,7 +551,7 @@ function designateIP(which){
 function settleIP(p, basePrice, work, ipOk){
   if(!p.ip) return;
   if(!ipOk){
-    if(Math.floor(S.bugStock) > 0) addLog("🏷 『"+p.name+"』はバグが残っていたので自社IPにできなかったにゃ");
+    if(Math.floor(S.bugStock) > 0){ addLog("🏷 『"+p.name+"』はバグが残っていたので自社IPにできなかったにゃ（作り込みが空振りして価格 ×"+IP_FAIL_MULT+"）"); say("バグが残ってて IP にできなかったにゃ…"); }
     else addLog("🏷 自社IPの枠がいっぱいで『"+p.name+"』は通常リリースに");
     return;
   }
@@ -564,7 +577,7 @@ function tickIPs(){
       continue;
     }
     const decay = Math.pow(0.5, Math.floor(ageH / 12));
-    ip.frac = (ip.frac || 0) + ip.price * 0.001 * decay / 60;
+    ip.frac = (ip.frac || 0) + ip.price * IP_ROYALTY_PER_MIN * decay / 60;
     if(ip.frac >= 1){
       const pay = Math.floor(ip.frac);
       ip.frac -= pay;
