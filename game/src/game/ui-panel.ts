@@ -199,6 +199,16 @@ function renderPanel(){
       (lastSayText || "おはよ、続きやるね。").replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span></div>";
     h += "<div id='combo-info'></div>";
     h += "<button id='bn-chip' type='button' onclick='gotoBottleneckFix()'></button>";
+    /* 経営方針: 一度売却した人か社格Lv3以上で選べる（初回の会社はチュートリアルに集中させる） */
+    if(S.policy){
+      const pol = POLICIES.find(x => x.id === S.policy);
+      h += "<div class='note'>" + pol.icon + " 経営方針：<b>" + pol.name + "</b>（" + pol.desc + "）。売却すると選び直せます</div>";
+    } else if((S.prestiges || 0) >= 1 || S.studioLv >= 3){
+      h += "<h3 style='margin-top:8px'>🧭 経営方針を選ぶ（この会社の間は変えられません）</h3><div class='buygrid'>";
+      for(const pol of POLICIES)
+        h += "<div class='item buy slim'><div><span class='nm'>" + pol.icon + " " + pol.name + "</span><div class='ds'>" + pol.desc + "</div></div><button onclick='choosePolicy(\"" + pol.id + "\")'>これにする</button></div>";
+      h += "</div>";
+    }
     /* 2026-10-25 (sakuri 指示): ボタン列は廃止。「名前を呼ぶ」「プロジェクトを眺める」は
        フレーバー専用なので削除し、「おやつ」は帯のおやつ箱 (prop_snackbox) へ移設した */
     /* IA コンパクト化: プロジェクトは「ヒーローカード」1枚に集約する。
@@ -391,13 +401,13 @@ function renderPanel(){
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
         subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
           " <span class='tagchip'>得意: " + gname + "</span> <span class='tagchip'>規模Lv" + sub.lv + "</span> <span class='tagchip'>人員 " + sub.staff + "人</span>" +
-          "<div class='ds'>売上 +" + r.coins.toFixed(1) + "🪙/分 ・ 生産 +" + r.dp.toFixed(1) + " DP/分 ・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
+          "<div class='ds'>売上 +" + fmt(r.coins) + "🪙/分 ・ 生産 +" + r.dp.toFixed(1) + " DP/分 ・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + subFocus(sub).toFixed(2) + "）" +
           (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div></div></div>" +
           "<div class='item buy slim'><div><span class='nm'>人員を増やす</span><div class='ds'>人は抽象的に数える（帯には出ない）</div></div><span>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ") +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") + "</span></div>" +
-          "<div class='item buy slim'><div><span class='nm'>規模を上げる</span><div class='ds'>出力 ×" + subLvMult(sub).toFixed(1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + (subLvMult(sub) + 0.3).toFixed(1)) + "</div></div>" +
+          "<div class='item buy slim'><div><span class='nm'>規模を上げる</span><div class='ds'>出力 ×" + subLvMult(sub).toFixed(1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + subLvMult({ lv: sub.lv + 1 }).toFixed(1)) + milestoneNote({ ms: true }, sub.lv) + "</div></div>" +
           (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")")) + "</div>" +
           "<div class='item slim'><div><span class='nm'>この子会社を売却（部分EXIT）</span><div class='ds'>星屑 +" + subDustValue(sub) + " 個。本社はそのまま残ります</div></div>" +
           "<button onclick='sellSub(" + sub.id + ")'>売却する</button></div>";
@@ -685,13 +695,14 @@ function renderPanel(){
       /* 押せない理由をボタン自体に書く (ゲージが満タンになると押せる) */
       if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
-    h += "<h3 style='margin-top:12px'>応援強化（所持コイン "+fmt(S.coins)+"🪙）</h3>";
+    h += "<h3 style='margin-top:12px'>応援強化（所持 応援P "+fmt(S.cheerP || 0)+"）</h3>";
+    h += "<div class='note'>応援P はクリックで応援するたびに 1 貯まります（秒5回まで）。コインとは別の財布で、売却しても腕前として残ります</div>";
     h += "<div class='buygrid'>";
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
         "<div class='ds'>"+def.desc+milestoneNote(def, lv)+"</div></div>"+
-        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "coins", "buyClickUp(\""+def.id+"\")"))+"</div>";
+        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")"))+"</div>";
     }
     h += "</div>";
     const clickLog = kv("通算クリック", fmt(S.totals.clicks) + " 回") +
@@ -948,7 +959,7 @@ function updateTabBadges(){
     if(ss.count < staffCap() && Object.keys(STAFF_ROLES).some(r => hireCost(r) <= S.coins)) want.staff = 1;
     if(RESEARCH_DEFS.some(d => !S.research[d.id] && d.cost <= S.rp)) want.research = 1;
     if(UPGRADE_DEFS.some(d => (S.upgrades[d.id]||0) < d.max && upgradeCost(d, S.upgrades[d.id]||0) <= S.coins)) want.factory = 1;
-    if(CLICK_DEFS.some(d => (S.clickUp[d.id]||0) < d.max && clickCost(d, S.clickUp[d.id]||0) <= S.coins)) want.click = 1;
+    if(CLICK_DEFS.some(d => (S.clickUp[d.id]||0) < d.max && clickCost(d, S.clickUp[d.id]||0) <= (S.cheerP || 0))) want.click = 1;
     for(const b of tabsEl.children){
       const id = (b as HTMLElement).dataset && (b as HTMLElement).dataset.tab;
       let bd = null;

@@ -45,7 +45,7 @@ function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */
 function legacyMult(){ return hasLegacyTech("quantum") ? 1.25 : 1; }   /* 第2ウェーブ J: 量子コンピュータ */
 function extraMult(){ return resMult() * extraMultBase(); }
-function extraMultBase(){ return perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1); }   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
+function extraMultBase(){ return perkProdMult() * buffProdMult() * legacyMult() * (S.challengeRewards && S.challengeRewards.idle ? 1.15 : 1) * (policyIs("mass") ? 1.1 : 1); }   /* 経営方針「量産体制」 */   /* 第2ウェーブ K: 完全放置の永続報酬は自動生産 +15% */
 /* 倍率: 全DP（強化）× 会社全体（星屑・特典・技術遺産・チャレンジ報酬）× やる気MAX × 反復研究（工程ごと）。
    全DP と会社全体は実装と全工程に同じだけ効くので、強化はどれを買っても目に見えて速くなり、
    どこが詰まるかは設備の速度と担当スタッフ（足し算）で決まる */
@@ -314,7 +314,7 @@ let prodMuted = false;      /* true の間の produceDP は「入力由来」: �
    ・素の威力は星屑倍率を平方根でだけ受ける（手作業の比重は周回とともに下がり、自動化・経営へ移る）
    どちらも理念書3「労働には対価、ただし全ては代替しない」。連動分があるので終盤でも必ず効く */
 function clickProdMult(){ return dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult(); }
-function clickBaseDP(){ return clickPower() / Math.sqrt(dustMult()) + autoProdEMA * CLINK.linkRate / Math.max(1e-9, clickProdMult()); }
+function clickBaseDP(){ return clickPower() / Math.sqrt(dustMult()) + autoProdEMA * CLINK.linkRate * clickLinkMult() / Math.max(1e-9, clickProdMult()); }
 /* 表示用: 倍率込みで実際に進む 1クリックの DP（帯の浮き文字・コンボ表示・パネル） */
 function clickShownDP(){ return clickBaseDP() * clickProdMult(); }
 function clickBucketTake(){

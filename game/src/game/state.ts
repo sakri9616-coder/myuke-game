@@ -184,6 +184,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
      工程中心: さらに溜まった仕掛品を手で運んで出荷する（cheerCarry） */
   if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
+    S.cheerP = (S.cheerP || 0) + (policyIs("craft") ? 2 : 1);   /* 応援P: DP が付いたクリック1回につき1（バケツで秒5回まで） */
     prodMuted = true;
     produceDP(gain * (1 - CLINK.directShare), "l1");
     if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
