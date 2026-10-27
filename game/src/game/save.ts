@@ -17,7 +17,7 @@ let snapRev = 0;         /* 状態リビジョン (tick / コマンド / セリ�
 function bumpRev(){ snapRev++; }
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.7.0";   /* 表示ラベルの単一の出所 (v2.7.0: 工程のつり合い・星屑インフレ是正・工程別の反復研究。アプリ版数は tauri.conf.json の version と一致させる) */
+const GAME_VERSION = "v2.8.0";   /* 表示ラベルの単一の出所 (v2.8.0: 工程を主役にしたバランス・企画を練る・演出とドット絵・実績スタンプ追加・描画の軽量化。アプリ版数は tauri.conf.json の version と一致させる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
