@@ -56,7 +56,19 @@ const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28,
 const ENV_SPRITES = new Set(['prop_kanban', 'prop_kanban_wide', 'prop_phone', 'prop_megaphone', 'prop_toolbox', 'desk_laminate_main', 'desk_laminate_2',
   'desk_laminate_2_sprite', 'prop_chair', 'prop_server_rack', 'shelf_steel',
   'prop_books', 'prop_archive_boxes', 'prop_mat']);
+/* システム可視化 (2026-10-27・research/VISIBLE_SYSTEMS_ART_ORDER.md) の寸法。
+   screen_ide_* はモニタに貼る画面の中身、fx_* は演出の粒なので余白・接地の規則は無い */
+const VIS_SIZES = { prop_qa_tray: [32, 8], prop_build_stand: [32, 8], icon_card: [12, 8], icon_card_ok: [12, 8],
+  icon_mote: [6, 6], prop_jam_cone: [10, 10], prop_chair_0: [32, 36], prop_chair_2: [32, 36], prop_ci_1: [24, 32] };
+for (let i = 0; i < 3; i++) Object.assign(VIS_SIZES, { ['prop_backlog_' + i]: [24, 28], ['screen_ide_' + i]: [20, 10], ['fx_spark_' + i]: [9, 9] });
+for (let i = 1; i <= 3; i++) Object.assign(VIS_SIZES, { ['prop_keyboard_' + i]: [24, 6], ['prop_debt_pile_' + i]: [16, 12] });
+for (let i = 1; i <= 2; i++) Object.assign(VIS_SIZES, { ['prop_monitor_sub_' + i]: [28, 28], ['prop_autotester_' + i]: [28, 28], ['prop_packer_' + i]: [40, 28] });
+for (let i = 0; i < 4; i++) VIS_SIZES['icon_note_' + i] = [6, 6];
+for (let i = 0; i < 5; i++) Object.assign(VIS_SIZES, { ['fx_confetti_' + i + '_a']: [3, 2], ['fx_confetti_' + i + '_b']: [1, 2] });
+for (const c of ['green', 'yellow', 'red']) VIS_SIZES['prop_signal_' + c] = [8, 18];
+const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name);
 function expected(name) {
+  if (VIS_SIZES[name]) return VIS_SIZES[name];
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。
      基準名そのものの旧スタッフ絵は従来どおり 32×24 */
   if (/^staff_\w+_(?:sit|walk)_\d+$/.test(name)) return [48, 40];
@@ -162,6 +174,10 @@ for (const [name, rows] of Object.entries(sprites)) {
      (カンバンの枠・机の天板など) なので、マージン規則の対象外。
      接地だけを個別に担保する */
   const envSprite = ENV_SPRITES.has(name);
+  if (VIS_UNGROUNDED(name)) {
+    rows.forEach((row, x) => [...row].forEach(key => check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key}`)));
+    continue;
+  }
   rows.forEach((row, y) => [...row].forEach((key, x) => {
     check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key} at ${x},${y}`);
     if (!sakuriAnim && !envSprite && (y < 2 || x < 2 || x >= w - 2)) check(key === '.', `${name}: margin at ${x},${y}`);

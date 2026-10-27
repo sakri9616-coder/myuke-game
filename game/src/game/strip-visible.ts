@@ -46,7 +46,7 @@ function chairSpriteName(){
 function stationSignalXs(){
   const cx = stripDeskCX();
   return {
-    plan:  cx - 100,
+    plan:  backlogX() + 17,
     code:  cx - 66,
     test:  stripQAX() + 20,
     build: stripBuildX() + 20,
@@ -61,7 +61,7 @@ function drawStripStationSignals(){
   for(const st of stageStatus()){
     const x = xs[st.id];
     if(typeof x !== "number") continue;
-    sDrawSprite("prop_signal_" + st.lamp, x, G, 1);
+    sDrawSprite("prop_signal_" + st.lamp, x, G, 2);   /* 2倍: ランプの色が遠目でも読める大きさに */
   }
 }
 /* 企画の付箋ボード: 企画中はアイデアの溜まり具合 (0 / 途中 / 着工できる)、
@@ -77,15 +77,20 @@ function backlogSpriteName(){
   const nm = "prop_backlog_" + st;
   return hasSprite(nm) ? nm : null;
 }
-/* 主机まわりのアップグレード (サブモニタ・キーボード)。家具層で、みゅけより背面 */
+/* 主机まわりのアップグレード (サブモニタ・キーボード)。家具層で、みゅけより背面。
+   サブモニタは code ポーズ内のモニタ (cx-40〜cx) の左に並んでデュアル構成に見える */
 function drawStripDeskUpgrades(cx){
   const G = STRIP_GROUND;
   const mon = upgradeVisSprite("monitor");
   if(mon) sDrawSprite(mon, cx - 54, G, 1);
   const kb = upgradeVisSprite("keyboard");
   if(kb) sDrawSprite(kb, cx - 54, G, 1);
+}
+/* 企画の付箋ボードの置き場: 作品棚の左隣 (主机の左は電話・メガホン・サブモニタで埋まっている) */
+function backlogX(){ return Math.max(14, stripShelfCX() - 66); }
+function drawStripBacklog(){
   const bl = backlogSpriteName();
-  if(bl) sDrawSprite(bl, cx - 112, G, 1);
+  if(bl) sDrawSprite(bl, backlogX(), STRIP_GROUND, 1);
 }
 /* モニタ画面の中身 (高機能IDE の段)。prop_pc の画面 (1x) か、みゅけの code ポーズ内の
    モニタ (2x) に貼る。進捗バーはこの上に重なる */
@@ -93,14 +98,15 @@ function drawStripIdeScreen(gx, gy, scale){
   const nm = upgradeVisSprite("ide");
   if(nm) sDrawSprite(nm, gx, gy, scale);
 }
-/* 工程ステーションのアップグレード: 自動テスト機 (QA トレイ脇)・梱包機 (ビルド台脇)・
-   CI (小型サーバ → ラック → ラック2台) */
+/* 工程ステーションの機械: 自動テスト機 (QA トレイの背後)・梱包機 (ビルド台の背後)・
+   企画の付箋ボード。CI (小型サーバ → ラック → ラック2台) は drawStripServerRack が描く */
 function drawStripLineUpgrades(){
   const G = STRIP_GROUND;
   const at = upgradeVisSprite("tester");
-  if(at) sDrawSprite(at, stripQAX() - 26, G, 1);
+  if(at) sDrawSprite(at, stripQAX(), G, 1);      /* トレイと仕掛品の山はこの手前に積まれる */
   const pk = upgradeVisSprite("pack");
-  if(pk) sDrawSprite(pk, stripBuildX() - 30, G, 1);
+  if(pk) sDrawSprite(pk, stripBuildX(), G, 1);
+  drawStripBacklog();
 }
 /* CI の段: 1 = 小型サーバ / 2 = ラック / 3 = ラック2台。小型サーバの絵が無い間は
    従来のゲート (オフィスティア2以上で1台) */
@@ -113,11 +119,6 @@ function ciSmallServer(){ return hasSprite("prop_ci_1") && upgradeVisTier("ci") 
 /* ラバーダックの羽数 (Lv 1〜3 / 4〜7 / 8〜10 → 1 / 2 / 3)。1羽目は従来どおり机の脇、
    2羽目以降は QA トレイの両脇で検査する */
 function duckCount(){ return upgradeVisTier("duck"); }
-/* 技術的負債の書類の山 (帯域 1〜3)。絵が無い間は呼び出し側の従来描画 */
-function debtPileSprite(level){
-  const nm = "prop_debt_pile_" + level;
-  return hasSprite(nm) ? nm : null;
-}
 
 /* ---------- 子ねこボット: Lv の台数だけ、ビルド台と出荷台の間を往復して箱を運ぶ ----------
    見た目専用 (シミュレーションには触らない)。行き (出荷へ) は箱を頭に載せ、帰りは手ぶら */

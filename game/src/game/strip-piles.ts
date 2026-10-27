@@ -23,28 +23,13 @@ function pileModel(){
     } : null
   };
 }
-/* カード1枚 (白紙 + シンタタックス色の短線2本。モニタ画面と同色セット)。
+/* カード1枚 (icon_card / テスト済みは icon_card_ok)。
    bundle は束ね表示: 後ろにずらした影カードで厚みを付ける (§3.2) */
-function drawFlowCard(x, y, bundle, tickMark, seed){
+function drawFlowCard(x, y, bundle, tickMark, _seed?){
   const layers = bundle >= 4 ? 2 : bundle >= 2 ? 1 : 0;
   const cardNm = tickMark ? "icon_card_ok" : "icon_card";
-  if(hasSprite(cardNm)){
-    /* 2026-10-27: カードの絵 (12×8、下端中央アンカー)。束は後ろにずらして重ねる */
-    for(let l = layers; l >= 0; l--) sDrawSprite(cardNm, x - l * 1.3, y + 4 - l * 1.3, 1);
-    return;
-  }
-  const cols = FLOW_CARD_COLS;
-  const c1 = cols[Math.floor((seed || 0) * 4) % 4], c2 = cols[(Math.floor((seed || 0) * 4) + 1) % 4];
-  for(let l = layers; l >= 0; l--){
-    const ox = x - l * 1.3, oy = y - l * 1.3;
-    sR(ox - 5.6, oy - 3.8, 11.2, 7.6, "#604B40");
-    sR(ox - 5, oy - 3.25, 10, 6.5, "#fff5e6");
-    if(l === 0){
-      sR(ox - 3.8, oy - 1.7, 6.4, 1.1, c1);
-      sR(ox - 3.8, oy + 0.5, 4.4, 1.1, c2);
-      if(tickMark){ sR(ox + 2.9, oy - 3.25, 2.1, 2.1, "#7be495"); sR(ox + 3.4, oy - 2.7, 1.1, 1.1, "#fff5e6"); }
-    }
-  }
+  /* カードの絵 (12×8、下端中央アンカー)。束は後ろにずらして重ねる */
+  for(let l = layers; l >= 0; l--) sDrawSprite(cardNm, x - l * 1.3, y + 4 - l * 1.3, 1);
 }
 /* 山の格子: 横2列×段。idx は下段から。カード系 (B/C) と箱系 (D) で寸法が違う */
 function pileSlotPos(cx, idx, boxKind){
@@ -63,12 +48,10 @@ function drawStripPiles(){
   const G = STRIP_GROUND, m = pileModel();
   /* --- B: QA トレイ (机と研究机の間) --- */
   const bx = stripQAX();
-  const sig = hasSprite("prop_signal_red");   /* 信号柱があれば赤線は出さない */
-  if(!sDrawSprite("prop_qa_tray", bx, G, 1)){
-    sR(bx - 14, G - 3, 28, 3, "#445464"); sR(bx - 14, G - 3, 28, 1, "#66707c");
-  }
-  if(m.code.red && !sig) sR(bx - 14, G - 3.6, 28, 1.1, "#e2543e");
-  if(m.code.red) sDrawSprite("prop_jam_cone", bx - 20, G, 1);
+  /* 2026-10-27: トレイ・台・カードは絵。詰まりは赤線ではなく信号柱 (strip-visible.ts) と
+     山の左に置く三角コーンで見せる */
+  sDrawSprite("prop_qa_tray", bx, G, 1);
+  if(m.code.red) sDrawSprite("prop_jam_cone", bx - 21, G, 1);
   for(let i = 0; i < m.code.n; i++){
     const p = pileSlotPos(bx, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, false, i * 0.37);
@@ -92,11 +75,8 @@ function drawStripPiles(){
   if(m.code.red) stripHitRects.piles.push({ x: bx - 15, y: Math.min(G - 12, pileTopY("code") - 6), w: 30, h: G - Math.min(G - 12, pileTopY("code") - 6), stage: "code" });
   /* --- C: ビルド置き場 (サーバ予定地の足元。木箱台) --- */
   const cxp = stripBuildX();
-  if(!sDrawSprite("prop_build_stand", cxp, G, 1)){
-    sR(cxp - 13, G - 4, 26, 4, "#8a6a44"); sR(cxp - 13, G - 4, 26, 1.2, "#b08954");
-  }
-  if(m.test.red && !sig) sR(cxp - 13, G - 4.6, 26, 1.1, "#e2543e");
-  if(m.test.red) sDrawSprite("prop_jam_cone", cxp - 20, G, 1);
+  sDrawSprite("prop_build_stand", cxp, G, 1);
+  if(m.test.red) sDrawSprite("prop_jam_cone", cxp - 21, G, 1);
   for(let i = 0; i < m.test.n; i++){
     const p = pileSlotPos(cxp, i, false);
     drawFlowCard(p.x, p.yb - 3.25, 1, true, i * 0.53);
@@ -113,7 +93,6 @@ function drawStripPiles(){
     if(legacyGrade() >= 2 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
     else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, 1);
   }
-  if(m.build.red && !sig) sR(dx - 20, G - 16.6, 44, 1.1, "#e2543e");
   if(m.build.red) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
   for(let i = 0; i < m.build.n; i++){
     const p = pileSlotPos(dx, i, true);
@@ -143,12 +122,7 @@ function drawStripLine2Piles(){
   const topY = spriteSize("prop_desk2") ? G - 33 : G - 16;
   const dcx = stripDesk2CX();
   const mini = (cxOff, n, tickMark) => {
-    for(let i = 0; i < n; i++){
-      const yb = topY - i * 5;
-      sR(dcx + cxOff - 4, yb - 4.5, 8, 4.5, "#604B40");
-      sR(dcx + cxOff - 3.6, yb - 4.1, 7.2, 3.7, "#fff5e6");
-      if(tickMark) sR(dcx + cxOff + 1.6, yb - 4.1, 1.8, 1.8, "#7be495");
-    }
+    for(let i = 0; i < n; i++) sDrawSprite(tickMark ? "icon_card_ok" : "icon_card", dcx + cxOff, topY - i * 4, 1);
   };
   mini(-38, m.l2.codeN, false);
   mini(34, m.l2.testN, true);
@@ -172,17 +146,11 @@ function drawStripFlowItems(){
       sDrawSprite("icon_box", x, G - 1, 0.85);
       sctx.restore();
     } else if(it.kind === "note"){
-      if(!sDrawSprite("icon_note_" + ((it.ni || 0) % 4), x, y + 3, 1)){
-        sR(x - 2.5, y - 2.5, 5, 5, it.col || "#ffd94d");
-        sR(x - 2.5, y - 2.5, 5, 1.2, "#00000022");
-      }
+      sDrawSprite("icon_note_" + ((it.ni || 0) % 4), x, y + 6, 2);
     } else if(it.kind === "mote"){
       y = it.y0 - t * 15;
       sctx.save(); sctx.globalAlpha = 1 - t;
-      if(!sDrawSprite("icon_mote", x, y + 3, 1)){
-        sR(x - 1.6, y - 1.6, 3.2, 3.2, it.col || "#c586c0");
-        sR(x - 0.5, y - 0.5, 1, 1, "#ffffff");
-      }
+      sDrawSprite("icon_mote", x, y + 6, 2);
       sctx.restore();
     } else if(it.kind === "idea"){
       sctx.save();
@@ -414,18 +382,13 @@ function renderStrip(){
     const spots = [stripDeskCX() - 128, stripDeskCX() + 122, stripDeskCX() - 148];
     for(let i = 0; i < stacks; i++){
       const px = spots[i];
-      const dp = debtPileSprite(stacks - i);   /* 2026-10-27: 絵があれば帯域ごとの山の絵 */
-      if(dp){ sDrawSprite(dp, px, G, 1); continue; }
-      for(let j = 0; j < 3; j++)
-        sR(px - 7 + (j % 2) * 1.5, G - 2 - j * 2.2, 14, 2, j % 2 ? "#e9e0c8" : "#f7f1de");
-      sR(px - 6, G - 8.6, 12, 1, "#d8cfb8");
-      if(i === 2) sR(px + 9, G - 3, 6, 3, "#c9a86a");   /* 3段目は倒れた箱も */
+      sDrawSprite("prop_debt_pile_" + (stacks - i), px, G, 1);   /* 2026-10-27: 帯域ごとの山の絵 (3 は箱も倒れている) */
     }
   }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
+  drawStripLineUpgrades();     /* 自動テスト機・梱包機 (アップグレードの段)。山の背後に立つ機械 */
   drawStripPiles();
   drawStripLine2Piles();
-  drawStripLineUpgrades();     /* 自動テスト機・梱包機 (アップグレードの段) */
   drawStripStationSignals();   /* 工程ごとの信号柱 (緑/黄/赤) */
   drawStripFlowItems();
   updateStripBots(dt);
@@ -478,8 +441,8 @@ function renderStrip(){
       }
     }
     if(catState === "celebrate"){
-      const cols = ["#e2543e", "#ffd94d", "#5aa469", "#4a90c2"];
-      for(let i = 0; i < 6; i++) sR(gx - 42 + ((i * 29 + frame * 7) % 84), 18 + ((i * 17 + frame * 9) % 52), 2.2, 2.2, cols[i % 4]);
+      for(let i = 0; i < 6; i++)
+        sDrawSprite("fx_confetti_" + (i % 4) + ((frame + i) % 4 < 2 ? "_a" : "_b"), gx - 42 + ((i * 29 + frame * 7) % 84), 20 + ((i * 17 + frame * 9) % 52), 1);
     }
   }
   /* --- スタッフのウォーカー ---
@@ -620,11 +583,11 @@ function renderStrip(){
     sDrawSprite(dnm, dx, dgy, 1);
     const dsz = spriteSize(dnm) || [24, 20];
     stripHitRects.duck = { x: dx - dsz[0] / 2, y: dgy - dsz[1], w: dsz[0], h: dsz[1] };
-    /* 2026-10-27: Lv 4〜7 で2羽、8〜10 で3羽。増えた分は QA トレイの左で検査する */
+    /* 2026-10-27: Lv 4〜7 で2羽、8〜10 で3羽 */
     for(let i = 1; i < duckCount(); i++){
-      const ex = stripQAX() - 24 - (i - 1) * 18;
+      const ex = stripQAX() + 18 + i * 16;   /* 2羽目以降は QA トレイの右で検査する (信号柱の外側) */
       sShadow(ex, G - 0.5, 20);
-      sDrawSprite(dnm, ex, G - ((frame + i * 3) % 6 < 3 ? 0 : 0.8), 1, true);
+      sDrawSprite(dnm, ex, G - ((frame + i * 3) % 6 < 3 ? 0 : 0.8), 1);
     }
   }
   /* --- フローターとクリックのキラキラ --- */
@@ -664,35 +627,21 @@ function renderStrip(){
   drawStripBubble(stripMiyukeX(), G - 82);
 }
 /* ---------- 演出の粒（キラキラ・浮き文字・紙吹雪） ----------
-   どれもデバイス画素に丸めた四角 (sPx) で描き、ドット絵と同じ硬い縁にそろえる */
-/* クリックのキラキラ: 中心の十字が一瞬光り、粒が放射状に減速しながら散る。
-   big (CRITICAL) は粒が多く、遠くまで、少し長く */
-const SPARK_COLS = ["#ffffff", "#ffd94d", "#e8873a"];
+   絵はすべてスプライト (fx_spark_* / fx_confetti_*)。コードが持つのは動きだけ */
+/* クリックのキラキラ: 中心で 3コマ (光る → 開く → 消える)。周りに小さな光が
+   放射状に減速しながら散る。big (CRITICAL) は 2倍の絵で、散る光も多く遠く */
 function drawStripSparks(now){
-  const sprSpark = hasSprite("fx_spark_0");
   for(const sp of stripSparks){
     const life = sp.big ? 0.55 : 0.4;
     const t = (now - sp.born) / 1000 / life;
     if(t > 1) continue;
-    if(sprSpark){
-      /* 2026-10-27: 絵のキラキラ 3コマ (CRITICAL は2倍で描く) */
-      const sc = sp.big ? 2 : 1;
-      sDrawSprite("fx_spark_" + Math.min(2, Math.floor(t * 3)), sp.x, sp.y + 4.5 * sc, sc);
-      continue;
-    }
-    const n = sp.big ? 10 : 6, reach = sp.big ? 15 : 9;
-    const ease = 1 - (1 - t) * (1 - t) * (1 - t);
-    if(t < 0.3){   /* 中心の十字 */
-      const arm = (sp.big ? 4 : 3) * (1 - t / 0.3);
-      sPx(sp.x - 1, sp.y - 1 - arm, 2, 2 + arm * 2, "#ffffff");
-      sPx(sp.x - 1 - arm, sp.y - 1, 2 + arm * 2, 2, "#ffffff");
-    }
+    const sc = sp.big ? 2 : 1;
+    sDrawSprite("fx_spark_" + Math.min(2, Math.floor(t * 3)), sp.x, sp.y + 4.5 * sc, sc);
+    const n = sp.big ? 6 : 4, reach = sp.big ? 16 : 10;
+    const r = reach * (1 - (1 - t) * (1 - t) * (1 - t));
     for(let i = 0; i < n; i++){
       const a = (i / n) * Math.PI * 2 + (sp.seed || 0);
-      const r = reach * ease * (i % 2 ? 0.7 : 1);
-      const col = SPARK_COLS[Math.min(2, Math.floor(t * 3 + (i % 2) * 0.5))];
-      const sz = t > 0.6 ? 1 : 2;
-      sPx(sp.x + Math.cos(a) * r - sz / 2, sp.y + Math.sin(a) * r - sz / 2 + t * 3, sz, sz, col);
+      sDrawSprite("fx_spark_2", sp.x + Math.cos(a) * r, sp.y + Math.sin(a) * r + t * 3 + 4.5, 1);
     }
   }
   stripSparks = stripSparks.filter(sp => now - sp.born <= (sp.big ? 550 : 400));
@@ -724,18 +673,8 @@ function drawStripFloaters(now){
   sctx.restore();
   stripFloaters = stripFloaters.filter(f => now - f.born <= 1400);
 }
-/* 紙吹雪: 回転描画をやめ、横幅を cos で伸縮させて「紙が裏返る」ひらひらに。
-   空気抵抗で横流れが落ち着き、落下は終端速度で頭打ちになって左右に揺れる。
-   裏面は少し暗くして、ドットのまま立体感を出す */
-const CONFETTI_BACK = {};
-function confettiBack(col){
-  if(!CONFETTI_BACK[col]){
-    const v = parseInt(col.slice(1), 16);
-    const d = (c) => Math.round(c * 0.72);
-    CONFETTI_BACK[col] = "rgb(" + d(v >> 16) + "," + d((v >> 8) & 255) + "," + d(v & 255) + ")";
-  }
-  return CONFETTI_BACK[col];
-}
+/* 紙吹雪: 紙片の絵を、表 (a) と裏返り途中 (b) で切り替えて「ひらひら」に見せる。
+   空気抵抗で横流れが落ち着き、落下は終端速度で頭打ちになって左右に揺れる */
 function drawStripConfetti(now, dt){
   for(const p of stripConfetti){
     const age = (now - p.born) / 1000;
@@ -744,14 +683,10 @@ function drawStripConfetti(now, dt){
     p.vx *= Math.max(0, 1 - 1.2 * dt);
     p.rot += p.vr * dt;
     p.x += (p.vx + Math.sin(p.rot * 0.7) * 6) * dt; p.y += p.vy * dt;
-    const c = Math.cos(p.rot);
-    const w = Math.max(1, Math.round(Math.abs(c) * 3));
+    const ci = Math.max(0, CONFETTI_COLS.indexOf(p.col));
     sctx.save();
     sctx.globalAlpha = age < 1.6 ? 1 : Math.max(0, 1 - (age - 1.6) / 0.6);
-    const ci = CONFETTI_COLS.indexOf(p.col);
-    /* 2026-10-27: 絵の紙片があれば、表 (a) と裏返り途中 (b) の2枚を切り替える */
-    if(!(ci >= 0 && sDrawSprite("fx_confetti_" + ci + (Math.abs(c) > 0.5 ? "_a" : "_b"), p.x, p.y + 1, 1)))
-      sPx(p.x - w / 2, p.y - 1, w, 2, c >= 0 ? p.col : confettiBack(p.col));
+    sDrawSprite("fx_confetti_" + ci + (Math.abs(Math.cos(p.rot)) > 0.5 ? "_a" : "_b"), p.x, p.y + 1, 1);
     sctx.restore();
   }
   stripConfetti = stripConfetti.filter(p => now - p.born <= 2200 && p.y < STRIP_H + 6);

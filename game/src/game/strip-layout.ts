@@ -187,14 +187,6 @@ window.__miyukeOnModeChange = function(mode){
   if(mode === "strip") publishHitZones(true);
 };
 function sR(x, y, w, h, c){ sctx.fillStyle = c; sctx.fillRect(x, y, w, h); }
-/* sR のデバイス画素丸め版。帯の倍率は整数とは限らないので、仮想座標のままだと
-   粒の縁がにじむ。演出の粒（キラキラ・紙吹雪）はこれで硬い縁のドットにする */
-function sPx(x, y, w, h, c){
-  const k = stripScale;
-  const dx = Math.round(x * k), dy = Math.round(y * k);
-  sctx.fillStyle = c;
-  sctx.fillRect(dx / k, dy / k, Math.max(1, Math.round(w * k)) / k, Math.max(1, Math.round(h * k)) / k);
-}
 function sShadow(cx, cy, w){
   sctx.save();
   sctx.globalAlpha = 0.20; sctx.fillStyle = "#322319";   /* R4: 全接地物で同一様式 */

@@ -89,9 +89,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const nFeats = p.feats ? p.feats.length : 0;
     for(let k = 0; k < Math.min(p.doneFeats, nFeats); k++){
       const nx = bx + 18 + k * 6.5, ny = top + 2.5;
-      if(sDrawSprite("icon_note_" + (k % 4), nx + 2.5, ny + 5.5, 1)) continue;
-      sR(nx, ny, 5, 5, FLOW_CARD_COLS[k % FLOW_CARD_COLS.length]);
-      sR(nx, ny, 5, 1.2, "#00000022");
+      sDrawSprite("icon_note_" + (k % 4), nx + 2.5, ny + 8, 2);
     }
   }
   /* 作品アイコン (棚に載る箱と同色 = 「この色の箱が増える」の予告編) */

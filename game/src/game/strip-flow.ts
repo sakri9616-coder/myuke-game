@@ -31,7 +31,6 @@ function flowFeedStage(stage, amount, q){
     flowFiredDP[stage] += q * b;
   }
 }
-const FLOW_CARD_COLS = ["#7be495", "#6fa8dc", "#f49a45", "#c586c0"];
 function fireFlowItem(stage, bundle){
   const G = STRIP_GROUND, cx = stripDeskCX();
   const delay = (flowStaggerN++) * 0.15;
@@ -100,7 +99,6 @@ function spawnFeatNote(line){
     ty1 = bar.y - 1;
   }
   stripFlow.push({ kind: "note", line, ni: slot % 4,
-    col: FLOW_CARD_COLS[slot % FLOW_CARD_COLS.length],
     x0: bcx + 4, y0: G - 32,
     x1: tx1, y1: ty1,
     age: 0, dur: 0.6, arc: 24 });
