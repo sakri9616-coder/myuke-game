@@ -109,6 +109,20 @@ function promoteRank(){
   }
   save(); renderPanel();
 }
+/* 再設計 段階4: 収入源ごとの強化の列（作品棚・営業・子会社） */
+function buyEngine(id){
+  const def = ENGINE_DEFS.find(u => u.id === id);
+  const lv = S.upgrades[id] || 0;
+  if(lv >= def.max){ say("もう最大レベルにゃ"); return; }
+  const cost = upgradeCost(def, lv);
+  if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
+  S.coins -= cost; S.upgrades[id] = lv + 1;
+  SoundKit.play("purchase");
+  addLog("強化: " + def.name + " Lv" + (lv + 1) + "（-" + fmt(cost) + "🪙）");
+  say(def.name + "を強化したにゃ！");
+  announceMilestone(def, lv + 1);
+  checkStamps(); save(); renderPanel();
+}
 function buyClickUp(id){
   const def = CLICK_DEFS.find(u=>u.id===id);
   const lv = S.clickUp[id]||0;

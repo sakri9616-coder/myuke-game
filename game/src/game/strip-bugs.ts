@@ -166,7 +166,7 @@ function squashStockBug(count, x){
   S.bugStock = Math.max(0, S.bugStock - k);
   S.totals.bugsSquashed += k; S.today.bugs += k;
   const coins = stockBugReward(k);
-  S.coins += coins; S.totals.coinsEarned += coins;
+  S.coins += coins; S.totals.coinsEarned += coins; creditIncome("labor", coins);
   chargeFever(FEVER.chargePerClick);
   SoundKit.play("bugSquash");
   stripBugFx.push({ kind: "splat", x, at: stripNow || Date.now() });

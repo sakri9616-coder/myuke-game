@@ -31,7 +31,7 @@ function dustGainFromValue(v){
   return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));
 }
 /* 自動昇格の閾値（再設計 段階3）: RANK_VALUE[いまの社格] に企業価値が届いたら次の社格へ。下がることはない */
-const RANK_VALUE = [0, 5e3, 3e4, 2e5, 1e6, 5e6];
+const RANK_VALUE = [0, 3e3, 2e4, 1e5, 5e5, 2.5e6];
 function nextRankValue(){ return S.studioLv < STAFF_CAPS.length ? RANK_VALUE[S.studioLv] : null; }
 /* 1秒ティックから: 企業価値の最高値を記録し、届いた社格へ上げる */
 function tickCompanyValue(){
@@ -384,6 +384,7 @@ function produceDP(amount, target){
     S.totals.lines += a * 1.05; S.today.lines += a * 1.05;
   }
   S.runDP += a;
+  if(fromInput) S.runHandDP = (S.runHandDP || 0) + a;   /* 段階4: 収入の内訳で労働に数える分 */
   S.bugStock += aBase * BAL.bugPerDP * bugMul;
   /* 第2ウェーブ K: 完全放置中はフィーバーが自動生産から細く貯まる */
   if(!fromInput && challengeActive("idle")) chargeFever(a * 0.02);
@@ -515,6 +516,8 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps, line2){
    （依頼ボーナス・IP の扱いもリリース側で従来どおり計算し、入金済みの分を差し引く）。
    IP ねらいの作品は賭けなので流れでは払わない（成否はリリースで決まる） */
 const FLOW_SHARE = 0.6;
+/* 段階4: 本社ラインの強化の列「直販ルート」。作品そのものの売上だけを伸ばし、作品棚の元本（ipBase）には入れない */
+function directMult(){ return 1 + 0.1 * engineLv("direct"); }
 function basePriceCoins(p, line2){
   let c = BAL.coinBase[p.size] * (p.scale || 1) * (line2 ? BAL.line2CoinRate : 1) * (1 + 0.10*upEff(S.upgrades, "ci")) * dustPriceMult() * brandMult() * (line2 ? 1 : modulePriceMult(p)) * planPriceMult(p) * (challengeActive("black") ? 2 : 1) * trendMult(p.genre);   /* 第2ウェーブ K: ブラック企業は価格 ×2 ／ L: 市場の流れ */
   if(p.genre === "game" && S.research.res_game2) c *= 1.3;   /* Sprint 4: ティア2研究のジャンル深化（ゲーム=コイン+30%） */
@@ -528,13 +531,13 @@ function creditFlowCoins(c){
 }
 function payFlow(p, a, line2){
   if(!p || p.ip || a <= 0 || !(p.totalDP > 0)) return;
-  const c = basePriceCoins(p, line2) * FLOW_SHARE * a / p.totalDP;
+  const c = basePriceCoins(p, line2) * directMult() * FLOW_SHARE * a / p.totalDP;
   p.flowPaid = (p.flowPaid || 0) + c;
-  creditFlowCoins(c);
+  creditFlowCoins(c); creditLine(c);
 }
 /* ---------- 作品棚の毎秒売上（再設計 段階1・2026-10-27 sakuri 承認）----------
-   出した作品は棚に並んで売れ続ける: リリースの瞬間に 値段 × CAT.ratePerMin /分 で売れ始め、
-   次の作品が出るたびに ×CAT.decay（新作に客が移る）。棚に並ぶのは新しい順に CAT.max 本。
+   出した作品は棚に並んで売れ続ける: リリースの瞬間に 値段 × CAT.life ÷ τ /分 で売れ始め、
+   時間とともに減る（段階4: 下の CAT の注記）。棚に並ぶのは新しい順に CAT.max 本。
    自社IP になった作品はシリーズとして減衰せず、値段 × CAT.seriesPerMin /分 を EXIT まで稼ぐ
    （v2.12.1 の「出荷1本ごとのロイヤリティ」を置き換え。仕事の桁に追従するのは従来どおり）。
    収入が「リリースの山」だけだと、作る速さの遅い放置プレイでは買い物→収入の複利がほとんど回らなかった。
@@ -542,12 +545,20 @@ function payFlow(p, a, line2){
 /* sim 実測（game-sim・3シード、段階1）: 0.015 では放置の停滞が 70分、0.04 で 66分、0.08 で 29分。
    秒5クリックの星屑20個は 0.015〜0.08 でほぼ変わらない（15〜18分）。張り付きはリリースが速いぶん棚がすぐ入れ替わり、
    放置はリリースの間が長いぶん棚が長く稼ぐ: 同じ作品棚が遊び方で効き方を変える */
-const CAT = { ratePerMin: 0.09, decay: 0.8, max: 12, seriesPerMin: 0.04 };
+const CAT = { life: 5, tauMin: 30, decay: 0.4, max: 4, seriesPerMin: 0.04 };
+/* 段階4: 棚の減り方を「新作が出るたびに ×0.8」から「時間で減る（τ 分で 1/e）」に変えた。
+   新作ごとの減衰だと、リリースが速いほど1本の生涯売上が膨らまず遅いほど膨らみ、いつもの買い方でも
+   棚が本社ラインの約5倍を稼いで、どこに投資しても作品棚が主役になっていた（sim の G5）。
+   いまは1本の生涯売上 ＝ 値段 × CAT.life（×「棚を広げる」の伸び）で、リリースの速さに依らない */
+/* 段階4: 「棚を広げる」で本数と減衰、「販促キャンペーン」で売上（棚の記録 r は素の値、倍率は catalogRate で掛ける） */
+function catalogMax(){ return CAT.max + 2 * (S.upgrades.shelfx || 0); }
+function catalogTauSec(){ return CAT.tauMin * 60 * (1 + 0.1 * (S.upgrades.shelfx || 0)); }
+function catalogMult(){ return 1 + 0.1 * engineLv("promo"); }
 function catalogAdd(p, price){
   if(!Array.isArray(S.catalog)) S.catalog = [];
-  for(const e of S.catalog) e.r *= CAT.decay;
-  S.catalog.unshift({ n: p.name, r: price * CAT.ratePerMin / 60 });
-  if(S.catalog.length > CAT.max) S.catalog.length = CAT.max;
+  for(const e of S.catalog) e.r *= CAT.decay;   /* 新作に客が移る（リリースが速いほど1本の生涯売上は小さい） */
+  S.catalog.unshift({ n: p.name, r: price * CAT.life / CAT.tauMin / 60 });
+  if(S.catalog.length > catalogMax()) S.catalog.length = catalogMax();
 }
 function seriesRate(ip){ return ip.price * CAT.seriesPerMin / 60 * Math.max(1, workScale() / (ip.scale || 1)); }
 /* 🪙/秒（棚＋シリーズ） */
@@ -555,7 +566,7 @@ function catalogRate(){
   let r = 0;
   for(const e of (S.catalog || [])) r += e.r || 0;
   for(const ip of (S.ips || [])) r += seriesRate(ip);
-  return r;
+  return r * catalogMult();
 }
 /* いまの自動収入 🪙/秒（作りながらの入金・棚・シリーズ・子会社。リリースの山は含めない） */
 function incomePerSec(){
@@ -572,7 +583,7 @@ function autoIncomePerSec(){
   let r = catalogRate();
   if(p && p.totalDP > 0){
     const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60;
-    r += dps * basePriceCoins(p, false) / p.totalDP;
+    r += dps * basePriceCoins(p, false) * directMult() / p.totalDP;
   }
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
   return r;
@@ -582,7 +593,25 @@ function companyValue(){ return autoIncomePerSec() * 3600; }
 function rewardCoins(sec, floor){ return Math.max(floor, Math.round(sec * incomePerSec())); }
 function tickCatalog(){
   const c = catalogRate();
-  if(c > 0) creditFlowCoins(c);
+  if(c > 0){ creditFlowCoins(c); creditIncome("catalog", c); }
+  const d = Math.exp(-1 / catalogTauSec());
+  for(const e of (S.catalog || [])) e.r *= d;
+}
+/* ---------- 収入の内訳（再設計 段階4）----------
+   この会社で、どの収入源がいくら稼いだか（売却で 0）。本社ラインの入金のうち、応援クリックが作った DP の割合
+   （runHandDP / runDP）は労働の稼ぎに数える。帯の看板とメニューで「いまの主役」を見せ、sim の G5 で測る */
+function creditIncome(src, c){
+  if(!(c > 0)) return;
+  if(!S.incomeBy || typeof S.incomeBy !== "object") S.incomeBy = {};
+  S.incomeBy[src] = (S.incomeBy[src] || 0) + c;
+}
+function laborShare(){ return S.runDP > 0 ? Math.min(1, (S.runHandDP || 0) / S.runDP) : 0; }
+function creditLine(c){ const f = laborShare(); creditIncome("labor", c * f); creditIncome("line", c * (1 - f)); }
+/* いまの主役（この会社で一番稼いだ収入源）。まだ何も無ければ null */
+function mainIncomeSrc(){
+  let best = null, bv = 0;
+  for(const k in (S.incomeBy || {})) if(S.incomeBy[k] > bv){ bv = S.incomeBy[k]; best = k; }
+  return best;
 }
 /* 1秒ティックから呼ぶ: 🪙/秒 の表示値を更新 */
 function tickCoinFlow(){ coinFlowEMA = coinFlowEMA * 0.8 + coinFlowSecAcc * 0.2; coinFlowSecAcc = 0; }
@@ -594,12 +623,13 @@ function releaseProject(){
   /* Sprint 4: ティア2研究のジャンル深化（AI=研究P+1。ゲームのコイン+30% は basePriceCoins） */
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   const ipBase = coins;   /* 第2ウェーブ L: シリーズ売上と棚売上の元本 = 依頼ボーナスを含まない通常価格 */
-  let requestBonus = "";
+  coins = Math.round(coins * directMult());   /* 段階4: 直販ルート（棚の元本には入れない） */
+  let requestBonus = "", salesBonusPaid = 0;
   if(S.activeRequest && S.activeRequest.genre === p.genre){
     /* Phase C: ボーナス率は依頼のティアで決まる（手動受注は従来どおり +60%）。
        要求サイズ未満の作品で達成した場合は半額（満額条件の明示） */
     const rq = S.activeRequest;
-    let rate = typeof rq.bonus === "number" ? rq.bonus : 0.6;
+    let rate = (typeof rq.bonus === "number" ? rq.bonus : 0.6) * (1 + 0.1 * engineLv("scout"));   /* 段階4: 営業の列「目利き」 */
     let shortNote = "";
     if(rq.reqSize && SIZE_ORDER.indexOf(p.size) < SIZE_ORDER.indexOf(rq.reqSize)){
       rate = rate / 2;
@@ -611,8 +641,8 @@ function releaseProject(){
       rate = 0;
       lateNote = "（納期を過ぎたためボーナスなし）";
     }
-    const bonus = Math.round(coins * rate);
-    coins += bonus; rp += 1;
+    const bonus = Math.round(ipBase * rate);   /* 段階4: 通常価格に掛ける（直販ルートと二重に伸びないように） */
+    coins += bonus; rp += 1; salesBonusPaid = bonus;
     requestBonus = rate > 0 ? "（依頼達成ボーナス +"+bonus+"🪙）" : "";
     addLog(rate > 0
       ? "依頼達成！『"+p.name+"』"+requestBonus+shortNote
@@ -632,6 +662,8 @@ function releaseProject(){
   settleIP(p, ipBase, S.shelf[0], ipOk);   /* 第2ウェーブ L: IP 指定があればここで成立判定 */
   if(!ipOk) catalogAdd(p, ipBase);   /* 再設計 段階1: 棚に並んで売れ続ける（IP はシリーズとして別に稼ぐ） */
   S.coins += bonusNow - coins;   /* recordRelease が全額を足すので、入金済みの分を戻す */
+  /* 段階4: 収入の内訳。依頼ボーナスは営業、残りは本社ライン（作りながらの入金は payFlow で記帳済み） */
+  { const salesPart = Math.min(bonusNow, salesBonusPaid * (ipOk ? 0.3 : 1)); creditIncome("sales", salesPart); creditLine(bonusNow - salesPart); }
   S.totals.coinsEarned += bonusNow - coins;
   coins = bonusNow;
   addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed > 0 ? "（作りながら +"+fmt(flowed)+"🪙 入金済み）" : "")+" / +"+rp+"🔬 "+requestBonus);
@@ -654,6 +686,7 @@ function releaseProject2(){
   let rp = Math.round(BAL.rpBase[p.size] * Math.sqrt(p.scale || 1));   /* 仕事の桁: 研究Pは桁の平方根で（研究は固定価格の木なので） */
   if(p.genre === "ai" && S.research.res_ai2) rp += 1;
   const ipBase2 = coins;   /* 第2ウェーブ L: 元本は30%カット前の通常価格 */
+  coins = Math.round(coins * directMult());   /* 段階4: 直販ルート */
   const ipOk2 = ipConvertible(p);
   if(ipOk2) coins = Math.round(coins * 0.3);   /* 第2ウェーブ L: 第2ラインも即時は30% */
   else if(p.ip) coins = Math.round(coins * IP_FAIL_MULT);
@@ -664,6 +697,7 @@ function releaseProject2(){
   settleIP(p, ipBase2, S.shelf[0], ipOk2);   /* 第2ウェーブ L: 第2ラインの指定作も同じ判定 */
   if(!ipOk2) catalogAdd(p, ipBase2);
   S.coins += bonus2 - coins; S.totals.coinsEarned += bonus2 - coins;
+  creditLine(bonus2);   /* 段階4: 収入の内訳 */
   coins = bonus2;
   addLog("🎉 第2ラインでリリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed2 > 0 ? "（作りながら +"+fmt(flowed2)+"🪙 入金済み）" : "")+" / +"+rp+"🔬");
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
