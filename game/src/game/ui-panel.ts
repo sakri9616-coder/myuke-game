@@ -252,13 +252,13 @@ function renderPanel(){
             (dmi ? "<button onclick='doDeathMarch()'>🔥 デスマーチ出荷（進捗 " + Math.round(dmi.frac * 100) + "%・負債 +" + dmi.debtAdd + "）</button>" : "") +
             "</div>";
         }
-        /* 企画を練る（企画会議）: 実装を止めるのと引き換えに価格とバグを良くする（進捗 50% まで）。
-           後工程が詰まって仕掛品が溜まっている時が狙い目、実装が律速の時は損 */
-        if(canPlan(p, S.projectDP) || planLv(p) > 0 || inPlanMeet(p)){
+        /* 企画を練る: アイデアを使って価格とバグを良くする（進捗 50% まで）。
+           使ったアイデアのぶん、オーバークロックの溜まりが遅くなる（蓄えとの天秤） */
+        if(canPlan(p, S.projectDP) || planLv(p) > 0){
+          const pc = planCost(p), after = ideaChargeMultFor((S.ideas || 0) - pc);
           h += "<div style='margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap'>" +
             (planLv(p) > 0 ? "<span class='vchip'>💡 企画Lv" + planLv(p) + "（価格 ×" + planPriceMult(p).toFixed(2) + "・バグ -" + Math.round(15 * planLv(p)) + "%）</span>" : "") +
-            (inPlanMeet(p) ? "<span class='vchip'>🗒 企画会議中：実装停止 あと " + fmtMinSec(p.planMeetSec) + "</span>" : "") +
-            (canPlan(p, S.projectDP) ? "<button onclick='planProject(\"l1\")'" + (S.ideas < planCost(p) ? " disabled" : "") + " title='後工程が詰まって仕掛品が溜まっている時に練ると、出荷は止まらず丸得。実装が詰まっている時は出荷が遅れる'>💡 企画会議（実装を " + fmtMinSec(planMeetDurSec(p, false)) + " 止める・価格 +" + Math.round(PLAN_PRICE_STEP * 100) + "%・バグ -15%・アイデア " + fmt(planCost(p)) + "）</button>" : "") +
+            (canPlan(p, S.projectDP) ? "<button onclick='planProject(\"l1\")'" + (S.ideas < pc ? " disabled" : "") + " title='手元のアイデアはオーバークロックのゲージを速く溜める。使うとそのぶん遅くなる。放置が多いなら練るほうが得'>💡 企画を練る（価格 +" + Math.round(PLAN_PRICE_STEP * 100) + "%・バグ -15%・アイデア " + fmt(pc) + "・⚡溜まり ×" + ideaChargeMult().toFixed(2) + " → ×" + after.toFixed(2) + "）</button>" : "") +
             "</div>";
         }
         /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
@@ -681,7 +681,7 @@ function renderPanel(){
       const act = feverActive();
       h += "<div class='kv'><span>⚡ オーバークロック</span><b>" +
         (act ? "発動中！ あと " + Math.ceil((feverUntil - Date.now()) / 1000) + " 秒（生産×5・クリック×3）"
-             : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります・蓄熱で生産 +" + Math.round(FEVER.passiveMax * g) + "%）")) + "</b></div>";
+             : "ゲージ " + g + "%" + (g >= 100 ? " — 発動できます！" : "（実作業と応援で貯まります・アイデアの蓄えで溜まり ×" + ideaChargeMult().toFixed(2) + "・蓄熱で生産 +" + Math.round(FEVER.passiveMax * g) + "%）")) + "</b></div>";
       /* 押せない理由をボタン自体に書く (ゲージが満タンになると押せる) */
       if(!act) h += "<button " + (g >= 100 ? "" : "disabled") + " onclick=\"activateFever()\">" + (g >= 100 ? "⚡ オーバークロック発動（30秒）" : "⚡ オーバークロック（ゲージ100%で発動）") + "</button>";
     }
