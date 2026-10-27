@@ -102,11 +102,11 @@ async function main(){
           await page.screenshot({path:out(version+"-"+tab)+".png",animations:"disabled"});
         }
         if(!locked){
-          await page.evaluate(() => switchTab("staff"));
-          await page.locator("[data-fold='hire'] .fold-head").click();
-          if(!await page.locator("[data-fold='hire'] .fold-body").isVisible()) result.errors.push(version+": hire fold did not open");
-          await page.locator("[data-fold='hire'] .fold-head").click();
-          if(await page.locator("[data-fold='hire'] .fold-body").isVisible()) result.errors.push(version+": hire fold did not close");
+          await page.evaluate(() => switchTab("proj"));   /* 段階4: 雇用の折りたたみは部署の列に変わったので、常にある「あそびかた」で確かめる */
+          await page.locator("[data-fold='howto'] .fold-head").click();
+          if(!await page.locator("[data-fold='howto'] .fold-body").isVisible()) result.errors.push(version+": howto fold did not open");
+          await page.locator("[data-fold='howto'] .fold-head").click();
+          if(await page.locator("[data-fold='howto'] .fold-body").isVisible()) result.errors.push(version+": howto fold did not close");
         }
         await context.close();
       }

@@ -329,6 +329,17 @@ function renderPanel(){
     const ss = staffSums();
     const ROLE_ICONS = { prog:"💻", test:"🐛", carry:"📦", research:"🔬", care:"🍪", sales:"💼", cheer:"📣" };  /* メニュー刷新 P1: 行アイコンソケット用 */
     h += "<h3>👥 スタッフ（"+ss.count+" / 上限 "+staffCap()+"人・"+companyRank()+" Lv"+S.studioLv+"）</h3>";
+    /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
+    /* 再設計 段階3: スタジオ拡張の枠は「次の社格の予告」（sakuri 2026-10-27）。社格は企業価値が届くと自動で上がる */
+    if(S.studioLv < STAFF_CAPS.length){
+      const need = nextRankValue(), have = S.runPeakValue || 0;
+      const opens = RANK_UNLOCKS[S.studioLv + 1];
+      h += "<div class='item slim rankbox' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
+        " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"</span>"+
+        "<div class='meter' style='margin-top:5px'><i style='width:"+Math.min(100, Math.round(have / need * 100))+"%'></i></div><div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"</div></div></div>";
+    } else {
+      h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
+    }
     /* 第2ウェーブ M: 役員は頭数外の常駐メンバー。オーラの内訳を見せる */
     if((S.executives || []).length){
       h += "<div class='stagehead'>🎗 役員（頭数に数えません・同じ役職に +10%/匹 のオーラ）</div>" +
@@ -343,53 +354,54 @@ function renderPanel(){
         (S.buffs.clickUntil > Date.now() ? "<span class='vchip'>👆 クリック+10% <b>あと約"+Math.ceil((S.buffs.clickUntil-Date.now())/60000)+"分</b></span>" : "") +
         "</div>";
     }
-    if(!S.staff.length) h += "<div class='note' style='font-size:12px'>まだスタッフはいません。下の「雇用する」から最初の仲間を雇おう。</div>";
-    else h += "<div class='staffgrid'>";
-    for(const st of S.staff){
-      const def = STAFF_ROLES[st.role], m = staffOutMult(st) * deptMult(st.role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
-      let eff = def.desc;
-      if(st.role === "prog") eff = "実装 +" + (def.out*m).toFixed(1) + " DP/分";
-      if(st.role === "test") eff = "QA +" + (def.out*m).toFixed(1) + " バグ/分 ・ テスト +" + (4*m).toFixed(0) + " DP/分";
-      if(st.role === "carry") eff = "出荷 +" + (def.out*m).toFixed(0) + " DP/分";
-      if(st.role === "research") eff = "研究 +" + (def.out*m).toFixed(2) + " P/分" +
-        (tier1Done() ? " ・ 💡 +" + (def.out*m*0.6).toFixed(2) + "/分" : "");
-      if(st.role === "care") eff = "集中力キープ ・ たまに差し入れ";
+    /* 再設計 段階4（sakuri のスケッチ 2026-10-27）: 部署ごとの列。見出し（部署名＋Lv.up）・所属の猫・雇用 を縦に並べる。
+       カード・行・ボタンは従来の部品のまま（雰囲気は引き継ぐ） */
+    const staffEff = (st, m) => {
+      const def = STAFF_ROLES[st.role];
+      if(st.role === "prog") return "実装 +" + (def.out*m).toFixed(1) + " DP/分";
+      if(st.role === "test") return "QA +" + (def.out*m).toFixed(1) + " バグ/分 ・ テスト +" + (4*m).toFixed(0) + " DP/分";
+      if(st.role === "carry") return "出荷 +" + (def.out*m).toFixed(0) + " DP/分";
+      if(st.role === "research") return "研究 +" + (def.out*m).toFixed(2) + " P/分" + (tier1Done() ? " ・ 💡 +" + (def.out*m*0.6).toFixed(2) + "/分" : "");
+      if(st.role === "care") return "集中力キープ ・ たまに差し入れ";
       if(st.role === "sales"){
         const sg = GENRES.find(x => x.id === st.genre);
-        eff = "依頼を自動獲得 ・ 得意：" + (sg ? sg.name : "―") + " ・ 担当力 " + (st.lv + deptLv("sales") - 1);
+        return "依頼を自動獲得 ・ 得意：" + (sg ? sg.name : "―") + " ・ 担当力 " + (st.lv + deptLv("sales") - 1);
       }
-      const tc = trainCost(st), maxed = st.lv >= STAFF_MAX_LV;
-      h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
-        "<div class='sc-main'><div class='sc-top'><span class='sock sm'>" + (ROLE_ICONS[st.role]||"🐱") + "</span>" +
-        "<span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
-        (deptChief(st.role) === st ? "<span class='tagchip'>⭐部長</span>" : "") +
-        "<small>" + COAT_NAMES[st.coat] + "・" + def.name + "</small></div>" +
-        "<div class='sc-eff'>" + eff + "</div></div>" +
-        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")")) + "</div>";
+      return def.desc;
+    };
+    if(!S.staff.length) h += "<div class='note' style='font-size:12px'>まだスタッフはいません。部署の「雇用」から最初の仲間を雇おう。</div>";
+    h += "<div class='deptcols'>";
+    for(const role of Object.keys(DEPTS)){
+      const d = DEPTS[role], def = STAFF_ROLES[role], lv = deptLv(role), n = ss.byRole[role] || 0;
+      const maxed = lv >= DEPT_MAX_LV, chief = deptChief(role), locked = roleLocked(role);
+      h += "<div class='deptcol" + (locked ? " locked" : "") + "'>" +
+        "<div class='item buy slim deptcol-head'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
+        " <span class='lvbadge'>Lv" + lv + "</span>" +
+        "<div class='ds'>" + def.stage + " ・ 所属 " + n + "人 ・ 出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
+        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ")) + "</div>";
+      for(const st of S.staff.filter(x => x.role === role)){
+        const m = staffOutMult(st) * deptMult(role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
+        const tc = trainCost(st), smax = st.lv >= STAFF_MAX_LV;
+        h += "<div class='staffcard'><div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
+          "<div class='sc-main'><div class='sc-top'>" +
+          "<span class='nm'>" + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
+          (chief === st ? "<span class='tagchip'>⭐部長</span>" : "") +
+          "<small>" + COAT_NAMES[st.coat] + "</small></div>" +
+          "<div class='sc-eff'>" + staffEff(st, m) + "</div></div>" +
+          (smax ? "<span class='tagchip'>MAX</span>" : buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")")) + "</div>";
+      }
+      h += "<div class='item buy slim deptcol-hire' data-fix='hire:" + role + "'><div><span class='nm'>" + (ROLE_ICONS[role]||"🐱") + " " + def.name + "を雇用</span>" +
+        "<div class='ds'>" + def.desc + (locked ? "（社格「" + rankName(CHEER_STAFF_RANK) + "」から）" : "") + "</div></div>" +
+        buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") + "</div>";
+      h += "</div>";
     }
-    if(S.staff.length) h += "</div>";
-    /* 一括育成は「まとめて上げる」高頻度操作なのでカード直下に細い行で */
+    h += "</div>";
+    /* 一括育成は「まとめて上げる」高頻度操作なので列の直下に細い行で */
     const bulkTargets = S.staff.filter(s => (s.lv || 1) < STAFF_MAX_LV);
     if(bulkTargets.length){
       const bulkCost = bulkTargets.reduce((a, s) => a + trainCost(s), 0);
       h += "<div class='item buy slim'><div><span class='sock sm'>🎓</span><span class='nm'>全員+1Lv 育成</span> <small>対象 "+bulkTargets.length+"人</small></div>"+
         buyBtn("bulk", bulkCost, "coins", "buyBulkTrain()")+"</div>";
-    }
-    /* Phase C: 部署（ロールの束ね＋部署Lv）。投資すると部署全員の出力に倍率。
-       部長は部署で一番 Lv が高いスタッフに自動で付く（操作不要） */
-    {
-      let deptHTML = "";
-      for(const role of Object.keys(DEPTS)){
-        const d = DEPTS[role], lv = deptLv(role), n = ss.byRole[role] || 0;
-        const chief = deptChief(role);
-        const maxed = lv >= DEPT_MAX_LV;
-        deptHTML += "<div class='item buy slim'><div><span class='sock'>" + d.icon + "</span><span class='nm'>" + d.name + "</span>" +
-          " <span class='tagchip'>Lv" + lv + "</span> <span class='tagchip'>在籍 " + n + "人</span>" +
-          (chief ? " <span class='tagchip'>⭐部長 " + esc(chief.name) + " Lv" + chief.lv + "</span>" : "") +
-          "<div class='ds'>所属全員の出力 ×" + deptMult(role).toFixed(2) + (maxed ? "（最大）" : " → 強化で ×" + (deptMult(role) + 0.15).toFixed(2)) + "</div></div>" +
-          (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")")) + "</div>";
-      }
-      h += foldSec("depts", false, "🏢 部署", "投資で部署の出力アップ", deptHTML);
     }
     /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・資金配分、
        出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
@@ -422,27 +434,6 @@ function renderPanel(){
         (S.subs || []).length ? (S.subs.length + "社・総勢 " + totalPeople() + "人") : "まだ子会社はありません",
         subHTML + foundHTML);
     }
-    /* スタジオ拡張は雇用の前提 — 細い行で常時見せる (最大時は1行に畳む) */
-    /* 再設計 段階3: スタジオ拡張の枠は「次の社格の予告」（sakuri 2026-10-27）。社格は企業価値が届くと自動で上がる */
-    if(S.studioLv < STAFF_CAPS.length){
-      const need = nextRankValue(), have = S.runPeakValue || 0;
-      const opens = RANK_UNLOCKS[S.studioLv + 1];
-      h += "<div class='item slim' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
-        " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"</span>"+
-        "<div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"</div></div></div>";
-    } else {
-      h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
-    }
-    /* 雇用は折りたたみ (在籍ゼロの序盤だけ既定で開く — 最初の1人が最優先の間) */
-    let hireHTML = "";
-    for(const role of Object.keys(STAFF_ROLES)){
-      const def = STAFF_ROLES[role], cost = hireCost(role), n = ss.byRole[role]||0;
-      hireHTML += "<div class='item buy slim' data-fix='hire:"+role+"'><div><span class='sock'>"+(ROLE_ICONS[role]||"🐱")+"</span><span class='nm'>"+def.name+"</span>"+
-        " <span class='tagchip'>"+def.stage+"</span> <span class='tagchip'>在籍 "+n+"人</span>"+
-        "<div class='ds'>"+def.desc+(roleLocked(role) ? "（社格「" + rankName(CHEER_STAFF_RANK) + "」から）" : "")+"</div></div>"+
-        buyBtn("hire:"+role, cost, "coins", "hireStaff(\""+role+"\")", ss.count>=staffCap() || roleLocked(role))+"</div>";
-    }
-    h += foldSec("hire", S.staff.length === 0, "🧲 雇用する", "あと "+Math.max(0, staffCap()-ss.count)+" 人まで", hireHTML);
     /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
     let treatHTML = "";
     for(const def of TREAT_DEFS){
