@@ -93,7 +93,7 @@ function affordInfo(key, cost, cur){
            pulse: afford && (Date.now() - (affordPulseAt[key] || 0) < 9000) };
 }
 /* 購入ボタンの共通生成: 価格＋（あと少しなら）不足分ヒント＋到達パルス */
-function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
+function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?, withMax?){
   const a = affordInfo(key, cost, cur);
   const unit = cur === "rp" ? "🔬" : cur === "dust" ? "⭐" : cur === "cheerP" ? "応援P" : "🪙";
   /* メニュー刷新 P1: 価格は金の価格タグとして分離表示 (MENU_REDESIGN_SPEC §4.5) */
@@ -107,7 +107,17 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?){
   const dis = (!a.afford || extraDisabled) ? " disabled" : "";
   /* 読み上げ名: 価格だけ (「46🪙」) では何のボタンか分からないので、操作と不足分も添える */
   const aria = (prefix ? prefix.replace(/<[^>]*>/g, "") : "購入") + " " + fmt(cost) + unit + (a.almost ? "（あと " + fmt(a.deficit) + unit + "）" : "");
-  return "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + " aria-label='" + esc(aria) + "'>" + label + "</button>";
+  const btn = "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + " aria-label='" + esc(aria) + "'>" + label + "</button>";
+  return withMax ? "<span class='buypair'>" + btn + maxBtn(onclick, dis) + "</span>" : btn;
+}
+/* 「最大」: 右隣のボタンで、同じ購入を買えるだけ一括で買う (長押しと同じ buyMany を1回だけ呼ぶ)。
+   管理ウィンドウでは buyMany がコマンドの送り口なので、そのまま帯へ1コマンドで届く */
+const BUY_MAX_N = 1000;
+function maxBtn(onclick, dis){
+  const m = /^\s*(\w+)\((.*)\)\s*$/.exec(onclick);
+  if(!m) return "";
+  return "<button class='buybtn maxbtn' onclick='buyMany(" + JSON.stringify(m[1]) + ",[" + m[2] + "]," + BUY_MAX_N + ")'" + dis +
+    " aria-label='買えるだけ買う' title='買えるだけ買う'>最大</button>";
 }
 /* 購入ボタンの長押し: 押している間、加速しながら買えるだけ買う。
    - ボタンは再描画で作り直されるので、要素ではなく onclick の「動詞(引数)」を覚えて買い続ける

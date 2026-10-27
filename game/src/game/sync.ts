@@ -58,7 +58,7 @@ function buyMany(verb, args, n){
   if(typeof verb !== "string" || !Object.prototype.hasOwnProperty.call(HOLD_VERBS, verb)) return 0;
   const fn = VERBS[verb];
   const a = Array.isArray(args) ? args : [];
-  const max = Math.max(1, Math.min(200, Math.floor(Number(n) || 1)));
+  const max = Math.max(1, Math.min(BUY_MAX_N, Math.floor(Number(n) || 1)));   /* 長押しは1歩200まで、「最大」ボタンは BUY_MAX_N */
   const wallet = () => S.coins + "|" + S.rp + "|" + S.dust + "|" + (S.cheerP || 0);
   let bought = 0;
   quietBuy = { log: [] };
