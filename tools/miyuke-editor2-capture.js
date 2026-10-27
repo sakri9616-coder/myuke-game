@@ -32,7 +32,7 @@ const veteran = {
   coins:5000, rp:30, dust:3, dustTotal:12, prestiges:1,
   totals:{releases:30,hired:3,coinsEarned:99999,clicks:500,commits:900,lines:5000,bugsSquashed:40,keys:1000,cursorPx:5000,naps:2,playSec:3600,crits:5,goldFish:1,eventBugs:3},
   staff:[{id:1,name:"シロ",coat:"shiro",role:"carry",lv:2}], staffSeq:1,
-  research:{res_game:true,res_plant:true,res_line2:true}, upgrades:{keyboard:1},
+  research:{res_game:true,res_bottrain:true}, upgrades:{devenv:1},
   shelf:[{name:"旧作",genreName:"ゲーム",size:"M",date:"2026/10/01",devMin:30,lines:900,bugs:3,naps:0,icon:1}]
 };
 const outBase = outdir ? path.resolve(outdir) : root;

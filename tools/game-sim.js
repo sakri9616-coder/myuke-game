@@ -139,7 +139,7 @@ function botBestImpl(costOf){
     apply(); const gain = productionRate() - base; undo();
     if(gain > 0 && gain / c > bv){ bv = gain / c; best = key; }
   };
-  for(const id of ["keyboard", "ide", "bot"]) tryKey("up:" + id, () => { S.upgrades[id] = (S.upgrades[id] || 0) + 1; }, () => { S.upgrades[id]--; });
+  for(const id of ["devenv", "bot"]) tryKey("up:" + id, () => { S.upgrades[id] = (S.upgrades[id] || 0) + 1; }, () => { S.upgrades[id]--; });
   if(S.staff.length < staffCap()) tryKey("hire:prog", () => { S.staff.push({ id: -1, role: "prog", lv: 1, name: "", coat: "" }); }, () => { S.staff.pop(); });
   return best;
 }

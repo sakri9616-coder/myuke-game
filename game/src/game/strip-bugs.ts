@@ -167,6 +167,11 @@ function squashStockBug(count, x){
   S.totals.bugsSquashed += k; S.today.bugs += k;
   const coins = stockBugReward(k);
   S.coins += coins; S.totals.coinsEarned += coins; creditIncome("labor", coins);
+  /* 段階5: ラバーダック（在庫バグの相棒）。潰したバグごとにテスト待ちの仕掛品をテストの duck×2 秒ぶん先へ送る */
+  if((S.upgrades.duck || 0) > 0 && S.wip){
+    const mv = Math.min(S.wip.code, testRate() / 60 * 2 * upEff(S.upgrades, "duck") * Math.sqrt(k));
+    if(mv > 0){ S.wip.code -= mv; S.wip.tested += mv; }
+  }
   chargeFever(FEVER.chargePerClick);
   SoundKit.play("bugSquash");
   stripBugFx.push({ kind: "splat", x, at: stripNow || Date.now() });

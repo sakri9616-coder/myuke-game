@@ -17,7 +17,7 @@ function officeTier(st){
   const releases = (st.totals && st.totals.releases) || 0;
   const hired = Math.max((st.totals && st.totals.hired) || 0, (st.staff && st.staff.length) || 0);
   if(releases >= 1 && hired >= 1) t = Math.max(t, 1);
-  if((st.line2 && st.line2.unlocked) || (st.studioLv || 1) >= 3) t = Math.max(t, 2);
+  if((st.studioLv || 1) >= 3) t = Math.max(t, 2);
   if((st.prestiges || 0) >= 1) t = Math.max(t, 3);
   /* Phase B・家具ティアの床ルール（仕様書2節・レビュー室指摘の明文化）:
      ティアは max(現行の導出, 社格ティア) で、最高到達社格の段を下回らない。
@@ -54,7 +54,7 @@ const TUT_NEXT = [
   () => S.totals.clicks >= 30 || S.totals.releases >= 4,       /* 2→3 応援強化 */
   () => S.totals.coinsEarned >= 220,                           /* 3→4 仲間 */
   () => S.totals.hired >= 1 || S.totals.releases >= 5,         /* 4→5 依頼 */
-  () => !!S.research.res_line2,                                /* 5→6 第2ライン */
+  () => deptLv("prog") >= 3,                                   /* 5→6 並行開発（段階5: 第2ラインの代わり） */
   () => prestigePreview().gain >= 3                            /* 6→7 引っ越し (卒業)。第2ウェーブ I で売却下限 3 に一致 */
 ];
 /* 解放ビート (吹き出し1回だけ)。設計 §7 の文案 */
@@ -64,7 +64,7 @@ const TUT_BEATS = {
   3: "👆 よく応援してくれるね。応援タブでクリックが強くできるよ",
   4: "🐱 さっきの猫たち、雇えるようになったにゃ",
   5: "📮 お客さんから依頼が届いてるにゃ",
-  6: "🏭 第2ラインが設計できたにゃ！あとは建設費 1,500🪙",
+  6: "🏭 開発部が Lv3 になって並行開発が始まったにゃ！ 実装がぐんと速くなるよ",
   7: "⭐ だいぶ星屑がたまったね。会社を売却すると最初からだけど、ずっと強くなるよ。工場タブに置いといたにゃ"
 };
 const TUT_BEAT_KEYS = { 1:"s1", 2:"s2", 3:"s25", 4:"s3", 5:"s4", 6:"s5", 7:"s6" };
@@ -77,7 +77,7 @@ function tutLatchQuests(){
   const facts = {
     q1: tutOwnsUpgrades(), q2: tutOwnsResearch(), q3: tutOwnsClick(),
     q4: S.totals.hired >= 1 || S.staff.length > 0,
-    q5: !!S.activeRequest, q6: !!S.line2.unlocked
+    q5: !!S.activeRequest, q6: deptLv("prog") >= 3
   };
   const stageOf = { q1:1, q2:2, q3:3, q4:4, q5:5, q6:6 };
   let changed = false;
@@ -243,11 +243,7 @@ function stripQuestText(){
     case 3: return seen.q3 ? "" : "🎯 応援タブで強化を1つ買おう";
     case 4: return seen.q4 ? "" : "🎯 スタッフを1人雇おう";
     case 5: return seen.q5 ? "" : "🎯 依頼を1つ受けよう";
-    case 6: {
-      if(S.line2.unlocked) return "";
-      const short = Math.max(0, BAL.line2BuildCost - Math.floor(S.coins));
-      return short > 0 ? "🎯 あと " + fmt(short) + "🪙 で第2ラインを建てられるにゃ" : "🎯 第2ラインを建てよう（建てられるにゃ！）";
-    }
+    case 6: return deptLv("prog") >= 3 ? "" : "🎯 開発部を Lv3 にして並行開発を始めよう（スタッフタブ）";
   }
   return "";
 }

@@ -16,8 +16,14 @@ const UPGRADE_VIS_CUTS = {
   ci:       [1, 4, 8],
   pack:     [1, 5],
 };
+/* 段階5: キーボードと IDE の絵は「開発環境」の Lv、椅子の絵は社格で決まる（見た目の家具） */
+function upgradeVisLv(id){
+  if(id === "keyboard" || id === "ide") return S.upgrades.devenv || 0;
+  if(id === "chair") return (S.studioLv || 1) >= 4 ? 3 : (S.studioLv || 1) >= 2 ? 1 : 0;
+  return S.upgrades[id] || 0;
+}
 function upgradeVisTier(id){
-  const lv = S.upgrades[id] || 0, cuts = UPGRADE_VIS_CUTS[id] || [1];
+  const lv = upgradeVisLv(id), cuts = UPGRADE_VIS_CUTS[id] || [1];
   let t = 0;
   for(const c of cuts) if(lv >= c) t++;
   return t;
@@ -124,7 +130,9 @@ function duckCount(){ return upgradeVisTier("duck"); }
    見た目専用 (シミュレーションには触らない)。行き (出荷へ) は箱を頭に載せ、帰りは手ぶら */
 let stripBots = [];
 function updateStripBots(dt){
-  const n = hasSprite("bot_idle") ? Math.min(3, S.upgrades.bot || 0) : 0;
+  /* 段階5: 上限3を外したので、Lv3 までは台数どおり、その先は節目（Lv10・25・50・100）ごとに1台ずつ増える（帯は最大7台） */
+  const blv = S.upgrades.bot || 0;
+  const n = hasSprite("bot_idle") ? Math.min(7, blv <= 3 ? blv : 3 + MILESTONE_LVS.filter(c => blv >= c).length) : 0;
   while(stripBots.length < n) stripBots.push({ x: stripBuildX() + stripBots.length * 14, dir: 1, walkClock: 0, pause: stripBots.length * 0.8 });
   if(stripBots.length > n) stripBots.length = n;
   const x0 = stripBuildX() + 8, x1 = stripShipX() - 22;

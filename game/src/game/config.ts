@@ -33,22 +33,21 @@ const BAL = {
   dustBonus: 0.5,           // 再設計 段階3: 星屑1個の永続ボーナス +50%（旧 +4%・通算100個から平方根）。1回の高効率な売却（20個）で生産 ×11・収入 約 ×36
   scaleRefMin: 10,          // 仕事の桁: M 作品が今の実効スループットでこの分数を下回るほど速くなったら、作品の規模と報酬を 1/2/5/10… 倍に上げる
   stageBaseRate: 80,        // テスト/ビルド/出荷の基本スループット DP/分（再設計 段階3: 30→80。放置の出荷が工程で詰まり、応援で手運びしないと進まなかった）
-  equipDP: { tester: 6, ci: 6, pack: 5, bot: 6 },   // 設備 1Lv ごとの工程速度 DP/分（自動テスト機→テスト、CI・梱包機→ビルド、子ねこボット→出荷）
-  testStaffDP: 8,           // テスター1匹のテスト速度 DP/分
-  line2BaseRate: 4,         // 第2ラインの基本生産 DP/分
-  line2BuildCost: 1500,     // 第2ライン建設費 🪙
-  line2CoinRate: 0.7        // 第2ラインのリリース報酬倍率
+  equipDP: { tester: 6, ci: 11, pack: 6, bot: 6 },   // 設備 1Lv ごとの工程速度 DP/分（自動テスト機→テスト、CI→ビルド、梱包機・子ねこボット→出荷）
+  testStaffDP: 8            // テスター1匹のテスト速度 DP/分
 };
+/* 再設計 段階5（整理）: 重なっていた設備をまとめた。キーボード＋IDE → 開発環境、CI＋梱包機のビルド → CI 1本
+   （梱包機は名前どおり出荷の設備へ）、ラバーダックは在庫バグの相棒（QA は自動テスト機に一本化）、
+   ふかふか椅子は見た目の家具（社格で替わる。集中力は総務のお世話係に集約）、ワイドモニターは企画 Lv の上限、
+   子ねこボットは上限3を外した */
 const UPGRADE_DEFS = [
-  { id:"keyboard", name:"メカニカルキーボード", stage:"実装", base:40,  desc:"全DP +5%/Lv", max:100, ms:true },
-  { id:"ide",      name:"高機能IDE",           stage:"実装", base:120, desc:"全DP +8%/Lv", max:100, ms:true },
-  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:260, desc:"考え中アイデア +1/Lv", max:5 },
-  { id:"chair",    name:"ふかふか椅子",         stage:"実装", base:180, desc:"集中力の減り -8%/Lv", max:5 },
-  { id:"duck",     name:"ラバーダック検査員",   stage:"テスト", base:60, desc:"QA +0.4 バグ/分/Lv", max:100, ms:true },
+  { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", max:100, ms:true },
+  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画を練れる上限 +1 Lv/Lv", max:3 },
+  { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"在庫バグを潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", max:100, ms:true },
   { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true },
-  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"コイン +10%/Lv・全DP +3%/Lv・ビルド速度 +6 DP/分/Lv", max:100, ms:true },
-  { id:"pack",     name:"自働梱包機",           stage:"ビルド", base:160, desc:"全DP +4%/Lv・ビルド速度 +5 DP/分/Lv", max:100, ms:true },
-  { id:"bot",      name:"子ねこボット",         stage:"運搬", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:3 }
+  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", max:100, ms:true },
+  { id:"pack",     name:"自働梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true },
+  { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:100, ms:true }
 ];
 function upgradeCost(def, lv){ return Math.ceil(def.base * Math.pow(1.15, lv)); }
 /* 再設計 段階4（sakuri 2026-10-27「プレイヤーが各成長要素を選択して自由にビルドできる」）:
@@ -90,7 +89,7 @@ function upEff(up, id){ const lv = up[id] || 0; return lv + milestoneBonus(lv); 
    詰まっていない工程の強化が何も変えず、買っても手応えがなかったので戻した）。
    工程ごとの差は、設備の速度（equipDP）と担当スタッフの足し算で付く */
 function dpMult(up){
-  return 1 + 0.05*upEff(up, "keyboard") + 0.08*upEff(up, "ide") + 0.03*upEff(up, "ci") + 0.04*upEff(up, "pack");
+  return 1 + 0.12*upEff(up, "devenv") + 0.05*upEff(up, "ci") + 0.03*upEff(up, "pack");
 }
-function qaPerMin(up){ return BAL.qaBasePerMin + 0.4*upEff(up, "duck") + 1.2*upEff(up, "tester"); }
+function qaPerMin(up){ return BAL.qaBasePerMin + 1.2*upEff(up, "tester"); }
 

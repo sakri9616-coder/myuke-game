@@ -23,11 +23,11 @@ for(const t of Object.keys(TUT_FRESH)) for(const k of TUT_FRESH[t]) TUT_SEEN_KEY
 
 function tutAnyVal(o){ return !!o && Object.keys(o).some(k => o[k]); }
 function tutOwnsUpgrades(){ return Object.keys(S.upgrades).some(k => (S.upgrades[k]||0) > 0); }
-function tutOwnsResearch(){ return tutAnyVal(S.research) || Object.keys(S.researchLv||{}).some(k => (S.researchLv[k]||0) > 0); }
+function tutOwnsResearch(){ return tutAnyVal(S.research); }
 function tutOwnsClick(){ return Object.keys(S.clickUp||{}).some(k => (S.clickUp[k]||0) > 0); }
 function tutOwnsStaff(){ return S.staff.length > 0 || S.totals.hired >= 1; }
 function tutOwnsDust(){ return S.prestiges >= 1 || tutAnyVal(S.dustPerks); }
-function tutOwnsFactory(){ return tutOwnsUpgrades() || S.line2.unlocked || tutOwnsDust(); }
+function tutOwnsFactory(){ return tutOwnsUpgrades() || tutOwnsDust(); }
 function tutTabOwns(tabId){
   switch(tabId){
     case "shelf": case "stats": return S.totals.releases >= 1 || S.shelf.length > 0;
@@ -43,7 +43,6 @@ function tutTabOwns(tabId){
 function cumRP(){
   let v = Math.floor(S.rp);
   for(const d of RESEARCH_DEFS) if(S.research[d.id]) v += d.cost;
-  for(const d of REPEAT_RESEARCHES) for(let i = 0; i < repLv(d.id); i++) v += repeatResearchCost(i);
   return v;
 }
 /* 達成済みの事実だけからステージを導出する (移行・リセット・ロック判定の共通土台) */
@@ -54,8 +53,7 @@ function deriveStage(st){
   if(Object.keys(st.clickUp || {}).some(k => (st.clickUp[k]||0) > 0)) s = Math.max(s, TUT_STAGE.CLICK);
   if(st.totals.hired >= 1 || (st.staff && st.staff.length >= 1)) s = Math.max(s, TUT_STAGE.REQUEST);  /* 仲間(4) を含む */
   if(st.totals.releases >= 5) s = Math.max(s, TUT_STAGE.REQUEST);
-  if(st.research && st.research.res_line2) s = Math.max(s, TUT_STAGE.LINE2);
-  if(st.line2 && st.line2.unlocked) s = Math.max(s, TUT_STAGE.LINE2);
+  if(st.depts && st.depts.prog >= 3) s = Math.max(s, TUT_STAGE.LINE2);   /* 段階5: 第2ライン → 開発部 Lv3 の並行開発 */
   if(st.prestiges >= 1 || (st.dustTotal || 0) >= 5) s = Math.max(s, TUT_STAGE.PRESTIGE);
   return s;
 }

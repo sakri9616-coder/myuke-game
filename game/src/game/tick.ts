@@ -45,7 +45,6 @@ function tick(){
   /* Sprint 4: 開発時間は壁時計ではなくアクティブ稼働秒で数える (C2-P2-1)。
      企画中（着工待ち）の時間は含めない */
   if(S.project && !S.project.planning) S.project.activeSec = (S.project.activeSec || 0) + 1;
-  if(S.line2.project && !S.line2.project.planning) S.line2.project.activeSec = (S.line2.project.activeSec || 0) + 1;
   stateTick(now);
   trackLineStamps();
   eventTick(now);
@@ -58,15 +57,15 @@ function tick(){
   /* 可視生産フロー: 工程に入る前の実装バッファを測り、生産分だけを
      アキュムレータへ供給する (演出専用。応援クリックの produceDP は
      tick の外で起きるため、この差分には混ざらない = 設計 #11) */
-  const _fc1 = S.wip.code, _fc2 = S.line2.wip.code;
+  const _fc1 = S.wip.code;
   // 基本進捗 (DP/分 → /秒)。プログラミング系の状態でのみ進む
   if(coding) produceDP(BAL.basePerMin/60, "l1");
   // 子ねこボットとプログラマ猫は状態によらず働く
   if((S.upgrades.bot||0) > 0) produceDP(botRate()/60, "l1");
   if(ss.prog > 0) produceDP(ss.prog/60, "l1");
   if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
-  // 第2ラインの生産
-  if(S.line2.unlocked && S.line2.project) produceDP(line2BaseRate()/60, "l2");
+  if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
+  deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
   /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
   if(S.subs && S.subs.length){
     let subCoin = 0, subDP = 0;
@@ -79,7 +78,7 @@ function tick(){
       creditIncome("subs", subCoin/60);   /* 段階4: 収入の内訳 */
     }
   }
-  const _fd1 = S.wip.code - _fc1, _fd2 = S.line2.wip.code - _fc2;
+  const _fd1 = S.wip.code - _fc1;
   // 工程処理: 各ラインが独立の工程容量を持つ (sakuri 設計 2026-10-26:
   // ライン2もライン1と同じ仕組みのハコを持つ)。旧方式 (ライン1優先・ライン2は
   // 残り) は、生産に倍率が乗り工程容量に乗らないため進行したセーブで残りが
@@ -93,11 +92,8 @@ function tick(){
   const used = (S.project && S.project.planning)
     ? { test:0, build:0, ship:0 }
     : processPipe(S.wip, capsL1, bugF, creditProject);
-  let used2 = { test:0, build:0, ship:0 };
-  if(S.line2.unlocked && !(S.line2.project && S.line2.project.planning))
-    used2 = processPipe(S.line2.wip, caps, bugF, creditProject2);
   /* 可視生産フローへの供給: 実フローの積分だけが帯の「物の流れ」になる */
-  flowFeedTick(_fd1, _fd2, used, used2);
+  flowFeedTick(_fd1, used);
   // 研究員の研究Pトリクル
   if(ss.rp > 0) S.rp += ss.rp/60;
   /* Sprint 4: ティア1研究を全て終えた研究員は、第二の仕事として余った
@@ -142,10 +138,9 @@ function tick(){
   tickCoinFlow();   /* 🪙/秒 の表示値 */
   // 集中力
   if(coding){
-    let drain = (100 / (25*60)) * (1 - 0.08*Math.min(5,(S.upgrades.chair||0)));
+    let drain = 100 / (25*60);   /* 段階5: 椅子は見た目の家具になり、集中力はお世話係に集約 */
     drain *= Math.max(0.45, 1 - 0.15 * ss.careW);   // お世話係が減りを軽くする
-    if(S.research.res_zen) drain *= 0.75;          // Sprint 4: 集中の極意
-    S.concentration = Math.max(0, S.concentration - drain);
+    S.concentration = Math.max(delegated("care", 3) ? Math.min(60, S.concentration) : 0, S.concentration - drain);   /* 段階5: 総務部 Lv3 の下支え */
   }
   // 入力ブーストの確定（10秒ごとにまとめて加算し、上限を適用）
   tickBoostCounter++;
