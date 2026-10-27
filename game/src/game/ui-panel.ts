@@ -87,6 +87,7 @@ function bottleneckFix(){
   return { tab:"factory", fix:null };
 }
 function switchTab(id){
+  if(layoutLive){ openTab(id); return; }
   currentTab = id;
   tutVisitTab(id);   /* チュートリアル: 🆕 は初回訪問で消える (viewer ではコマンド化される) */
   renderPanel();
@@ -96,11 +97,15 @@ function switchTab(id){
    シルエット (locked クラス + 🔒 ピン)。renderPanel の末尾からも呼ばれる */
 function paintTabs(){
   try{
-    for(const x of tabsEl.children){
+    for(const x of allTabButtons()){
       const id = (x as HTMLElement).dataset && (x as HTMLElement).dataset.tab;
       const locked = tutTabLocked(id);
-      x.className = (id === currentTab ? "on" : "") + (locked ? " locked" : "");
-      x.setAttribute("aria-selected", id === currentTab ? "true" : "false");
+      if((x as HTMLElement).dataset.kind === "act") continue;   /* アイコン列は layoutPaintActivity が塗る */
+      /* タブ列の "on" はそのグループの表のタブ (グループごとに1枚ずつ) */
+      let on = id === currentTab;
+      if(layoutLive){ const g = groupOfTab(id); on = !!g && g.active === id; }
+      x.className = (on ? "on" : "") + (locked ? " locked" : "");
+      x.setAttribute("aria-selected", on ? "true" : "false");
       let lk = null;
       for(const c of x.children) if(c.className === "tab-lockic") lk = c;
       if(locked && !lk){
@@ -109,6 +114,7 @@ function paintTabs(){
       }
       if(lk) lk.style.display = locked ? "" : "none";
     }
+    if(layoutLive) layoutPaintActivity();
   }catch(e){}
 }
 function gotoBottleneckFix(){
@@ -117,7 +123,7 @@ function gotoBottleneckFix(){
   switchTab(fix.tab);
   if(!fix.fix) return;
   try{
-    let el = document.querySelector("#panel [data-fix='" + fix.fix + "']");
+    let el = document.querySelector(".panel [data-fix='" + fix.fix + "']");
     /* IA コンパクト化: 対策の購入行が閉じた折りたたみの中にある場合は先に開く
        （折りたたみは見た目だけの畳み込みで、機能を塞がないための連動） */
     if(el && el.closest){
@@ -125,7 +131,7 @@ function gotoBottleneckFix(){
       if(fd && fd.classList && fd.classList.contains("closed")){
         panelFold[fd.getAttribute("data-fold")] = true;
         renderPanel();
-        el = document.querySelector("#panel [data-fix='" + fix.fix + "']");
+        el = document.querySelector(".panel [data-fix='" + fix.fix + "']");
       }
     }
     if(el){
@@ -144,14 +150,17 @@ function renderEditorBreadcrumb(){
   if(!tabEl || !contextEl) return;
   const selected = TABS.find(t => t[0] === currentTab);
   const label = selected ? selected[1] : "";
-  const context = (IS_VIEWER && !viewerSynced) ? "同期中…"
+  const context = editorCrumbContext();
+  if(tabEl.textContent !== label) tabEl.textContent = label;
+  if(contextEl.textContent !== context) contextEl.textContent = context;
+}
+function editorCrumbContext(){
+  return (IS_VIEWER && !viewerSynced) ? "同期中…"
     : tutTabLocked(currentTab) ? "🔒 解放条件"
     : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
     : currentTab === "research" ? "研究P " + fmt(S.rp)
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
-  if(tabEl.textContent !== label) tabEl.textContent = label;
-  if(contextEl.textContent !== context) contextEl.textContent = context;
 }
 /* 段階4: 収入源ごとの強化の列（作品棚・営業・子会社）。行の形は設備と同じ */
 function engineRowsHTML(engine){
@@ -180,12 +189,41 @@ function incomeBreakdownHTML(){
 }
 function renderPanel(){
   if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
-  renderEditorBreadcrumb();
-  const el = document.getElementById("panel");
+  renderEditorBreadcrumbs();
+  if(!layoutLive){
+    renderPanelInto(document.getElementById("panel"));
+  } else {
+    /* 分割ビュー: グループごとに表のタブを1枚ずつ描く。中身の組み立ては
+       currentTab を見るので、描く間だけそのグループのタブに差し替える */
+    const keep = currentTab;
+    for(const g of layoutGroups()){
+      const d = groupDom[g.id];
+      if(!d) continue;
+      const el = d.panel;
+      const prev = el.dataset.tab || "";
+      if(prev !== (g.active || "")){
+        if(prev) d.scroll[prev] = el.scrollTop;
+        el.dataset.tab = g.active || "";
+        (el as any).__lastHTML = null;
+      }
+      if(!g.active){
+        setPanelHTML(el, "<div class='note egroup-empty'>📂 タブがありません。左のアイコンから開くか、ほかのタブをここへドラッグしてください。</div>");
+      } else {
+        currentTab = g.active;
+        try{ renderPanelInto(el); }catch(e){ console.error("[miyuke] パネルの描画で例外", g.active, e); }
+      }
+      if(prev !== (g.active || "")) el.scrollTop = d.scroll[g.active] || 0;
+    }
+    currentTab = keep;
+  }
+  updateTabBadges();
+  paintTabs();
+}
+function renderPanelInto(el){
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
      誤認させない (freshState のゼロを本物の状態として見せない。設計 §3.2) */
   if(IS_VIEWER && !viewerSynced){
-    panelLastHTML = null;
+    (el as any).__lastHTML = null;
     el.innerHTML = "<div class='note' style='margin-top:14px'>🐱 帯と同期中…（帯ウィンドウから状態が届くまでお待ちください）</div>";
     return;
   }
@@ -193,10 +231,8 @@ function renderPanel(){
      ビジュアル条件 (アイコン+メーター+現在/必要数) のパネルを出す。
      タブ自体は常に見えている (存在を隠さない) */
   if(tutTabLocked(currentTab)){
-    panelLastHTML = null;
+    (el as any).__lastHTML = null;
     el.innerHTML = tutLockPanelHTML(currentTab);
-    updateTabBadges();
-    paintTabs();
     return;
   }
   let h = "";
@@ -834,6 +870,8 @@ function renderPanel(){
       "<input type='range' min='0' max='100' step='5' value='"+Math.round(SoundKit.volume()*100)+"' oninput='setSoundVol(this.value)' aria-label='効果音の音量' style='width:110px'></div>";
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
       "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
+    if(layoutLive) h += "<div class='item buy slim'><div><span class='sock'>🗂️</span><span class='nm'>メニューの配置</span><div class='ds'>タブはドラッグで別の列へ移したり、パネルの端へ落として分割できます（配置はこのウィンドウに保存されます）</div></div>"+
+      "<button onclick='resetMenuLayout()'>元に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
     {
       const curPct = Math.round((S.settings.stripSize || 1) * 100);
@@ -910,8 +948,6 @@ function renderPanel(){
   }
   setPanelHTML(el, h);
   if(currentTab === "proj") updateComboUI();   /* 再描画で消えたコンボ表示を戻す */
-  updateTabBadges();
-  paintTabs();
 }
 /* パネルの作り直し。
    - 中身が前回と同じなら DOM を触らない (フォーカスもアニメも保たれる)
@@ -921,13 +957,13 @@ function renderPanel(){
    - スクロール位置は作り直しの前後で保つ。フォーカスを戻すときに画面外の
      ボタンへスクロールで引き戻さない (押したボタンから離れて読んでいると、
      再描画のたびに押したボタンの位置へロールバックしていた) */
-let panelLastHTML = null, panelPointerDown = false;
+let panelPointerDown = false;   /* 前回の中身はパネル要素ごとに __lastHTML へ (分割ビューでパネルが複数ある) */
 try{
   document.addEventListener("pointerdown", () => { panelPointerDown = true; }, true);
   document.addEventListener("pointerup", () => { panelPointerDown = false; }, true);
 }catch(e){}
 function setPanelHTML(el, h){
-  if(h === panelLastHTML && el.innerHTML) return;
+  if(h === (el as any).__lastHTML && el.innerHTML) return;
   const a = document.activeElement as HTMLElement | null;
   const inPanel = !!(a && a !== document.body && typeof el.contains === "function" && el.contains(a));
   if(inPanel && a.tagName === "INPUT" && panelPointerDown) return;
@@ -939,7 +975,7 @@ function setPanelHTML(el, h){
   }
   const top = el.scrollTop, left = el.scrollLeft;
   el.innerHTML = h;
-  panelLastHTML = h;
+  (el as any).__lastHTML = h;
   if(focusKey){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
     const target = same[Math.min(focusKey.idx, same.length - 1)];
@@ -959,7 +995,7 @@ function updateTabBadges(){
     if(RESEARCH_DEFS.some(d => !S.research[d.id] && d.cost <= S.rp)) want.research = 1;
     if(UPGRADE_DEFS.some(d => (S.upgrades[d.id]||0) < d.max && upgradeCost(d, S.upgrades[d.id]||0) <= S.coins)) want.factory = 1;
     if(CLICK_DEFS.some(d => (S.clickUp[d.id]||0) < d.max && clickCost(d, S.clickUp[d.id]||0) <= (S.cheerP || 0))) want.click = 1;
-    for(const b of tabsEl.children){
+    for(const b of allTabButtons()){
       const id = (b as HTMLElement).dataset && (b as HTMLElement).dataset.tab;
       let bd = null;
       for(const c of b.children) if(c.className === "tab-badge" || c.className === "tab-badge new") bd = c;
@@ -967,6 +1003,8 @@ function updateTabBadges(){
          🔒 だけが手がかり。開いたタブでは、解放されたてで未訪問なら 🆕 を
          通常の赤ドットより優先して出す。訪問すると消えて通常表示に戻る) */
       const tabLockedNow = tutTabLocked(id);
+      /* アイコン列のバッジは、閉じているタブのぶんだけ (開いているならタブ側に出る) */
+      if((b as HTMLElement).dataset.kind === "act" && groupOfTab(id)){ if(bd) bd.style.display = "none"; continue; }
       let isNew = false;
       if(S.tut && !S.tut.skipped && !tabLockedNow){
         const keys = TUT_FRESH[id] || [];

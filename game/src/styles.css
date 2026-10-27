@@ -696,12 +696,12 @@
   body:not(.strip) .on .editor-tabmark::before{content:"●";color:var(--syn-str);}
   body:not(.strip) .tab-badge{top:-7px;right:3px;background:var(--ide-badge);box-shadow:none;}
   body:not(.strip) .tab-badge.new{background:var(--ide-gold);}
-  body:not(.strip) #editor-breadcrumbs{display:flex;align-items:center;gap:9px;
+  body:not(.strip) .editor-crumbs{display:flex;align-items:center;gap:9px;
     height:26px;padding:0 18px 0 44px;background:var(--ide-panel);border:1px solid var(--ide-line);
     border-bottom:1px solid var(--ide-linesoft);font-size:12px;color:var(--ide-sub);
     white-space:nowrap;overflow:hidden;}
-  body:not(.strip) #editor-breadcrumb-tab{color:var(--ide-ink);}
-  body:not(.strip) #editor-breadcrumb-context{color:var(--syn-str);overflow:hidden;text-overflow:ellipsis;}
+  body:not(.strip) .crumb-tab{color:var(--ide-ink);}
+  body:not(.strip) .crumb-ctx{color:var(--syn-str);overflow:hidden;text-overflow:ellipsis;}
   /* Background numbers neither enter the accessibility tree nor enlarge the
      scroll area. They travel with the file, including inside long open folds. */
   body:not(.strip) .panel{padding:12px 18px 12px 44px;border-width:1px;border-top:0;
@@ -809,7 +809,7 @@
   body:not(.strip) main{padding:8px 10px;gap:10px;}
   body:not(.strip) .panel{padding:8px 12px 10px 40px;line-height:1.45;}
   body:not(.strip) .panel h3{margin:8px 0 5px;padding-bottom:3px;}
-  body:not(.strip) #editor-breadcrumbs{height:22px;padding-left:40px;}
+  body:not(.strip) .editor-crumbs{height:22px;padding-left:40px;}
   body:not(.strip) .tabs{margin-top:4px;}
   body:not(.strip) .tabs button{padding:6px 24px 6px 10px;}
   body:not(.strip) .res{background:transparent;border-color:transparent;border-radius:3px;
@@ -849,3 +849,51 @@
   @media (prefers-reduced-motion:reduce){
     .buybtn.afford-now, .flash, body:not(.strip) .res.bump{animation:none;}
   }
+
+  /* ==== 分割ビュー (ui-layout): VS Code のアクティビティバー + エディタグループ ====
+     見た目は既存のファイルタブ・パネルのまま。増えたのは左のアイコン列、
+     グループの境目 (ドラッグで幅を変える)、ドラッグ中の影と落とし先の青い面だけ */
+  #activity-bar{display:none;}
+  body:not(.strip) #editor-wrap{display:flex;align-items:stretch;
+    height:max(380px, calc(100vh - 88px));min-height:0;}
+  body:not(.strip) #activity-bar{display:flex;flex-direction:column;gap:2px;flex:0 0 42px;
+    padding:6px 0;margin-top:4px;background:var(--ide-taboff);border:1px solid var(--ide-linesoft);
+    border-right:0;border-radius:3px 0 0 3px;}
+  body:not(.strip) #activity-bar button{position:relative;width:42px;height:40px;padding:0;margin:0;
+    background:transparent;border:0;border-left:2px solid transparent;border-radius:0;box-shadow:none;
+    font-size:19px;line-height:40px;filter:grayscale(.65);opacity:.62;cursor:pointer;touch-action:none;}
+  body:not(.strip) #activity-bar button:hover{opacity:1;filter:none;background:transparent;}
+  body:not(.strip) #activity-bar button.open{opacity:.85;filter:grayscale(.25);}
+  body:not(.strip) #activity-bar button.on{opacity:1;filter:none;border-left-color:var(--syn-str);}
+  body:not(.strip) #activity-bar button.locked{filter:grayscale(1);opacity:.35;}
+  body:not(.strip) #activity-bar .tab-badge{top:3px;right:3px;}
+  body:not(.strip) #editor-area{flex:1 1 auto;display:flex;min-width:0;min-height:0;}
+  body:not(.strip) .esplit{display:flex;min-width:0;min-height:0;}
+  body:not(.strip) .esplit.row{flex-direction:row;}
+  body:not(.strip) .esplit.col{flex-direction:column;}
+  body:not(.strip) .egroup{display:flex;flex-direction:column;flex:1 1 0px;min-width:0;min-height:0;}
+  body:not(.strip) .egroup-body{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+  body:not(.strip) .egroup .panel{flex:1 1 auto;max-height:none;min-height:120px;}
+  body:not(.strip) .egroup .tabs button{touch-action:none;}
+  /* 今のグループではないほうの表のタブは、上の線を落ち着いた色に (VS Code と同じ) */
+  body:not(.strip).ed-split .egroup:not(.focused) .tabs button.on{box-shadow:inset 0 3px 0 var(--ide-line);}
+  body:not(.strip) .editor-tabmark{pointer-events:auto;cursor:pointer;border-radius:3px;padding:0 2px;}
+  body:not(.strip) .editor-tabmark:hover{background:var(--ide-panel3);color:var(--ide-ink);}
+  body:not(.strip) .tabs button:hover .editor-tabmark::before{content:"×";color:var(--ide-ink);}
+  body:not(.strip) .egutter{flex:0 0 6px;position:relative;z-index:3;touch-action:none;}
+  body:not(.strip) .egutter.row{cursor:col-resize;}
+  body:not(.strip) .egutter.col{cursor:row-resize;}
+  body:not(.strip) .egutter:hover::after,body:not(.strip) .egutter.drag::after{content:"";position:absolute;
+    background:var(--ide-status);opacity:.9;}
+  body:not(.strip) .egutter.row:hover::after,body:not(.strip) .egutter.row.drag::after{left:2px;width:2px;top:0;bottom:0;}
+  body:not(.strip) .egutter.col:hover::after,body:not(.strip) .egutter.col.drag::after{top:2px;height:2px;left:0;right:0;}
+  body:not(.strip) .egroup-empty{margin-top:18px;}
+  /* 分割しているときは窓いっぱいに使う (1枚のときは従来の最大幅のまま) */
+  body:not(.strip).ed-split main{max-width:none;}
+  body.tab-dragging, body.tab-dragging *{cursor:grabbing!important;user-select:none;}
+  .tab-ghost{position:fixed;z-index:9999;pointer-events:none;padding:5px 10px;font-size:12.5px;font-weight:800;
+    background:var(--ide-panel, #252526);color:var(--ide-ink, #D4D4D4);border:1px solid var(--ide-line, #454545);
+    border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,.45);opacity:.92;white-space:nowrap;}
+  .drop-hint{position:fixed;z-index:9998;pointer-events:none;display:none;
+    background:rgba(0,90,158,.28);outline:1px solid rgba(111,168,220,.7);transition:left .08s,top .08s,width .08s,height .08s;}
+  .drop-hint.strip{background:var(--syn-str, #F49A45);outline:0;transition:none;}

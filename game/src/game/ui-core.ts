@@ -1,9 +1,12 @@
 /* ---------- UI ---------- */
+/* 並びはよく開く順 (2026-10-27 sakuri: アクセス頻度でタブ分け)。統計・設定は低頻度 */
 const TABS = [
-  ["proj","📋 プロジェクト"], ["staff","👥 スタッフ"], ["factory","🏭 工場"], ["click","👆 応援"],
-  ["shelf","📚 作品棚"], ["requests","📮 依頼"], ["research","🔬 研究"], ["stats","📊 統計"], ["settings","⚙️ 設定"]
+  ["proj","📋 プロジェクト"], ["factory","🏭 工場"], ["staff","👥 スタッフ"], ["click","👆 応援"],
+  ["requests","📮 依頼"], ["research","🔬 研究"], ["shelf","📚 作品棚"], ["stats","📊 統計"], ["settings","⚙️ 設定"]
 ];
-let currentTab = "proj";
+let currentTab = "proj";   /* 分割ビューでは「今のグループ」の表のタブ */
+let layoutLive = false;    /* 分割ビューが組み上がったか (ui-layout)。false なら従来の1枚表示 */
+let menuLayout = null;
 const tabsEl = document.getElementById("tabs");
 for(const [id,label] of TABS){
   const btn = document.createElement("button");
