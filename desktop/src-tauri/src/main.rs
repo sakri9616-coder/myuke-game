@@ -235,7 +235,9 @@ fn primary_monitor(w: &WebviewWindow) -> Option<tauri::Monitor> {
 /// 2026-10-28) ので、STRIP_BASE_H 論理px × scale × 拡大率 に一番近い STRIP_VH の倍数に丸める
 const STRIP_VH: f64 = 152.0;
 fn strip_px(scale: f64, sf: f64) -> u32 {
-    let k = ((STRIP_BASE_H * scale * sf) / STRIP_VH).round().max(1.0);
+    // ×1 より下は ×½ だけ (ページの dotK と同じ丸め)
+    let r = (STRIP_BASE_H * scale * sf) / STRIP_VH;
+    let k = if r < 0.75 { 0.5 } else { r.round().max(1.0) };
     (k * STRIP_VH) as u32
 }
 
