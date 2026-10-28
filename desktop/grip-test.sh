@@ -9,7 +9,7 @@ HOME_TEST=/tmp/miyuke-grip-home
 rm -rf "$HOME_TEST"; mkdir -p "$HOME_TEST"
 HOME=$HOME_TEST nohup openbox > /tmp/openbox.log 2>&1 &
 sleep 2
-stripwin() { for w in $(xdotool search "" 2>/dev/null); do g=$(xdotool getwindowgeometry $w 2>/dev/null); echo "$g" | grep -q "1600x210" && { echo "$w"; return; }; done; }
+stripwin() { for w in $(xdotool search "" 2>/dev/null); do g=$(xdotool getwindowgeometry $w 2>/dev/null); echo "$g" | grep -q "1600x266" && { echo "$w"; return; }; done; }
 stripgeom() { local w=$(stripwin); [ -n "$w" ] && xdotool getwindowgeometry $w 2>/dev/null | tr '\n' ' '; echo; }
 HOME=$HOME_TEST nohup "$BIN" > /tmp/miyuke-grip.log 2>&1 &
 sleep 6

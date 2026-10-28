@@ -11,7 +11,7 @@
    同一: frac = projectDP/totalDP、% は floor、目盛りは k/(feats+1) の節目位置 */
 /* hMain: メインボードの高さ。机に座ったみゅけの耳 (y≒48) より上で収まる 44 にして、
    ボードの文字が彼女の頭や椅子の背に隠れないようにする (2026-10-27 整理。旧 64) */
-const STRIP_BOARD = { top: 3, h: 30, w: 204, w2: 108, hMain: 44 };
+const STRIP_BOARD = { top: 35, h: 30, w: 204, w2: 108, hMain: 44 };
 /* メインボードの進捗バーの位置 (描画と付箋アニメの着地点で共有) */
 function mainBoardBar(bx){
   return { x: bx + 4, y: STRIP_BOARD.top + 19.5, w: STRIP_BOARD.w - 8, h: 7.5 };
@@ -23,7 +23,7 @@ function drawBoardBar(x, y, w, h, frac, tone, ticks){
   if(frac > 0) sDrawNine("ui_bar_fill_" + tone + "_3", x, y, Math.max(4, w * frac), h, 2, 0);
   for(const t of ticks) sDrawTL("ui_bar_tick", x + Math.round(w * t) - 0.5, y, 1.5, h);
 }
-/* 木の縁の札 (社格・集中力 = ui_tab_9、コイン = ui_tab_gold_9) */
+/* 木の縁の札 (社格 = ui_tab_9) */
 function drawBoardTab(x, y, w, gold?){ sDrawNine(gold ? "ui_tab_gold_9" : "ui_tab_9", x, y, w, 12, 3, 3); }
 /* 吊りメモ札の地 (ui_memo_9。大型案件の間は金の札 ui_memo_gold_9 と交互に明滅 = 色＋動きの二経路) */
 function drawMemoFace(x, y, w, h){
@@ -71,36 +71,47 @@ function drawStripMemoTag2(mx0, my0, memoTxt, w){
   sctx.restore();
   stripHitRects.memo = { x: mx0, y: my0, w, h };
 }
-/* ボードの左肩に張り出すタブ: コイン残高と、集中力 (残量メーター + 生産 +N%)。
-   左に入らなければ右側の社格チップの下へ */
-function drawStripBoardSideTabs(bx, top){
+/* ボードの真上に積む2行の札: 1行目 = 所持金 (+🪙/秒)、2行目 = 集中力 (残量メーター + 生産 +N%)。
+   v2.20.0 (sakuri:「リーダーボードの上側に縦二行で、メインコンテンツなので可読性を最大限に」):
+   左肩の小さなタブ (7.5px) から、ボードと同じ幅の 11px 太字の帯に格上げした。
+   帯の窓をこの2行の分だけ上に伸ばしてあり (STRIP_H 120 → 152)、ボードは STRIP_BOARD.top に下がる */
+const STRIP_HEAD = { top: 2, h: 15, gap: 1 };
+function drawStripBoardHeadRows(bx, bw){
   sctx.save();
-  sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-  sctx.textAlign = "left"; sctx.textBaseline = "middle";
-  /* 2026-10-27: 作りながら入るコインの流れ（🪙/秒）を残高の横に出す */
-  const flowTxt = coinFlowEMA >= 0.05 ? "  +" + fmtRate(coinFlowEMA) + "/秒" : "";
-  const coinTxt = "🪙 " + fmt(Math.floor(stripMeter("coins", S.coins))) + flowTxt;   /* メーター表示 (strip-meter.ts) */
-  const prodTxt = "生産 +" + Math.round((concProdMult() - 1) * 100) + "%";
-  const brainW = sctx.measureText("🧠").width, meterW = 20;
-  const coinW = sctx.measureText(coinTxt).width + 10;
-  const concW = brainW + 3 + meterW + 4 + sctx.measureText(prodTxt).width + 8;
-  const tw = Math.max(coinW, concW);
-  let tx = bx - tw - 1, ty = top + 1;
-  if(tx < 1){ tx = bx + STRIP_BOARD.w + 1; ty = top + 15; }
-  /* コイン (真鍮の札) */
-  drawBoardTab(tx, ty, tw, true);
+  sctx.textBaseline = "middle";
+  const y1 = STRIP_HEAD.top, y2 = y1 + STRIP_HEAD.h + STRIP_HEAD.gap, cyOff = STRIP_HEAD.h / 2 + 0.6;
+  const big = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  const mid = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+  /* 1行目: 所持金 (真鍮の札)。残高を大きく、作りながら入る流れ (🪙/秒) を右に */
+  sDrawNine("ui_tab_gold_9", bx, y1, bw, STRIP_HEAD.h, 3, 3);
   sctx.fillStyle = "#4a3b2c";
-  sctx.fillText(coinTxt, tx + 5, ty + 6.3);
-  /* 集中力 */
-  const cy = ty + 14;
-  drawBoardTab(tx, cy, tw);
-  sctx.fillText("🧠", tx + 4, cy + 6.3);
-  const mx = tx + 4 + brainW + 3;
-  const conc = Math.max(0, Math.min(100, stripMeter("conc", S.concentration, true))) / 100;
-  sDrawNine("ui_meter_track_3", mx, cy + 3.5, meterW, 5, 2, 0);
-  if(conc > 0) sDrawNine("ui_meter_fill_3", mx + 1, cy + 4.5, Math.max(2, (meterW - 2) * conc), 3, 1, 0);
-  sctx.fillText(prodTxt, mx + meterW + 4, cy + 6.3);
+  sctx.font = big; sctx.textAlign = "left";
+  sctx.fillText("🪙 " + fmt(Math.floor(stripMeter("coins", S.coins))), bx + 5, y1 + cyOff);   /* メーター表示 (strip-meter.ts) */
+  if(coinFlowEMA >= 0.05){
+    sctx.font = mid; sctx.textAlign = "right"; sctx.fillStyle = "#6b5233";
+    sctx.fillText("+" + fmtRate(coinFlowEMA) + "/秒", bx + bw - 5, y1 + cyOff);
+  }
+  /* 2行目: 集中力。🧠 + 太いメーター + 右に効果 (生産 +N%) */
+  sDrawNine("ui_tab_9", bx, y2, bw, STRIP_HEAD.h, 3, 3);
+  sctx.fillStyle = "#4a3b2c";
+  sctx.font = big; sctx.textAlign = "left";
+  sctx.fillText("🧠", bx + 5, y2 + cyOff);
+  const over = S.concentration > 100;
+  const prodTxt = (wantStreak > 0 ? "💗×" + wantStreak + "  " : "") + (over ? "ノリノリ " : "") + "生産 +" + Math.round((concProdMult() - 1) * 100) + "%";
+  sctx.font = mid;
+  const prodW = sctx.measureText(prodTxt).width;
+  const mx = bx + 5 + 15, mw = Math.max(30, bw - 5 - prodW - 6 - (mx - bx));
+  const cv = Math.max(0, Math.min(WANT.max, stripMeter("conc", S.concentration, true)));
+  const conc = Math.min(100, cv) / 100, overFrac = Math.max(0, cv - 100) / (WANT.max - 100);
+  sDrawNine("ui_meter_track_3", mx, y2 + 4, mw, 7, 2, 0);
+  if(conc > 0) sDrawNine("ui_meter_fill_3", mx + 1, y2 + 5, Math.max(2, (mw - 2) * conc), 5, 1, 0);
+  /* ノリノリ分 (100% 超) は金色で上から重ねて伸びる (色＋長さの二経路) */
+  if(overFrac > 0) sDrawNine("ui_bar_fill_yellow_3", mx + 1, y2 + 5, Math.max(2, (mw - 2) * overFrac), 5, 2, 0);
+  sctx.textAlign = "right";
+  sctx.fillText(prodTxt, bx + bw - 5, y2 + cyOff);
   sctx.restore();
+  stripHitRects.headCoins = { x: bx, y: y1, w: bw, h: STRIP_HEAD.h };
+  stripHitRects.headConc = { x: bx, y: y2, w: bw, h: STRIP_HEAD.h };
 }
 function projectBoardModel(p, dp){
   if(!p) return { has: false, frac: 0, pct: -1, ticks: [], planning: false };
@@ -170,7 +181,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
        r1: 進捗 % (主役の数字は1つだけ) + 『作品名』 + ジャンル (詰まり時は ⚠)
        r2: 太い進捗バー (節目の目盛り付き)
          r3: 現在 / 必要 DP (旧表示を残す) + 次の機能と完成数 (詰まり中は詰まりの工程)
-     コイン・集中力 (生産 +N%) はボード左肩のタブ、メモは左下に吊る2行の札に分けた。
+     コイン・集中力 (生産 +N%) はボードの真上の2行 (v2.20.0)、メモは左下に吊る2行の札に分けた。
      説明文・規模ピル・QA・バグ在庫はメニューのヒーローカードに任せる */
   sctx.save();
   sctx.textAlign = "left"; sctx.textBaseline = "middle";
@@ -269,7 +280,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   /* 2026-10-27 (sakuri:「すべてをリーダーボードに集約する必要はない。分割して可視性を担保」):
      コインと集中力はボードの左肩に張り出すタブ、メモはボード左下に吊る2行の札にする。
      どれも机に座ったみゅけの頭 (ボード中央やや右の下) を避けた位置 */
-  drawStripBoardSideTabs(bx, top);
+  drawStripBoardHeadRows(bx, bw);
   const memoTxt = stripMemoText();
   if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo")
     drawStripMemoTag2(bx + 4, top + bh + 2, memoTxt, 82);

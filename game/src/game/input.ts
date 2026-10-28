@@ -37,12 +37,14 @@ document.addEventListener("keydown", ()=>{
 /* Strip Canon: アクションボタンはプロジェクトパネル内の HTML から呼ばれる */
 function giveSnack(){
   const now = Date.now();
-  if(now < snackReadyAt){ say("さっき食べたばかりにゃ…"); return; }
+  const wanted = wantIs("snack");   /* v2.20.0: おねだり中はクールダウンを待たずに開けられる */
+  if(now < snackReadyAt && !wanted){ say("さっき食べたばかりにゃ…"); return; }
   snackReadyAt = now + 20000;
   /* おやつアニメ全長に合わせる: intro 0.3s + ループ(タグ区間 F4〜F14)1.3s×3 + outro 0.3s = 4.5s */
   setState("eat", animDuration("miyuke_snack"));
-  S.concentration = Math.min(100, S.concentration + 18);
   SoundKit.play("snack");
+  if(wanted){ wantProgress("snack"); addLog("おねだりのおやつをあげた"); return; }
+  addConc(18);
   say("おやつ！…ありがとうにゃ。集中力もどった");
   addLog("おやつをあげた（集中力+18）");
 }

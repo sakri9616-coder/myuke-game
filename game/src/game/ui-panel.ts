@@ -283,7 +283,7 @@ function renderPanelInto(el){
         h += "</div>";
       }
       h += "<div class='concrow'><span>🧠 集中力</span>" +
-        "<div class='meter conc'><i id='conc-bar' style='width:" + Math.round(S.concentration) + "%'></i></div>" +
+        "<div class='meter conc'><i id='conc-bar' style='width:" + Math.min(100, Math.round(S.concentration)) + "%'></i></div>" +
         "<b>" + Math.round(S.concentration) + "%</b>" +
         "<span>生産 +" + Math.round((concProdMult() - 1) * 100) + "%</span></div>";
       h += "<div class='chiprow'>" +

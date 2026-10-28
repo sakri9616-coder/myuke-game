@@ -41,6 +41,7 @@ function computeHitZones(){
   for(const sr of R.staff) push(sr, 8);
   push(R.miyuke, 10);
   push(R.bubble, 4);
+  push(R.want, 4);   /* v2.20.0: おねだりの吹き出し */
   const grip = document.getElementById("strip-grip");
   if(grip && document.body.classList.contains("strip")){
     const gr = grip.getBoundingClientRect();
@@ -171,6 +172,11 @@ if(stripCv){
         return;
       }
     }
+    /* v2.20.0: おねだり「おやつ」の吹き出しを押してもおやつをあげられる */
+    if(stripHitRects.want && wantIs("snack")){
+      const wr = stripHitRects.want;
+      if(ux >= wr.x && ux <= wr.x + wr.w && uy >= wr.y && uy <= wr.y + wr.h){ giveSnack(); return; }
+    }
     /* F: オーバークロック・ゲージのクリックで発動（家具タブ導線より先に判定） */
     if(stripHitRects.fever){
       const fr = stripHitRects.fever;
@@ -228,11 +234,12 @@ if(stripCv){
       clickTimes = [];
     }
     const crit = cheerClick(ux, uy, part);
+    if(part) wantProgress("cheer");   /* v2.20.0: おねだり「おうえん」はみゅけへのクリックで進む */
     addStripSpark(ux, uy, crit);
     if(!crit){ if(document.body.classList.contains("strip")) addStripFloaterSum(ux, uy - 9, "click", clickShownDP() * comboMult() * heatMult() * fishClickMult(), v => "+" + fmtClickDP(v) + "DP"); }
     else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
     if(part && !crit){
-      if(part === "head"){ S.concentration = Math.min(100, S.concentration + 2); clickSay("ん。…悪くないにゃ"); }
+      if(part === "head"){ addConc(2); if(!wantProgress("pat")) clickSay("ん。…悪くないにゃ"); }
       if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
       if(part === "belly"){ clickSay("そこはダメにゃ！ひっくり返る…"); setState("react_annoy", 900); }
       if(Math.random() < 0.15){ S.ideas += 1; addLog("なでられてひらめいた（アイデア+1）"); }

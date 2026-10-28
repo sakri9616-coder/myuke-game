@@ -110,7 +110,7 @@ function tick(){
       careTimer = 210 + Math.floor(Math.random()*120);
       /* Sprint 4: Lv5以上のお世話係は差し入れが豪華になる（熟練の見返り） */
       const careMaster = S.staff.some(s => s.role === "care" && (s.lv || 1) >= 5);
-      S.concentration = Math.min(100, S.concentration + (careMaster ? 18 : 12));
+      addConc(careMaster ? 18 : 12);
       S.ideas += careMaster ? 2 : 1;
       const carer = S.staff.find(s => s.role === "care");
       addLog("🍵 " + (carer ? carer.name : "お世話係") + "が差し入れを持ってきた（集中力+" + (careMaster ? 18 : 12) + "・アイデア+" + (careMaster ? 2 : 1) + "）");
@@ -144,8 +144,10 @@ function tick(){
   if(coding){
     let drain = 100 / (25*60);   /* 段階5: 椅子は見た目の家具になり、集中力はお世話係に集約 */
     drain *= Math.max(0.45, 1 - 0.15 * ss.careW);   // お世話係が減りを軽くする
+    if(S.concentration > 100) drain = 100 / (25*60) * WANT.overDrain;   /* v2.20.0: ノリノリ分 (100% 超) は速く減る */
     S.concentration = Math.max(delegated("care", 3) ? Math.min(60, S.concentration) : 0, S.concentration - drain);   /* 段階5: 総務部 Lv3 の下支え */
   }
+  tickWant(coding);   /* v2.20.0: 集中力のおねだり */
   // 入力ブーストの確定（10秒ごとにまとめて加算し、上限を適用）
   tickBoostCounter++;
   if(tickBoostCounter >= 10){

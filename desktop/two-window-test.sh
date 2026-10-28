@@ -2,7 +2,7 @@
 # 2ウィンドウ化の回帰チェック（設計 research/TWO_WINDOW_ARCHITECTURE.md §7）:
 # 管理ウィンドウ（menu）を開いても帯（main）が「消えない」ことを実機バイナリで
 # 画素レベル＋ウィンドウ形状で確かめる。手順:
-#   1. 帯だけの状態: 帯ウィンドウ (画面幅x210, 底辺) があり、menu は未生成
+#   1. 帯だけの状態: 帯ウィンドウ (画面幅x266, 底辺) があり、menu は未生成
 #   2. 帯 HUD の「ひらく」をクリック → menu が生成され、帯はそのまま残る
 #   3. 開いた状態でも帯のピクセルが残っている（menu に覆われない帯の両脇で比較）
 #   4. メニューの「デスクトップに戻す」をクリック → menu は破棄されず hide される
@@ -23,7 +23,7 @@ export MIYUKE_DEBUG_HIT=1
 BIN=./target/release/miyuke
 SHOTDIR=$(mktemp -d /tmp/miyuke-twshot.XXXXXX)
 FAIL=0
-SW=1600; SH=1200; BAND_Y=$((SH - 210))
+SW=1600; SH=1200; BAND_Y=$((SH - 266))
 
 cleanup() {
   pkill -x miyuke 2>/dev/null
@@ -44,8 +44,8 @@ bright() { # $1=shot $2=crop → 明るいピクセル率%
     -threshold 12% -format "%[fx:mean*100]" info: 2>/dev/null
 }
 sidecols() { # $1=shot $2=out: 帯の両脇カラム (menu が覆わない領域) を横に並べた画像を作る
-  convert "$SHOTDIR/$1.png" -crop 180x210+0+$BAND_Y +repage "$SHOTDIR/$2-l.png"
-  convert "$SHOTDIR/$1.png" -crop 180x210+$((SW-180))+$BAND_Y +repage "$SHOTDIR/$2-r.png"
+  convert "$SHOTDIR/$1.png" -crop 180x266+0+$BAND_Y +repage "$SHOTDIR/$2-l.png"
+  convert "$SHOTDIR/$1.png" -crop 180x266+$((SW-180))+$BAND_Y +repage "$SHOTDIR/$2-r.png"
   convert "$SHOTDIR/$2-l.png" "$SHOTDIR/$2-r.png" +append "$SHOTDIR/$2.png"
 }
 winlist() { # 子ウィンドウを "id W H X Y" で列挙する
@@ -59,7 +59,7 @@ winlist() { # 子ウィンドウを "id W H X Y" で列挙する
       }
     }'
 }
-strip_geom() { winlist | awk -v w=$SW -v y=$BAND_Y '$2==w && $3==210 && $5==y {print; exit}'; }
+strip_geom() { winlist | awk -v w=$SW -v y=$BAND_Y '$2==w && $3==266 && $5==y {print; exit}'; }
 menu_id()    { winlist | awk '$2>=700 && $3>=500 {print $1; exit}'; }
 menu_geom()  { winlist | awk '$2>=700 && $3>=500 {print $2"x"$3"+"$4"+"$5; exit}'; }
 mapstate()   { xwininfo -id "$1" 2>/dev/null | grep -oE "IsViewable|IsUnMapped" | head -1; }
@@ -68,9 +68,9 @@ center_px()  { convert "$SHOTDIR/$1.png" -format "%[pixel:p{800,300}]" info: 2>/
 echo "== step1: strip only =="
 shot s1
 SG=$(strip_geom)
-A=$(bright s1 "${SW}x210+0+$BAND_Y")
+A=$(bright s1 "${SW}x266+0+$BAND_Y")
 echo "strip window = [$SG] ; band bright% = $A ; menu id = [$(menu_id)]"
-[ -n "$SG" ] && echo "OK: strip window is ${SW}x210 at bottom" || { echo "NG: strip window shape wrong"; FAIL=1; }
+[ -n "$SG" ] && echo "OK: strip window is ${SW}x266 at bottom" || { echo "NG: strip window shape wrong"; FAIL=1; }
 awk "BEGIN{exit !($A > 0.3)}" && echo "OK: strip pixels present before" || { echo "NG: strip missing before"; FAIL=1; }
 [ -z "$(menu_id)" ] && echo "OK: menu not created yet (lazy creation)" || { echo "NG: menu exists before open"; FAIL=1; }
 
@@ -88,7 +88,7 @@ echo "menu id = [$MID] geom = [$MG] mapstate = [$(mapstate "$MID")]"
 
 echo "== step3: strip persists while menu open =="
 shot s2
-B=$(bright s2 "${SW}x210+0+$BAND_Y")
+B=$(bright s2 "${SW}x266+0+$BAND_Y")
 sidecols s1 sc1; sidecols s2 sc2
 D=$(compare -metric AE -fuzz 8% "$SHOTDIR/sc1.png" "$SHOTDIR/sc2.png" null: 2>&1)
 SIDE_TOT=$((180 * 210 * 2))
@@ -118,9 +118,9 @@ shot s3
 sleep 3
 shot s4
 D2=$(compare -metric AE -fuzz 8% \
-  <(convert "$SHOTDIR/s3.png" -crop ${SW}x210+0+$BAND_Y +repage png:-) \
-  <(convert "$SHOTDIR/s4.png" -crop ${SW}x210+0+$BAND_Y +repage png:-) null: 2>&1)
-C=$(bright s4 "${SW}x210+0+$BAND_Y")
+  <(convert "$SHOTDIR/s3.png" -crop ${SW}x266+0+$BAND_Y +repage png:-) \
+  <(convert "$SHOTDIR/s4.png" -crop ${SW}x266+0+$BAND_Y +repage png:-) null: 2>&1)
+C=$(bright s4 "${SW}x266+0+$BAND_Y")
 echo "band bright% after = $C ; band changed pixels over 3s = $D2"
 awk "BEGIN{exit !($C > 0.3)}" && echo "OK: strip pixels present after" || { echo "NG: strip missing after"; FAIL=1; }
 awk "BEGIN{exit !($D2 > 20)}" && echo "OK: strip is alive (animation/movement)" || echo "WARN: band static over 3s (sleeping state?)"
