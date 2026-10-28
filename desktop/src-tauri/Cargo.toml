@@ -1,6 +1,6 @@
 [package]
 name = "miyuke"
-version = "2.24.0"
+version = "2.24.1"
 description = "みゅけ、きょうも開発中 — デスクトップ常駐放置ゲーム"
 edition = "2021"
 
