@@ -251,7 +251,7 @@ function renderStrip(){
   stripHitRects.duck = null; stripHitRects.bubble = null;
   stripHitRects.fish = null; stripHitRects.bugs = []; stripHitRects.stockBugs = []; stripHitRects.shelf = null;
   stripHitRects.board = null; stripHitRects.board2 = null; stripHitRects.piles = []; stripHitRects.stations = [];
-  stripHitRects.snack = null;
+  stripHitRects.snack = null; stripHitRects.want = null;
   stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
   stripHitRects.calendar = null; stripHitRects.memo = null; stripHitRects.phone = null;
   stripHitRects.megaphone = null; stripHitRects.toolbox = null;
@@ -310,7 +310,7 @@ function renderStrip(){
   sDrawSprite(coffeeSpr, coffeePl.cx, coffeePl.baseY, 1.25);
   /* 2026-10-25: おやつ箱 (sakuri 指示でメニューのボタンから移設)。机の右足元に置く。
      クールダウン中は蓋が閉まった絵 (prop_snackbox_shut) になって「まだ」を絵で示す */
-  const snackReadyNow = Date.now() >= snackReadyAt;
+  const snackReadyNow = Date.now() >= snackReadyAt || wantIs("snack");   /* v2.21.0: おねだり中は開く */
   const snackPl = propPlace("snack");
   sDrawSprite(snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", snackPl.cx, snackPl.baseY, 1);
   stripObjArt.snack = { name: snackReadyNow ? "prop_snackbox" : "prop_snackbox_shut", gx: snackPl.cx, gy: snackPl.baseY, s: 1 };
@@ -619,6 +619,7 @@ function renderStrip(){
   /* --- 並べ替えモードの家具アウトライン (吹き出しより背面) --- */
   drawLayoutEditOverlay();
   /* --- セリフ吹き出し（頭上・約4秒で消える） --- */
+  drawStripWant(stripMiyukeX(), G);   /* v2.21.0: 集中力のおねだり */
   drawStripBubble(stripMiyukeX(), G - 82);
 }
 /* ---------- 演出の粒（キラキラ・浮き文字・紙吹雪） ----------

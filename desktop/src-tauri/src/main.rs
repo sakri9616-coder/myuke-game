@@ -34,6 +34,10 @@ use tauri::{
 /// ウィンドウラベル（帯は歴史的経緯で "main" のまま改名しない。設計 §2.4）
 const WIN_STRIP: &str = "main";
 const WIN_MENU: &str = "menu";
+/// 帯ウィンドウの高さ (倍率 1.0 の論理px)。ゲーム側の STRIP_H (152) × 1.75。
+/// v2.21.0 で 210 → 266: ボードの上に所持金・集中力の2行を載せる分だけ上に伸ばした
+/// (描画の倍率は据え置き、何もない所はクリックを素通しする)
+const STRIP_BASE_H: f64 = 266.0;
 
 /// ウィンドウ形状スナップショット。pos は outer position、size は inner size（物理px）。
 #[derive(Clone, Copy, Default, Debug)]
@@ -52,7 +56,7 @@ struct ShellState {
     menu_geom: Mutex<Geom>,
     /// 帯の保存位置 (◥ グリップのドラッグで移動)。未設定なら作業領域の下端
     strip_pos: Mutex<Geom>,
-    /// 帯の大きさ (1.0 = 210論理px)。ページ設定 S.settings.stripSize と同期
+    /// 帯の大きさ (1.0 = STRIP_BASE_H 論理px)。ページ設定 S.settings.stripSize と同期
     strip_scale: Mutex<f64>,
     /// 帯から指定された「開くタブ」。menu の menu-ready を受けて open-tab で渡す
     pending_tab: Mutex<Option<String>>,
@@ -227,14 +231,15 @@ fn primary_monitor(w: &WebviewWindow) -> Option<tauri::Monitor> {
         .or_else(|| w.available_monitors().ok().and_then(|v| v.into_iter().next()))
 }
 
-/// 帯の窓の高さ (物理px)。ページは仮想の高さ 120 を整数倍で描く (ドットの太さを揃えるため、
-/// 2026-10-28) ので、210論理px × scale × 拡大率 に一番近い 120 の倍数に丸める
+/// 帯の窓の高さ (物理px)。ページは仮想の高さ STRIP_VH を整数倍で描く (ドットの太さを揃えるため、
+/// 2026-10-28) ので、STRIP_BASE_H 論理px × scale × 拡大率 に一番近い STRIP_VH の倍数に丸める
+const STRIP_VH: f64 = 152.0;
 fn strip_px(scale: f64, sf: f64) -> u32 {
-    let k = ((210.0 * scale * sf) / 120.0).round().max(1.0);
-    (k * 120.0) as u32
+    let k = ((STRIP_BASE_H * scale * sf) / STRIP_VH).round().max(1.0);
+    (k * STRIP_VH) as u32
 }
 
-/// ストリップ形状: プライマリモニタの作業領域いっぱいの幅 × 210論理px × scale、
+/// ストリップ形状: プライマリモニタの作業領域いっぱいの幅 × STRIP_BASE_H 論理px × scale、
 /// 作業領域の底辺（Windowsタスクバーの上）に吸着。保存はせず毎回再計算する。
 fn strip_geom(w: &WebviewWindow, scale: f64) -> Geom {
     if let Some(m) = primary_monitor(w) {
@@ -249,7 +254,7 @@ fn strip_geom(w: &WebviewWindow, scale: f64) -> Geom {
             set: true,
         };
     }
-    Geom { x: 0, y: 600, w: 1280, h: 210, set: true }
+    Geom { x: 0, y: 600, w: 1280, h: STRIP_BASE_H as u32, set: true }
 }
 
 fn default_menu_geom(w: &WebviewWindow) -> Geom {
@@ -1354,7 +1359,7 @@ fn main() {
                 .skip_taskbar(true)
                 .shadow(false)
                 .resizable(true)
-                .inner_size(1280.0, 210.0)
+                .inner_size(1280.0, STRIP_BASE_H)
                 .build()?;
             let saved_strip = *app.state::<ShellState>().strip_pos.lock().unwrap_or_else(|e| e.into_inner());
             apply_strip_to_window(&win, &saved_strip, loaded.strip_scale);

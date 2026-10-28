@@ -59,18 +59,20 @@ const STRIP_SIZE_BASE = 0.7;
 function migrateStripSize(oldAbs){
   return Math.min(1.45, Math.max(0.7, oldAbs / STRIP_SIZE_BASE));
 }
-/* 2026-10-28 ドットを揃える: 帯は仮想の高さ 120 の整数倍 (ドット倍率 ×k) でしか描かない。
-   stripSize (147px 基準の相対値) は引き続き保存し、その画面の拡大率で一番近い ×k を選ぶ。
+/* 2026-10-28 ドットを揃える: 帯は仮想の高さ STRIP_H の整数倍 (ドット倍率 ×k) でしか描かない。
+   stripSize (標準の高さ STRIP_SIZE_BASE × STRIP_BASE_LH 基準の相対値) は引き続き保存し、その画面の拡大率で一番近い ×k を選ぶ。
    別の拡大率の画面へ移っても、見た目の大きさが近い倍率に選び直される */
 const STRIP_SIZE_MIN = 0.3, STRIP_SIZE_MAX = 3;
+const STRIP_BASE_LH = 266;   /* Rust の STRIP_BASE_H (倍率 1.0 の窓の高さ・論理px) */
+const STRIP_STD_LH = STRIP_SIZE_BASE * STRIP_BASE_LH;   /* stripSize 1 の高さ */
 function stripDotFor(size, dpr){
-  return Math.max(1, Math.round(147 * (size || 1) * dpr / 120));
+  return Math.max(1, Math.round(STRIP_STD_LH * (size || 1) * dpr / STRIP_H));
 }
-/* そのウィンドウの拡大率で選べるドット倍率 (高さ 60〜260 論理px の範囲) */
+/* そのウィンドウの拡大率で選べるドット倍率 (高さ 70〜330 論理px の範囲) */
 function stripDotChoices(dpr){
   const out: number[] = [];
-  for(let k = 1; k <= 8; k++){ const lh = 120 * k / dpr; if(lh >= 60 && lh <= 260) out.push(k); }
-  if(!out.length) out.push(Math.max(1, Math.round(147 * dpr / 120)));
+  for(let k = 1; k <= 8; k++){ const lh = STRIP_H * k / dpr; if(lh >= 70 && lh <= 330) out.push(k); }
+  if(!out.length) out.push(Math.max(1, Math.round(STRIP_STD_LH * dpr / STRIP_H)));
   return out;
 }
 function setStripSize(v){
@@ -82,14 +84,14 @@ function setStripSize(v){
 }
 /* ×k のボタン: 押したウィンドウの拡大率で ×k になる相対値を保存する */
 function setStripDot(k, dpr){
-  setStripSize(120 * k / (147 * (dpr || window.devicePixelRatio || 1)));
+  setStripSize(STRIP_H * k / (STRIP_STD_LH * (dpr || window.devicePixelRatio || 1)));
 }
 function applyStripScale(){
   if(IS_VIEWER || !inTauri()) return;
   const dpr = window.devicePixelRatio || 1;
   const k = stripDotFor(S.settings.stripSize || 1, dpr);
-  /* Rust 側も 120 の倍数に丸めるので、ここは ×k ちょうどの値を送る */
-  tauriCmd("set_strip_scale", { scale: 120 * k / (210 * dpr) });
+  /* Rust 側も STRIP_H の倍数に丸めるので、ここは ×k ちょうどの値を送る */
+  tauriCmd("set_strip_scale", { scale: STRIP_H * k / (STRIP_BASE_LH * dpr) });
 }
 function toggleSound(){
   S.settings.sound = !SoundKit.enabled();
