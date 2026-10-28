@@ -222,7 +222,7 @@ function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "shelf"])
+  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "shelf", "annex"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
   /* 工程の持ち場はラック・研究机より先（クリックの判定順と同じ。みゅけ本人は除く） */
   const stI = (R.stations || []).findIndex(r => inR(r));

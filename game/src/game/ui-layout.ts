@@ -19,13 +19,13 @@ function tabIcon(id){ return tabLabel(id).split(" ")[0]; }
 function tabName(id){ return tabLabel(id).split(" ").slice(1).join(" "); }
 function newGroup(tabs){ return { g:1, id: layoutSeq++, tabs: tabs.slice(), active: tabs[0] || null }; }
 /* 既定: 広い窓なら左右2分割。左は眺める系 (進捗・応援・依頼・作品棚)、右は買う系
-   (工場・スタッフ・研究)。めったに開かない統計・設定はアイコン列から開く */
+   (工場・スタッフ・子会社・研究)。めったに開かない統計・設定はアイコン列から開く */
 function layoutDefault(){
   const wide = (window.innerWidth || 0) >= 1000;
-  if(!wide) return newGroup(["proj", "factory", "staff", "click", "requests", "research", "shelf"]);
+  if(!wide) return newGroup(["proj", "factory", "staff", "subs", "click", "requests", "research", "shelf"]);
   return { dir:"row", sizes:[0.45, 0.55], kids:[
     newGroup(["proj", "click", "requests", "shelf"]),
-    newGroup(["factory", "staff", "research"])
+    newGroup(["factory", "staff", "subs", "research"])
   ]};
 }
 function layoutGroups(node = menuLayout, out = []){
@@ -86,14 +86,20 @@ function layoutSave(){
   try{
     const plain = n => n.g ? { g:1, tabs: n.tabs, active: n.active } : { dir: n.dir, sizes: n.sizes, kids: n.kids.map(plain) };
     const fi = layoutGroups().indexOf(focusedGroup());
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ v:1, root: plain(menuLayout), focus: fi }));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ v:2, root: plain(menuLayout), focus: fi }));
   }catch(e){}
 }
 function layoutLoad(){
   let raw = null;
   try{ raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "null"); }catch(e){ raw = null; }
-  const root = raw && raw.v === 1 ? layoutSanitize(raw.root, {}) : null;
+  const root = raw && (raw.v === 1 || raw.v === 2) ? layoutSanitize(raw.root, {}) : null;
   menuLayout = root || layoutDefault();
+  /* v1 (v2.22 まで) の配置には子会社タブが無い。スタッフの隣へ1回だけ差し込む。
+     v2 で子会社が無いのは自分で閉じた形なので、そのままにする */
+  if(root && raw.v === 1 && !groupOfTab("subs")){
+    const sg = groupOfTab("staff");
+    if(sg) sg.tabs.splice(sg.tabs.indexOf("staff") + 1, 0, "subs");
+  }
   const gs = layoutGroups();
   focusGroupId = (raw && gs[raw.focus] ? gs[raw.focus] : gs[0]).id;
   layoutTidy();

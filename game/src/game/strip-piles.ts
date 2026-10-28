@@ -113,6 +113,8 @@ function drawStripPiles(){
   /* Phase D: 子会社がある間だけ、出荷スポットの隣に別館の看板が立つ。
      第2ウェーブ J: オフィスグレード II 以上では金の本社看板に差し替わる */
   if(S.subs && S.subs.length){
+    /* 看板の板の部分だけ (ビルド室の上に重なって描かれるので、板を押したら持ち場より看板を優先) → 子会社タブ */
+    stripHitRects.annex = { x: dx - 59, y: G - 44, w: 34, h: 22 };
     if(legacyGrade() >= 2 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
     else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, 1);
   }
@@ -252,7 +254,7 @@ function renderStrip(){
   stripHitRects.fish = null; stripHitRects.bugs = []; stripHitRects.stockBugs = []; stripHitRects.shelf = null;
   stripHitRects.board = null; stripHitRects.board2 = null; stripHitRects.piles = []; stripHitRects.stations = [];
   stripHitRects.snack = null; stripHitRects.want = null;
-  stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null;
+  stripHitRects.research = null; stripHitRects.rack = null; stripHitRects.trophy = null; stripHitRects.annex = null;
   stripHitRects.calendar = null; stripHitRects.memo = null; stripHitRects.phone = null;
   stripHitRects.megaphone = null; stripHitRects.toolbox = null;
   stripHitRects.fever = null;
