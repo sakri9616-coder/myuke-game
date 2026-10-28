@@ -66,12 +66,12 @@ const STRIP_SIZE_MIN = 0.3, STRIP_SIZE_MAX = 3;
 const STRIP_BASE_LH = 266;   /* Rust の STRIP_BASE_H (倍率 1.0 の窓の高さ・論理px) */
 const STRIP_STD_LH = STRIP_SIZE_BASE * STRIP_BASE_LH;   /* stripSize 1 の高さ */
 function stripDotFor(size, dpr){
-  return Math.max(1, Math.round(STRIP_STD_LH * (size || 1) * dpr / STRIP_H));
+  return dotK(STRIP_STD_LH * (size || 1) * dpr / STRIP_H);
 }
-/* そのウィンドウの拡大率で選べるドット倍率 (高さ 70〜330 論理px の範囲) */
+/* そのウィンドウの拡大率で選べるドット倍率 (高さ 70〜330 論理px の範囲。×½ は 76px なので拡大率100%の画面だけ) */
 function stripDotChoices(dpr){
   const out: number[] = [];
-  for(let k = 1; k <= 8; k++){ const lh = STRIP_H * k / dpr; if(lh >= 70 && lh <= 330) out.push(k); }
+  for(const k of [0.5, 1, 2, 3, 4, 5, 6, 7, 8]){ const lh = STRIP_H * k / dpr; if(lh >= 70 && lh <= 330) out.push(k); }
   if(!out.length) out.push(Math.max(1, Math.round(STRIP_STD_LH * dpr / STRIP_H)));
   return out;
 }
@@ -80,7 +80,7 @@ function setStripSize(v){
   if(!isFinite(n)) return;
   S.settings.stripSize = Math.min(STRIP_SIZE_MAX, Math.max(STRIP_SIZE_MIN, n));
   save(); applyStripScale(); renderPanel();
-  if(!IS_VIEWER) say("帯のドット倍率を ×" + stripDotFor(S.settings.stripSize, window.devicePixelRatio || 1) + " にしたにゃ");
+  if(!IS_VIEWER) { const k = stripDotFor(S.settings.stripSize, window.devicePixelRatio || 1); say("帯のドット倍率を ×" + (k === 0.5 ? "½" : k) + " にしたにゃ"); }
 }
 /* ×k のボタン: 押したウィンドウの拡大率で ×k になる相対値を保存する */
 function setStripDot(k, dpr){

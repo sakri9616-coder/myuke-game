@@ -886,7 +886,7 @@ function renderPanelInto(el){
       let sizeBtns = "";
       for(const k of stripDotChoices(dpr)){
         sizeBtns += "<button onclick='setStripDot(" + k + "," + dpr + ")'" +
-          (k === curK ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">×" + k + "</button>";
+          (k === curK ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">×" + (k === 0.5 ? "½" : k) + "</button>";
       }
       h += "<div class='item buy slim'><div><span class='sock'>🔍</span><span class='nm'>帯の大きさ</span><div class='ds'>ドット倍率。絵の1ドットを画面の何ピクセルで描くか（整数倍なので、どのドットも同じ太さになります）</div></div>"+
         "<span style='display:flex;gap:4px'>" + sizeBtns + "</span></div>";

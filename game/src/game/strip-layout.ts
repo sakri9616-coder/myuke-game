@@ -192,7 +192,9 @@ function sRug(cx, w){
 function dotPx(r){ return r >= 1 ? Math.round(r) : 1 / Math.max(1, Math.round(1 / r)); }
 /* 仮想座標での実効倍率 (sDrawSprite が実際に描く大きさ)。当たり判定や影の幅に使う */
 function stripArtScale(s){ return dotPx(s * stripScale) / stripScale; }
-function stripDotK(ph){ return Math.max(1, Math.round(ph / STRIP_H)); }
+/* ドット倍率に丸める。×1 より下は ×½ だけ (元絵の2ドットを1pxに間引く。文字も半分になる。sakuri 決定 2026-10-28) */
+function dotK(r){ return r < 0.75 ? 0.5 : Math.max(1, Math.round(r)); }
+function stripDotK(ph){ return dotK(ph / STRIP_H); }
 let stripFixAsked = 0;
 function stripResize(){
   if(!stripCv) return;
