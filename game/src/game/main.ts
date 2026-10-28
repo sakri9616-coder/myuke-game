@@ -15,7 +15,7 @@ if(IS_VIEWER){
   initInputCounting();   /* Phase 2: OS全体の入力集計（購読＋保存済み設定の反映。Tauri が無ければ無操作） */
   initUpdater();   /* v2.3.5: 起動時の無言アップデート確認（Tauri のみ・少し遅らせて1回） */
   initOwnerProtocol();   /* 2ウィンドウ化: menu との同期 (Tauri の owner のみ実働) */
-  initSkitProtocol();    /* v2.26.0: 小芝居ウィンドウとの合図 (Tauri の owner のみ実働) */
+  initSkitProtocol();    /* v2.26.1: 小芝居ウィンドウとの合図 (Tauri の owner のみ実働) */
   applyStripScale();   /* v2.4.0: 保存済みの帯の大きさを Rust 側へ再主張 (冪等) */
   /* Sprint 2: セッション基準（このセッションの実績が、次回の「あらすじ」になる） */
   sessBase = { releases: S.totals.releases, coinsEarned: S.totals.coinsEarned, startedAt: Date.now() };

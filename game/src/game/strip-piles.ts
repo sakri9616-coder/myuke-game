@@ -204,7 +204,7 @@ function drawStripEasel(){
   const G = STRIP_GROUND;
   /* カレンダーとの衝突回避込みの実描画位置 (stripEaselDrawX に集約) */
   const ex = stripEaselDrawX();
-  stripHitRects.easel = { x: ex - 14, y: G - 34, w: 28, h: 34 };   /* v2.26.0: 思い出の家具（クリックでみゅけの一言） */
+  stripHitRects.easel = { x: ex - 14, y: G - 34, w: 28, h: 34 };   /* v2.26.1: 思い出の家具（クリックでみゅけの一言） */
   sShadow(ex, G - 0.5, 20);
   /* tier>=1: イーゼルは段ボール箱の山 (prop_archive_boxes) に置き換わる。
      ポスター (prop_wall_1) の表示機能は失わず、箱の前面にテープ留めした

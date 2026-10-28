@@ -81,7 +81,7 @@ function foundSub(genreId){
   const g = GENRES.find(x => x.id === genreId) || GENRES[0];
   S.coins -= cost;
   if(!Array.isArray(S.subs)) S.subs = [];
-  let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.0: 宇宙編は土地の名前 */
+  let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.1: 宇宙編は土地の名前 */
   if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
   const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, alloc: 0 };
   S.subs.push(sub);
@@ -463,8 +463,15 @@ function holdingsPreview(){
   };
   /* 星団は通算星屑の平方根で（1,000個で3・4,000個で6。÷20 だとレガシー技術が一度に全部買えた） */
   return { cond, can: cond.lv6 && cond.subs && cond.exits && cond.era,
-           gain: Math.max(1, Math.floor(Math.sqrt((S.eraDust || 0) / 100))) };
+           gain: Math.max(1, Math.floor(Math.sqrt((S.eraDust || 0) / 100))),
+           baseNow: S.dustLegacyMult || 1, baseNext: holdBaseNext() };
 }
+/* 持株の土台（2026-10-28・宇宙編の桁）: 持株化で星屑は畳まれるが、星屑倍率の土台（S.dustLegacyMult）は
+   持株化1回ごとに ×BAL.holdBaseStep（10）掛け上がって残る。土台は星屑倍率の一部なので生産と単価に効き、企業価値の単位
+   （dustValueUnit）には別の指数 holdValueExp で効く — 売却と持株化のテンポは修正前とほぼ同じまま、時代ごとに収入の桁が上がる
+   （sim 放置23日: 通算コイン 1e16 で頭打ち → 持株化7回で 1e26）。
+   旧: 持株化のたびに倍率が ×1 に戻り、2回目以降の時代は毎回同じ桁（1e16 前後）で頭打ちだった（理念書4章の停滞区間） */
+function holdBaseNext(){ return (S.dustLegacyMult || 1) * BAL.holdBaseStep; }
 function buyLegacyTech(id){
   const def = LEGACY_TECHS.find(t => t.id === id);
   if(!def || hasLegacyTech(id)) return;
@@ -482,16 +489,16 @@ function buyLegacyTech(id){
 function doHoldingsCore(){
   const hp = holdingsPreview();
   if(!hp.can) return;
-  const gain = hp.gain;
+  const gain = hp.gain, base = hp.baseNext;
   S.holdings = (S.holdings || 0) + 1;
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
-  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = 1; S.dustLegacyBase = 0;
+  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = base; S.dustLegacyBase = 0;   /* 持株の土台は残る */
   S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
   convertKnow();   /* 段階5: ジャンル知見は持株化でも残る（余った研究P も知見に） */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
-  addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目）");
+  addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目・持株の土台 ×"+fmt(base)+"）");
   say("持株化したにゃ〜！ 星団"+gain+"個ゲット。これからもよろしくにゃ");
   startProject("S");
   checkStamps(); save(); renderPanel();
@@ -500,7 +507,7 @@ function doHoldingsCore(){
 function doHoldings(){
   const hp = holdingsPreview();
   if(!hp.can){ say("持株化の条件がまだ揃ってないにゃ"); return; }
-  if(!confirm("ホールディングス化しますか？\n星団 "+hp.gain+" 個を得ます。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
+  if(!confirm("ホールディングス化しますか？\n星団 "+hp.gain+" 個を得ます。星屑倍率の土台は ×"+fmt(hp.baseNow)+" → ×"+fmt(hp.baseNext)+" に上がって残ります。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
   doHoldingsCore();
 }
 
@@ -667,7 +674,7 @@ function checkStamps(){
     if(!S.stamps[st.id] && st.test(S)){
       S.stamps[st.id] = new Date().toLocaleDateString("ja-JP");
       addLog("🏅 実績スタンプ『"+st.name+"』をゲット！");
-      skitOnStamp(st.id);   /* v2.26.0: 実績フレーバーの小芝居（物語の順・間隔は flavor.ts） */
+      skitOnStamp(st.id);   /* v2.26.1: 実績フレーバーの小芝居（物語の順・間隔は flavor.ts） */
     }
   }
 }

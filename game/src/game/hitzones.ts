@@ -209,12 +209,12 @@ if(stripCv){
     for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "stats"], ["calendar", "stats"]]){
       const rr = stripHitRects[rkey];
       if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
-        if(FURNITURE_LINES[rkey]) say(FURNITURE_LINES[rkey]);   /* v2.26.0: 思い出の家具の一言 */
+        if(FURNITURE_LINES[rkey]) say(FURNITURE_LINES[rkey]);   /* v2.26.1: 思い出の家具の一言 */
         openTabPanel(tab);
         return;
       }
     }
-    /* v2.26.0: イーゼル（最初の絵）はみゅけの一言だけ。みゅけ本人に重なる所は応援クリックを優先 */
+    /* v2.26.1: イーゼル（最初の絵）はみゅけの一言だけ。みゅけ本人に重なる所は応援クリックを優先 */
     const ez = stripHitRects.easel;
     if(ez && ux >= ez.x && ux <= ez.x + ez.w && uy >= ez.y && uy <= ez.y + ez.h && Math.abs(ux - stripMiyukeX()) > 44){
       say(FURNITURE_LINES.easel);

@@ -86,7 +86,7 @@ function promoteRank(){
   /* Phase B・昇格のセレモニー（仕様書2節）: セリフ＋ログの二経路。色だけに頼らない */
   addLog("🏠 昇格！ 企業価値が届いて社格「"+companyRank()+"」 Lv"+S.studioLv+"（雇用上限 "+staffCap()+"人）"+(RANK_UNLOCKS[S.studioLv] ? " ・ " + RANK_UNLOCKS[S.studioLv] + "が開いた" : ""));
   say("社格が「"+companyRank()+"」になったにゃ！ スタジオが広くなって、もっと仲間を呼べるよ");
-  if((S.prestiges || 0) >= 1 && RANKUP_AGAIN_LINES[S.studioLv]) say(RANKUP_AGAIN_LINES[S.studioLv]);   /* v2.26.0: 2周目以降の一言 */
+  if((S.prestiges || 0) >= 1 && RANKUP_AGAIN_LINES[S.studioLv]) say(RANKUP_AGAIN_LINES[S.studioLv]);   /* v2.26.1: 2周目以降の一言 */
   if(S.studioLv === 5){
     /* Phase D: 準大手で子会社が解放される。帯のボード右端タブにも社格が
        出ているので、気づきはログ＋セリフの二経路で届ける */
@@ -201,7 +201,7 @@ function autoAcquireRequest(){
   const g = pickRequestGenre(rep, power);
   if(!g) return false;
   const clients = REQUEST_CLIENTS_TIER[tier];
-  const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.0: 星間営業の依頼主 */
+  const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.1: 星間営業の依頼主 */
   S.activeRequest = { client, genre: g.id, genreName: g.name, text: requestText(client0, g.name),
     tier, bonus: REQUEST_TIERS[tier].bonus, reqSize: tier >= 1 ? SIZE_ORDER[tier] : null,
     repId: rep.id, repName: rep.name, auto: true,
@@ -230,7 +230,7 @@ function maybeSpawnBigDeal(){
   if(!pool.length) return;
   const g = pool[Math.floor(Math.random() * pool.length)];
   const clients = REQUEST_CLIENTS_TIER[3];
-  const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.0: 星間営業の依頼主 */
+  const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.1: 星間営業の依頼主 */
   S.bigDeal = { client, genre: g.id, genreName: g.name, bonus: 2.5, reqSize: "L",
     repId: rep.id, repName: rep.name, expiresAt: Date.now() + 30 * 60000 };
   addLog("🌟 大型案件が届いた: "+client+"（"+g.name+"・Lサイズ以上・コイン+250%）担当: "+rep.name+" — 30分以内に判断してね");

@@ -34,7 +34,7 @@ use tauri::{
 /// ウィンドウラベル（帯は歴史的経緯で "main" のまま改名しない。設計 §2.4）
 const WIN_STRIP: &str = "main";
 const WIN_MENU: &str = "menu";
-/// 小芝居ウィンドウ (v2.26.0, ラベル "skit")。実績スタンプを取った時に、みゅけが短い小芝居を
+/// 小芝居ウィンドウ (v2.26.1, ラベル "skit")。実績スタンプを取った時に、みゅけが短い小芝居を
 /// 演じる小さな窓。枠なし・透明・常に手前・フォーカスを取らない。帯のページが show_skit で出し、
 /// 演じ終わると窓のページが hide_skit で隠れる。置いた位置だけ保存する ("skit" 節)
 const WIN_SKIT: &str = "skit";
@@ -1527,7 +1527,7 @@ fn main() {
             guard("setup eager menu build", || {
                 let _ = build_menu_window(app.handle());
             });
-            // v2.26.0: 小芝居ウィンドウも同じ理由で先行生成 (非表示のまま)
+            // v2.26.1: 小芝居ウィンドウも同じ理由で先行生成 (非表示のまま)
             guard("setup eager skit build", || {
                 let _ = build_skit_window(app.handle());
             });

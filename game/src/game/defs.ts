@@ -46,7 +46,7 @@ const STAFF_MAX_LV = 10;
 const COMPANY_RANKS = ["インディー", "零細", "中小", "中堅", "準大手", "大企業"];
 function rankName(lv){
   const i = Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1;
-  return i === COMPANY_RANKS.length - 1 ? spaceName("rank6", COMPANY_RANKS[i]) : COMPANY_RANKS[i];   /* v2.26.0: 宇宙編の呼び名 */
+  return i === COMPANY_RANKS.length - 1 ? spaceName("rank6", COMPANY_RANKS[i]) : COMPANY_RANKS[i];   /* v2.26.1: 宇宙編の呼び名 */
 }
 function companyRank(){ return rankName(S.studioLv); }
 function staffCap(){
@@ -310,7 +310,7 @@ const REQUEST_TONES = {
   "漁港のボス猫": ["{g}を作れ。出来がよけりゃ魚を分けてやる", "{g}、ひとつ頼むぜ。腕を見せてみな"]
 };
 function requestText(client, genreName){
-  for(const pl of SPACE_CLIENT_PLACES) if(client.startsWith(pl)) client = client.slice(pl.length);   /* v2.26.0: 「月の」などを外して口調を引く */
+  for(const pl of SPACE_CLIENT_PLACES) if(client.startsWith(pl)) client = client.slice(pl.length);   /* v2.26.1: 「月の」などを外して口調を引く */
   const tones = REQUEST_TONES[client];
   if(!tones) return genreName+"の注文を作ってほしいにゃ";
   return tones[Math.floor(Math.random()*tones.length)].split("{g}").join(genreName);
@@ -428,7 +428,7 @@ const STAMP_DEFS = [
   { id:"exits12",      name:"売却の達人",       test:s=>s.prestiges>=HOLD_EXITS, prog:s=>[s.prestiges,HOLD_EXITS] },
   { id:"holdings1",    name:"ホールディングス", hint:"持株化の条件をそろえる", test:s=>(s.holdings||0)>=1 },
   { id:"legacy_all",   name:"レガシー総取り",   test:s=>LEGACY_TECHS.every(t=>(s.legacyTech||{})[t.id]), prog:s=>[LEGACY_TECHS.filter(t=>(s.legacyTech||{})[t.id]).length,LEGACY_TECHS.length] },
-  /* v2.26.0 宇宙編（フレーバー）: 持株化の回数で章が進む。数値は動かさない（sim 実測: 放置で約3〜4時間に1回） */
+  /* v2.26.1 宇宙編（フレーバー）: 持株化の回数で章が進む。数値は動かさない（sim 実測: 放置で約3〜4時間に1回） */
   { id:"holdings2",    name:"空のむこう",       test:s=>(s.holdings||0)>=2,  prog:s=>[s.holdings||0,2] },
   { id:"holdings3",    name:"人工衛星",         test:s=>(s.holdings||0)>=3,  prog:s=>[s.holdings||0,3] },
   { id:"holdings4",    name:"月面支社",         test:s=>(s.holdings||0)>=4,  prog:s=>[s.holdings||0,4] },
@@ -438,7 +438,7 @@ const STAMP_DEFS = [
   { id:"holdings10",   name:"星屑のゆくえ",     test:s=>(s.holdings||0)>=10, prog:s=>[s.holdings||0,10] }
 ];
 
-/* ---------- 実績フレーバーシナリオ（v2.26.0） ----------
+/* ---------- 実績フレーバーシナリオ（v2.26.1） ----------
    文案の正本は sakuri（叩き台は https://claude.ai/artifact/R3pc6Eogiaky6YEHNPtj22 ）。
    ここを書き換えるだけで台詞が変わる。数値・報酬には一切かかわらない。
    - SKITS: スタンプを取ったときに小芝居ウィンドウで演じる場面。並び = 物語の順。

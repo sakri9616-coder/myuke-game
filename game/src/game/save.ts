@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.26.0";   /* 表示ラベルの単一の出所 (v2.26.0: 実績フレーバーシナリオ・小芝居ウィンドウ) */
+const GAME_VERSION = "v2.26.1";   /* 表示ラベルの単一の出所 (v2.26.1: 実績フレーバーシナリオ・小芝居ウィンドウ) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -79,7 +79,7 @@ function freshState(): GameState {
     /* チュートリアル導線 (TUTORIAL_DESIGN.md): 進行ステージ・見たビート・
        スキップ有無だけを持つ。経済には一切干渉しない。引っ越しでも消えない */
     tut:{ stage:0, seen:{}, skipped:false },
-    /* v2.26.0 追加分: 実績フレーバーシナリオの小芝居の記録（見た / 時期を過ぎた）。EXIT でも持株化でも消えない */
+    /* v2.26.1 追加分: 実績フレーバーシナリオの小芝居の記録（見た / 時期を過ぎた）。EXIT でも持株化でも消えない */
     skits:{},
     startedAt:Date.now(), lastTick:Date.now()
   };
@@ -321,7 +321,7 @@ function load(rawText?: string){
     /* 第2ウェーブ M: 役員と卒業記録の補完 */
     if(!Array.isArray(S.executives)) S.executives = [];
     if(!Array.isArray(S.execAlumni)) S.execAlumni = [];
-    /* v2.26.0: 小芝居の記録。この版より前に取ったスタンプ（と、流す前に終了した場面）は
+    /* v2.26.1: 小芝居の記録。この版より前に取ったスタンプ（と、流す前に終了した場面）は
        起動時に一気に流さず、統計タブの ▶ にだけ置く */
     if(!S.skits || typeof S.skits !== "object" || Array.isArray(S.skits)) S.skits = {};
     for(const sk of SKITS) if(S.stamps[sk.id] && !S.skits[sk.id]) S.skits[sk.id] = "skipped";
