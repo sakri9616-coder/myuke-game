@@ -40,7 +40,7 @@ const VERBS = {
   tutSkipGuide: tutSkipGuide, tutResetGuide: tutResetGuide, tutVisitTab: tutVisitTab,
   updCheckManual: updCheckManual, updDownload: updDownload,
   updRelaunch: updRelaunch, updDismiss: updDismiss,
-  buyMany: buyMany,
+  buyMany: buyMany, playSkit: playSkit,
   exportSave: exportSaveText, importSaveText: importSaveText, resetSave: doResetSave
 };
 

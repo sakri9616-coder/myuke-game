@@ -150,6 +150,7 @@ interface GameState {
   buffs: { prodUntil?: number; clickUntil?: number };
   tut: { stage: number; seen: Record<string, boolean>; skipped: boolean };
   startedAt: number; lastTick: number;
+  skits: Record<string, string>;   /* v2.26.1: 小芝居の記録 (場面 id → "played" 見た / "skipped" 時期を過ぎて ▶ だけ) */
 }
 
 /* Tauri 2 の withGlobalTauri で注入されるグローバル (使う範囲だけ緩く宣言) */
@@ -196,6 +197,9 @@ interface StripHitRects {
 interface LayoutItem { id: string; label: string; cx: number; w: number; h: number; top: number; on?: boolean; prop?: boolean }
 
 interface ResearchDef { id: string; name: string; cost: number; desc: string; tier?: number; requires?: string; repeatable?: boolean; stage?: string }
+
+/* v2.26.1 実績フレーバーシナリオの1場面。panels は [ポーズ, セリフ, 演出?] */
+interface SkitDef { id: string; chapter: string; title: string; panels: [string, string, string?][] }
 
 interface AnimDef {
   frames: string[];

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>みゅけ — 小芝居</title>
+<style>
+/* 小芝居ウィンドウ (v2.26.1): OS の枠なし・窓の外は透明。枠と舞台はドット絵を貼るだけ */
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; width: 100%; height: 100%;
+  user-select: none; -webkit-user-select: none; cursor: default; }
+body { opacity: 0; transition: opacity .35s ease; }
+body.on { opacity: 1; }
+#sk-stage { position: absolute; left: 0; top: 0; width: 240px; height: 160px; image-rendering: pixelated; }
+#sk-text { position: absolute; left: 16px; right: 16px; top: 108px; height: 40px; display: flex; align-items: center;
+  justify-content: center; text-align: center; color: #463126; font: 700 12.5px/1.35 'Hiragino Maru Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', 'Meiryo', sans-serif; }
+#sk-head { position: absolute; left: 14px; top: 9px; color: #996D49; font: 700 10px/1 'Hiragino Maru Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', 'Meiryo', sans-serif; }
+#sk-skip { position: absolute; right: 9px; top: 6px; padding: 1px 5px; border: 0; background: transparent; color: #996D49;
+  font: 700 13px/1 sans-serif; cursor: pointer; }
+#sk-skip:hover { color: #463126; }
+</style>
+</head>
+<body>
+<canvas id="sk-stage" width="240" height="160"></canvas>
+<div id="sk-head"></div>
+<div id="sk-text"></div>
+<button id="sk-skip" type="button" title="最後まで飛ばす">≫</button>
+<script>
+@@SPRITES@@
+</script>
+<script>
+@@SKIT@@
+</script>
+</body>
+</html>

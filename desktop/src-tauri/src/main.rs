@@ -34,6 +34,12 @@ use tauri::{
 /// ウィンドウラベル（帯は歴史的経緯で "main" のまま改名しない。設計 §2.4）
 const WIN_STRIP: &str = "main";
 const WIN_MENU: &str = "menu";
+/// 小芝居ウィンドウ (v2.26.1, ラベル "skit")。実績スタンプを取った時に、みゅけが短い小芝居を
+/// 演じる小さな窓。枠なし・透明・常に手前・フォーカスを取らない。帯のページが show_skit で出し、
+/// 演じ終わると窓のページが hide_skit で隠れる。置いた位置だけ保存する ("skit" 節)
+const WIN_SKIT: &str = "skit";
+const SKIT_W: f64 = 240.0;
+const SKIT_H: f64 = 160.0;
 /// 帯ウィンドウの高さ (倍率 1.0 の論理px)。ゲーム側の STRIP_H (152) × 1.75。
 /// v2.21.0 で 210 → 266: ボードの上に所持金・集中力の2行を載せる分だけ上に伸ばした
 /// (描画の倍率は据え置き、何もない所はクリックを素通しする)
@@ -58,6 +64,10 @@ struct ShellState {
     strip_pos: Mutex<Geom>,
     /// 帯の大きさ (1.0 = STRIP_BASE_H 論理px)。ページ設定 S.settings.stripSize と同期
     strip_scale: Mutex<f64>,
+    /// 小芝居ウィンドウを置いた位置 (ドラッグで動かした所)。未設定なら帯のみゅけの真上
+    skit_pos: Mutex<Geom>,
+    /// show_skit が自動で置いた位置。窓がここから動いていたら「プレイヤーが置いた」とみなして保存する
+    skit_auto: Mutex<(i32, i32)>,
     /// 帯から指定された「開くタブ」。menu の menu-ready を受けて open-tab で渡す
     pending_tab: Mutex<Option<String>>,
     path: PathBuf,
@@ -124,9 +134,10 @@ fn persist(state: &ShellState) {
     let mg = *state.menu_geom.lock().unwrap_or_else(|e| e.into_inner());
     let sp = *state.strip_pos.lock().unwrap_or_else(|e| e.into_inner());
     let spct = (*state.strip_scale.lock().unwrap_or_else(|e| e.into_inner()) * 100.0).round() as i64;
+    let kp = *state.skit_pos.lock().unwrap_or_else(|e| e.into_inner());
     let txt = format!(
-        "{{\"mode\":\"strip\",\"aot_full\":{},\"full\":{{\"x\":{},\"y\":{},\"w\":{},\"h\":{},\"set\":{}}},\"strip\":{{\"x\":{},\"y\":{},\"w\":{},\"h\":{},\"set\":{}}},\"strip_scale_pct\":{}}}",
-        aot, mg.x, mg.y, mg.w, mg.h, mg.set, sp.x, sp.y, sp.w, sp.h, sp.set, spct
+        "{{\"mode\":\"strip\",\"aot_full\":{},\"full\":{{\"x\":{},\"y\":{},\"w\":{},\"h\":{},\"set\":{}}},\"strip\":{{\"x\":{},\"y\":{},\"w\":{},\"h\":{},\"set\":{}}},\"strip_scale_pct\":{},\"skit\":{{\"x\":{},\"y\":{},\"w\":{},\"h\":{},\"set\":{}}}}}",
+        aot, mg.x, mg.y, mg.w, mg.h, mg.set, sp.x, sp.y, sp.w, sp.h, sp.set, spct, kp.x, kp.y, kp.w, kp.h, kp.set
     );
     if let Some(dir) = state.path.parent() {
         let _ = fs::create_dir_all(dir);
@@ -187,6 +198,7 @@ struct Loaded {
     menu_geom: Geom,
     strip_pos: Geom,
     strip_scale: f64,
+    skit_pos: Geom,
 }
 
 fn load_persisted(path: &PathBuf) -> Loaded {
@@ -196,6 +208,7 @@ fn load_persisted(path: &PathBuf) -> Loaded {
             menu_geom: Geom::default(),
             strip_pos: Geom::default(),
             strip_scale: 0.7,
+            skit_pos: Geom::default(),
         };
     };
     Loaded {
@@ -205,6 +218,7 @@ fn load_persisted(path: &PathBuf) -> Loaded {
         strip_scale: json_num(&txt, "strip_scale_pct", 0)
             .map(|p| (p as f64 / 100.0).clamp(0.15, 1.6))
             .unwrap_or(0.7),
+        skit_pos: parse_geom(&txt, "skit"),
     }
 }
 
@@ -615,6 +629,121 @@ fn build_menu_window(app: &AppHandle) -> Option<WebviewWindow> {
             None
         }
     }
+}
+
+/// 小芝居ウィンドウを生成する (非表示のまま)。管理ウィンドウと同じく起動時に先行生成して、
+/// 出す操作は show だけで済ませる。focusable(false) で、出てもクリックしても作業中の
+/// アプリからフォーカスを奪わない (Windows では WS_EX_NOACTIVATE)
+fn build_skit_window(app: &AppHandle) -> Option<WebviewWindow> {
+    let built = WebviewWindowBuilder::new(app, WIN_SKIT, WebviewUrl::App("skit.html".into()))
+        .title("みゅけ — 小芝居")
+        .transparent(true)
+        .decorations(false)
+        .shadow(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(false)
+        .focusable(false)
+        .inner_size(SKIT_W, SKIT_H)
+        .visible(false)
+        .build();
+    match built {
+        Ok(w) => {
+            dlog("build_skit_window: build ok");
+            Some(w)
+        }
+        Err(e) => {
+            dlog(&format!("build_skit_window: build FAILED: {}", e));
+            None
+        }
+    }
+}
+
+/// 窓がプレイヤーに動かされていたら、その位置を保存対象にする (動いていれば true)
+fn capture_skit_pos(w: &WebviewWindow, state: &ShellState) -> bool {
+    let (Ok(pos), Ok(size)) = (w.outer_position(), w.inner_size()) else { return false };
+    let auto = *state.skit_auto.lock().unwrap_or_else(|e| e.into_inner());
+    if (pos.x, pos.y) == auto {
+        return false;
+    }
+    let mut cur = state.skit_pos.lock().unwrap_or_else(|e| e.into_inner());
+    if cur.set && (cur.x, cur.y) == (pos.x, pos.y) {
+        return false;
+    }
+    *cur = Geom { x: pos.x, y: pos.y, w: size.width, h: size.height, set: true };
+    true
+}
+
+/// 位置 (左上・物理px) を、どれかのモニタの作業領域に窓がまるごと収まるよう丸める。
+/// そのモニタが無くなっていたら None
+fn skit_fit(w: &WebviewWindow, x: i32, y: i32, ww: i32, hh: i32) -> Option<(i32, i32)> {
+    let monitors = w.available_monitors().ok()?;
+    let cx = x + ww / 2;
+    let cy = y + hh / 2;
+    for m in &monitors {
+        let wa = m.work_area();
+        let (mx, my) = (wa.position.x, wa.position.y);
+        let (mw, mh) = (wa.size.width as i32, wa.size.height as i32);
+        if cx >= mx && cx < mx + mw && cy >= my && cy < my + mh {
+            return Some((x.clamp(mx, (mx + mw - ww).max(mx)), y.clamp(my, (my + mh - hh).max(my))));
+        }
+    }
+    None
+}
+
+fn show_skit_impl(app: &AppHandle, x: f64, y: f64) {
+    let state = app.state::<ShellState>();
+    let Some(w) = app.get_webview_window(WIN_SKIT).or_else(|| build_skit_window(app)) else { return };
+    let sf = w.scale_factor().unwrap_or(1.0);
+    let (ww, hh) = ((SKIT_W * sf).round() as i32, (SKIT_H * sf).round() as i32);
+    let saved = *state.skit_pos.lock().unwrap_or_else(|e| e.into_inner());
+    let mut at = if saved.set { skit_fit(&w, saved.x, saved.y, ww, hh) } else { None };
+    let mut auto = false;
+    if at.is_none() {
+        // 既定: 帯のみゅけの頭の真上 (x, y は帯のページ内の論理px)
+        if let Some(sw) = app.get_webview_window(WIN_STRIP) {
+            if let Ok(sp) = sw.outer_position() {
+                let ssf = sw.scale_factor().unwrap_or(1.0);
+                let px = sp.x + (x * ssf).round() as i32 - ww / 2;
+                let py = sp.y + (y * ssf).round() as i32 - hh;
+                at = skit_fit(&sw, px, py, ww, hh).or(Some((px, py)));
+                auto = true;
+            }
+        }
+    }
+    if let Some((px, py)) = at {
+        let _ = w.set_position(Position::Physical(PhysicalPosition::new(px, py)));
+        if auto {
+            *state.skit_auto.lock().unwrap_or_else(|e| e.into_inner()) = (px, py);
+        } else {
+            *state.skit_auto.lock().unwrap_or_else(|e| e.into_inner()) = (i32::MIN, i32::MIN);
+        }
+    }
+    let _ = w.show();   // set_focus はしない (作業中のアプリの入力を奪わない)
+}
+
+/// 帯のページ用: 小芝居ウィンドウを出す (x, y = みゅけの頭の位置。帯のページ内の論理px)
+#[tauri::command]
+fn show_skit(app: AppHandle, window: tauri::Window, x: f64, y: f64) {
+    if window.label() != WIN_STRIP {
+        return;
+    }
+    guard("cmd show_skit", move || show_skit_impl(&app, x, y));
+}
+
+/// 小芝居ウィンドウのページ用: 演じ終わったら隠れる (動かした位置はここでも拾って保存する)
+#[tauri::command]
+fn hide_skit(app: AppHandle) {
+    guard("cmd hide_skit", move || {
+        if let Some(w) = app.get_webview_window(WIN_SKIT) {
+            let state = app.state::<ShellState>();
+            if capture_skit_pos(&w, &state) {
+                persist(&state);
+            }
+            let _ = w.hide();
+        }
+    });
 }
 
 fn close_menu_impl(app: &AppHandle) {
@@ -1138,6 +1267,12 @@ fn spawn_geom_watch(app: &AppHandle) {
                 }
             }
         }
+        // 小芝居ウィンドウは出ている間だけ (隠れている間の位置は意味が無い)
+        if let Some(w) = app.get_webview_window(WIN_SKIT) {
+            if w.is_visible().unwrap_or(false) && capture_skit_pos(&w, &state) {
+                changed = true;
+            }
+        }
         if let Some(w) = app.get_webview_window(WIN_MENU) {
             if let (Ok(pos), Ok(size)) = (w.outer_position(), w.inner_size()) {
                 let g = Geom {
@@ -1188,6 +1323,8 @@ fn main() {
             set_input_counting,
             reset_strip_position,
             set_strip_scale,
+            show_skit,
+            hide_skit,
             save_game
         ])
         .setup(|app| {
@@ -1236,6 +1373,8 @@ fn main() {
                 menu_geom: Mutex::new(loaded.menu_geom),
                 strip_pos: Mutex::new(loaded.strip_pos),
                 strip_scale: Mutex::new(loaded.strip_scale),
+                skit_pos: Mutex::new(loaded.skit_pos),
+                skit_auto: Mutex::new((i32::MIN, i32::MIN)),
                 pending_tab: Mutex::new(None),
                 path,
                 last_save_ms: AtomicU64::new(0),
@@ -1387,6 +1526,10 @@ fn main() {
                ハンドラ内での窓生成 (Windows で固まる疑い) を避ける */
             guard("setup eager menu build", || {
                 let _ = build_menu_window(app.handle());
+            });
+            // v2.26.1: 小芝居ウィンドウも同じ理由で先行生成 (非表示のまま)
+            guard("setup eager skit build", || {
+                let _ = build_skit_window(app.handle());
             });
             Ok(())
         })
