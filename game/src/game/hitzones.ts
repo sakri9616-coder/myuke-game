@@ -34,6 +34,7 @@ function computeHitZones(){
   push(R.snack, 4);   /* 2026-10-25: おやつ箱も押せる */
   push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4);
   push(R.memo, 4); push(R.phone, 4); push(R.megaphone, 4); push(R.toolbox, 4);
+  push(R.fever, 4);   /* オーバークロック・ゲージ (机の外にも置けるので単独で通す) */
   push(R.duck, 6);
   push(R.fish, 6);
   for(const br of (R.bugs || [])) push(br, 4);

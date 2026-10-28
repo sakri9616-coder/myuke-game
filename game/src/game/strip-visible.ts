@@ -93,7 +93,7 @@ function drawStripDeskUpgrades(cx){
   if(kb) sDrawSprite(kb, cx - 54, G, 1);
 }
 /* 企画の付箋ボードの置き場: 作品棚の左隣 (主机の左は電話・メガホン・サブモニタで埋まっている) */
-function backlogX(){ return Math.max(14, stripShelfCX() - 66); }
+function backlogX(){ return propPlace("plan").cx; }
 function drawStripBacklog(){
   const bl = backlogSpriteName();
   if(bl) sDrawSprite(bl, backlogX(), STRIP_GROUND, 1);
@@ -135,21 +135,23 @@ function updateStripBots(dt){
   const n = hasSprite("bot_idle") ? Math.min(7, blv <= 3 ? blv : 3 + MILESTONE_LVS.filter(c => blv >= c).length) : 0;
   while(stripBots.length < n) stripBots.push({ x: stripBuildX() + stripBots.length * 14, dir: 1, walkClock: 0, pause: stripBots.length * 0.8 });
   if(stripBots.length > n) stripBots.length = n;
-  const x0 = stripBuildX() + 8, x1 = stripShipX() - 22;
+  /* ビルド台と出荷スポットは並べ替えで左右が入れ替わり得る。sd = 出荷へ向かう向き */
+  const sd = stripBotOutDir(), x0 = stripBuildX() + 8 * sd, x1 = stripShipX() - 22 * sd;
   for(const b of stripBots){
     if(b.pause > 0){ b.pause -= dt; continue; }
     b.x += b.dir * 22 * dt;
     b.walkClock += dt * 1000;
-    if(b.dir > 0 && b.x >= x1){ b.x = x1; b.dir = -1; b.pause = 0.6; }
-    else if(b.dir < 0 && b.x <= x0){ b.x = x0; b.dir = 1; b.pause = 0.9; }
+    if(b.dir === sd && (x1 - b.x) * sd <= 0){ b.x = x1; b.dir = -sd; b.pause = 0.6; }
+    else if(b.dir !== sd && (b.x - x0) * sd <= 0){ b.x = x0; b.dir = sd; b.pause = 0.9; }
   }
 }
+function stripBotOutDir(){ return stripShipX() >= stripBuildX() ? 1 : -1; }
 function drawStripBots(){
-  const G = STRIP_GROUND;
+  const G = STRIP_GROUND, sd = stripBotOutDir();
   for(const b of stripBots){
     let nm;
-    if(b.pause > 0) nm = b.dir < 0 ? "bot_carry" : "bot_idle";
-    else if(b.dir > 0 && hasSprite("bot_carry")) nm = "bot_carry";
+    if(b.pause > 0) nm = b.dir !== sd ? "bot_carry" : "bot_idle";
+    else if(b.dir === sd && hasSprite("bot_carry")) nm = "bot_carry";
     else nm = Math.floor(b.walkClock / 220) % 2 ? "bot_walk_b" : "bot_walk_a";
     if(!hasSprite(nm)) nm = "bot_idle";
     sDrawSprite(nm, b.x, G, 1, b.dir > 0);
