@@ -247,6 +247,13 @@ console.log("== 5. prestige ==");
     rank === 2 && Math.abs(m0 - 1.15) < 1e-9 && Math.abs(m1 - 1.3) < 1e-9 && run(sb, "__subGrow") > 0 && !run(sb, "'starcharm' in S.dustPerks"));
 }
 {
+  /* 2026-10-28: 持株化で星屑は畳まれるが、星屑倍率の土台は ×10 で残る（宇宙編でも桁が伸びる） */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.maxStudioLv = 6; S.subs = [{ id: 1, name: 'a', genre: 'app', staff: 5, lv: 1, alloc: 50 }, { id: 2, name: 'b', genre: 'app', staff: 5, lv: 1, alloc: 50 }]; S.prestiges = 12; S.eraDust = 1000; S.dustTotal = 1000; doHoldingsCore();");
+  check("holdings fold stardust but keep a x10 multiplier base", run(sb, "S.holdings") === 1 && run(sb, "S.dustTotal") === 0 && run(sb, "dustMult()") === 10);
+}
+{
   /* 再設計 段階1: 出した作品は棚で毎秒売れ続け、棚は会社と一緒に売却で消える */
   const sb = buildSandbox();
   loadGame(sb);

@@ -29,6 +29,9 @@ const BAL = {
   valuePerDust: 7e6,        // 再設計 段階3: 星屑1個ぶんの企業価値（1時間の自動収入 🪙）。旧: 開発量 DP で数えていた（prestigeDPPerDust）
   dustValueExp: 2.7,        // 星屑1個ぶんの企業価値 = valuePerDust × 星屑倍率^これ（production.ts の dustValueUnit。インフレ修正）。
                             // sim（放置10日・20個で売る）: 2.5 で2社目以降が7分まで縮み、3.0 で売却が1日1回未満に止まる。2.7 で 2社目以降 約20〜40分
+  holdBaseStep: 10,         // 持株化1回ごとに星屑倍率の土台が ×これ（2026-10-28。時代の通算星屑に連動させると速い時代ほど土台が伸びて暴走した・sim）
+  holdValueExp: 1.65,       // 持株の土台（S.dustLegacyMult）が企業価値の単位に効く指数（2026-10-28。company.ts の holdBaseNext）。
+                            // sim（放置23日）: 1.5 で中盤の持株化が1日に2回まで速まり、2.0 で2回目の持株化が14日目まで遅れる。1.65 で持株化の間隔は修正前とほぼ同じ
   dustSoftcap: 20,          // 1回の売却でこの個数を超えた分は dustGainExp 乗で伸びる
   dustGainExp: 0.5,         // （平方根。0.6 以上だと sim の active で 30 日に星屑 8,000 個超まで暴走した）
   dustPriceExp: 0.5,        // 作品単価には星屑倍率の dustPriceExp 乗で効く
