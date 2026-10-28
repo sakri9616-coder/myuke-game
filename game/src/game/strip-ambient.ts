@@ -7,6 +7,11 @@ const CHAT_LINES = [
   "おやつ何時だっけ", "カリカリ派？ウェット派？", "ごはんが楽しみにゃ", "お魚、食べたい…",
   "にゃーん（意味はない）", "毛づくろいしたい…", "段ボール、あそこに…", "お昼寝は正義にゃ"
 ];
+/* v2.26.0: 取ったスタンプに応じた一言 (defs.ts の STAMP_CHAT_LINES) も雑談の候補に混ぜる */
+function pickChatLine(){
+  const pool = CHAT_LINES.concat(STAMP_CHAT_LINES.filter(([st]) => S.stamps[st]).map(([, t]) => t));
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 let stripChat = null;      /* { whoId, text, until } */
 let lastChatterAt = 0;
 function maybeStartChatter(now, force){
@@ -25,7 +30,7 @@ function maybeStartChatter(now, force){
       if(Math.abs(walkers[i].wk.x - walkers[j].wk.x) < 30){
         const sp = Math.random() < 0.5 ? walkers[i] : walkers[j];
         stripChat = { whoId: sp.st.id,
-          text: CHAT_LINES[Math.floor(Math.random() * CHAT_LINES.length)], until: now + 2800 };
+          text: pickChatLine(), until: now + 2800 };
         walkers[i].wk.chatUntil = now + 2800;
         walkers[j].wk.chatUntil = now + 2800;
         lastChatterAt = now;
@@ -90,7 +95,7 @@ function stripAmbientUpdate(dt){
     }
   } else {
     const d = stripDelivery;
-    stepStripCourier(d, d.speed, dt, "📦 子会社から納品", "#4a90c2");
+    stepStripCourier(d, d.speed, dt, spaceName("courier", "📦 子会社から納品"), "#4a90c2");
     if(d.x > stripVW + 30){
       stripDelivery = null;
       nextDeliveryAt = stripNow + (3 + Math.random() * 3) * 60000;

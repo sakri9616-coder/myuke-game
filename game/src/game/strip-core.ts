@@ -227,7 +227,7 @@ function stripHoverTarget(){
   /* 工程の持ち場はラック・研究机より先（クリックの判定順と同じ。みゅけ本人は除く） */
   const stI = (R.stations || []).findIndex(r => inR(r));
   if(stI >= 0 && !inR(R.miyuke)) return { r: R.stations[stI], key: "stations", idx: stI };
-  for(const k of ["phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "miyuke", "desk", "duck"])
+  for(const k of ["phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "miyuke", "desk", "duck", "easel"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
   for(const k of ["bugs", "stockBugs", "piles", "staff"]){
     const arr = R[k] || [];

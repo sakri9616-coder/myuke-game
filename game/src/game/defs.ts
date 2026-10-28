@@ -44,7 +44,10 @@ const STAFF_MAX_LV = 10;
 /* 社格ラダー（Phase B）: スタジオLvをそのまま社格として扱う。新システムは増やさない。
    インディー/零細＝クリッカー期、中小/中堅＝自動化期、準大手/大企業＝経営期 */
 const COMPANY_RANKS = ["インディー", "零細", "中小", "中堅", "準大手", "大企業"];
-function rankName(lv){ return COMPANY_RANKS[Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1]; }
+function rankName(lv){
+  const i = Math.max(1, Math.min(STAFF_CAPS.length, lv || 1)) - 1;
+  return i === COMPANY_RANKS.length - 1 ? spaceName("rank6", COMPANY_RANKS[i]) : COMPANY_RANKS[i];   /* v2.26.0: 宇宙編の呼び名 */
+}
 function companyRank(){ return rankName(S.studioLv); }
 function staffCap(){
   if(challengeActive("minority")) return 6;   /* 第2ウェーブ K: 少数精鋭は社格・技術の上限を上書きする */
@@ -307,6 +310,7 @@ const REQUEST_TONES = {
   "漁港のボス猫": ["{g}を作れ。出来がよけりゃ魚を分けてやる", "{g}、ひとつ頼むぜ。腕を見せてみな"]
 };
 function requestText(client, genreName){
+  for(const pl of SPACE_CLIENT_PLACES) if(client.startsWith(pl)) client = client.slice(pl.length);   /* v2.26.0: 「月の」などを外して口調を引く */
   const tones = REQUEST_TONES[client];
   if(!tones) return genreName+"の注文を作ってほしいにゃ";
   return tones[Math.floor(Math.random()*tones.length)].split("{g}").join(genreName);
@@ -423,6 +427,100 @@ const STAMP_DEFS = [
   { id:"challenge_all",name:"全チャレンジ制覇", test:s=>CHALLENGE_DEFS.every(c=>(s.challengeRewards||{})[c.id]), prog:s=>[CHALLENGE_DEFS.filter(c=>(s.challengeRewards||{})[c.id]).length,CHALLENGE_DEFS.length] },
   { id:"exits12",      name:"売却の達人",       test:s=>s.prestiges>=HOLD_EXITS, prog:s=>[s.prestiges,HOLD_EXITS] },
   { id:"holdings1",    name:"ホールディングス", hint:"持株化の条件をそろえる", test:s=>(s.holdings||0)>=1 },
-  { id:"legacy_all",   name:"レガシー総取り",   test:s=>LEGACY_TECHS.every(t=>(s.legacyTech||{})[t.id]), prog:s=>[LEGACY_TECHS.filter(t=>(s.legacyTech||{})[t.id]).length,LEGACY_TECHS.length] }
+  { id:"legacy_all",   name:"レガシー総取り",   test:s=>LEGACY_TECHS.every(t=>(s.legacyTech||{})[t.id]), prog:s=>[LEGACY_TECHS.filter(t=>(s.legacyTech||{})[t.id]).length,LEGACY_TECHS.length] },
+  /* v2.26.0 宇宙編（フレーバー）: 持株化の回数で章が進む。数値は動かさない（sim 実測: 放置で約3〜4時間に1回） */
+  { id:"holdings2",    name:"空のむこう",       test:s=>(s.holdings||0)>=2,  prog:s=>[s.holdings||0,2] },
+  { id:"holdings3",    name:"人工衛星",         test:s=>(s.holdings||0)>=3,  prog:s=>[s.holdings||0,3] },
+  { id:"holdings4",    name:"月面支社",         test:s=>(s.holdings||0)>=4,  prog:s=>[s.holdings||0,4] },
+  { id:"holdings5",    name:"火星スタジオ",     test:s=>(s.holdings||0)>=5,  prog:s=>[s.holdings||0,5] },
+  { id:"holdings7",    name:"軌道エレベーター", test:s=>(s.holdings||0)>=7,  prog:s=>[s.holdings||0,7] },
+  { id:"holdings9",    name:"銀河いちばん",     test:s=>(s.holdings||0)>=9,  prog:s=>[s.holdings||0,9] },
+  { id:"holdings10",   name:"星屑のゆくえ",     test:s=>(s.holdings||0)>=10, prog:s=>[s.holdings||0,10] }
 ];
+
+/* ---------- 実績フレーバーシナリオ（v2.26.0） ----------
+   文案の正本は sakuri（叩き台は https://claude.ai/artifact/R3pc6Eogiaky6YEHNPtj22 ）。
+   ここを書き換えるだけで台詞が変わる。数値・報酬には一切かかわらない。
+   - SKITS: スタンプを取ったときに小芝居ウィンドウで演じる場面。並び = 物語の順。
+     先の場面をもう見ていたら、後から取れた前の場面は流さず統計タブの ▶ にだけ残す。
+     panels は [ポーズ, セリフ, 演出?]。ポーズは miyuke_<ポーズ> のアニメ（code_a/debug/happy/
+     idle/sleep/snack/think/walk/yarn）。演出 "walkin" = モブの猫が右から歩いてくる、
+     "crowd" = モブの猫たちが行き来する。セリフが空のコマは演出だけを見せる */
+const SKITS: SkitDef[] = [
+  { id:"first_release", chapter:"序章", title:"ひとりの机", panels:[
+    ["think", "誰かの役に立てばいいにゃー"], ["happy", "感想うれしいにゃー！"], ["idle", "ゆっくりでいいにゃー"] ] },
+  { id:"play_all", chapter:"序章", title:"ぜんぶひとり", panels:[
+    ["yarn", "企画も実装もテストも、ぜんぶひとりにゃ"], ["idle", "……そろそろ、だれかに手伝ってほしいにゃ"] ] },
+  { id:"first_hire", chapter:"1章", title:"はじめての同僚", panels:[
+    ["walk", "", "walkin"], ["think", "よろしくなのにゃー！", "walkin"], ["happy", "机、もうひとついるね", "walkin"] ] },
+  { id:"releases10", chapter:"1章", title:"しるしだらけ", panels:[
+    ["idle", "カレンダー、印だらけだにゃ"], ["happy", "ひとりだったころが懐かしいにゃ"] ] },
+  { id:"rank3", chapter:"2章", title:"会社っぽくなってきた", panels:[
+    ["think", "ついにみゅけが社長にゃー"], ["code_a", "でも、キーボードを叩くのはかわらにゃいにゃー"] ] },
+  { id:"ip1", chapter:"2章", title:"うちの子", panels:[
+    ["happy", "IPとしてリーリースできたにゃー！うれしいにゃー！"], ["think", "ところで、IPってなんだにゃ？"] ] },
+  { id:"rank6", chapter:"3章", title:"大きな家", panels:[
+    ["idle", "", "crowd"], ["think", "そろそろ全員の名前を覚えられなくなってきちゃったにゃ", "crowd"], ["snack", "でも、おやつの時間はみんな一緒だにゃ！", "crowd"] ] },
+  { id:"prestige1", chapter:"4章", title:"売る日", panels:[
+    ["idle", "みゅけには、あの会社は少し大きすぎたのにゃ"], ["sleep", "これくらいがちょうどいいにゃ"], ["code_a", "...でも、またみんなのために働きたいにゃー"] ] },
+  { id:"exits5", chapter:"5章", title:"何度でも", panels:[
+    ["walk", "何を目指してるのかわからなくなってきちゃったにゃ"], ["happy", "でも、たのしいからいいにゃー"] ] },
+  { id:"holdings1", chapter:"終章", title:"また、ひとりの机で", panels:[
+    ["think", "ほーるでぃんぐす化に成功したにゃー！"], ["idle", "長い道のりだったにゃ"], ["code_a", "...ところで、ほーるでぃんぐすってなんだにゃ？"] ] },
+  { id:"holdings2", chapter:"6章", title:"空のむこう", panels:[
+    ["think", "星屑って、ほんとにお星さまから来てるのかにゃ？"], ["idle", "見に行ってみたいにゃー"] ] },
+  { id:"holdings3", chapter:"7章", title:"人工衛星", panels:[
+    ["code_a", "衛星から配信すれば、どこでも遊べるにゃ"], ["happy", "宇宙で遊んでるねこも、いるかもしれないにゃ！"] ] },
+  { id:"holdings4", chapter:"8章", title:"月面支社", panels:[
+    ["walk", "ふわふわするにゃー"], ["snack", "おやつが浮いて、たべにくいにゃ…"] ] },
+  { id:"holdings5", chapter:"9章", title:"火星スタジオ", panels:[
+    ["think", "火星には、ねこがいないにゃ"], ["code_a", "じゃあ、来たくなるゲームを作るにゃ！"] ] },
+  { id:"holdings7", chapter:"10章", title:"軌道エレベーター", panels:[
+    ["idle", "宇宙から、最初の机まで一本だにゃ"], ["sleep", "……たまには帰って、あの椅子で寝るにゃ"] ] },
+  { id:"holdings9", chapter:"11章", title:"銀河いちばん", panels:[
+    ["happy", "銀河でいちばんの会社になったにゃー！"], ["think", "……ところで、銀河ってなんだにゃ？"] ] },
+  { id:"holdings10", chapter:"大終章", title:"星屑のゆくえ", panels:[
+    ["idle", "星屑は、みんなが遊んだあとのきらきらだったのにゃ"], ["happy", "だからいっぱい集まってたのにゃー"],
+    ["code_a", "みんながもっときらきらするために、みゅけ、きょうも開発中にゃ！"] ] }
+];
+/* A: スタンプを持っているときだけ、モブのスタッフの雑談に混ざる一言 */
+const STAMP_CHAT_LINES: [string, string][] = [
+  ["first_hire", "社長、最初は１ひきだったってほんと？"],
+  ["deathmarch", "もう椅子で寝るのは嫌だにゃー"],
+  ["vendor", "溜めすぎたバグは専門のねこに任せるにゃ"],
+  ["ip1", "ファンレターが来てたにゃ！"],
+  ["rank6", "おっきい建物で、走り放題にゃ！"],
+  ["prestige1", "前の会社の話、社長はあんまりしないにゃ"],
+  ["exec1", "役員さん、むかしからいるらしいにゃ"],
+  ["exits5", "みゅけ社長は敏腕とウワサだにゃー"],
+  ["holdings2", "社長、また宇宙の話してるにゃ"],
+  ["holdings4", "月支社のおやつ、宅配で届くにゃ"]
+];
+/* 2周目以降（EXIT 経験あり）に社格が上がったとき、みゅけが帯の上で言う一言 */
+const RANKUP_AGAIN_LINES: Record<number, string> = {
+  2: "この机の並び、前にも見た気がするにゃ",
+  3: "また社長になっちゃったにゃー。今度は照れないにゃ",
+  6: "ずいぶん早くここまで来たように感じるにゃ"
+};
+/* C: 思い出の家具をクリックしたときの一言 */
+const FURNITURE_LINES: Record<string, string> = {
+  easel: "いちばん最初の絵。まだ下手っぴ",
+  calendar: "しるしがびっしりだにゃー",
+  trophy: "どれもこれも、思い出の品だにゃー"
+};
+/* 宇宙編の呼び名: そのスタンプを取ったら表示名だけが変わる（内部キー・数値・セーブは同じ）。
+   後ろの段ほど優先 */
+const SPACE_NAMES: Record<string, [string, string][]> = {
+  rank6:   [["holdings2", "宇宙企業"], ["holdings9", "銀河企業"]],
+  line:    [["holdings3", "衛星配信ライン"]],
+  subs:    [["holdings4", "月面支社"]],
+  courier: [["holdings4", "🚀 宇宙便が納品"]],
+  catalog: [["holdings7", "星間ストア"]],
+  sales:   [["holdings7", "星間営業"]],
+  legacy:  [["holdings4", "星間技術"]]
+};
+/* 月面支社のあと、新しく作る子会社の土地（9章からは順に回す） */
+const SPACE_SUB_PLACES = ["月面支社", "火星スタジオ", "小惑星ラボ"];
+/* 星間営業のころ、依頼主の前に付く土地 */
+const SPACE_CLIENT_PLACES = ["月の", "火星の"];
 

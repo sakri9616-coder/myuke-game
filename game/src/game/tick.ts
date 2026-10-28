@@ -47,6 +47,7 @@ function tick(){
   if(S.project && !S.project.planning) S.project.activeSec = (S.project.activeSec || 0) + 1;
   stateTick(now);
   trackLineStamps();
+  skitTick(now);   /* v2.26.0: 実績フレーバーの小芝居の順番待ち */
   eventTick(now);
   if(comboN > 0 && now - lastClickAt > 2500){ comboN = 0; updateComboUI(); }
   const coding = ["code","code_slow","think","debug"].includes(catState);

@@ -18,7 +18,7 @@ const SRC = path.join(GAME, "src");
 
 export const GAME_SOURCES = [
   "config", "defs", "save", "tutorial", "office", "sound", "juice", "project",
-  "production", "state", "focus", "tick", "purchase", "company",
+  "production", "state", "focus", "tick", "purchase", "company", "flavor",
   "strip-frame", "strip-meter", "strip-core", "strip-walk", "strip-layout", "strip-flow", "strip-ambient",
   "strip-furniture", "strip-board", "strip-piles", "strip-visible", "strip-bugs", "hitzones",
   "ui-core", "ui-panel", "ui-misc", "ui-layout", "os-input", "updater", "input", "sync", "main"
@@ -54,10 +54,25 @@ export function buildHtml(){
   return html;
 }
 
+/* v2.26.0: 小芝居ウィンドウ (ラベル "skit") の skit.html。ゲーム本体は入れず、スプライトと演じ手だけ */
+export function buildSkitHtml(){
+  const parts = {
+    "@@SPRITES@@\n": read(path.join(ROOT, "graphics", "sprites.js")),
+    "@@SKIT@@\n": '"use strict";\n' + strip(path.join(SRC, "skit.ts"))
+  };
+  let html = read(path.join(SRC, "skit.html"));
+  for(const [mark, body] of Object.entries(parts)){
+    if(html.split(mark).length !== 2) throw new Error("skit template marker missing or duplicated: " + mark.trim());
+    html = html.replace(mark, () => body);
+  }
+  return html;
+}
+
 if(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)){
   const outArg = process.argv.find(a => a.startsWith("--out="));
   const out = outArg ? path.resolve(outArg.slice(6)) : path.join(ROOT, "desktop", "dist", "index.html");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, buildHtml());
+  fs.writeFileSync(path.join(path.dirname(out), "skit.html"), buildSkitHtml());   /* index.html の隣に置く (Tauri は dist をまるごと同梱) */
   console.log("BUILD_OK " + path.relative(process.cwd(), out));
 }

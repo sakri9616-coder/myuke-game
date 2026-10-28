@@ -182,10 +182,10 @@ function incomeBreakdownHTML(){
   let rows = "";
   for(const k of Object.keys(INCOME_SRCS)){
     const pct = Math.round((by[k] || 0) / tot * 100);
-    rows += "<div style='display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px'><span style='min-width:150px'>" + (k === main ? "👑 " : "") + INCOME_SRCS[k] + "</span>" +
+    rows += "<div style='display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px'><span style='min-width:150px'>" + (k === main ? "👑 " : "") + incomeSrcName(k) + "</span>" +
       "<div class='meter' style='flex:1;height:8px'><i style='width:" + pct + "%'></i></div><b style='min-width:38px;text-align:right'>" + pct + "%</b></div>";
   }
-  return foldSec("income", false, "💰 収入の内訳（この会社）", "主役: " + (main ? INCOME_SRCS[main] : "―"), rows +
+  return foldSec("income", false, "💰 収入の内訳（この会社）", "主役: " + (main ? incomeSrcName(main) : "―"), rows +
     "<div class='note' style='font-size:11.5px;margin-top:4px'>どの収入源に強化を積むかで主役が変わります（労働＝応援タブ、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）</div>");
 }
 function renderPanel(){
@@ -193,6 +193,7 @@ function renderPanel(){
   /* 帯の窓ではパネルは表示されない (メニューは別窓がスナップショットで描く)。メニューから届いた購入の
      たびに見えないパネルを組み立てていたのをやめる。フル形態に戻った時は __miyukeOnModeChange が描く */
   if(document.body.classList.contains("strip")) return;
+  syncSpaceTabLabels();   /* v2.26.0: 宇宙編のタブ名 */
   renderEditorBreadcrumbs();
   if(!layoutLive){
     renderPanelInto(document.getElementById("panel"));
@@ -668,7 +669,7 @@ function renderPanelInto(el){
         }
         const techBody = (techRows ? "<div class='buygrid'>" + techRows + "</div>" : "") +
           (techChips ? "<div class='chiprow'>" + techChips + "</div>" : "");
-        h += foldSec("legacy", false, "🌌 レガシー技術", "所持 " + fmt(S.legacy || 0) + " 🌌 ・ 持株化 " + (S.holdings || 0) + " 回", techBody);
+        h += foldSec("legacy", false, "🌌 " + spaceName("legacy", "レガシー技術"), "所持 " + fmt(S.legacy || 0) + " 🌌 ・ 持株化 " + (S.holdings || 0) + " 回", techBody);
       }
     }
     /* 第2ウェーブ K: チャレンジ周回（設立直後のエントリー・放棄無償・報酬は永続） */
@@ -859,7 +860,9 @@ function renderPanelInto(el){
         const pr = st.prog(S);
         progTxt += "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
       }
-      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
+      /* v2.26.0: 小芝居のある場面は ▶ でもう一度見られる（見た場面も、時期を過ぎて飛ばした場面も） */
+      const replay = got && S.skits && S.skits[st.id] ? " <button class='stamp-play' type='button' title='小芝居をもう一度見る' onclick='playSkit(\"" + st.id + "\")'>▶</button>" : "";
+      h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+replay+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
     }
     const totalsHTML = kv("タイピング", fmt(T.keys)+" 回") + kv("カーソル移動", fmtDec((T.cursorPx/3779/1000), 2)+" km") +
       kv("コード", fmt(T.lines)+" 行") + kv("叩いたバグ", fmt(T.bugsSquashed)+" 匹") +

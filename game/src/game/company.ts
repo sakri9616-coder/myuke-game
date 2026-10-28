@@ -81,7 +81,7 @@ function foundSub(genreId){
   const g = GENRES.find(x => x.id === genreId) || GENRES[0];
   S.coins -= cost;
   if(!Array.isArray(S.subs)) S.subs = [];
-  let name = SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";
+  let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.0: 宇宙編は土地の名前 */
   if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
   const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, alloc: 0 };
   S.subs.push(sub);
@@ -667,6 +667,7 @@ function checkStamps(){
     if(!S.stamps[st.id] && st.test(S)){
       S.stamps[st.id] = new Date().toLocaleDateString("ja-JP");
       addLog("🏅 実績スタンプ『"+st.name+"』をゲット！");
+      skitOnStamp(st.id);   /* v2.26.0: 実績フレーバーの小芝居（物語の順・間隔は flavor.ts） */
     }
   }
 }

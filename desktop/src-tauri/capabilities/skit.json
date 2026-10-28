@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","description":"小芝居ウィンドウ (skit / v2.26.0) 用。帯との合図イベント (listen/emitTo) と hide_skit の invoke、窓のドラッグ移動だけを許す。updater / process 権限は付けない","identifier":"skit","permissions":["core:default","core:window:allow-start-dragging"],"windows":["skit"]}

@@ -32,7 +32,7 @@ function computeHitZones(){
   for(const pr of (R.piles || [])) push(pr, 4);   /* 可視生産: 詰まった山の三角コーン（対策パネル） */
   for(const pr of (R.stations || [])) push(pr, 2);   /* 工程の持ち場（手助け） */
   push(R.snack, 4);   /* 2026-10-25: おやつ箱も押せる */
-  push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4); push(R.annex, 4);
+  push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4); push(R.annex, 4); push(R.easel, 4);
   push(R.memo, 4); push(R.phone, 4); push(R.megaphone, 4); push(R.toolbox, 4);
   push(R.fever, 4);   /* オーバークロック・ゲージ (机の外にも置けるので単独で通す) */
   push(R.duck, 6);
@@ -209,9 +209,16 @@ if(stripCv){
     for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "stats"], ["calendar", "stats"]]){
       const rr = stripHitRects[rkey];
       if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
+        if(FURNITURE_LINES[rkey]) say(FURNITURE_LINES[rkey]);   /* v2.26.0: 思い出の家具の一言 */
         openTabPanel(tab);
         return;
       }
+    }
+    /* v2.26.0: イーゼル（最初の絵）はみゅけの一言だけ。みゅけ本人に重なる所は応援クリックを優先 */
+    const ez = stripHitRects.easel;
+    if(ez && ux >= ez.x && ux <= ez.x + ez.w && uy >= ez.y && uy <= ez.y + ez.h && Math.abs(ux - stripMiyukeX()) > 44){
+      say(FURNITURE_LINES.easel);
+      return;
     }
     /* 連打ツール対策: クリックごとの台詞は CLICK_SAY_GAP_MS に1回まで (台詞はメニューへの同期も伴う)。
        効果 (集中力・アイデア・ひっくり返り) はクリックごとに従来どおり */
