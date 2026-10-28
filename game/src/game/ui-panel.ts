@@ -881,13 +881,14 @@ function renderPanelInto(el){
       "<button onclick='resetMenuLayout()'>元に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
     {
-      const curPct = Math.round((S.settings.stripSize || 1) * 100);
+      const dpr = window.devicePixelRatio || 1;
+      const curK = stripDotFor(S.settings.stripSize || 1, dpr);
       let sizeBtns = "";
-      for(const pct of [70, 85, 100, 115, 130]){
-        sizeBtns += "<button onclick='setStripSize(" + (pct / 100) + ")'" +
-          (pct === curPct ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">" + pct + "%</button>";
+      for(const k of stripDotChoices(dpr)){
+        sizeBtns += "<button onclick='setStripDot(" + k + "," + dpr + ")'" +
+          (k === curK ? " class='switch on' aria-pressed='true'" : " aria-pressed='false'") + ">×" + k + "</button>";
       }
-      h += "<div class='item buy slim'><div><span class='sock'>🔍</span><span class='nm'>帯の大きさ</span><div class='ds'>帯の高さと、みゅけや家具の表示サイズが変わります</div></div>"+
+      h += "<div class='item buy slim'><div><span class='sock'>🔍</span><span class='nm'>帯の大きさ</span><div class='ds'>ドット倍率。絵の1ドットを画面の何ピクセルで描くか（整数倍なので、どのドットも同じ太さになります）</div></div>"+
         "<span style='display:flex;gap:4px'>" + sizeBtns + "</span></div>";
     }
     h += "<div class='item buy slim'><div><span class='sock'>✥</span><span class='nm'>家具の並び</span><div class='ds'>並べ替えモード中は、帯の家具も小物もドラッグで好きな場所へ動かせます（机や棚の上に重ね置きもできます）</div></div>"+

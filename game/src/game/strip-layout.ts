@@ -183,17 +183,32 @@ function sRug(cx, w){
   sDrawNine("prop_rug_3", cx - w / 2, STRIP_GROUND - 1.5, w, 5, 4, 0);
   sctx.restore();
 }
+/* 2026-10-28 ドットを揃える: 帯の倍率 (仮想1px = 何デバイスpx) を整数に固定する。
+   半端な倍率 (標準で 1.225) だと元絵の1ドットが 1px と 2px に不揃いに割り当てられ、
+   位置や伸び縮みでその並びが変わって絵が汚かった。窓の高さが STRIP_H×整数 でないとき
+   (起動直後・別の拡大率の画面へ移った直後など) は、canvas を STRIP_H×整数 の高さで下端に揃えて置き、
+   Tauri なら窓の高さも直させる (applyStripScale) */
+/* 元絵1ドットあたりのデバイスpx を整数 (縮小は 1/整数) に丸める */
+function dotPx(r){ return r >= 1 ? Math.round(r) : 1 / Math.max(1, Math.round(1 / r)); }
+/* 仮想座標での実効倍率 (sDrawSprite が実際に描く大きさ)。当たり判定や影の幅に使う */
+function stripArtScale(s){ return dotPx(s * stripScale) / stripScale; }
+function stripDotK(ph){ return Math.max(1, Math.round(ph / STRIP_H)); }
+let stripFixAsked = 0;
 function stripResize(){
   if(!stripCv) return;
   const w = window.innerWidth || 960, h = window.innerHeight || 210;
-  /* 上限 3: 225〜300% の画面でも帯の canvas が窓より小さくならない
-     (2 で頭打ちにすると CSS 側で不均一に拡大されてドットがぼやけていた) */
+  /* 上限 3: 225〜300% の画面でも帯の canvas が窓より小さくならない */
   const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const pw = Math.max(320, Math.round(w * dpr)), ph = Math.max(80, Math.round(h * dpr));
+  const pw = Math.max(320, Math.round(w * dpr)), ph0 = Math.max(80, Math.round(h * dpr));
+  const k = stripDotK(ph0), ph = STRIP_H * k;
   if(stripCv.width !== pw) stripCv.width = pw;
   if(stripCv.height !== ph) stripCv.height = ph;
-  stripScale = stripCv.height / STRIP_H;
-  stripVW = stripCv.width / stripScale;
+  const fit = ph === ph0;
+  const cssH = fit ? "" : (ph / dpr) + "px", cssW = fit ? "" : (pw / dpr) + "px";
+  if(stripCv.style.height !== cssH){ stripCv.style.height = cssH; stripCv.style.width = cssW; stripCv.style.position = fit ? "" : "absolute"; stripCv.style.left = fit ? "" : "0"; stripCv.style.bottom = fit ? "" : "0"; }
+  stripScale = k;
+  stripVW = pw / k;
+  if(!fit && Date.now() - stripFixAsked > 1500){ stripFixAsked = Date.now(); applyStripScale(); }
 }
 window.addEventListener("resize", stripResize);
 window.__miyukeOnModeChange = function(mode){
@@ -221,7 +236,9 @@ function sDrawSprite(name, gx, gy, scale, flip?){
   sctx.imageSmoothingEnabled = false;
   const m = typeof sctx.getTransform === "function" ? sctx.getTransform() : null;
   if(m && m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0){
-    const dw = Math.max(1, Math.round(w * m.a)), dh = Math.max(1, Math.round(h * m.d));
+    /* 2026-10-28: 大きさも「元絵の1ドット = 整数デバイスpx」に揃える (×1.5 の猫や伸び縮み中の
+       みゅけで、ドットの太さが列ごと・フレームごとに 1px/2px と揺れていた)。縮小は 1/2, 1/3… の間引き */
+    const dw = Math.max(1, Math.round(cv.width * dotPx(scale * m.a))), dh = Math.max(1, Math.round(cv.height * dotPx(scale * m.d)));
     const ddx = Math.round(gx * m.a + m.e - dw / 2), ddy = Math.round(gy * m.d + m.f) - dh;
     sctx.save();
     /* 反転しない絵は単位行列のまま描く先の位置を渡す (続けて貼る絵の間で変換行列を送り直さない) */
@@ -348,7 +365,7 @@ function sDrawMiyuke(name, gx, gy, scale, flip?){
     ok = sDrawSprite(name, gx, gy, scale, flip);
   }
   const sz = spriteSize(name) || [48, 40];
-  const s = scale || 1;
+  const s = stripArtScale(scale || 1);
   stripHitRects.miyuke = { x: gx - sz[0] * s / 2, y: gy - sz[1] * s, w: sz[0] * s, h: sz[1] * s };
   if(ok) stripObjArt.miyuke = { name, gx, gy, s, flip: !!flip };
   return ok;

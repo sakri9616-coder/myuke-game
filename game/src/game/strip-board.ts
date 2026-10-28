@@ -21,7 +21,9 @@ function mainBoardBar(bx){
 function drawBoardBar(x, y, w, h, frac, tone, ticks){
   sDrawNine("ui_bar_track_3", x - 1, y - 1, w + 2, h + 2, 3, 0);
   if(frac > 0) sDrawNine("ui_bar_fill_" + tone + "_3", x, y, Math.max(4, w * frac), h, 2, 0);
-  for(const t of ticks) sDrawTL("ui_bar_tick", x + Math.round(w * t) - 0.5, y, 1.5, h);
+  /* 目盛りの幅は整数デバイスpx に (半端な幅だと位置によって 1px/2px と太さが変わる) */
+  const tdw = Math.max(1, Math.round(1.5 * stripScale));
+  for(const t of ticks) sDrawTL("ui_bar_tick", Math.round((x + Math.round(w * t)) * stripScale - tdw / 2) / stripScale, y, tdw / stripScale, h);
 }
 /* 木の縁の札 (社格 = ui_tab_9) */
 function drawBoardTab(x, y, w, gold?){ sDrawNine(gold ? "ui_tab_gold_9" : "ui_tab_9", x, y, w, 12, 3, 3); }

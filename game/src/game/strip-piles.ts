@@ -466,6 +466,7 @@ function renderStrip(){
                       : animFrameAt(base, wk.walkClock || 0);
       flip = !wk.sitting && wk.dir > 0;
     }
+    ssc = stripArtScale(ssc);   /* 実際に描かれる大きさ (ドット倍率を整数に丸めた後) で影と当たり判定を作る */
     const ssz0 = spriteSize(nm);
     sShadow(wk.x, G - 0.5, ssz0 ? ssz0[0] * ssc * 0.7 : 30);
     const bob = useAnim ? 0 : (wk.sitting ? 0 : (frame % 2 ? 0 : -0.8));

@@ -177,10 +177,10 @@ if [ "$SKIP_SHOT" != "1" ] && [ -s "$SHOT" ]; then
     echo "SHOT-SEED: OK ($SEED_SHOT)" >> "$LOG"
     diff_step veteran "$ROOT/tools/strip-baselines/veteran.png" "$SEED_SHOT" 12
   fi
-  # 7b) wide (1920x266) strip shots + diffs — 帯は全幅表示のため幅で家具間隔が
+  # 7b) wide (1920x304) strip shots + diffs — 帯は全幅表示のため幅で家具間隔が
   # 変わる。1280幅だけでは幅依存の崩れを拾えない。DIFF と同じく WARNING 専用。
   WIDE_SHOT="${SHOT%.png}-wide.png"
-  run_step shot-wide node "$ROOT/tools/strip-capture.js" --width=1920 --height=266 --out="$WIDE_SHOT"
+  run_step shot-wide node "$ROOT/tools/strip-capture.js" --width=1920 --height=304 --out="$WIDE_SHOT"
   if [ "$?" -ne 0 ] || [ ! -s "$WIDE_SHOT" ]; then
     echo "SHOT-WIDE: WARNING (wide capture failed, see step log; not a game failure)" >> "$LOG"
     WARNINGS="$WARNINGS shot-wide-failed;"
@@ -188,7 +188,7 @@ if [ "$SKIP_SHOT" != "1" ] && [ -s "$SHOT" ]; then
     echo "SHOT-WIDE: OK ($WIDE_SHOT)" >> "$LOG"
     diff_step fresh-wide "$ROOT/tools/strip-baselines/fresh-1920.png" "$WIDE_SHOT" 5
     WIDE_SEED_SHOT="${SHOT%.png}-wide-seed.png"
-    run_step shot-wide-seed node "$ROOT/tools/strip-capture.js" --width=1920 --height=266 --seed="$ROOT/tools/strip-seeds/veteran.json" --out="$WIDE_SEED_SHOT"
+    run_step shot-wide-seed node "$ROOT/tools/strip-capture.js" --width=1920 --height=304 --seed="$ROOT/tools/strip-seeds/veteran.json" --out="$WIDE_SEED_SHOT"
     if [ "$?" -ne 0 ] || [ ! -s "$WIDE_SEED_SHOT" ]; then
       echo "SHOT-WIDE-SEED: WARNING (wide seeded capture failed, see step log; not a game failure)" >> "$LOG"
       WARNINGS="$WARNINGS shot-wide-seed-failed;"

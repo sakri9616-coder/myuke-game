@@ -1,8 +1,8 @@
-/* strip-capture.js — Playwright でビルド済みゲーム (desktop/dist/index.html)#strip を開き、帯（既定 1280×266）の
+/* strip-capture.js — Playwright でビルド済みゲーム (desktop/dist/index.html)#strip を開き、帯（既定 1280×304 = ドット倍率×2）の
    スクリーンショットを撮る。検証の常設化（tools/verify-all.sh）の一部。
    既存のプレイヤーセーブは読まない（新規プロファイルで開くため常に新規セーブ）。
    既存ファイルへの上書きはしない（証拠は常に新規ファイル名にする運用）。
-   使い方: node tools/strip-capture.js --out=/path/to.png [--width=1280] [--height=266] [--wait=3000]
+   使い方: node tools/strip-capture.js --out=/path/to.png [--width=1280] [--height=304] [--wait=3000]
      [--seed=/path/to/save.json]
    --seed を渡すと、その JSON を localStorage の miyuke-save-v1 として先に投入してから
    開く（進行後状態の帯撮影用。load() が既定値マージで補完するため部分セーブでよい）。
@@ -15,7 +15,7 @@ const root = path.resolve(__dirname, "..");
 const arg = name => (process.argv.find(x => x.startsWith("--" + name + "=")) || "").split("=").slice(1).join("=");
 const out = arg("out");
 const width = parseInt(arg("width") || "1280", 10);
-const height = parseInt(arg("height") || "266", 10);
+const height = parseInt(arg("height") || "304", 10);
 const waitMs = parseInt(arg("wait") || "3000", 10);
 const seedPath = arg("seed");
 let seedJson = null;
