@@ -76,6 +76,7 @@ function wantDone(by){
   }
   S.concentration = Math.min(WANT.max, S.concentration + WANT.gain);
   wantStreak = Math.min(WANT.streakMax, wantStreak + 1);
+  S.totals.wantsDone = (S.totals.wantsDone || 0) + 1;
   const c = rewardCoins(WANT.rewardSec * (1 + WANT.streakStep * (wantStreak - 1)), 5);
   S.coins += c; S.totals.coinsEarned += c; creditIncome("labor", c);
   S.ideas += 1;

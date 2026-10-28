@@ -136,6 +136,7 @@ function sellSubCore(id){
   const sub = subs[i];
   const gain = subDustValue(sub);
   subs.splice(i, 1);
+  S.totals.subsSold = (S.totals.subsSold || 0) + 1;
   normalizeAlloc();
   const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain;
