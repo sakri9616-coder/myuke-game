@@ -201,7 +201,7 @@ function renderHeader(){
   setTextIfChanged("r-rp", fmt(hudNum("rp", S.rp)));
   setTextIfChanged("r-dust", fmt(hudNum("dust", S.dust)));
   const cb = document.getElementById("conc-bar");
-  if(cb) cb.style.width = Math.round(S.concentration)+"%";
+  if(cb) cb.style.width = Math.min(100, Math.round(S.concentration))+"%";
   const pb = document.getElementById("proj-bar");
   if(pb && S.project) pb.style.width =
     Math.min(100, Math.round(S.projectDP / S.project.totalDP * 100)) + "%";

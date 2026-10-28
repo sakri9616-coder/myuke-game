@@ -33,7 +33,7 @@ function buildSandbox(opts) {
   const el = id => {
     if (!byId[id]) {
       byId[id] = makeEl(id === "strip" ? "canvas" : "div");
-      if (id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 210, right: 1280, bottom: 210 };
+      if (id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 266, right: 1280, bottom: 266 };
     }
     return byId[id];
   };
@@ -48,7 +48,7 @@ function buildSandbox(opts) {
     console, localStorage,
     location: { hash: opts.hash || "" },
     navigator: { userAgent: "miyuke-smoke" },
-    innerWidth: 1280, innerHeight: opts.hash === "#strip" ? 210 : 800, devicePixelRatio: 1,
+    innerWidth: 1280, innerHeight: opts.hash === "#strip" ? 266 : 800, devicePixelRatio: 1,
     addEventListener() {}, removeEventListener() {},
     confirm: () => true,
     setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },

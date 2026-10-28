@@ -19,7 +19,7 @@ function trial(trialNo) {
     if (!byId[id]) {
       byId[id] = makeEl(id === "stage" || id === "strip" ? "canvas" : "div");
       if (id === "stage") byId[id]._rect = { left: 0, top: 0, width: 480, height: 380, right: 480, bottom: 380 };
-      if (id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 210, right: 1280, bottom: 210 };
+      if (id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 266, right: 1280, bottom: 266 };
     }
     return byId[id];
   };
@@ -33,7 +33,7 @@ function trial(trialNo) {
     },
     location: { hash: "#strip" },
     navigator: { userAgent: "miyuke-measure" },
-    innerWidth: 1280, innerHeight: 210, devicePixelRatio: 1,
+    innerWidth: 1280, innerHeight: 266, devicePixelRatio: 1,
     addEventListener() {}, removeEventListener() {},
     confirm: () => true,
     setInterval: () => 0, clearInterval() {},
