@@ -20,14 +20,10 @@ let lastShipDispatchAt = 0;
 /* 工程置き場の地理: 発生 A 机 0.30W → B QAトレイ → C ビルド置き場 → D 出荷スタック */
 /* 2026-10-27: 工程の持ち場のブース（テスト室・ビルド室）が机まわりの物（オーバークロックの筒・サーバーラック）に
    隠れないよう、空いていた帯の右側へ移した（旧 0.405 / 0.53、出荷 0.80、第2ライン机 0.63）。トロフィー台は出荷場の右へ */
-function stripQAX(){ return Math.round(stripVW * 0.70); }
-function stripBuildX(){ return Math.round(stripVW * 0.78); }
-function stripShipX(){
-  if(layoutEdit.dragId === "ship" && layoutEdit.dragCand) return layoutEdit.dragCand.cx;
-  const e = propEntry("ship");
-  if(e && e.on === "ground" && typeof e.x === "number") return Math.round(e.x * stripVW);
-  return Math.round(stripVW * 0.87);
-}
+/* 工程の持ち場の x (地面クラスの配置項目。山・機械・信号柱・ブースは全部これを読む) */
+function stripQAX(){ return propPlace("test").cx; }
+function stripBuildX(){ return propPlace("build").cx; }
+function stripShipX(){ return propPlace("ship").cx; }
 function flowTier(){ return flowTierCur; }
 function flowQuantum(){ return FLOW_Q_BY_TIER[flowTierCur]; }
 /* ティア判定: 総スループット T (DP/分)。昇格は即時、降格は30秒遅延 (ちらつき防止) */
@@ -166,7 +162,7 @@ function stripRackCX(){ return Math.round(stripVW * layoutFrac("rack")); }      
    カレンダーの左へ寄せる (drawStripEasel と並べ替えの当たり判定で共用) */
 function stripEaselDrawX(){
   let ex = stripEaselCX();
-  if(S.stamps.releases10) ex = Math.min(ex, stripDeskCX() - 96);
+  if(S.stamps.releases10 && !propEntry("calendar")) ex = Math.min(ex, stripDeskCX() - 96);   /* 動かしたカレンダーには寄せない */
   return ex;
 }
 /* ---- 並べ替えモード (v2.4.0): 状態は UI ローカル (セーブしない) ---- */
@@ -200,6 +196,11 @@ function layoutPropItems(){
   add("snack");
   add("coffee");
   if(hasResearcher()) add("plant");
+  if(S.stamps.releases10) add("calendar");
+  add("fever");
+  add("plan");
+  add("test");
+  add("build");
   add("ship");
   return items;
 }

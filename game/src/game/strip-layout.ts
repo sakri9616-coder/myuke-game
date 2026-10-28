@@ -16,6 +16,13 @@ const PROP_DEFS = {
   coffee:    { label: "コーヒー",     w: 35,  h: 35, cls: "small" },
   plant:     { label: "植木",         w: 13,  h: 16, cls: "small" },
   ship:      { label: "出荷スポット", w: 92,  h: 48, cls: "ground" },
+  /* 2026-10-28: 残っていた固定物も並べ替えの対象に (理念書 8章: メニューと対応するモノは個別に動かせる)。
+     工程の持ち場は山・機械・信号柱・ブースごと動く (どれも stationCX 系の x を読む) */
+  calendar:  { label: "卓上カレンダー", w: 18, h: 16, cls: "small" },
+  fever:     { label: "オーバークロック", w: 15, h: 44, cls: "small" },
+  plan:      { label: "企画の持ち場", w: 48,  h: 44, cls: "ground" },
+  test:      { label: "テストの持ち場", w: 48, h: 44, cls: "ground" },
+  build:     { label: "ビルドの持ち場", w: 48, h: 44, cls: "ground" },
 };
 function layoutSurfaces(){
   const G = STRIP_GROUND;
@@ -45,6 +52,11 @@ function propDefaultPlace(id){
     case "coffee": return { cx: stripDeskCX() + 47, baseY: G - 0.5 };
     case "plant": return { cx: stripResearchCX() + 22, baseY: G - 12 };
     case "ship": return { cx: Math.round(stripVW * 0.87), baseY: G };
+    case "calendar": return { cx: stripDeskCX() - 70, baseY: G };
+    case "fever": return { cx: stripDeskCX() + 88, baseY: G };
+    case "plan": return { cx: Math.max(14, stripShelfCX() - 66), baseY: G };
+    case "test": return { cx: Math.round(stripVW * 0.70), baseY: G };
+    case "build": return { cx: Math.round(stripVW * 0.78), baseY: G };
     /* 既定ではボード左下に吊る2行の札 (並べ替えで掴む矩形がそこに重なるように) */
     case "memo": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 4 + 75, baseY: STRIP_BOARD.top + STRIP_BOARD.hMain + 18 };
   }

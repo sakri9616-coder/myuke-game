@@ -321,9 +321,11 @@ function renderStrip(){
   }
   stripHitRects.snack = { x: snackPl.cx - 14, y: snackPl.baseY - 25, w: 28, h: 25 };
   if(S.stamps.releases10){
-    sDrawSprite("prop_wall_2", cx - 70, G, 0.6);
+    /* 既定は机の脇。2026-10-28 から並べ替えで動かせる (机や棚の上にも載る) */
+    const calPl = propPlace("calendar");
+    sDrawSprite("prop_wall_2", calPl.cx, calPl.baseY, 0.6);
     /* Stage 3: 卓上カレンダークリック → 統計タブ (日々の記録) */
-    stripHitRects.calendar = { x: cx - 79, y: G - 16, w: 18, h: 16 };
+    stripHitRects.calendar = { x: calPl.cx - 9, y: calPl.baseY - 16, w: 18, h: 16 };
   }
   /* Stage 3: メガホン (応援タブ) — 既定は机の左足元。Phase E で独立配置 */
   const megaPl = propPlace("megaphone");
@@ -345,16 +347,17 @@ function renderStrip(){
      溜まり具合は中身の絵の色＋量 (青＝溜め中、金＝満タン、赤＝発動中で残り時間)。
      中身の窓は筒の原寸 x3〜11, y3〜40 = 帯で (gx-4.5, G-41)〜(gx+4.5, G-3) */
   {
-    const gx = stripDeskCX() + 88, gh = 38, wy = G - 3;
+    const feverPl = propPlace("fever");   /* 既定は机の右脇。2026-10-28 から並べ替えで動かせる */
+    const gx = feverPl.cx, gb = feverPl.baseY, gh = 38, wy = gb - 3;
     const fActive = feverActive();
     const fFrac = fActive ? Math.max(0, (feverUntil - Date.now()) / FEVER.durationMs)
                           : (S.fever ? stripMeter("fever", S.fever.gauge || 0) / 100 : 0);
-    sDrawSprite("prop_fever_gauge", gx, G, 1);
+    sDrawSprite("prop_fever_gauge", gx, gb, 1);
     if(fFrac > 0){
       const fh = Math.max(4, Math.round(gh * Math.min(1, fFrac)));
       sDrawNine("ui_gauge_fill_" + (fActive ? "red" : fFrac >= 1 ? "gold" : "blue") + "_3v", gx - 4.5, wy - fh, 9, fh, 0, 2);
     }
-    if(fFrac >= 1 && !fActive && blinkOn(50, 30)) sDrawSprite("icon_bolt", gx, G - 43, 1);
+    if(fFrac >= 1 && !fActive && blinkOn(50, 30)) sDrawSprite("icon_bolt", gx, gb - 43, 1);
     if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
     /* 2026-10-27: アイデアの蓄えで溜まりが速い時だけ、筒の上に倍率の札（文字のみ） */
@@ -366,12 +369,12 @@ function renderStrip(){
       sctx.textBaseline = "bottom";
       sctx.lineWidth = 2;
       sctx.strokeStyle = "#fff8ec";
-      sctx.strokeText("💡×" + fmtDec(im, 1), gx, G - 45);
+      sctx.strokeText("💡×" + fmtDec(im, 1), gx, gb - 45);
       sctx.fillStyle = "#4a3b2c";
-      sctx.fillText("💡×" + fmtDec(im, 1), gx, G - 45);
+      sctx.fillText("💡×" + fmtDec(im, 1), gx, gb - 45);
       sctx.restore();
     }
-    stripHitRects.fever = { x: gx - 7, y: G - 52, w: 14, h: 52 };
+    stripHitRects.fever = { x: gx - 7, y: gb - 52, w: 14, h: 52 };
   }
   /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
      ダイジェティック表現: 数字を見なくても「荒れてきた」が分かる） */
