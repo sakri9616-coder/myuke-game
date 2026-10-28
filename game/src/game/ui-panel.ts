@@ -221,6 +221,10 @@ function renderPanel(){
   }
   updateTabBadges();
   paintTabs();
+  /* 作り直したパネルの中には renderHeader が毎フレーム書く所 (詰まりのチップ・進捗の文字など) がある。
+     作り直した直後は HTML の初期値に戻っているので、同じ処理の中で書き直してから画面に出す
+     (v2.19.1 でメニューの描画を間引いた後、初期値のまま1フレーム映ってチラついていた) */
+  renderHeader();
 }
 function renderPanelInto(el){
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと
