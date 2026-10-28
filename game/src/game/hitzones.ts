@@ -323,7 +323,8 @@ function renderFrame(){
 const STRIP_MIN_FRAME_MS = 23;
 let lastRafDrawTs = 0;
 function renderLoop(ts){
-  if(!document.body.classList.contains("strip") || !lastRafDrawTs || ts - lastRafDrawTs >= STRIP_MIN_FRAME_MS){
+  /* 2026-10-28: 管理メニューも同じ間隔に (ヘッダの数字のカウントアップだけなので、毎リフレッシュ書かなくてよい) */
+  if(!lastRafDrawTs || ts - lastRafDrawTs >= STRIP_MIN_FRAME_MS){
     lastRafDrawTs = ts;
     render();
   }
