@@ -8,7 +8,7 @@
 #   5) tools/strip-capture.js（帯スクリーンショット、Playwright）
 # 使い方: tools/verify-all.sh [--tag=YYYYMMDD-HHMMSS] [--skip-shot]
 # 成果物: 目標 hidden_files/verify-logs/verify-<tag>.log（全ステップの生出力＋判定）
-#         <project>/verify-strip-<tag>.png（帯スクショ）
+#         目標 hidden_files/verify-logs/shots/verify-strip-<tag>.png（帯スクショ。2026-10-28 整理でリポジトリ外へ移設）
 #         目標 hidden_files/verify-logs/menu-<tag>/（メニュー全タブの撮影＋測定JSON）
 # 判定: PASS / PASS_WITH_WARNINGS / FAIL。終了コードは FAIL のときのみ 1。
 # 既知のフレークはなし（2026-10-26 06:17回で撤去。旧マスクの経緯:
@@ -32,9 +32,9 @@ for a in "$@"; do
   esac
 done
 [ -n "$TAG" ] || TAG="$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$LOGDIR"
+mkdir -p "$LOGDIR" "$LOGDIR/shots"
 LOG="$LOGDIR/verify-$TAG.log"
-SHOT="$ROOT/verify-strip-$TAG.png"
+SHOT="$LOGDIR/shots/verify-strip-$TAG.png"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

@@ -12,6 +12,7 @@ verify-strip-*.png
 
 # ルート直下の確認用スクショと公開ステージは成果物ではない
 /*.png
+/*.zip
 release-v*/
 desktop/dist/index.html
 desktop/dist/skit.html
