@@ -59,16 +59,37 @@ const STRIP_SIZE_BASE = 0.7;
 function migrateStripSize(oldAbs){
   return Math.min(1.45, Math.max(0.7, oldAbs / STRIP_SIZE_BASE));
 }
+/* 2026-10-28 ドットを揃える: 帯は仮想の高さ 120 の整数倍 (ドット倍率 ×k) でしか描かない。
+   stripSize (147px 基準の相対値) は引き続き保存し、その画面の拡大率で一番近い ×k を選ぶ。
+   別の拡大率の画面へ移っても、見た目の大きさが近い倍率に選び直される */
+const STRIP_SIZE_MIN = 0.3, STRIP_SIZE_MAX = 3;
+function stripDotFor(size, dpr){
+  return Math.max(1, Math.round(147 * (size || 1) * dpr / 120));
+}
+/* そのウィンドウの拡大率で選べるドット倍率 (高さ 60〜260 論理px の範囲) */
+function stripDotChoices(dpr){
+  const out: number[] = [];
+  for(let k = 1; k <= 8; k++){ const lh = 120 * k / dpr; if(lh >= 60 && lh <= 260) out.push(k); }
+  if(!out.length) out.push(Math.max(1, Math.round(147 * dpr / 120)));
+  return out;
+}
 function setStripSize(v){
   const n = Number(v);
   if(!isFinite(n)) return;
-  S.settings.stripSize = Math.min(1.45, Math.max(0.7, n));
+  S.settings.stripSize = Math.min(STRIP_SIZE_MAX, Math.max(STRIP_SIZE_MIN, n));
   save(); applyStripScale(); renderPanel();
-  if(!IS_VIEWER) say("帯の大きさを " + Math.round(S.settings.stripSize * 100) + "% にしたにゃ");
+  if(!IS_VIEWER) say("帯のドット倍率を ×" + stripDotFor(S.settings.stripSize, window.devicePixelRatio || 1) + " にしたにゃ");
+}
+/* ×k のボタン: 押したウィンドウの拡大率で ×k になる相対値を保存する */
+function setStripDot(k, dpr){
+  setStripSize(120 * k / (147 * (dpr || window.devicePixelRatio || 1)));
 }
 function applyStripScale(){
   if(IS_VIEWER || !inTauri()) return;
-  tauriCmd("set_strip_scale", { scale: STRIP_SIZE_BASE * (S.settings.stripSize || 1) });
+  const dpr = window.devicePixelRatio || 1;
+  const k = stripDotFor(S.settings.stripSize || 1, dpr);
+  /* Rust 側も 120 の倍数に丸めるので、ここは ×k ちょうどの値を送る */
+  tauriCmd("set_strip_scale", { scale: 120 * k / (210 * dpr) });
 }
 function toggleSound(){
   S.settings.sound = !SoundKit.enabled();

@@ -199,7 +199,7 @@ fn load_persisted(path: &PathBuf) -> Loaded {
         menu_geom: parse_geom(&txt, "full"),
         strip_pos: parse_geom(&txt, "strip"),
         strip_scale: json_num(&txt, "strip_scale_pct", 0)
-            .map(|p| (p as f64 / 100.0).clamp(0.45, 1.05))
+            .map(|p| (p as f64 / 100.0).clamp(0.15, 1.6))
             .unwrap_or(0.7),
     }
 }
@@ -227,13 +227,20 @@ fn primary_monitor(w: &WebviewWindow) -> Option<tauri::Monitor> {
         .or_else(|| w.available_monitors().ok().and_then(|v| v.into_iter().next()))
 }
 
+/// 帯の窓の高さ (物理px)。ページは仮想の高さ 120 を整数倍で描く (ドットの太さを揃えるため、
+/// 2026-10-28) ので、210論理px × scale × 拡大率 に一番近い 120 の倍数に丸める
+fn strip_px(scale: f64, sf: f64) -> u32 {
+    let k = ((210.0 * scale * sf) / 120.0).round().max(1.0);
+    (k * 120.0) as u32
+}
+
 /// ストリップ形状: プライマリモニタの作業領域いっぱいの幅 × 210論理px × scale、
 /// 作業領域の底辺（Windowsタスクバーの上）に吸着。保存はせず毎回再計算する。
 fn strip_geom(w: &WebviewWindow, scale: f64) -> Geom {
     if let Some(m) = primary_monitor(w) {
         let wa = m.work_area();
         let sf = m.scale_factor();
-        let h = ((210.0 * scale * sf).round() as u32).min(wa.size.height).max(1);
+        let h = strip_px(scale, sf).min(wa.size.height).max(1);
         return Geom {
             x: wa.position.x,
             y: wa.position.y + wa.size.height as i32 - h as i32,
@@ -320,7 +327,7 @@ fn strip_placement(w: &WebviewWindow, saved: &Geom, scale: f64) -> Geom {
                     && cy >= wa.position.y
                     && cy < wa.position.y + wa.size.height as i32
                 {
-                    let h = ((210.0 * scale * m.scale_factor()).round() as u32)
+                    let h = strip_px(scale, m.scale_factor())
                         .min(wa.size.height)
                         .max(1);
                     let ymax = (wa.position.y + wa.size.height as i32 - h as i32).max(wa.position.y);
@@ -727,12 +734,12 @@ fn write_save_file(app: &AppHandle, data: &str) -> Result<(), String> {
 
 fn set_strip_scale_inner(app: &AppHandle, scale: f64) {
     let state = app.state::<ShellState>();
-    let s = if scale.is_finite() { scale.clamp(0.45, 1.05) } else { 0.7 };
+    let s = if scale.is_finite() { scale.clamp(0.15, 1.6) } else { 0.7 };
     *state.strip_scale.lock().unwrap_or_else(|e| e.into_inner()) = s;
     if let Some(w) = app.get_webview_window(WIN_STRIP) {
         if let (Ok(pos), Ok(size)) = (w.outer_position(), w.inner_size()) {
             let sf = w.scale_factor().unwrap_or(1.0);
-            let new_h = ((210.0 * s * sf).round() as u32).max(60);
+            let new_h = strip_px(s, sf);
             if new_h != size.height {
                 let new_y = pos.y + size.height as i32 - new_h as i32;
                 apply_geom(&w, Geom {
