@@ -187,6 +187,7 @@ window.addEventListener("resize", stripResize);
 window.__miyukeOnModeChange = function(mode){
   stripResize();
   if(mode === "strip") publishHitZones(true);
+  else renderPanel();
 };
 function sShadow(cx, cy, w){
   /* R4: 全接地物で同一様式。影の絵 (fx_shadow_3) を横に伸ばし、透明度だけコード側 */
@@ -211,9 +212,9 @@ function sDrawSprite(name, gx, gy, scale, flip?){
     const dw = Math.max(1, Math.round(w * m.a)), dh = Math.max(1, Math.round(h * m.d));
     const ddx = Math.round(gx * m.a + m.e - dw / 2), ddy = Math.round(gy * m.d + m.f) - dh;
     sctx.save();
-    if(flip) sctx.setTransform(-1, 0, 0, 1, ddx + dw, ddy);
-    else sctx.setTransform(1, 0, 0, 1, ddx, ddy);
-    sctx.drawImage(cv, 0, 0, dw, dh);
+    /* 反転しない絵は単位行列のまま描く先の位置を渡す (続けて貼る絵の間で変換行列を送り直さない) */
+    if(flip){ sctx.setTransform(-1, 0, 0, 1, ddx + dw, ddy); sctx.drawImage(cv, 0, 0, dw, dh); }
+    else { sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.drawImage(cv, ddx, ddy, dw, dh); }
     sctx.restore();
     stripSpriteLog.push({ name, flip: !!flip, x: ddx, y: ddy, w: dw, h: dh, parts: [[0, 0, cv.width, cv.height, 0, 0, dw, dh]] });
     return true;
@@ -263,20 +264,55 @@ function sDrawNine(name, x, y, w, h, kx, ky, kyb?){
   const X = (v) => Math.round(v * a + e), Y = (v) => Math.round(v * d + f);
   const sx = [0, kx, cv.width - kx, cv.width], sy = [0, ky, cv.height - kb, cv.height];
   const dx = [X(x), X(x + kx), X(x + w - kx), X(x + w)], dy = [Y(y), Y(y + ky), Y(y + h - kb), Y(y + h)];
-  sctx.save();
-  sctx.imageSmoothingEnabled = false;
-  sctx.setTransform(1, 0, 0, 1, 0, 0);
   const parts = [];
   for(let j = 0; j < 3; j++) for(let i = 0; i < 3; i++){
     const sw = sx[i + 1] - sx[i], sh = sy[j + 1] - sy[j], dw = dx[i + 1] - dx[i], dh = dy[j + 1] - dy[j];
-    if(sw > 0 && sh > 0 && dw > 0 && dh > 0){
-      sctx.drawImage(cv, sx[i], sy[j], sw, sh, dx[i], dy[j], dw, dh);
-      parts.push([sx[i], sy[j], sw, sh, dx[i] - dx[0], dy[j] - dy[0], dw, dh]);
-    }
+    if(sw > 0 && sh > 0 && dw > 0 && dh > 0) parts.push([sx[i], sy[j], sw, sh, dx[i] - dx[0], dy[j] - dy[0], dw, dh]);
   }
+  sctx.save();
+  sctx.imageSmoothingEnabled = false;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  /* 2026-10-28: 切り分けた最大9枚を、同じ大きさなら組み上がった1枚として使い回す
+     (帯 1 フレームの drawImage の約6割が枠の部品だった。影 fx_shadow_3 だけで 140 回)。
+     部品は重ならないので、1枚で貼っても半透明を含めて同じ絵になる */
+  const W = dx[3] - dx[0], H = dy[3] - dy[0];
+  const apart = dx[0] <= dx[1] && dx[1] <= dx[2] && dx[2] <= dx[3] && dy[0] <= dy[1] && dy[1] <= dy[2] && dy[2] <= dy[3];   /* 枠より小さく描くと部品が重なる。その時は従来どおり1枚ずつ */
+  const img = apart && parts.length > 1 && W > 0 && H > 0 ? nineComposite(name + ":" + kx + ":" + ky + ":" + kb + ":" + (dx[1] - dx[0]) + ":" + (dx[2] - dx[1]) + ":" + W + ":" + (dy[1] - dy[0]) + ":" + (dy[2] - dy[1]) + ":" + H, cv, parts, W, H) : null;
+  if(img) sctx.drawImage(img[0], img[1], img[2], W, H, dx[0], dy[0], W, H);
+  else for(const pt of parts) sctx.drawImage(cv, pt[0], pt[1], pt[2], pt[3], dx[0] + pt[4], dy[0] + pt[5], pt[6], pt[7]);
   sctx.restore();
   if(parts.length) stripSpriteLog.push({ name, flip: false, x: dx[0], y: dy[0], w: dx[3] - dx[0], h: dy[3] - dy[0], parts });
   return true;
+}
+/* 組み上がった枠の絵の置き場 (1枚の大きな canvas に棚詰めで並べる)。鍵は絵の名前・角の幅・各部品を貼る大きさ (これで部品の切り出しも決まる)。
+   小さな canvas に組むと、ブラウザが小さい canvas だけ別の描き方 (GPU を使わない) にするため、
+   引き伸ばしの最近傍の丸めが帯と1px食い違うことがあった。帯と同じ描き方になる大きさにまとめる。
+   いっぱいになったら新しい1枚に替える (前の1枚は、まだ描いていない命令が使い終わるまで残る) */
+const NINE_ATLAS = 1024;
+let nineAtlas: { cv: HTMLCanvasElement; g: CanvasRenderingContext2D; x: number; y: number; rowH: number } | null = null;
+const nineCache = new Map<string, any[]>();
+function nineComposite(key, src, parts, W, H){
+  if(W > NINE_ATLAS || H > 256) return null;
+  const hit = nineCache.get(key);
+  if(hit) return hit;
+  let A = nineAtlas;
+  if(A && A.x + W > NINE_ATLAS){ A.x = 0; A.y += A.rowH + 1; A.rowH = 0; }
+  if(!A || A.y + H > NINE_ATLAS){
+    const cv = document.createElement("canvas");
+    cv.width = NINE_ATLAS; cv.height = NINE_ATLAS;
+    const g = cv.getContext("2d");
+    if(!g) return null;
+    g.imageSmoothingEnabled = false;
+    stripStaticImages.add(cv);   /* 置いた絵は書き換えない (空きに足すだけ) ので、フレームの比較に使える */
+    A = nineAtlas = { cv, g, x: 0, y: 0, rowH: 0 };
+    nineCache.clear();
+  }
+  const ox = A.x, oy = A.y;
+  for(const pt of parts) A.g.drawImage(src, pt[0], pt[1], pt[2], pt[3], ox + pt[4], oy + pt[5], pt[6], pt[7]);
+  A.x += W + 1; A.rowH = Math.max(A.rowH, H);
+  const r = [A.cv, ox, oy];
+  nineCache.set(key, r);
+  return r;
 }
 /* 左上 (x, y) に原寸 (または w×h に引き伸ばし) で貼る。画面の中身・札の中の小物用 */
 function sDrawTL(name, x, y, w?, h?){

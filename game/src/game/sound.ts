@@ -6,7 +6,7 @@
    全キューが安全な no-op になる。既定の考え方は下の SOUND_GATE_MENU_ONLY 参照。
    設定で明示したらそちらが常に優先。 */
 const SoundKit = (function(){
-  let actx = null, master = null, gestured = false;
+  let actx = null, master = null, gestured = false, noiseBuf = null;
   /* 音の既定 (設計原則 / sakuri 確定, 設計 §5.7 改訂): 「メニューは開かない状態が
      ニュートラルなゲームプレイ状態」。音はメニューの開閉に連動させず、帯 (owner) で
      設定トグルに従って鳴らすのが既定 — 未設定の間も帯で鳴る。リリース等の帯の
@@ -76,11 +76,15 @@ const SoundKit = (function(){
     if(!actx || !master) return;
     try{
       const dur = o.dur || 0.1, t0 = actx.currentTime + (o.delay || 0);
-      const len = Math.max(1, Math.floor(actx.sampleRate * dur));
-      const buf = actx.createBuffer(1, len, actx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for(let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
-      const src = actx.createBufferSource(); src.buffer = buf;
+      /* ノイズは1秒ぶんを1回だけ作り、毎回その中のばらばらな位置から切り出して鳴らす
+         (連打で毎回ノイズを作り直すと、1回あたり数千個の乱数と新しいバッファが要った) */
+      if(!noiseBuf){
+        const len = actx.sampleRate;
+        noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+        const ch = noiseBuf.getChannelData(0);
+        for(let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      }
+      const src = actx.createBufferSource(); src.buffer = noiseBuf;
       const f = actx.createBiquadFilter();
       f.type = o.ftype || "lowpass"; f.frequency.value = o.ffreq || 1200; f.Q.value = o.q || 0.8;
       const g = actx.createGain();
@@ -89,7 +93,7 @@ const SoundKit = (function(){
       g.gain.linearRampToValueAtTime(o.vol || 0.4, t0 + 0.003);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
       src.connect(f); f.connect(g); g.connect(master);
-      src.start(t0); src.stop(t0 + dur + 0.05);
+      src.start(t0, Math.random() * Math.max(0, 1 - dur - 0.05)); src.stop(t0 + dur + 0.05);
     }catch(e){}
   }
   const CUES = {

@@ -189,6 +189,9 @@ function incomeBreakdownHTML(){
 }
 function renderPanel(){
   if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
+  /* 帯の窓ではパネルは表示されない (メニューは別窓がスナップショットで描く)。メニューから届いた購入の
+     たびに見えないパネルを組み立てていたのをやめる。フル形態に戻った時は __miyukeOnModeChange が描く */
+  if(document.body.classList.contains("strip")) return;
   renderEditorBreadcrumbs();
   if(!layoutLive){
     renderPanelInto(document.getElementById("panel"));
@@ -974,15 +977,67 @@ function setPanelHTML(el, h){
     focusKey = { sig, idx: Math.max(0, same.indexOf(a)) };
   }
   const top = el.scrollTop, left = el.scrollLeft;
-  el.innerHTML = h;
+  /* 2026-10-28: 丸ごと innerHTML で作り直さず、前回の DOM と突き合わせて違う所だけ書き換える。
+     毎秒の再描画 (分割ビューではパネルの枚数ぶん) で数千の要素を作り直し、スタイルと配置の
+     計算をやり直していた。結果の DOM は innerHTML と同じ (属性・文字・入力の値まで合わせる) */
+  if(el.firstChild && (el as any).__lastHTML != null && morphPanel(el, h)){ /* 差分で更新した */ }
+  else el.innerHTML = h;
   (el as any).__lastHTML = h;
-  if(focusKey){
+  if(focusKey && !(document.activeElement && el.contains(document.activeElement) && document.activeElement !== document.body)){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
     const target = same[Math.min(focusKey.idx, same.length - 1)];
     if(target && typeof target.focus === "function") target.focus({ preventScroll:true });
   }
   if(el.scrollTop !== top) el.scrollTop = top;
   if(el.scrollLeft !== left) el.scrollLeft = left;
+}
+/* パネルの差分更新 (setPanelHTML から)。新しい HTML を template で組み、子を順に突き合わせる:
+   種類やタグが違えば差し替え、同じなら属性と文字だけ合わせて中へ進む。余った子は消し、足りなければ足す */
+let morphTpl: HTMLTemplateElement | null = null;
+function morphPanel(el, h){
+  try{
+    if(!morphTpl) morphTpl = document.createElement("template");
+    morphTpl.innerHTML = h;
+    morphChildren(el, morphTpl.content);
+    morphTpl.innerHTML = "";
+    return true;
+  }catch(e){ return false; }
+}
+function morphChildren(live, next){
+  let a = live.firstChild, b = next.firstChild;
+  while(b){
+    const bNext = b.nextSibling;
+    if(!a){ live.appendChild(b); b = bNext; continue; }
+    const aNext = a.nextSibling;
+    if(a.nodeType !== b.nodeType || a.nodeName !== b.nodeName || (a.nodeType === 1 && a.nodeName === "INPUT" && a.getAttribute("type") !== b.getAttribute("type"))){
+      live.replaceChild(b, a);
+    } else if(a.nodeType === 1){
+      morphAttrs(a, b);
+      morphChildren(a, b);
+    } else if(a.nodeValue !== b.nodeValue){
+      a.nodeValue = b.nodeValue;
+    }
+    a = aNext; b = bNext;
+  }
+  while(a){ const n = a.nextSibling; live.removeChild(a); a = n; }
+}
+function morphAttrs(a, b){
+  const ba = b.attributes, aa = a.attributes;
+  for(let i = aa.length - 1; i >= 0; i--){
+    const n = aa[i].name;
+    if(!b.hasAttribute(n)) a.removeAttribute(n);
+  }
+  for(let i = 0; i < ba.length; i++){
+    const n = ba[i].name, v = ba[i].value;
+    if(a.getAttribute(n) !== v) a.setAttribute(n, v);
+  }
+  /* innerHTML で作り直した時と同じく、入力欄は HTML の値に戻す (ファイル選択は値を書けないので除く) */
+  if(a.nodeName === "INPUT" && a.type !== "file"){
+    const v = b.getAttribute("value");
+    if(v !== null && a.value !== v) a.value = v;
+    const c = b.hasAttribute("checked");
+    if(a.checked !== c && (a.type === "checkbox" || a.type === "radio")) a.checked = c;
+  }
 }
 /* メニュー刷新 P1: タブバッジ（買えるものがある/新しい依頼があるタブに赤ドット。
    判定は既存の afford 系ヘルパの流用のみ。失敗しても描画を止めないよう握りつぶす） */
