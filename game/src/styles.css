@@ -888,6 +888,11 @@
   body:not(.strip) .egutter.row:hover::after,body:not(.strip) .egutter.row.drag::after{left:2px;width:2px;top:0;bottom:0;}
   body:not(.strip) .egutter.col:hover::after,body:not(.strip) .egutter.col.drag::after{top:2px;height:2px;left:0;right:0;}
   body:not(.strip) .egroup-empty{margin-top:18px;}
+  /* タブ列・パンくずは縮めない (窓が低いとパンくずがタブの下へ潜って上半分が切れていた)。
+     縮むのは本文だけ。タブの上には通知バッジ・鍵の分の余白を取り、グループの外へはみ出させない */
+  body:not(.strip) .egroup .tabs,body:not(.strip) .egroup .editor-crumbs{flex:0 0 auto;}
+  body:not(.strip) .egroup .tabs{margin-top:0;padding-top:8px;row-gap:8px;}
+  body:not(.strip) .egroup .tab-badge:empty{min-width:0;width:10px;height:10px;padding:0;top:-4px;right:4px;}
   /* 分割しているときは窓いっぱいに使う (1枚のときは従来の最大幅のまま) */
   body:not(.strip).ed-split main{max-width:none;}
   body.tab-dragging, body.tab-dragging *{cursor:grabbing!important;user-select:none;}
