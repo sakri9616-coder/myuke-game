@@ -175,6 +175,7 @@ function splatBug(i, bx, by){
   if(bugEvent.bugs.length === 0){
     const sweep = rewardCoins(BAL.rewardSec.sweep, 20 * workScale());
     S.coins += sweep; S.totals.coinsEarned += sweep; creditIncome("labor", sweep);
+    S.totals.swarms = (S.totals.swarms || 0) + 1;
     bugEvent = null;
     nextBugAt = Date.now() + 180000 + Math.random()*150000;
     say("バグ全滅！ボーナス+" + fmt(sweep) + "コインにゃ");

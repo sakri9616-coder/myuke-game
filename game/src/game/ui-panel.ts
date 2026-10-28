@@ -850,14 +850,14 @@ function renderPanelInto(el){
       statBlock("📝 コミット", fmt(t.commits), "回") +
       statBlock("🎉 リリース", fmt(t.releases), "作品") +
       "</div>";
-    h += "<h3 style='margin-top:12px'>🏅 実績スタンプ</h3>";
+    h += "<h3 style='margin-top:12px'>🏅 実績スタンプ（" + STAMP_DEFS.filter(st => S.stamps[st.id]).length + " / " + STAMP_DEFS.length + "）</h3>";
     for(const st of STAMP_DEFS){
       const got = S.stamps[st.id];
       /* Sprint 4: 未取得スタンプにも進捗 (現在値/目標) を出す (C2-P2-7) */
-      let progTxt = "";
+      let progTxt = !got && st.hint ? "<br><small>" + esc(st.hint) + "</small>" : "";
       if(!got && st.prog){
         const pr = st.prog(S);
-        progTxt = "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
+        progTxt += "<br><small>(" + fmt(Math.min(pr[0], pr[1])) + " / " + fmt(pr[1]) + ")</small>";
       }
       h += "<span class='stamp "+(got?"got":"lock")+"'>"+(got?"🏅":"🔒")+" "+esc(st.name)+(got?"<br><small>"+esc(got)+"</small>":progTxt)+"</span>";
     }

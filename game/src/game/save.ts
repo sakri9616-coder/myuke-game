@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.24.2";   /* 表示ラベルの単一の出所 (v2.24.2: 部署 Lv3 の案内を効果がわかる書き方に) */
+const GAME_VERSION = "v2.25.0";   /* 表示ラベルの単一の出所 (v2.25.0: 実績スタンプを40個追加) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -40,7 +40,9 @@ function freshState(): GameState {
     wip:{ code:0, tested:0, built:0 },
     today:{ date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 },
     totals:{ keys:0, cursorPx:0, lines:0, bugsSquashed:0, releases:0, commits:0, coinsEarned:0, naps:0, playSec:0,
-             clicks:0, crits:0, goldFish:0, eventBugs:0, hired:0 },
+             clicks:0, crits:0, goldFish:0, eventBugs:0, hired:0,
+             /* v2.25.0 実績スタンプ用の回数（旧セーブは 0 から） */
+             wantsDone:0, fevers:0, swarms:0, deathMarches:0, vendors:0, requestsDone:0, bigDealsDone:0, subsSold:0 },
     flags:{}, log:[],
     /* Sprint 2 追加分（旧セーブには無いので load() の既定値マージで補完される）:
        sound は null = 未設定（フル=ON / 帯=OFF の自動）。lastSession は前回セッションの

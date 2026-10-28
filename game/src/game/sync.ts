@@ -72,6 +72,7 @@ function buyMany(verb, args, n){
   }catch(e){ console.error("[miyuke] buyMany で例外", e); }
   const logs = quietBuy.log;
   quietBuy = null;
+  if(bought >= 10) S.flags.bulkBuy = true;   /* 実績スタンプ「まとめ買い」 */
   /* 同じ形の購入ログ (数字違い) は最後の1行に「×回数」を添えてまとめる。節目などはそのまま残る */
   const shapes = {}, order = [];
   for(const L of logs){

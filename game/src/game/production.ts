@@ -244,6 +244,7 @@ function doDeathMarchCore(){
   const p = S.project;
   S.debt = Math.min(500, (S.debt || 0) + info.debtAdd);
   S.brand = Math.max(0, (S.brand || 0) - 2);
+  S.totals.deathMarches = (S.totals.deathMarches || 0) + 1;
   /* Wave H: デスマーチはモジュールの統合も強制完了する（品質は投資率
      そのまま・最低 0.5。価格にはその品質で乗る） */
   if(S.project.modules) for(const m of S.project.modules){
@@ -285,6 +286,7 @@ function outsourceBugsCore(){
   S.bugStock = 0;
   S.debt = Math.max(0, (S.debt || 0) - c.debtCut);
   S.vendorUses = (S.vendorUses || 0) + 1;   /* 次のリリースまで、続けて頼むほど高くなる */
+  S.totals.vendors = (S.totals.vendors || 0) + 1;
   addLog("🧳 外注ベンダーに依頼: バグ " + c.bugs + " 匹を一掃・技術的負債 -" + c.debtCut + "（-" + fmt(c.coins) + "🪙）");
   say("ベンダーさんがバグを全部持って帰ったにゃ！ すっきりしたね");
   spawnStripVendor();
@@ -363,6 +365,7 @@ function activateFever(){
     return;
   }
   S.fever.gauge = 0;
+  S.totals.fevers = (S.totals.fevers || 0) + 1;
   feverUntil = Date.now() + FEVER.durationMs;
   feverBugNext = Date.now() + 3000;
   SoundKit.play("releaseFanfare");
@@ -631,6 +634,7 @@ function releaseProject(){
     }
     const bonus = Math.round(ipBase * rate);   /* 段階4: 通常価格に掛ける（直販ルートと二重に伸びないように） */
     coins += bonus; rp += 1; salesBonusPaid = bonus;
+    if(rate > 0){ S.totals.requestsDone = (S.totals.requestsDone || 0) + 1; if(rq.big) S.totals.bigDealsDone = (S.totals.bigDealsDone || 0) + 1; }   /* 実績スタンプ用 */
     requestBonus = rate > 0 ? "（依頼達成ボーナス +"+bonus+"🪙）" : "";
     addLog(rate > 0
       ? "依頼達成！『"+p.name+"』"+requestBonus+shortNote
