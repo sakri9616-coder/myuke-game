@@ -2220,7 +2220,7 @@ dependencies = [
 
 [[package]]
 name = "miyuke"
-version = "2.19.1"
+version = "2.19.2"
 dependencies = [
  "rdev",
  "serde",
