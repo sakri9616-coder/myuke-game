@@ -29,7 +29,7 @@ const STAFF_ROLES = {
   test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +8 DP/分" },
   carry:   { name:"運搬係",       stage:"出荷",   base:150, out:8,    unit:"DP/分",   desc:"出荷速度 +8 DP/分" },
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
-  care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ" },
+  care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ＋おねだりに代わりに応える" },
   sales:   { name:"営業",         stage:"営業",   base:230, out:0,    unit:"",        desc:"依頼を自動で取ってくる（Lvが高いほど良い依頼）" },
   /* 再設計 段階2（sakuri 承認済み）: 中盤から応援の一部を任せられる。あなたの応援とは別枠で、必ず上乗せになる
      （応援係はコンボ・会心・応援の熱・応援P を持たない。それはみゅけと遊ぶあなたの腕前） */
@@ -180,11 +180,11 @@ function buyTreat(id){
   if(!S.buffs || typeof S.buffs !== "object") S.buffs = {};
   const now = Date.now();
   if(id === "treat_snack"){
-    S.concentration = Math.min(100, S.concentration + 30);
+    addConc(30);
     S.buffs.prodUntil = Math.max(S.buffs.prodUntil || 0, now) + TREAT_BLOCK_MS;
     say("高級おやつ！ しあわせ〜（30分 生産+15%）");
   } else {
-    S.concentration = Math.min(100, S.concentration + 10);
+    addConc(10);
     S.buffs.clickUntil = Math.max(S.buffs.clickUntil || 0, now) + TREAT_BLOCK_MS;
     say("新しいおもちゃ！ わくわく（30分 クリック+10%）");
   }

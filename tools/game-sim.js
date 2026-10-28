@@ -29,7 +29,7 @@ function makeGame(seed){
   const el = id => {
     if(!byId[id]){
       byId[id] = makeEl(id === "stage" || id === "strip" ? "canvas" : "div");
-      if(id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 210, right: 1280, bottom: 210 };
+      if(id === "strip") byId[id]._rect = { left: 0, top: 0, width: 1280, height: 266, right: 1280, bottom: 266 };
     }
     return byId[id];
   };
@@ -39,7 +39,7 @@ function makeGame(seed){
     console: { log(){}, warn(){}, error: console.error }, Date: fake.FakeDate, Math: mathR,
     localStorage: { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) },
     location: { hash: "#strip" }, navigator: { userAgent: "miyuke-game-sim" },
-    innerWidth: 1280, innerHeight: 210, devicePixelRatio: 1,
+    innerWidth: 1280, innerHeight: 266, devicePixelRatio: 1,
     addEventListener(){}, removeEventListener(){}, confirm: () => true,
     setInterval: () => 0, clearInterval(){}, setTimeout: () => 0, clearTimeout(){}, requestAnimationFrame: () => 0
   };
@@ -163,9 +163,14 @@ function botJumpSig(){
   for(const k in S.clickUp) for(const c of MILESTONE_LVS) if((S.clickUp[k] || 0) >= c) ms++;
   return [S.studioLv, ms, Object.keys(S.research).length, workScale(), dustTotal(), (S.subs || []).length].join(",");
 }
+/* v2.21.0: 張り付き中は、みゅけのおねだりに 3秒で気づいて応える（おやつ箱・頭なで・応援はクリック1回ずつ） */
+function botWant(){
+  if(typeof want === "undefined" || !want || Date.now() - want.at < 3000) return;
+  if(want.kind === "snack") giveSnack(); else wantProgress(want.kind);
+}
 function botClick(n){
   const before = S.runDP;
-  for(let i = 0; i < n; i++){ cheerClick(640, 150); if(typeof noteInput === "function") noteInput(); }
+  for(let i = 0; i < n; i++){ cheerClick(640, 150); if(typeof noteInput === "function") noteInput(); botWant(); }
   if(typeof fishEvent !== "undefined" && fishEvent) catchFish(640, 150);
   BOT.clickDP += S.runDP - before;
 }

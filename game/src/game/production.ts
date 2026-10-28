@@ -54,7 +54,11 @@ function perkLv(id){
 /* レーンA・集中力 redesign: 集中力は生産倍率そのものになる。100% で +35%、
    50% で +17.5%、0% でも ×1.0 を割らない＝罰でなく伸び。アニメ速度の
    concentrationFactor() とは別物（あちらは再生速度、こちらは生産量）。 */
-function concProdMult(){ const c = Math.max(0, Math.min(100, S.concentration || 0)); return 1 + 0.35 * (c / 100); }
+/* v2.21.0: おねだりに応えて 100% を超えた「ノリノリ」分は、150% で ×2.0 まで伸びる */
+function concProdMult(){
+  const c = Math.max(0, Math.min(WANT.max, S.concentration || 0));
+  return 1 + 0.35 * Math.min(100, c) / 100 + 0.65 * Math.max(0, c - 100) / (WANT.max - 100);
+}
 function buffProdMult(){ return (S.buffs && S.buffs.prodUntil > Date.now()) ? 1.15 : 1; }  /* ご褒美バフ */
 function buffClickMult(){ return (S.buffs && S.buffs.clickUntil > Date.now()) ? 1.10 : 1; }
 /* 生産に一律で掛かる追加倍率（反復研究・星屑特典・ご褒美） */

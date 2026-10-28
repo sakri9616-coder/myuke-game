@@ -19,7 +19,7 @@ if(!fs.existsSync(html)) throw new Error("game html not found: " + html + "ï¼ˆå…
 
 (async () => {
   const browser = await chromium.launch({ args: ["--no-sandbox", "--disable-dev-shm-usage"] });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 210 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 266 } });
   const errors = [];
   page.on("pageerror", e => errors.push(e.message));
   await page.clock.install({ time: new Date("2026-10-27T09:00:00+09:00") });

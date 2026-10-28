@@ -23,9 +23,9 @@ function stateTick(now){
     const ps = pickRestState(); setState(ps, 5000); flagPlay(ps); return;
   }
   // 状態ごとの後処理
-  if(catState === "nap"){ S.concentration = Math.min(100, S.concentration + 45); }
+  if(catState === "nap"){ addConc(45); }
   if(PLAY_STATES.includes(catState)){
-    S.concentration = Math.min(100, S.concentration + 22);
+    addConc(22);
     S.ideas += (catState==="treasure" ? 4 : 2);
     /* Sprint 4: 宝探しはたまに小銭も見つける */
     if(catState==="treasure" && Math.random() < 0.35){

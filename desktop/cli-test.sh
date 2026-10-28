@@ -48,7 +48,7 @@ click() {
 }
 
 echo "[cli-test] strip を待つ..."
-if wait_geom "${W}x210" 15; then echo "  OK strip ${W}x210"; else echo "  NG strip が出ない"; FAIL=1; fi
+if wait_geom "${W}x266" 15; then echo "  OK strip ${W}x266"; else echo "  NG strip が出ない"; FAIL=1; fi
 sleep 2
 
 for check in "$@"; do :; done
