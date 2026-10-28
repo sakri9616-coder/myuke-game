@@ -648,14 +648,15 @@ function renderPanelInto(el){
       if(hp.can){
         h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
           "<span class='sock'>🏛️</span><span class='nm'>ホールディングス化できます！</span>" +
-          "<div class='ds'>グループ全体を持株会社化して、星団 <b>+" + hp.gain + "</b> を得ます。星屑と星屑特典は畳まれますが、レガシー技術・作品棚・実績・最高到達社格は残ります</div></div>" +
+          "<div class='ds'>グループ全体を持株会社化して、星団 <b>+" + hp.gain + "</b> を得ます。星屑と星屑特典は畳まれますが、星屑倍率の土台は <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> に上がって残ります（レガシー技術・作品棚・実績・最高到達社格も残ります）</div></div>" +
           "<button class='primary' onclick='doHoldings()'>持株化する（星団 +" + hp.gain + "）</button></div></div>";
       } else if((S.maxStudioLv || 1) >= 5 || (S.prestiges || 0) >= 5){
         h += foldSec("holdings", false, "🏛️ ホールディングス化（第2層）", "星団 +" + hp.gain + " 個ぶん",
           kv("条件: 最高到達社格", rankName(S.maxStudioLv || S.studioLv) + (hp.cond.lv6 ? " ✅" : "（大企業が目標）")) +
           kv("条件: 子会社", ((S.subs || []).length) + " / 2 社" + (hp.cond.subs ? " ✅" : "")) +
           kv("条件: EXIT 回数", (S.prestiges || 0) + " / " + HOLD_EXITS + " 回" + (hp.cond.exits ? " ✅" : "")) +
-          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は ÷100 の平方根）")));
+          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は ÷100 の平方根）")) +
+          kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext) + "（この時代の通算星屑の平方根ぶん）"));
       }
       if((S.holdings || 0) > 0 || (S.legacy || 0) > 0){
         let techRows = "", techChips = "";

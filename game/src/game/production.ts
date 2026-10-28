@@ -30,7 +30,10 @@ function dustPriceMult(){ return Math.pow(dustMult(), BAL.dustPriceExp); }
    倍率は収入に 2 乗以上で効くので、固定の 7e6 で割ると「星屑が増える → 企業価値が倍率以上に増える → 次の星屑が増える」の
    正のループが閉じ、子会社の部分EXIT を繰り返すだけで十数分で Infinity まで届いた（sakuri のセーブ・sim の subloop で再現）。
    買い手は会社の強さを今の星屑倍率込みで値付けする、という形にして、1回の売却で得る星屑の伸びを星屑の総量より遅くする */
-function dustValueUnit(){ return BAL.valuePerDust * Math.pow(dustMult(), BAL.dustValueExp); }
+function dustValueUnit(){
+  const base = S.dustLegacyMult || 1;   /* 持株の土台は別の指数で（全部を dustValueExp で割ると新しい時代の最初の売却に届かない・sim） */
+  return BAL.valuePerDust * Math.pow(dustMult() / base, BAL.dustValueExp) * Math.pow(base, BAL.holdValueExp);
+}
 function dustGainFromValue(v){
   const x = v / dustValueUnit(), c = BAL.dustSoftcap;
   return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));

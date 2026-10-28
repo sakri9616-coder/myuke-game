@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.25.0";   /* 表示ラベルの単一の出所 (v2.25.0: 実績スタンプを40個追加) */
+const GAME_VERSION = "v2.26.0";   /* 表示ラベルの単一の出所 (v2.26.0: 持株化で星屑倍率の土台が残る・宇宙編でも桁が伸びる) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {

@@ -301,6 +301,18 @@ function subLoop(){
     } });
   return r.dustTotal;
 }
+/* 持株化を重ねたときのコインの桁（2026-10-28・宇宙編）: 放置1日3時間、星屑20個で売り、持株化は条件がそろい次第 */
+function holdingsRun(days, seed){
+  let maxHand = 0;
+  const out = [], holdAt = [];
+  simulate({ profile: "passive", days, minPerDay: 180, seed, exitAt: 20,
+    onMinute: (t, run) => {
+      maxHand = Math.max(maxHand, run("S.coins"));
+      if(run("holdingsPreview().can")){ run("doHoldingsCore()"); holdAt.push((t / 180).toFixed(1)); }
+      if(t % 180 === 179){ out.push({ day: Math.ceil(t / 180), holdings: run("S.holdings || 0"), coinsLog: +Math.log10(run("S.totals.coinsEarned")).toFixed(1), handLog: +Math.log10(maxHand).toFixed(1) }); maxHand = 0; }
+    } });
+  return { days: out, holdAt };
+}
 function simGainAt(r, t){ let g = 0; for(const l of r.log) if(l.t <= t) g = l.gain; return g; }
 
 if(require.main === module){
@@ -309,6 +321,10 @@ if(require.main === module){
   if(a[0] === "g5"){
     for(const b of g5Builds()) console.log(b.src + " → 主役 " + b.main + "（社格" + b.rank + "） " + JSON.stringify(b.last60));
     console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
+  } else if(a[0] === "holdings"){
+    const r = holdingsRun(Number(a[1] || 23), Number(a[2] || 1));
+    for(const d of r.days) console.log("day " + d.day + " 持株化 " + d.holdings + " 通算コイン 1e" + d.coinsLog + " 手持ち最大 1e" + d.handLog);
+    console.log("持株化の時刻（日）: " + r.holdAt.join(" ") + "（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
   } else if(a[0] === "gates"){
     const n = Number(a[1] || 3);
     const G = gates(n);
