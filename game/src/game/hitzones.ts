@@ -32,7 +32,7 @@ function computeHitZones(){
   for(const pr of (R.piles || [])) push(pr, 4);   /* 可視生産: 詰まった山の三角コーン（対策パネル） */
   for(const pr of (R.stations || [])) push(pr, 2);   /* 工程の持ち場（手助け） */
   push(R.snack, 4);   /* 2026-10-25: おやつ箱も押せる */
-  push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4);
+  push(R.research, 4); push(R.rack, 4); push(R.trophy, 4); push(R.calendar, 4); push(R.annex, 4);
   push(R.memo, 4); push(R.phone, 4); push(R.megaphone, 4); push(R.toolbox, 4);
   push(R.fever, 4);   /* オーバークロック・ゲージ (机の外にも置けるので単独で通す) */
   push(R.duck, 6);
@@ -189,6 +189,12 @@ if(stripCv){
     /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める。
        みゅけ本人に重なるときは応援クリックを優先する。サーバーラック・研究机（タブへの導線）より先に判定する
        （ラックはビルド室の中に立つ自動化の設備。ブースより上の部分は従来どおり工場タブを開く） */
+    /* 別館の看板 (子会社がある間だけ) → 子会社タブ。板はビルド室の手前に描かれるので持ち場より先 */
+    const ax = stripHitRects.annex;
+    if(ax && ux >= ax.x && ux <= ax.x + ax.w && uy >= ax.y && uy <= ax.y + ax.h){
+      openTabPanel("subs");
+      return;
+    }
     const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
     if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
       const r = handworkClick(stHit.stage);

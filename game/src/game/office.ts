@@ -43,6 +43,9 @@ function tutLocked(needStage, owns){
   return !owns;
 }
 function tutTabLocked(tabId){
+  /* 子会社タブはチュートリアルではなく社格の解放 (準大手) で開く。飛ばしても開かない。
+     一度でも持っていれば (売却直後の社格リセット後も) 閉じない */
+  if(tabId === "subs") return S.studioLv < 5 && !(S.subs || []).length;
   const need = TUT_TAB_STAGE[tabId];
   if(need === undefined) return false;   /* proj / settings は絶対にロックしない */
   return tutLocked(need, tutTabOwns(tabId));
@@ -201,7 +204,9 @@ const TUT_LOCK_DEFS = {
   staff:   { icon:"👥", line:"稼ぎがたまると、仲間を雇えるようになるにゃ",
              bars:() => [["🪙", Math.floor(S.totals.coinsEarned), 220, "累計コイン"]] },
   requests:{ icon:"📮", line:"仲間ができると、お客さんが来るようになるにゃ",
-             bars:() => [["🐱", S.totals.hired, 1, "スタッフ雇用"], ["🎉", S.totals.releases, 5, "作品リリース"]] }
+             bars:() => [["🐱", S.totals.hired, 1, "スタッフ雇用"], ["🎉", S.totals.releases, 5, "作品リリース"]] },
+  subs:    { icon:"🏢", line:"準大手（スタジオLv5）になると、子会社を持てるにゃ",
+             bars:() => [["🏠", S.studioLv, 5, "スタジオLv"]] }
 };
 function tutLockPanelHTML(tab){
   const d = TUT_LOCK_DEFS[tab];

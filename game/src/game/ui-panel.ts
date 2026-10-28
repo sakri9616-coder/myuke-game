@@ -158,6 +158,7 @@ function editorCrumbContext(){
   return (IS_VIEWER && !viewerSynced) ? "同期中…"
     : tutTabLocked(currentTab) ? "🔒 解放条件"
     : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
+    : currentTab === "subs" ? (S.subs || []).length + "社・総勢 " + totalPeople() + "人"
     : currentTab === "research" ? "研究P " + fmt(S.rp)
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
@@ -458,11 +459,28 @@ function renderPanelInto(el){
       h += "<div class='item buy slim'><div><span class='sock sm'>🎓</span><span class='nm'>全員+1Lv 育成</span> <small>対象 "+bulkTargets.length+"人</small></div>"+
         buyBtn("bulk", bulkCost, "coins", "buyBulkTrain()", false, "", true)+"</div>";
     }
-    /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・資金配分、
-       出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
-       解放前はスタッフタブに何も出さない（施錠表示は卒業済みプレイヤーへの
-       ノイズになる — smoke F の原則）。予告はスタジオ拡張の行と昇格ログで担う */
-    if(S.studioLv >= 5) {
+    /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
+    let treatHTML = "";
+    for(const def of TREAT_DEFS){
+      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span><div class='ds'>"+def.desc+"</div></div>"+
+        buyBtn("treat:"+def.id, treatCost(def), "coins", "buyTreat(\""+def.id+"\")")+"</div>";
+    }
+    /* チュートリアル導線: ご褒美は終盤のコインシンク。累計5,000🪙 までは
+       折りたたみ自体をシルエットにする (使ったことがあれば常に実体) */
+    const treatsOwned = (S.today.treats || 0) > 0 || S.buffs.prodUntil > Date.now() || S.buffs.clickUntil > Date.now();
+    if(!treatsOwned && Math.floor(S.totals.coinsEarned) < 5000 && !(S.tut && S.tut.skipped)){
+      h += secLockHTML("🎁", "ご褒美（みんなへ）",
+        [["🪙", Math.floor(S.totals.coinsEarned), 5000, "累計コイン"]],
+        "もっと稼げるようになったら、みんなにご褒美をあげられるにゃ");
+    } else {
+      h += foldSec("treats", false, "🎁 ご褒美（みんなへ）", "価格は収入と、効果中の重ね買いで上昇", treatHTML);
+    }
+  }
+  /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・資金配分、
+     出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
+     2026-10-28 sakuri: スタッフタブから独立したタブへ。解放前はタブごと施錠表示 (tutTabLocked) */
+  if(currentTab === "subs"){
+    {
       let subHTML = "";
       for(const sub of (S.subs || [])){
         const r = subRates(sub);
@@ -489,25 +507,9 @@ function renderPanelInto(el){
         foundHTML += "<button onclick='foundSub(\"" + g.id + "\")'" + (S.coins < foundCost() ? " disabled" : "") + ">" + g.name + "</button> ";
       foundHTML += "</div></div></div>";
       foundHTML += engineRowsHTML("subs");   /* 段階4: 子会社の強化の列 */
-      h += foldSec("subs", false, "🏢 グループ子会社",
-        (S.subs || []).length ? (S.subs.length + "社・総勢 " + totalPeople() + "人") : "まだ子会社はありません",
-        subHTML + foundHTML);
-    }
-    /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
-    let treatHTML = "";
-    for(const def of TREAT_DEFS){
-      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span><div class='ds'>"+def.desc+"</div></div>"+
-        buyBtn("treat:"+def.id, treatCost(def), "coins", "buyTreat(\""+def.id+"\")")+"</div>";
-    }
-    /* チュートリアル導線: ご褒美は終盤のコインシンク。累計5,000🪙 までは
-       折りたたみ自体をシルエットにする (使ったことがあれば常に実体) */
-    const treatsOwned = (S.today.treats || 0) > 0 || S.buffs.prodUntil > Date.now() || S.buffs.clickUntil > Date.now();
-    if(!treatsOwned && Math.floor(S.totals.coinsEarned) < 5000 && !(S.tut && S.tut.skipped)){
-      h += secLockHTML("🎁", "ご褒美（みんなへ）",
-        [["🪙", Math.floor(S.totals.coinsEarned), 5000, "累計コイン"]],
-        "もっと稼げるようになったら、みんなにご褒美をあげられるにゃ");
-    } else {
-      h += foldSec("treats", false, "🎁 ご褒美（みんなへ）", "価格は収入と、効果中の重ね買いで上昇", treatHTML);
+      h += "<h3>🏢 グループ子会社</h3>" +
+        "<div class='note' style='font-size:12px'>" + ((S.subs || []).length ? (S.subs.length + "社・総勢 " + totalPeople() + "人") : "まだ子会社はありません") + "</div>" +
+        subHTML + foundHTML;
     }
   }
   if(currentTab === "factory"){
