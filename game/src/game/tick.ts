@@ -42,6 +42,7 @@ function tick(){
   /* Sprint 4: おかえりカードは4分で静かに閉じる (C2-P2-8) */
   if(returnShownAt && now - returnShownAt > 4 * 60000){ returnShownAt = 0; closeReturnCard(); }
   tryStartPlanning();
+  autoPlanTick();   /* レベルデザイン改修: 企画を練るは自動機能（アイデアが足りる限り自動で上げる） */
   /* Sprint 4: 開発時間は壁時計ではなくアクティブ稼働秒で数える (C2-P2-1)。
      企画中（着工待ち）の時間は含めない */
   if(S.project && !S.project.planning) S.project.activeSec = (S.project.activeSec || 0) + 1;
@@ -67,21 +68,34 @@ function tick(){
   if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
   if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
   deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
-  /* Phase D: 子会社の受動収益。DP は工程に乗り、コインは端数を貯めて直接入る */
+  /* Phase D: 子会社の受動収益。DP は工程に乗る。
+     レベルデザイン改修: 配当は連続ドリップをやめ、子会社ごとに「作品のリリース」単位で
+     まとめて本社へ入る（売上レートと companyValue の算定は従来どおり連続のまま）。
+     再投資ぶんは従来どおり毎秒の連続処理 */
   if(S.subs && S.subs.length){
-    let subCoin = 0, subDP = 0;
+    let subDP = 0;
     for(const sub of S.subs){
       const r = subRates(sub), dv = subDiv(sub) / 100;
-      subCoin += r.coins * dv; subDP += r.dp;
+      subDP += r.dp;
       if(dv < 1) subReinvest(sub, r.coins * (1 - dv) / 60);   /* 段階6: 配当しない分は子会社が自分に再投資 */
+      if(dv > 0){
+        const per = r.coins * dv / 60;
+        sub.divAcc = (sub.divAcc || 0) + per;
+        creditIncome("subs", per);   /* 段階4: 収入の内訳（期待値ベースは従来どおり） */
+        if(!(sub.divCycle > 0)) sub.divCycle = subReleaseCycle(sub);
+        sub.divClock = (sub.divClock || 0) + 1;
+        if(sub.divClock >= sub.divCycle){
+          const amt = Math.floor(sub.divAcc || 0);
+          if(amt >= 1){
+            sub.divAcc -= amt; sub.divClock = 0; sub.divCycle = subReleaseCycle(sub);
+            S.coins += amt; S.totals.coinsEarned += amt;
+            addLog("🏢 " + sub.name + " が『" + subWorkName(sub) + "』をリリース！ 配当 +" + fmt(amt) + "🪙");
+            sub.workIdx = (sub.workIdx || 0) + 1;   /* 次の作品へ */
+          }
+        }
+      }
     }
     if(subDP > 0) produceDP(subDP/60, "l1");
-    if(subCoin > 0){
-      subCoinFrac += subCoin/60;
-      const whole = Math.floor(subCoinFrac);
-      if(whole > 0){ subCoinFrac -= whole; S.coins += whole; S.totals.coinsEarned += whole; }
-      creditIncome("subs", subCoin/60);   /* 段階4: 収入の内訳 */
-    }
   }
   const _fd1 = S.wip.code - _fc1;
   // 工程処理: 各ラインが独立の工程容量を持つ (sakuri 設計 2026-10-26:
@@ -159,6 +173,7 @@ function tick(){
        超えた分だけ比例して伸びる）。固定の 120 DP/分のままだと会社が育つほど実作業が無意味になっていた（理念書3） */
     const boostLink = Math.max(1, autoProdEMA * 60 / Math.max(1e-9, clickProdMult()) / BAL.boostLinkRef);   /* 倍率は produceDP が掛けるので割り戻す（応援の連動分と同じ） */
     boost = boostGate(boost * boostLink, boostLink);
+    if(S.runPolicy === "labor") boost *= 2;   /* レベルデザイン改修: 経営方針「労働特化」は入力ブースト ×2 */
     if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
     prodMuted = true;   /* F再設計: ブーストは入力由来（自動生産に数えず、発動倍率も二重に掛けない） */
     if(boost > 0.01 && coding) produceDP(boost, "l1");

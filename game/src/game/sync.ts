@@ -26,11 +26,11 @@ const VERBS = {
   foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setAlloc: setAlloc, setSubDiv: setSubDiv, sellSub: sellSubCore,
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
-  buyLegacyTech: buyLegacyTech, doHoldings: doHoldingsCore,
+  buyLegacyTech: buyLegacyTech, buyRdInvest: buyRdInvest, doHoldings: doHoldingsCore,
+  setRunPolicy: setRunPolicy,
   startChallenge: startChallenge, abandonChallenge: abandonChallenge,
-  setDevGenrePref: setDevGenrePref, designateIP: designateIP, planProject: planProject,
+  setDevGenrePref: setDevGenrePref, designateIP: designateIP,
   doDeathMarch: doDeathMarchCore,
-  outsourceBugs: outsourceBugsCore,
   moduleOutsource: moduleOutsourceCore,
   moduleWeight: moduleWeightCore,
   giveSnack: giveSnack,
@@ -268,12 +268,6 @@ function makeVerbStub(verb){
     if(verb === "resetLayout"){
       /* 手で並べた配置が消えるので確認する (帯側では confirm を出さない) */
       if(!confirm("家具と小物の並びを初期配置に戻しますか？\n手で動かした配置は消えます")) return;
-    }
-    if(verb === "outsourceBugs"){
-      /* 外注の確認は menu 側で済ませる (帯側では confirm を出さない) */
-      const bugs = Math.floor(S.bugStock), debtCut = Math.floor((S.debt || 0) * 0.4);
-      const coins = bugs * 30 + Math.floor(S.debt || 0) * 15;
-      if((bugs > 0 || debtCut > 0) && !confirm("外注ベンダーに依頼しますか？\nバグ " + bugs + " 匹を全消し ＋ 技術的負債 -" + debtCut + "\n費用: " + coins + "🪙")) return;
     }
     if(verb === "doDeathMarch"){
       /* デスマーチの確認は menu 側で済ませる (帯側では confirm を出さない) */

@@ -61,6 +61,7 @@ interface Subsidiary {
   lv: number;
   alloc: number;
   div?: number; reinv?: number;   /* 段階6: 配当率（%）と再投資の端数 */
+  divAcc?: number; divCycle?: number; divClock?: number; workIdx?: number;   /* レベルデザイン改修: 配当のリリース単位化（蓄積・周期・経過・いま作っている作品の番号） */
 }
 
 interface WorkRequest {
@@ -127,7 +128,7 @@ interface GameState {
   depts: Record<string, number>; bigDeal: WorkRequest | null; reqGenrePref: string | null; salesRot: number; reqHoldUntil: number;
   subs: Subsidiary[]; subSeq: number;
   fever: { gauge: number; [k: string]: any };
-  debt: number; brand: number; vendorReadyAt: number; vendorUses?: number;   // vendorReadyAt は v2.12.1 から使わない（続け頼みの割増 vendorUses に置き換え）
+  debt: number; brand: number; vendorReadyAt: number; vendorUses?: number;   // バグ外注はレベルデザイン改修で廃止（旧セーブの値は読み捨てる）
   shelf: ShelfEntry[]; recentNames: string[];
   staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number;
   wip: StageWip;
@@ -142,6 +143,9 @@ interface GameState {
   layoutProps: Record<string, any>;
   dustPerks: Record<string, boolean | number>; dustTotal: number;
   legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number;
+  eraExitPts: number; eraStartPrestiges: number;   /* レベルデザイン改修: 売却実績 pt と、その時代が始まった時点の通算 EXIT 回数 */
+  rdInvest: number;   /* レベルデザイン改修: 恒久R&D投資の Lv（星屑1個の生産ボーナス +10%ポイント/Lv・持株化でも残る） */
+  runPolicy: string | null; pendingPolicy: string | null;   /* レベルデザイン改修: 経営方針（適用中／次の会社に予約中） */
   challenge: { id: string; startLv: number } | null; challengeRewards: Record<string, boolean>;
   trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];

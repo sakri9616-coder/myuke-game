@@ -293,10 +293,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
      端に寄せた配置では反対側へ逃がし、両端とも入らなければ出さない（表示のみで
      クリック判定は持たない。社格の確認はメニューのチップでもできる） */
   {
-    /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。20個を超えたら「売りどき」 */
+    /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。比例枠を超えたら「売りどき」
+       （レベルデザイン改修: 比例枠は売却実績で広がる dustGainCap） */
     const sellNow = prestigePreview().gain;
     const parts = [companyRank() + " " + S.staff.length + "/" + staffCap() + "人",
-      "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= BAL.dustSoftcap ? "（売りどき）" : "") : "")];
+      "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= dustGainCap() ? "（売りどき）" : "") : "")];
     if(S.subs && S.subs.length) parts.push("グループ" + S.subs.length + "社・総勢" + totalPeople() + "人");
     if(S.holdings) parts.push("持株×" + S.holdings);   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
     if(S.challenge) parts.push("🎯" + (challengeDef(S.challenge.id) || {}).name);   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
