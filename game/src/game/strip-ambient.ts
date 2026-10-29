@@ -41,7 +41,7 @@ function maybeStartChatter(now, force){
   return false;
 }
 let stripVisitor = null;   /* { x, dir, coat, speed } */
-let subCoinFrac = 0;       /* Phase D: 子会社コインの端数（セーブしない。<1枚の端数は再起動で消える） */
+/* Phase D の子会社コインの端数置き場は、配当のリリース単位化（レベルデザイン改修）で不要になった */
 let stripDelivery = null;  /* Phase D: 子会社の配達猫 { x, dir, coat, speed, walkClock, done } */
 let stripVendor = null;    /* 拡張ウェーブ G: 外注ベンダーの猫（バグを回収に来る） */
 let nextDeliveryAt = 0;

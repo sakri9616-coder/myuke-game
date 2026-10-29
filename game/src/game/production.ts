@@ -18,7 +18,9 @@ function dustTotal(){ return typeof S.dustTotal === "number" ? S.dustTotal : S.d
    （旧セーブの倍率は1つも下がらず、そこから新しい星屑ぶんが掛かる）。売却益が企業価値の平方根で伸びるので、
    倍率が星屑に比例でも周回ごとの伸びは多項式に収まる（sim の G8 で確認） */
 function dustMultOld(d){ const c = 100; return 1 + 0.04 * (d <= c ? d : c * Math.sqrt(d / c)); }
-function dustMultFor(d){ return (S.dustLegacyMult || 1) * (1 + BAL.dustBonus * Math.max(0, d - (S.dustLegacyBase || 0))); }
+/* レベルデザイン改修: 星屑1個あたりの生産ボーナスは、恒久R&D投資で +10%ポイントずつ伸びる */
+function dustBonusEff(){ return BAL.dustBonus + 0.1 * (S.rdInvest || 0); }
+function dustMultFor(d){ return (S.dustLegacyMult || 1) * (1 + dustBonusEff() * Math.max(0, d - (S.dustLegacyBase || 0))); }
 function dustMult(){ return dustMultFor(dustTotal()); }
 /* 作品単価への星屑の効き（dustPriceExp 乗）。工程にも星屑倍率が掛かり出荷数そのものが伸びるので、
    単価まで同じだけ効くと コイン ∝ 倍率² になる */
@@ -34,8 +36,11 @@ function dustValueUnit(){
   const base = S.dustLegacyMult || 1;   /* 持株の土台は別の指数で（全部を dustValueExp で割ると新しい時代の最初の売却に届かない・sim） */
   return BAL.valuePerDust * Math.pow(dustMult() / base, BAL.dustValueExp) * Math.pow(base, BAL.holdValueExp);
 }
+/* レベルデザイン改修: 比例枠（ソフトキャップ）は売却実績 pt で広がる（最低は従来の
+   BAL.dustSoftcap = 20）。実績を積むほど、1回の売却で比例に稼げる器が大きくなる */
+function dustGainCap(){ return Math.max(BAL.dustSoftcap, 15 * eraExitPts()); }
 function dustGainFromValue(v){
-  const x = v / dustValueUnit(), c = BAL.dustSoftcap;
+  const x = v / dustValueUnit(), c = dustGainCap();
   return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));
 }
 /* 自動昇格の閾値（再設計 段階3）: RANK_VALUE[いまの社格] に企業価値が届いたら次の社格へ。下がることはない */
@@ -268,39 +273,8 @@ function doDeathMarch(){
   if(!confirm("デスマーチ出荷しますか？\n残りの工程を飛ばして『" + S.project.name + "』を即リリースします。\n代価: 技術的負債 +" + info.debtAdd + " / ブランド -2")) return;
   doDeathMarchCore();
 }
-/* ---------- 拡張ウェーブ G': バグ外注（sakuri 案） ----------
-   バグ在庫と負債が積んだときの、金で買うリリーフバルブ。射程は承認どおり
-   「バグ在庫の全消し＋負債 −40%」、費用は少々重く（バグ ×30 ＋ 負債 ×15）、
-   総務のケア（人で返す）との二択が経営判断になる。
-   v2.12.1: 10 分のクールダウン（介入できない待ち）をやめ、次のリリースまでに続けて頼むほど
-   ×VENDOR_REPEAT_MULT ずつ高くする（リリースで元に戻る） */
-const VENDOR_REPEAT_MULT = 1.5;
-function vendorCost(){
-  const bugs = Math.floor(S.bugStock);
-  const debtCut = Math.floor((S.debt || 0) * 0.4);
-  const uses = S.vendorUses || 0;
-  return { bugs, debtCut, uses, coins: Math.ceil((bugs * 30 + Math.floor(S.debt || 0) * 15) * Math.pow(VENDOR_REPEAT_MULT, uses)) };
-}
-function outsourceBugsCore(){
-  const c = vendorCost();
-  if(c.bugs <= 0 && c.debtCut <= 0){ say("いまは外注するものがないにゃ（バグも負債もきれいだよ）"); return; }
-  if(S.coins < c.coins){ say("コインが足りないにゃ（必要 " + fmt(c.coins) + "🪙）"); return; }
-  S.coins -= c.coins;
-  S.bugStock = 0;
-  S.debt = Math.max(0, (S.debt || 0) - c.debtCut);
-  S.vendorUses = (S.vendorUses || 0) + 1;   /* 次のリリースまで、続けて頼むほど高くなる */
-  S.totals.vendors = (S.totals.vendors || 0) + 1;
-  addLog("🧳 外注ベンダーに依頼: バグ " + c.bugs + " 匹を一掃・技術的負債 -" + c.debtCut + "（-" + fmt(c.coins) + "🪙）");
-  say("ベンダーさんがバグを全部持って帰ったにゃ！ すっきりしたね");
-  spawnStripVendor();
-  save(); renderPanel();
-}
-function outsourceBugs(){
-  const c = vendorCost();
-  if(c.bugs <= 0 && c.debtCut <= 0){ outsourceBugsCore(); return; }
-  if(!confirm("外注ベンダーに依頼しますか？\nバグ " + c.bugs + " 匹を全消し ＋ 技術的負債 -" + c.debtCut + "\n費用: " + fmt(c.coins) + "🪙")) return;
-  outsourceBugsCore();
-}
+/* バグ外注（ベンダー）はレベルデザイン改修で廃止した（負債の返済はお世話係と EXIT のみ。
+   旧セーブの vendorUses 等は読み捨てる。モジュールの外注は別の仕組みなので残る） */
 /* 生産: 倍率を掛けて対象ラインの実装バッファへ。バグは生産量に応じて全体に混入する */
 /* ---------- 拡張ウェーブ F: オーバークロック（フィーバー） ----------
    実作業（入力ブースト）と応援クリックでゲージが貯まり、プレイヤーが任意の
@@ -340,7 +314,9 @@ let prodMuted = false;      /* true の間の produceDP は「入力由来」: �
    ・素の威力は星屑倍率を平方根でだけ受ける（手作業の比重は周回とともに下がり、自動化・経営へ移る）
    どちらも理念書3「労働には対価、ただし全ては代替しない」。連動分があるので終盤でも必ず効く */
 function clickProdMult(){ return dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult(); }
-function clickBaseDP(){ return clickPower() / Math.sqrt(dustMult()) + autoProdEMA * CLINK.linkRate * clickLinkMult() / Math.max(1e-9, clickProdMult()); }
+/* レベルデザイン改修: 時代マイルストーン「シリーズA」（eraDust 400）で応援の連動率が上がる */
+function clickLinkRate(){ return (S.eraDust || 0) >= 400 ? 0.08 : CLINK.linkRate; }
+function clickBaseDP(){ return clickPower() / Math.sqrt(dustMult()) + autoProdEMA * clickLinkRate() * clickLinkMult() / Math.max(1e-9, clickProdMult()); }
 /* 表示用: 倍率込みで実際に進む 1クリックの DP（帯の浮き文字・コンボ表示・パネル） */
 function clickShownDP(){ return clickBaseDP() * clickProdMult(); }
 function clickBucketTake(){
@@ -378,9 +354,14 @@ function activateFever(){
     addStripFloater(stripDeskCX(), STRIP_GROUND - 62, "⚡ FEVER!", "#e2543e");
   save(); renderPanel();
 }
+/* レベルデザイン改修: 経営方針の生産側の倍率（自動ぶんだけに掛かる。入力由来は対象外） */
+function runPolicyProdMult(fromInput){
+  if(fromInput) return 1;
+  return S.runPolicy === "labor" ? 0.8 : S.runPolicy === "auto" ? 1.3 : S.runPolicy === "sell" ? 0.85 : 1;
+}
 function produceDP(amount, _target?){
   const fromInput = prodMuted;
-  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive() * runPolicyProdMult(fromInput);
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
@@ -487,7 +468,6 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps){
   S.totals.releases++; S.today.releases++;
   if(!S.runGenre || typeof S.runGenre !== "object") S.runGenre = {};
   if(p.genre) S.runGenre[p.genre] = (S.runGenre[p.genre] || 0) + 1;   /* 段階5: ジャンル知見の配分 */
-  S.vendorUses = 0;    /* v2.12.1: バグ外注の続け頼みの割増はリリースで戻る */
   trendOnShip();   /* v2.12.1: トレンドは出荷の本数で回る（自社IP は段階1から毎秒のシリーズ売上） */
   lastReleaseInfo = { name: p.name, at: Date.now() };   /* Sprint 4: 帯チップ用 */
   applyShipQuality(p);
@@ -582,7 +562,9 @@ function autoIncomePerSec(){
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
   return r;
 }
-function companyValue(){ return autoIncomePerSec() * 3600; }
+/* レベルデザイン改修: 時代マイルストーン「IPO準備」（eraDust 750）に届いた時代は、
+   企業価値の算定が ×2 になる（売却益と自動昇格の元。表示もこの値で統一） */
+function companyValue(){ return autoIncomePerSec() * 3600 * ((S.eraDust || 0) >= 750 ? 2 : 1); }
 /* イベント報酬: 収入の sec 秒ぶん。従来の式 floor を下回らない */
 function rewardCoins(sec, floor){ return Math.max(floor, Math.round(sec * incomePerSec())); }
 function tickCatalog(){

@@ -59,6 +59,8 @@ function freshState(): GameState {
     /* 第2ウェーブ J 追加分: 第2層プレステージ（星団・レガシー技術・持株化回数・
        その時代の通算星屑）。持株化でのみ増減し、EXIT では消えない */
     legacy:0, legacyTech:{}, holdings:0, eraDust:0,
+    /* レベルデザイン改修 追加分: 売却実績 pt・時代開始時の通算 EXIT 回数・恒久R&D投資・経営方針 */
+    eraExitPts:0, eraStartPrestiges:0, rdInvest:0, runPolicy:null, pendingPolicy:null,
     /* 第2ウェーブ K 追加分: 挑戦中のチャレンジ { id, startLv }（段階6: 開始社格）と、
        獲得済みの永続報酬。報酬層は EXIT でも持株化でも消えない */
     challenge:null, challengeRewards:{},
@@ -310,6 +312,14 @@ function load(rawText?: string){
     if(typeof S.legacy !== "number") S.legacy = 0;
     if(!S.legacyTech || typeof S.legacyTech !== "object") S.legacyTech = {};
     if(typeof S.holdings !== "number") S.holdings = 0;
+    /* レベルデザイン改修: 売却実績 pt の移行。時代の開始点が無い旧セーブは「過去の時代は
+       ちょうど HOLD_EXITS 回で終わった」とみなし、この時代の EXIT 回数を初期 pt にする */
+    if(typeof S.eraStartPrestiges !== "number") S.eraStartPrestiges = (S.holdings || 0) * 12;
+    if(typeof S.eraExitPts !== "number" || !isFinite(S.eraExitPts))
+      S.eraExitPts = Math.max(0, Math.min(12, (S.prestiges || 0) - S.eraStartPrestiges));
+    if(typeof S.rdInvest !== "number" || !isFinite(S.rdInvest) || S.rdInvest < 0) S.rdInvest = 0;
+    if(typeof S.runPolicy !== "string") S.runPolicy = null;
+    if(typeof S.pendingPolicy !== "string") S.pendingPolicy = null;
     /* 第2ウェーブ K: チャレンジ状態の補完（旧セーブは未挑戦・報酬なし） */
     if(S.challenge !== null && (typeof S.challenge !== "object" || !S.challenge.id)) S.challenge = null;
     if(!S.challengeRewards || typeof S.challengeRewards !== "object") S.challengeRewards = {};

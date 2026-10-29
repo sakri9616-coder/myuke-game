@@ -2,7 +2,7 @@
 function buyUpgrade(id){
   const def = UPGRADE_DEFS.find(u=>u.id===id);
   const lv = S.upgrades[id]||0;
-  if(lv >= def.max){ say("もう最大レベルにゃ"); return; }
+  if(lv >= def.max && !def.oc){ say("もう最大レベルにゃ"); return; }   /* oc の設備は Lv100 の先も買える */
   const cost = upgradeCost(def, lv);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; S.upgrades[id] = lv + 1;
@@ -65,7 +65,7 @@ function hireStaff(role, auto?){
 function trainStaff(id){
   const st = S.staff.find(s => s.id === id);
   if(!st) return;
-  if(st.lv >= STAFF_MAX_LV){ say("もう最大レベルにゃ"); return; }
+  /* レベルデザイン改修: 訓練に上限はない（Lv11 以降は効果が逓減し、コストが跳ねる） */
   const cost = trainCost(st);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; st.lv++;
@@ -99,7 +99,7 @@ function promoteRank(){
 function buyEngine(id){
   const def = ENGINE_DEFS.find(u => u.id === id);
   const lv = S.upgrades[id] || 0;
-  if(lv >= def.max){ say("もう最大レベルにゃ"); return; }
+  if(lv >= def.max && !def.oc){ say("もう最大レベルにゃ"); return; }   /* oc の列は Lv100 の先も買える */
   const cost = upgradeCost(def, lv);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost; S.upgrades[id] = lv + 1;

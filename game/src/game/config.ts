@@ -46,26 +46,33 @@ const BAL = {
    ふかふか椅子は見た目の家具（社格で替わる。集中力は総務のお世話係に集約）、ワイドモニターは企画 Lv の上限、
    子ねこボットは上限3を外した */
 const UPGRADE_DEFS = [
-  { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", max:100, ms:true },
+  { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", max:100, ms:true, oc:true },
   { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画を練れる上限 +1 Lv/Lv", max:3 },
   { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"在庫バグを潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", max:100, ms:true },
-  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true },
-  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", max:100, ms:true },
-  { id:"pack",     name:"自働梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true },
-  { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:100, ms:true }
+  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true, oc:true },
+  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", max:100, ms:true, oc:true },
+  { id:"pack",     name:"自働梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true, oc:true },
+  { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:100, ms:true, oc:true }
 ];
-function upgradeCost(def, lv){ return Math.ceil(def.base * Math.pow(1.15, lv)); }
+/* レベルデザイン改修: oc の付いた設備・強化列は Lv100 の先も買える（オーバークロック延長）。
+   Lv100 までは従来の ×1.15、Lv101 以降の価格は Lv100 時点の価格から ×1.35 ずつ跳ね上がる。
+   効果の式は従来どおりで、節目ボーナスだけ Lv100 時点で固定する（upEff） */
+const OC_COST_MUL = 1.35;
+function upgradeCost(def, lv){
+  if(def.oc && lv > 100) return Math.ceil(def.base * Math.pow(1.15, 100) * Math.pow(OC_COST_MUL, lv - 100));
+  return Math.ceil(def.base * Math.pow(1.15, lv));
+}
 /* 再設計 段階4（sakuri 2026-10-27「プレイヤーが各成長要素を選択して自由にビルドできる」）:
    経営方針のプリセットをやめ、収入源ごとに専用の強化の列を置く。どこに積むかで主役が決まる。
    労働＝応援強化（肉球・グローブ）、本社ライン＝設備と開発部、作品棚・営業・子会社＝下の3列。
    レベルは S.upgrades に入り、設備と同じく会社ごと（売却で 0）。価格は設備と同じ 1.15 倍ずつ。
    初期価格は設備の数十倍（安いと張り付きの最初の10分で全部の列が伸び、20分の目安が 6 分に縮んだ・sim） */
 const ENGINE_DEFS = [
-  { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない" },
-  { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, desc:"作品棚とシリーズの売上 +10%/Lv" },
+  { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, oc:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない" },
+  { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, oc:true, desc:"作品棚とシリーズの売上 +10%/Lv" },
   { id:"shelfx", engine:"catalog", name:"棚を広げる",       base:15000,  max:20,  desc:"棚に並ぶ作品 +2本/Lv・売れ続ける時間 +10%/Lv" },
-  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, desc:"依頼達成ボーナス +10%/Lv・大型案件の届く確率 +10%/Lv（上限 50%）" },
-  { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, desc:"子会社の売上 +40%/Lv" }
+  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, oc:true, desc:"依頼達成ボーナス +10%/Lv・大型案件の届く確率 +10%/Lv（上限 50%）" },
+  { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, oc:true, desc:"子会社の売上 +40%/Lv" }
 ];
 function engineLv(id){ return upEff(S.upgrades, id); }
 /* 収入源の名前（内訳の表示と sim の G5 で使う） */
@@ -87,8 +94,10 @@ function milestoneNote(def, lv){
   const b = milestoneBonus(lv), nx = nextMilestone(lv);
   return "<br>" + (b > 0 ? "節目ボーナス +" + b + "Lv分・" : "") + (nx ? "節目 Lv" + nx + " で +" + (nx * MILESTONE_SHARE) + "Lv分" : "全節目達成");
 }
-/* 効果の計算に使う実効レベル（レベル ＋ 節目ボーナス） */
-function upEff(up, id){ const lv = up[id] || 0; return lv + milestoneBonus(lv); }
+/* 効果の計算に使う実効レベル（レベル ＋ 節目ボーナス）。
+   レベルデザイン改修: 節目ボーナスは Lv100 時点で固定する（オーバークロック延長の
+   Lv101 以降は、生 Lv の伸びだけが効く。Lv100 以下では従来と完全に同じ値） */
+function upEff(up, id){ const lv = up[id] || 0; return lv + milestoneBonus(Math.min(lv, 100)); }
 /* 全DP 倍率: どの強化を買っても、ライン全体（実装と全工程）が目に見えて速くなる
    （理念書4「成長をはっきり体感させる」。v2.8.0 で自分の工程だけに絞ったのは、
    詰まっていない工程の強化が何も変えず、買っても手応えがなかったので戻した）。

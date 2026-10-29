@@ -65,16 +65,24 @@ function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
 function planMax(){ return PLAN_MAX + (S.upgrades.monitor || 0); }   /* 段階5: ワイドモニターで企画を練れる上限が伸びる */
 function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < planMax() && dp < p.totalDP * 0.5; }
-function planProject(_which?){
-  const p = S.project, dp = S.projectDP;
-  if(!canPlan(p, dp)){ say("この作品の企画はもう練れないにゃ"); return; }
-  const cost = planCost(p);
-  if(S.ideas < cost){ say("アイデアが足りないにゃ（あと " + Math.ceil(cost - S.ideas) + " 個）"); return; }
-  S.ideas -= cost;
-  p.planLv = planLv(p) + 1;
-  addLog("💡 『" + p.name + "』の企画を練った（企画Lv" + p.planLv + "・価格 ×" + fmtDec(planPriceMult(p), 2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "・オーバークロックの溜まり ×" + fmtDec(ideaChargeMult(), 2) + "）");
-  say("企画を練ったにゃ！ いい作品になりそう");
-  save(); renderPanel();
+/* レベルデザイン改修: 企画を練るは手動ボタンから自動機能になった（sakuri 決定）。
+   ティックごとに、進行中作品が「進捗50%未満 かつ 企画Lv < 上限」の間、アイデアが
+   足りる限り自動で企画Lvを上げる。コストは従来の planCost のまま。アイデアの蓄えで
+   オーバークロックが速く溜まる仕組み（ideaChargeMult）は、自動消費された分だけ
+   所持数が減る形でそのまま残る */
+function autoPlanTick(){
+  const p = S.project;
+  if(!p || !canPlan(p, S.projectDP)) return;
+  let changed = false;
+  while(canPlan(p, S.projectDP)){
+    const cost = planCost(p);
+    if(S.ideas < cost) break;
+    S.ideas -= cost;
+    p.planLv = planLv(p) + 1;
+    changed = true;
+    addLog("💡 『" + p.name + "』の企画を自動で練った（企画Lv" + p.planLv + "・価格 ×" + fmtDec(planPriceMult(p), 2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "）");
+  }
+  if(changed) save();
 }
 /* プロジェクトの着工可否を決める: アイデアが足りれば消費して着工、
    足りなければ planning（企画中）にして、貯まるまで工程に流さない */

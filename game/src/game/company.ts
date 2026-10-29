@@ -33,6 +33,15 @@ function subRates(sub){
 /* 段階6: 配当と再投資。売上のうち配当率ぶんが本社のコインに入り、残りは子会社が自分の人員と規模に
    つぎ込む（複利）。配当を絞るほど今のコインは減り、子会社は速く育つ */
 function subDiv(sub){ return typeof sub.div === "number" ? sub.div : 100; }
+/* レベルデザイン改修: 子会社も本社と同じく「作品を作ってリリースする」会社として見せる。
+   いま作っている作品名は表示専用（経済には影響しない）。リリースのたびに次の作品へ進む */
+function subWorkName(sub){
+  const g = GENRES.find(x => x.id === sub.genre) || GENRES[0];
+  const subj = SUBJECTS[Math.abs(sub.workIdx || 0) % SUBJECTS.length];
+  return subj.name + g.name;
+}
+/* 配当リリースの周期（秒）: 売上が大きい子会社ほど速く回す。20〜90 秒に収める */
+function subReleaseCycle(sub){ return Math.max(20, Math.min(90, Math.round(1800 / Math.max(1, subRates(sub).coins)))); }
 function setSubDiv(id, delta){
   const sub = (S.subs || []).find(s => s.id === id);
   if(!sub) return;
@@ -222,7 +231,9 @@ function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
   /* 段階3: 企業価値の最高値から。段階4: 子会社の売上は企業価値に入っているので、子会社ぶんを別に足さない（内訳の表示用に数える） */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
-  const gain = dustGainFromValue(S.runPeakValue || 0);
+  /* レベルデザイン改修: 経営方針「売却特化」の会社は、EXIT の星屑が ×1.25（最後に掛けて floor。
+     プレビューと実際の獲得量を一致させるため、倍率はここで掛ける） */
+  const gain = Math.floor(dustGainFromValue(S.runPeakValue || 0) * (S.runPolicy === "sell" ? 1.25 : 1));
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ"];
   if((S.subs || []).length) resets.push("子会社");
@@ -341,8 +352,13 @@ function piggyCarry(coins){ return Math.min(Math.floor(coins * 0.1), Math.max(50
    特典による持ち越しは呼び出し側がこの後に上書きする */
 function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
-  S.debt = 0; S.brand = 0; S.vendorReadyAt = 0; S.vendorUses = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
+  S.debt = 0; S.brand = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
+  /* レベルデザイン改修: 時代マイルストーン「シード突破」（eraDust 150）に届いた時代は、
+     新しい会社が設備 Lv10 から始まる（ワイドモニターは企画上限の専用枠なので対象外） */
+  if((S.eraDust || 0) >= 150) for(const id of ["devenv", "duck", "tester", "ci", "pack", "bot"]) S.upgrades[id] = 10;
+  /* レベルデザイン改修: 経営方針は EXIT のたびに消費される。予約していた方針が次の会社に移り、予約は空になる */
+  S.runPolicy = S.pendingPolicy || null; S.pendingPolicy = null;
   S.research = {}; S.runGenre = {};   /* 段階5: ジャンル知見の配分はこの会社の出荷から */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
@@ -391,8 +407,14 @@ function doPrestigeCore(execSel, vetSel, swapSel){
     while(cur){ keptResearch.push(cur.id); cur = cur.requires ? RESEARCH_DEFS.find(r => r.id === cur.requires) : null; }
   }
   convertKnow();   /* 段階5: 余った研究P をジャンル知見に（リセット前） */
+  /* レベルデザイン改修: 売却実績 pt。この EXIT で得た星屑が多いほど pt が増え、
+     時代の通算星屑が条件（1,000）に届いている EXIT には +1pt のボーナスが付く */
+  const eraBefore = S.eraDust || 0;
+  const ptsGain = (gain >= 300 ? 3 : gain >= 100 ? 2 : 1) + (eraBefore >= HOLD_ERA_DUST ? 1 : 0);
+  const newEraPts = eraExitPts() + ptsGain;
   const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
+  S.eraExitPts = newEraPts;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
   resetCompanyRun();
   /* 特典の引き継ぎ: 初期資金・星の貯金箱・研究ノート・ベテラン */
@@ -454,16 +476,32 @@ function legacyGrade(){ return Math.min(3, S.holdings || 0); }
 /* 段階6: 持株化までの長さ。EXIT 5回 → 12回（節目をひと通り開いてから）に加えて、この時代の通算星屑 1,000個。
    インフレ修正（星屑1個ぶんの企業価値が倍率に連動）のあとは、放置 1日3時間で通算星屑 約1,000個が約1週間（sim の参考値） */
 const HOLD_EXITS = 12, HOLD_ERA_DUST = 1000;
+/* レベルデザイン改修: 持株化の「EXIT 12回」は「売却実績 12pt」に変わった。
+   eraExitPts は時代内カウンタ（EXIT で加算・持株化で 0）。旧セーブ移行と直接操作に
+   備え、この時代の EXIT 回数（通算 − 時代開始時の通算、上限 HOLD_EXITS）を下限にする */
+function eraExitCount(){
+  const start = typeof S.eraStartPrestiges === "number" ? S.eraStartPrestiges : (S.holdings || 0) * HOLD_EXITS;
+  return Math.max(0, (S.prestiges || 0) - start);
+}
+function eraExitPts(){
+  const stored = typeof S.eraExitPts === "number" && isFinite(S.eraExitPts) ? S.eraExitPts : 0;
+  return Math.max(stored, Math.min(HOLD_EXITS, eraExitCount()));
+}
+/* レベルデザイン改修: 星団の獲得カーブ。旧: √(eraDust/100)（1,000→3・4,000→6・10,000→10）では
+   次の1個までの距離が遠すぎた。新: 条件の 1,000 で 3 個を保証し、超えた分は 250 個ごとに
+   0.65 乗で伸びる（1,500→4・2,500→6・4,000→8・10,000→13）。初回の持株化だけ +1 個 */
+function clusterGainFor(eraDust){
+  return 3 + Math.floor(Math.pow(Math.max(0, eraDust - HOLD_ERA_DUST) / 250, 0.65)) + ((S.holdings || 0) === 0 ? 1 : 0);
+}
 function holdingsPreview(){
   const cond = {
     lv6: (S.maxStudioLv || 1) >= 6,
     subs: (S.subs || []).length >= 2,
-    exits: (S.prestiges || 0) >= HOLD_EXITS,
+    exits: eraExitPts() >= HOLD_EXITS,
     era: (S.eraDust || 0) >= HOLD_ERA_DUST
   };
-  /* 星団は通算星屑の平方根で（1,000個で3・4,000個で6。÷20 だとレガシー技術が一度に全部買えた） */
   return { cond, can: cond.lv6 && cond.subs && cond.exits && cond.era,
-           gain: Math.max(1, Math.floor(Math.sqrt((S.eraDust || 0) / 100))),
+           gain: clusterGainFor(S.eraDust || 0),
            baseNow: S.dustLegacyMult || 1, baseNext: holdBaseNext() };
 }
 /* 持株の土台（2026-10-28・宇宙編の桁）: 持株化で星屑は畳まれるが、星屑倍率の土台（S.dustLegacyMult）は
@@ -484,6 +522,42 @@ function buyLegacyTech(id){
   say("『"+def.name+"』、取得にゃ！");
   save(); renderPanel();
 }
+/* レベルデザイン改修: 星団の無限シンク「恒久R&D投資」。レガシー技術を全部そろえた
+   あとの星団の使い道。コストは 2, 3, 4… と購入回数で増え、上限なし。
+   効果は production.ts の dustBonusEff が読む（星屑1個 = +50% → +60% → …） */
+function allLegacyOwned(){ return LEGACY_TECHS.every(t => hasLegacyTech(t.id)); }
+function rdInvestCost(){ return 2 + (S.rdInvest || 0); }
+function buyRdInvest(){
+  if(!allLegacyOwned()){ say("レガシー技術を全部そろえると開くにゃ"); return; }
+  const cost = rdInvestCost();
+  if((S.legacy || 0) < cost){ say("星団が足りないにゃ…"); return; }
+  S.legacy -= cost; S.rdInvest = (S.rdInvest || 0) + 1;
+  SoundKit.play("purchase");
+  addLog("🌌 恒久R&D投資 Lv"+S.rdInvest+"（星団-"+cost+"）: 星屑1個の生産ボーナスが +"+Math.round(dustBonusEff()*100)+"%/個 になった");
+  say("恒久R&D投資にゃ！ 星屑の効きが強くなったよ");
+  save(); renderPanel();
+}
+/* レベルデザイン改修: 経営方針（次の会社への特性）。売却パネルで事前に選んでおき、
+   EXIT のたびに消費される。効果の実体は production.ts（生産・売却）／defs.ts（クリック）／
+   tick.ts（入力ブースト）にある */
+const POLICY_DEFS = {
+  labor: { name:"労働特化",   desc:"応援クリック威力と入力ブースト ×2・自動生産 ×0.8" },
+  auto:  { name:"自動化特化", desc:"自動生産 ×1.3・応援クリック威力 ×0.7" },
+  sell:  { name:"売却特化",   desc:"EXIT の獲得星屑 ×1.25・生産 ×0.85" }
+};
+function setRunPolicy(p){
+  S.pendingPolicy = (p && POLICY_DEFS[p]) ? p : null;
+  if(S.pendingPolicy) addLog("🧭 次の会社の経営方針を「"+POLICY_DEFS[S.pendingPolicy].name+"」に予約した");
+  save(); renderPanel();
+}
+/* レベルデザイン改修: 時代マイルストーン（eraDust で進む・その時代の間ずっと有効）。
+   効果の実体: 150 = resetCompanyRun の開始設備 Lv10／400 = production.ts の clickLinkRate／
+   750 = production.ts の companyValue ×2 */
+const ERA_MILESTONES = [
+  { at: 150, name: "シード突破", desc: "新しい会社が設備 Lv10 から始まる" },
+  { at: 400, name: "シリーズA", desc: "応援クリックの自動生産連動が 5% → 8%" },
+  { at: 750, name: "IPO準備", desc: "企業価値の算定 ×2" }
+];
 /* 確認なしの本体（doPrestigeCore と同じ分担: 確認は帯側のラッパーと
    viewer スタブ側。帯で confirm を出すと全体が固まる） */
 function doHoldingsCore(){
@@ -494,6 +568,7 @@ function doHoldingsCore(){
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
   S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = base; S.dustLegacyBase = 0;   /* 持株の土台は残る */
+  S.eraExitPts = 0; S.eraStartPrestiges = S.prestiges || 0;   /* レベルデザイン改修: 売却実績は新しい時代で 0 から */
   S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
   convertKnow();   /* 段階5: ジャンル知見は持株化でも残る（余った研究P も知見に） */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */

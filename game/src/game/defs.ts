@@ -55,14 +55,18 @@ function staffCap(){
 }
 const STUDIO_COSTS = [0, 400, 1200, 3600, 7200, 18000];
 function studioCost(lv){ return STUDIO_COSTS[lv]; }  // 段階3 からは使わない（社格は企業価値で自動昇格）。旧版の表示と sim の比較用に残す
-function staffMult(st){ return 1 + 0.25 * (st.lv - 1); }
+/* レベルデザイン改修: 訓練は Lv10 の先も続けられる（実質無限）。出力は Lv11 以降
+   +0.10/Lv に逓減し、コストは Lv11 以降さらに ×1.35^(Lv−10) が上乗せされる */
+function staffMult(st){ return 1 + 0.25 * Math.min(st.lv - 1, 9) + 0.10 * Math.max(0, st.lv - 10); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;
   return Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, n));
 }
 function trainCost(st){
   /* Sprint 4: 終盤の育成コストを緩和（1.45 → 1.35 乗）(C2-P1-4) */
-  return Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));
+  let c = STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1);
+  if(st.lv > STAFF_MAX_LV) c *= Math.pow(1.35, st.lv - STAFF_MAX_LV);   /* レベルデザイン改修: Lv11 以降の追加曲線 */
+  return Math.ceil(c);
 }
 /* Sprint 4: 熟練ボーナス（Lv5 で +15%、Lv10 で +30%）。育成の終着点を作る */
 function staffOutMult(st){
@@ -91,7 +95,10 @@ const DEPTS = {
 const DEPT_MAX_LV = 10;
 function freshDepts(){ return { prog:1, test:1, carry:1, research:1, care:1, sales:1, cheer:1 }; }
 function deptLv(role){ return (S.depts && S.depts[role]) || 1; }
-function deptMult(role){ return 1 + 0.15 * (deptLv(role) - 1); }
+/* レベルデザイン改修: 部署も Lv10 の先まで上げられる。倍率は Lv11 以降 +0.05/Lv に逓減
+   （コスト式 ×2^Lv はそのまま延長するので、自然に壁になる） */
+function deptMultForLv(lv){ return 1 + 0.15 * Math.min(lv - 1, 9) + 0.05 * Math.max(0, lv - 10); }
+function deptMult(role){ return deptMultForLv(deptLv(role)); }
 function deptCost(role){ return Math.ceil(300 * Math.pow(2, deptLv(role) - 1)); }
 function deptChief(role){
   let best = null;
@@ -100,7 +107,6 @@ function deptChief(role){
 }
 function buyDept(role){
   if(!S.depts) S.depts = freshDepts();
-  if(deptLv(role) >= DEPT_MAX_LV){ say("その部署はもう最大レベルにゃ"); return; }
   const cost = deptCost(role);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost;
@@ -137,7 +143,7 @@ function deptDelegateTick(){
   }
   for(const role of Object.keys(DEPTS)){
     if(delegated(role, 6)){
-      const cand = S.staff.filter(s => s.role === role && s.lv < STAFF_MAX_LV).sort((a, b) => a.lv - b.lv)[0];
+      const cand = S.staff.filter(s => s.role === role).sort((a, b) => a.lv - b.lv)[0];   /* レベルデザイン改修: 訓練は無限になったので最も低い猫を育て続ける */
       if(cand){
         const c = trainCost(cand);
         if(c <= S.coins * 0.5){ S.coins -= c; cand.lv++; addLog("🎓 " + DEPTS[role].name + "の部長が " + cand.name + " を Lv" + cand.lv + " に育てた（-" + fmt(c) + "🪙）"); }
@@ -153,7 +159,7 @@ function deptDelegateTick(){
   }
   if(exitMs("autoDept")){
     let best = null, bc = Infinity;
-    for(const role of Object.keys(DEPTS)) if(deptLv(role) < DEPT_MAX_LV && !roleLocked(role) && deptCost(role) < bc){ bc = deptCost(role); best = role; }
+    for(const role of Object.keys(DEPTS)) if(deptLv(role) <= DEPT_MAX_LV && !roleLocked(role) && deptCost(role) < bc){ bc = deptCost(role); best = role; }   /* 自動 Lv.up は従来の上限（Lv10→11）まで。先は手動で */
     if(best && bc <= S.coins * 0.5){ if(!S.depts) S.depts = freshDepts(); S.coins -= bc; S.depts[best] = deptLv(best) + 1; }
   }
 }
@@ -195,10 +201,11 @@ function buyTreat(id){
   addLog("🎁 " + def.name.replace("🎁 ","") + "を買った（-" + fmt(cost) + "🪙）");
   save(); renderPanel();
 }
-/* Sprint 4: 全員まとめて +1Lv（全額払える時だけ・中途半端な適用はしない） */
+/* Sprint 4: 全員まとめて +1Lv（全額払える時だけ・中途半端な適用はしない）。
+   レベルデザイン改修: 訓練は無限になったので、全員が常に対象 */
 function buyBulkTrain(){
-  const targets = S.staff.filter(s => (s.lv || 1) < STAFF_MAX_LV);
-  if(!targets.length){ say("みんな最大レベルにゃ"); return; }
+  const targets = S.staff.slice();
+  if(!targets.length){ say("まだスタッフがいないにゃ"); return; }
   const total = targets.reduce((a, s) => a + trainCost(s), 0);
   if(S.coins < total){ say("全員分にはコインが足りないにゃ（あと " + fmt(total - S.coins) + "🪙）"); return; }
   S.coins -= total;
@@ -261,9 +268,11 @@ const CLICK_DEFS = [
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
 function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }
 const CLICK_POWER_BASE = 0.25;   /* てぶくろ Lv0 の威力（持ち場の手助けで「威力の倍率」を測る基準） */
+/* レベルデザイン改修: 経営方針のクリック側の倍率（労働特化 ×2／自動化特化 ×0.7） */
+function runPolicyClickMult(){ return S.runPolicy === "labor" ? 2 : S.runPolicy === "auto" ? 0.7 : 1; }
 function clickPower(){
   const base = CLICK_POWER_BASE + 0.18*upEff(S.clickUp, "glove");
-  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult() * branchMult("b_labor");   /* 星屑特典「集中ブースト」＋ご褒美バフ＋段階6の枝「星の肉球」 */
+  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult() * branchMult("b_labor") * runPolicyClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ＋段階6の枝「星の肉球」＋経営方針 */
 }
 function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.quality||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0
 function critRate(){ return 0.08 + 0.01*(S.clickUp.quality||0); }
@@ -396,7 +405,6 @@ const STAMP_DEFS = [
   { id:"swarm1",       name:"バグ全滅",         hint:"バグ大量発生を全部叩く", test:s=>(s.totals.swarms||0)>=1 },
   { id:"releases100",  name:"100作品リリース",  test:s=>s.totals.releases>=100, prog:s=>[s.totals.releases,100] },
   { id:"deathmarch",   name:"デスマーチ",       hint:"未完のまま出荷する（負債で払う）", test:s=>(s.totals.deathMarches||0)>=1 },
-  { id:"vendor",       name:"外注ベンダー",     hint:"バグを外注で一掃する", test:s=>(s.totals.vendors||0)>=1 },
   { id:"brand100",     name:"評判の会社",       hint:"品質の良い作品を出し続ける", test:s=>(s.brand||0)>=100, prog:s=>[Math.floor(s.brand||0),100] },
   { id:"layout",       name:"模様替え",         hint:"帯の ✥ 並べ替えで家具を動かす", test:s=>Object.keys(s.layout||{}).length+Object.keys(s.layoutProps||{}).length>=1 },
   { id:"bulk10",       name:"まとめ買い",       hint:"「最大」や長押しで10個以上まとめて買う", test:s=>s.flags.bulkBuy===true },
@@ -487,7 +495,6 @@ const SKITS: SkitDef[] = [
 const STAMP_CHAT_LINES: [string, string][] = [
   ["first_hire", "社長、最初は１ひきだったってほんと？"],
   ["deathmarch", "もう椅子で寝るのは嫌だにゃー"],
-  ["vendor", "溜めすぎたバグは専門のねこに任せるにゃ"],
   ["ip1", "ファンレターが来てたにゃ！"],
   ["rank6", "おっきい建物で、走り放題にゃ！"],
   ["prestige1", "前の会社の話、社長はあんまりしないにゃ"],
