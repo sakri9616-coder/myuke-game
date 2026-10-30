@@ -355,7 +355,7 @@ function nextExitMs(){ return EXIT_MILESTONES.find(m => (S.prestiges || 0) < m.n
 function startRank(){ return exitMs("start3") ? 3 : exitMs("start2") ? 2 : 1; }
 function exitMsHTML(){
   const nx = nextExitMs();   /* 再設計 C1: 次の節目までの残量（あと◯回）を最初の未達に付ける */
-  return "<div class='note' style='margin-top:4px'>🎖 EXIT の節目: " + EXIT_MILESTONES.map(m =>
+  return "<div class='note' style='margin-top:4px'>🎖 売却実績の節目: " + EXIT_MILESTONES.map(m =>
     ((S.prestiges || 0) >= m.n ? "✅" : "○") + m.n + "回 " + m.name + (nx && m === nx ? "（あと " + (m.n - (S.prestiges || 0)) + " 回）" : "")).join(" ／ ") + "</div>";
 }
 /* 段階6: 固定額だった持ち越しを、前の会社の自動収入の N 分ぶんにした（桁が上がっても効き目が残る） */
