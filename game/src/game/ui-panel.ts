@@ -678,7 +678,7 @@ function renderPanelInto(el){
           kv("条件: 最高到達社格", rankName(S.maxStudioLv || S.studioLv) + (hp.cond.lv6 ? " ✅" : "（大企業が目標）")) +
           kv("条件: 子会社", ((S.subs || []).length) + " / 2 社" + (hp.cond.subs ? " ✅" : "")) +
           kv("条件: 売却実績", eraExitPts() + " / " + HOLD_EXITS + " pt" + (hp.cond.exits ? " ✅" : "（EXIT 1回 = 1pt・星屑100個以上の売却 = 2pt・300個以上 = 3pt・通算星屑が条件に届いたあとは +1pt）")) +
-          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は 1,000 個で 3 個、粘るほど 0.65 乗で増えます）")) +
+          kv("条件: この時代の通算星屑", fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個" + (hp.cond.era ? " ✅" : "（星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど 0.65 乗で増えます）")) +
           kv("時代マイルストーン", ERA_MILESTONES.map(m => ((S.eraDust || 0) >= m.at ? "✅ " : "○ ") + m.at + " " + m.name + "（" + m.desc + "）").join("<br>")) +
           kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)));
       }
