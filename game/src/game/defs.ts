@@ -55,18 +55,18 @@ function staffCap(){
 }
 const STUDIO_COSTS = [0, 400, 1200, 3600, 7200, 18000];
 function studioCost(lv){ return STUDIO_COSTS[lv]; }  // 段階3 からは使わない（社格は企業価値で自動昇格）。旧版の表示と sim の比較用に残す
-/* レベルデザイン改修: 訓練は Lv10 の先も続けられる（実質無限）。出力は Lv11 以降
-   +0.10/Lv に逓減し、コストは Lv11 以降さらに ×1.35^(Lv−10) が上乗せされる */
+/* レベルデザイン改修→再設計 A3（形Y）: 訓練は Lv10 の先も続けられる（実質無限）。出力は Lv11 以降
+   +0.10/Lv に逓減するが、コストは全域で一本（基礎 × 0.9 × 1.35^(Lv−1)）— A3 で
+   Lv11 以降の追加曲線（×1.35^(Lv−10) の上乗せ）を廃止した */
 function staffMult(st){ return 1 + 0.25 * Math.min(st.lv - 1, 9) + 0.10 * Math.max(0, st.lv - 10); }
 function hireCost(role){
   const n = S.staff.filter(s => s.role === role).length;
   return Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, n));
 }
 function trainCost(st){
-  /* Sprint 4: 終盤の育成コストを緩和（1.45 → 1.35 乗）(C2-P1-4) */
-  let c = STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1);
-  if(st.lv > STAFF_MAX_LV) c *= Math.pow(1.35, st.lv - STAFF_MAX_LV);   /* レベルデザイン改修: Lv11 以降の追加曲線 */
-  return Math.ceil(c);
+  /* Sprint 4: 終盤の育成コストを緩和（1.45 → 1.35 乗）(C2-P1-4)。
+     再設計 A3（形Y）: Lv11 以降の追加曲線は廃止し、全域でこの一本に統一 */
+  return Math.ceil(STAFF_ROLES[st.role].base * 0.9 * Math.pow(1.35, st.lv - 1));
 }
 /* Sprint 4: 熟練ボーナス（Lv5 で +15%、Lv10 で +30%）。育成の終着点を作る */
 function staffOutMult(st){
@@ -95,11 +95,16 @@ const DEPTS = {
 const DEPT_MAX_LV = 10;
 function freshDepts(){ return { prog:1, test:1, carry:1, research:1, care:1, sales:1, cheer:1 }; }
 function deptLv(role){ return (S.depts && S.depts[role]) || 1; }
-/* レベルデザイン改修: 部署も Lv10 の先まで上げられる。倍率は Lv11 以降 +0.05/Lv に逓減
-   （コスト式 ×2^Lv はそのまま延長するので、自然に壁になる） */
+/* レベルデザイン改修→再設計 A3（形Y）: 部署も Lv10 の先まで上げられる。倍率は Lv11 以降
+   +0.05/Lv に逓減（効果側は据え置き）。コストは Lv10 まで ×2 乗、以降は 1.35 乗に
+   切り替わる（deptCost）— ×2 のまま延長していた旧形の壁をなくした */
 function deptMultForLv(lv){ return 1 + 0.15 * Math.min(lv - 1, 9) + 0.05 * Math.max(0, lv - 10); }
 function deptMult(role){ return deptMultForLv(deptLv(role)); }
-function deptCost(role){ return Math.ceil(300 * Math.pow(2, deptLv(role) - 1)); }
+function deptCost(role){
+  const lv = deptLv(role);
+  /* 再設計 A3（形Y）: Lv10 までは現行どおり 300 × 2^(Lv−1)、先は 300 × 2^9 × 1.35^(Lv−10)（Lv10 で連続） */
+  return Math.ceil(lv <= 10 ? 300 * Math.pow(2, lv - 1) : 300 * Math.pow(2, 9) * Math.pow(1.35, lv - 10));
+}
 function deptChief(role){
   let best = null;
   for(const st of S.staff) if(st.role === role && (!best || st.lv > best.lv)) best = st;
