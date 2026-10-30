@@ -488,11 +488,17 @@ function eraExitPts(){
   const stored = typeof S.eraExitPts === "number" && isFinite(S.eraExitPts) ? S.eraExitPts : 0;
   return Math.max(stored, Math.min(HOLD_EXITS, eraExitCount()));
 }
-/* レベルデザイン改修: 星団の獲得カーブ。旧: √(eraDust/100)（1,000→3・4,000→6・10,000→10）では
-   次の1個までの距離が遠すぎた。新: 条件の 1,000 で 3 個を保証し、超えた分は 250 個ごとに
-   0.65 乗で伸びる（1,500→4・2,500→6・4,000→8・10,000→13）。初回の持株化だけ +1 個 */
+/* 再設計 A1（leveldesign-r3 確定形）: 星団の獲得は階段表。条件の 1,000 で 3 個を保証し、
+   eraDust が閾値を1つ越えるごとに +1（段の幅は緩やかに広がる: 250→2,300）。9,500 超では
+   増えず 11 個で頭打ち（旧 0.65 乗式は無制限に伸びた。極端に長い時代ほど保守側にずれる
+   のが確定形で、R&D 加速を抑える方向）。閾値ちょうどの獲得数は旧式と一致する
+   （1,250→4・1,750→5・2,400→6・3,200→7・4,200→8・5,500→9・7,200→10・9,500→11）。
+   初回の持株化だけ +1 個 */
+const CLUSTER_STEPS = [1250, 1750, 2400, 3200, 4200, 5500, 7200, 9500];
 function clusterGainFor(eraDust){
-  return 3 + Math.floor(Math.pow(Math.max(0, eraDust - HOLD_ERA_DUST) / 250, 0.65)) + ((S.holdings || 0) === 0 ? 1 : 0);
+  let n = 0;
+  for(const t of CLUSTER_STEPS) if(eraDust >= t) n++;
+  return 3 + n + ((S.holdings || 0) === 0 ? 1 : 0);
 }
 function holdingsPreview(){
   const cond = {

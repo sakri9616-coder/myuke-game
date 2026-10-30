@@ -678,7 +678,7 @@ function renderPanelInto(el){
           kv("最高到達社格", hp.cond.lv6 ? rankName(S.maxStudioLv || S.studioLv) + " ✅" : "あと " + (6 - (S.maxStudioLv || S.studioLv || 1)) + " 段階で大企業（現在 " + rankName(S.maxStudioLv || S.studioLv) + "）") +
           kv("子会社", hp.cond.subs ? ((S.subs || []).length) + " / 2 社 ✅" : "あと " + (2 - (S.subs || []).length) + " 社（現在 " + (S.subs || []).length + " / 2 社）") +
           kv("売却実績", hp.cond.exits ? "🎖 " + eraExitPts() + " / " + HOLD_EXITS + " ✅" : "あと " + (HOLD_EXITS - eraExitPts()) + "（現在 🎖 " + eraExitPts() + " / " + HOLD_EXITS + "・EXIT 1回で +1・星屑100個以上の売却で +2・300個以上で +3・この時代の通算星屑が条件に届いたあとの EXIT は +1）") +
-          kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど 0.65 乗で増えます）") +
+          kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど階段で増えます）") +
           kv("時代のしるし", ERA_MILESTONES.map(m => ((S.eraDust || 0) >= m.at ? "✅ " : "○ ") + m.desc + "（" + m.name + "）").join("<br>")) +
           kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)));
       }
