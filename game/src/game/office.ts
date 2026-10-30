@@ -291,8 +291,11 @@ function stripMemoText(){
   /* 再設計 B9（ux-r3 §2.7）: 目的が無い時間帯は、直近の報告と遠景を持株化までの距離で交互に出す */
   const far = holdingsFarText();
   const rep = lastReportText && Date.now() - lastReportAt < 1800000 ? "✉ " + lastReportText : "";
-  if(rep && far) return Math.floor(Date.now() / 20000) % 2 ? far : rep;
-  return rep || far || "";
+  /* 再設計 B11（designer-r3 §3.3）: 蓄積中の届け方 — 向こうの制作中を低頻度でローテーションに加える */
+  const subTxt = (S.subs || []).length ? "向こうでは『" + subWorkName(S.subs[0]) + "』を制作中です。" : "";
+  const slots = [rep, far, subTxt].filter(x => x);
+  if(slots.length) return slots[Math.floor(Date.now() / 20000) % slots.length];
+  return "";
 }
 /* 遠景: 持株化までの距離（未達の条件だけを短く）。持株化のあとは次の星団までの距離 */
 function holdingsFarText(){

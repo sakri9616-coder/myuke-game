@@ -509,8 +509,10 @@ function renderPanelInto(el){
           "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 子会社だけ売却で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + fmtDec(subFocus(sub), 2) + "）" +
           (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div>" +
-          "<div class='ds'>配当率 <b>" + subDiv(sub) + "%</b>（作品のリリースごとにまとめて本社へ・蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙／目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分・残りは人員と規模に再投資）" +
-          " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div></div></div>" +
+          "<div class='ds'>配当率 <b>" + subDiv(sub) + "%</b>（作品のリリースごとにまとめて本社へ）" +
+          " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div>" +
+          "<div class='ds'>蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙 ・ 目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分</div>" +
+          "<div class='ds'>残りは人員と規模に再投資</div></div></div>" +
           "<div class='item buy slim'><div><span class='nm'>人員を増やす</span><div class='ds'>人は抽象的に数える（帯には出ない）</div></div><span>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ") +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") +

@@ -130,7 +130,7 @@ interface GameState {
   project: Project | null; projectDP: number; commitMark: number;
   activeRequest: WorkRequest | null; requests: WorkRequest[]; nextRequestGenre: string | null; bigDrawStreak: number;
   depts: Record<string, number>; bigDeal: WorkRequest | null; reqGenrePref: string | null; salesRot: number; reqHoldUntil: number;
-  subs: Subsidiary[]; subSeq: number;
+  subs: Subsidiary[]; subSeq: number; annexStage?: number;   // 再設計 B11: 別館看板の到達した最高段階（周回内ラッチ。EXIT で 0）
   fever: { gauge: number; [k: string]: any };
   debt: number; brand: number; vendorReadyAt: number; vendorUses?: number;   // バグ外注はレベルデザイン改修で廃止（旧セーブの値は読み捨てる）
   shelf: ShelfEntry[]; recentNames: string[];

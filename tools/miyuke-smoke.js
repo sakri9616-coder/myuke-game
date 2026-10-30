@@ -264,6 +264,25 @@ console.log("== 5. prestige ==");
     sold >= 135 && sold <= 150 && run(sb, "S.catalog.length") === 0);   /* 再設計 B4: life 4.25 で 6000×4.25/30/60×10秒 = 141.7（初作なので間隔係数1） */
 }
 {
+  /* 再設計 B11: 別館看板の段階はグループ総勢で駆動し、周回内ラッチし、EXIT でリセットされる。
+     配当の文型は子会社名から始まる「リリースされました——配当が届きました」形 */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true;");
+  run(sb, "S.subs = [{ id: 1, name: 'テスト工房', genre: 'app', staff: 24, lv: 1, alloc: 0 }]; S.annexStage = 0;");
+  const st1 = run(sb, "annexStageNow()");
+  run(sb, "S.subs[0].staff = 25; annexStageTick();");
+  const st2 = run(sb, "annexStage()"), announced = run(sb, "S.log[0].text");
+  run(sb, "S.subs[0].staff = 10;");
+  const latched = run(sb, "annexStage()");
+  run(sb, "S.subs[0].divAcc = 500; S.subs[0].divClock = 0; S.subs[0].divCycle = 1; tick();");
+  const divLog = run(sb, "S.log.find(l => l.text.includes('配当') && l.text.includes('届きました'))");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  const reset = run(sb, "(S.annexStage || 0)") === 0;
+  check("annex sign stages follow group headcount with a run latch, dividends use the arrival wording, stage resets at EXIT (B11)",
+    st1 === 1 && st2 === 2 && announced.includes("別館の看板が大きくなりました") && latched === 2 && !!divLog && divLog.text.startsWith("🏢 『テスト工房』") && reset);
+}
+{
   /* 再設計 C1 #12 改訂形: プロジェクトカードに「次の仕事の桁 ×N」の予告が出る（帯の現行作品の行には出ない） */
   const sb = buildSandbox();
   loadGame(sb);

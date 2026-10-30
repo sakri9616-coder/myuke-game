@@ -226,6 +226,7 @@ function staffCheerTick(cheersPerSec){
 let comboN = 0, lastClickAt = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
 let boardArriveFlashUntil = 0;   /* 再設計 B8: 運搬の到達の光を出す期限 (ms)。strip-board が読む */
+let annexArriveFlashUntil = 0;   /* 再設計 B11: 配当の到着で別館看板の明かりが明るくなる期限 (ms) */
 function comboMult(){
   return 1 + Math.min(comboCapBonus(), comboN * 0.10);
 }

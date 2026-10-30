@@ -64,6 +64,27 @@ function subReinvest(sub, coins){
    旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
 function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / dustValueUnit()); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
+/* 再設計 B11（leveldesign-r4-sign が正本）: 別館看板の成長段階はグループ総勢の単一指標で駆動する。
+   段階1 = 設立そのもの／25人→2／60人→3／120人→4。段階は周回内ラッチ（下がらない）。
+   駆動元は旧 legacyGrade >= 2 からここへ移した（金の看板に二つの意味を持たせない） */
+const ANNEX_STAGE_STEPS = [25, 60, 120];
+function annexStageNow(){
+  if(!(S.subs || []).length) return 0;
+  const tot = subsTotalStaff();
+  if(tot >= 120) return 4;
+  if(tot >= 60) return 3;
+  if(tot >= 25) return 2;
+  return 1;
+}
+function annexStage(){ return Math.max(annexStageNow(), S.annexStage || 0); }
+/* 毎秒ティックから: 段階が上がった瞬間だけ1回告知する（designer-r3 §3.2 の文案） */
+function annexStageTick(){
+  const now = annexStageNow();
+  if(now > (S.annexStage || 0)){
+    S.annexStage = now;
+    if(now >= 2){ addLog("🏢 別館の看板が大きくなりました——向こうも育っています。"); reportNote("別館の看板が大きくなりました——向こうも育っています。"); }
+  }
+}
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
 function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit()); }
 function subHeadCost(sub){ return Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff) * subUnit()); }
@@ -97,6 +118,8 @@ function foundSub(genreId){
   normalizeAlloc();
   SoundKit.play("purchase");
   addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
+  /* 再設計 B11（designer-r3 §3.2）: 新しい別館の告知は1回だけ */
+  addLog("🏢 新しい別館ができました。隣の明かりが、また一つ増えました。");
   say("子会社「"+name+"」ができたにゃ！ グループ経営のはじまりだね");
   save(); renderPanel();
 }
@@ -381,6 +404,7 @@ function resetCompanyRun(){
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
   S.ips = [];   /* 第2ウェーブ L: 自社IP は会社の資産 — 売却・持株化で消える */
   S.catalog = [];   /* 再設計 段階1: 作品棚の売上も会社の資産 */
+  S.annexStage = 0;   /* 再設計 B11: 看板の段階も会社と一緒にリセット（次周回は段階1から） */
   lastCatalogAtSec = -1;   /* 再設計 B4: 間隔係数の起点も会社と一緒にリセット（次の会社は最初の1本から） */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */

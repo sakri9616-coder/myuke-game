@@ -31,7 +31,7 @@ function freshState(): GameState {
     project:null, projectDP:0, commitMark:0,
     activeRequest:null, requests:[], nextRequestGenre:null, bigDrawStreak:0,
     depts:{ prog:1, test:1, carry:1, research:1, care:1, sales:1, cheer:1 }, bigDeal:null, reqGenrePref:null, salesRot:0, reqHoldUntil:0,
-    subs: [], subSeq: 0,
+    subs: [], subSeq: 0, annexStage: 0,   /* 再設計 B11: 別館看板の到達段階 */
     fever: { gauge: 0 },
     debt: 0, brand: 0, vendorReadyAt: 0,
     shelf:[], recentNames:[],
@@ -271,6 +271,7 @@ function load(rawText?: string){
     if(typeof S.reqHoldUntil !== "number") S.reqHoldUntil = 0;
     /* Phase D: 子会社（旧セーブには無い）。配分は読み込み時に合計100%へ正規化 */
     if(!Array.isArray(S.subs)) S.subs = [];
+    if(typeof S.annexStage !== "number") S.annexStage = 0;   /* 再設計 B11: 旧セーブのガード */
     if(typeof S.subSeq !== "number") S.subSeq = S.subs.length;
     for(const sub of S.subs){
       if(typeof sub.staff !== "number") sub.staff = 5;

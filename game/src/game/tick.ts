@@ -68,6 +68,7 @@ function tick(){
   if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
   if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
   deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
+  annexStageTick();   /* 再設計 B11: 別館看板の段階上昇の告知 */
   /* Phase D: 子会社の受動収益。DP は工程に乗る。
      レベルデザイン改修: 配当は連続ドリップをやめ、子会社ごとに「作品のリリース」単位で
      まとめて本社へ入る（売上レートと companyValue の算定は従来どおり連続のまま）。
@@ -89,7 +90,15 @@ function tick(){
           if(amt >= 1){
             sub.divAcc -= amt; sub.divClock = 0; sub.divCycle = subReleaseCycle(sub);
             S.coins += amt; S.totals.coinsEarned += amt;
-            addLog("🏢 " + sub.name + " が『" + subWorkName(sub) + "』をリリース！ 配当 +" + fmt(amt) + "🪙");
+            /* 再設計 B11（designer-r3 §3.3）: 配当は「滴り」ではなく「到着」。文頭は必ず子会社名から始め、
+               本社のリリース文と文型を揃える（同じ文法の並列会社）。吹き出しは使わない（到着物である） */
+            const dwName = subWorkName(sub);
+            addLog("🏢 『" + sub.name + "』の『" + dwName + "』がリリースされました——配当 +" + fmt(amt) + "🪙 が届きました。");
+            reportNote("『" + sub.name + "』の『" + dwName + "』がリリースされました——配当が届きました。");
+            /* 到着の拍: 看板の明かりが一度明るくなり（A4 の差分が来るまでの UI の灯り）、看板位置に金額のポップが出る */
+            annexArriveFlashUntil = Date.now() + 1200;
+            if(document.body.classList.contains("strip"))
+              addStripFloater(stripShipX() - 42 + 17, STRIP_GROUND - 52, "+" + fmt(amt) + "🪙 配当", "#d9a514");
             sub.workIdx = (sub.workIdx || 0) + 1;   /* 次の作品へ */
           }
         }

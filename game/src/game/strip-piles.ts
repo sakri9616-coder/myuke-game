@@ -115,8 +115,20 @@ function drawStripPiles(){
   if(S.subs && S.subs.length){
     /* 看板の板の部分だけ (ビルド室の上に重なって描かれるので、板を押したら持ち場より看板を優先) → 子会社タブ */
     stripHitRects.annex = { x: dx - 59, y: G - 44, w: 34, h: 22 };
-    if(legacyGrade() >= 2 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
-    else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, 1);
+    /* 再設計 B11: 看板は子会社の段階（総勢ラッチ）で育つ。旧 legacyGrade >= 2 の金の切り替えは廃止した。
+       A1 の中間2枚が来るまでは、段階2・3は木の看板を少しずつ大きくして育ちを読ませる（既存スプライトの拡縮のみ）。
+       段階4だけが金の縁（金の看板に二つの意味を持たせない） */
+    const ast = annexStage();
+    if(ast >= 4 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
+    else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, ast >= 3 ? 1.3 : ast >= 2 ? 1.15 : 1);
+    /* 看板の明かり（A4 の差分が来るまでの UI の灯り）: 別館がある間は小さく灯り、配当の到着で一度明るくなる */
+    {
+      const lit = Date.now() < annexArriveFlashUntil;
+      sctx.save();
+      sctx.fillStyle = lit ? "rgba(255, 205, 74, 0.9)" : "rgba(255, 205, 74, 0.45)";
+      sctx.beginPath(); sctx.arc(dx - 42 + 17, G - 46, lit ? 4.2 : 2.6, 0, Math.PI * 2); sctx.fill();
+      sctx.restore();
+    }
   }
   if(jam.build) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
   for(let i = 0; i < m.build.n; i++){
