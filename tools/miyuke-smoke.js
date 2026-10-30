@@ -264,6 +264,15 @@ console.log("== 5. prestige ==");
     sold >= 135 && sold <= 150 && run(sb, "S.catalog.length") === 0);   /* 再設計 B4: life 4.25 で 6000×4.25/30/60×10秒 = 141.7（初作なので間隔係数1） */
 }
 {
+  /* 再設計 C1 #12 改訂形: プロジェクトカードに「次の仕事の桁 ×N」の予告が出る（帯の現行作品の行には出ない） */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true; startProject('M'); renderPanel();");
+  const html = run(sb, "document.getElementById('panel').innerHTML");
+  check("next work scale preview is shown in the project card (C1 #12 revised)",
+    html.includes("次の仕事の桁: ×") && !html.includes("次の階段まで"));
+}
+{
   /* 再設計 C8: EXIT の履歴が残り、時代単位の収入累計は会社リセットを生き残る（B13 の材料） */
   const sb = buildSandbox();
   loadGame(sb);

@@ -329,6 +329,11 @@ function renderPanelInto(el){
             ? "<span class='vchip'>🏷 自社IPねらい：出荷時のバグ <b>" + bugsNow + "</b> 匹" + (bugsNow > 0 ? "（0にしないと価格 ×" + IP_FAIL_MULT + "）" : "（成立ライン）") + "</span>"
             : "<button onclick='designateIP(\"l1\")' title='バグを0にして出荷できる見込みがあり、しばらく売却しないなら得。バグが残ると損、IPは売却で消える'>🏷 自社IPを狙う（大作化：必要DP ×" + IP_SIZE_MULT + "・バグ0出荷で生涯 約×2.3／バグが残ると価格 ×" + IP_FAIL_MULT + "）</button>") + "</div>";
         }
+        /* 再設計 C1 #12 改訂形（leveldesign-r4-keta）: 「次の仕事の桁 ×N」の予告。
+           genProject が着工時に workScaleFor(effThroughput()) で決める値そのものなので表示が嘘にならない。
+           帯の現行作品の行には置かない（現行作品の桁は着工時に固定で変わらないため、隣の残量表示は誤解を招く）。
+           ここは「次」の文脈として明示し、現行作品の桁（ジャンルピルの ×scale）とは行を分ける */
+        h += "<div style='margin-top:7px'><span class='vchip'>📐 次の仕事の桁: ×" + workScaleFor(effThroughput()) + "（次に着工する作品に付きます）</span></div>";
         /* Wave H: モジュール（L 作品のみ） */
         if(p.modules){
           h += "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
