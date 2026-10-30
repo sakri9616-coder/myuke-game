@@ -239,7 +239,7 @@ function updateComboUI(){
       fmtClickDP(clickShownDP() * comboMult() * heatMult()) + "DP";
   } else {
     el.textContent = "👆 帯のみゅけをクリックで応援！ 1クリック +" + fmtClickDP(clickShownDP()) +
-      "DP（連続でコンボ、たまにクリティカル×10）";
+      "DP（連続でコンボ、たまに会心×10）";
   }
 }
 /* 工程の持ち場の手助け（v2.12.1 → 2026-10-27 作り直し）。sakuri「企画実装テストビルド出荷に個別のグラフィック
@@ -330,7 +330,7 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
     }
     if(crit){
       addFloater(bx, by - 12, "CRITICAL! +" + fmtDec(gain, 0) + "DP", "#d9534f");
-      say("クリティカル応援！！ すごいパワーだにゃ！");
+      say("会心応援！！ すごいパワーだにゃ！");
     }
   }
   clickSynergyTick();

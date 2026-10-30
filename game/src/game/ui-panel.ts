@@ -487,7 +487,7 @@ function renderPanelInto(el){
            本社と並んで稼ぐ「もうひとつの会社」であることを、指標の並びで伝える */
         subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
           " <span class='tagchip'>得意: " + gname + "</span>" +
-          "<div class='ds'>生産力 <b>" + fmtDec(r.dp, 1) + " DP/分</b> ・ 売上 <b>" + fmt(r.coins) + "🪙/分</b> ・ スタッフ <b>" + sub.staff + "人</b> ・ 規模 <b>Lv" + sub.lv + "</b>（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
+          "<div class='ds'>生産力 <b>" + fmtDec(r.dp, 1) + " DP/分</b> ・ 売上 <b>" + fmt(r.coins) + "🪙/分</b> ・ スタッフ <b>" + sub.staff + "人</b> ・ 規模 <b>Lv" + sub.lv + "</b>（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "） <span style='opacity:.72'>単位: k=千・m=百万・g=10億・t=1兆・p=1000兆・e=100京</span></div>" +
           "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 子会社だけ売却で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + fmtDec(subFocus(sub), 2) + "）" +
           (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div>" +
