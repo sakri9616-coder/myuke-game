@@ -261,7 +261,7 @@ console.log("== 5. prestige ==");
   const sold = run(sb, "S.coins");
   run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
   check("released works keep selling every second until the company is sold",
-    sold >= 150 && sold <= 170 && run(sb, "S.catalog.length") === 0);
+    sold >= 135 && sold <= 150 && run(sb, "S.catalog.length") === 0);   /* 再設計 B4: life 4.25 で 6000×4.25/30/60×10秒 = 141.7（初作なので間隔係数1） */
 }
 {
   /* 再設計 C8: EXIT の履歴が残り、時代単位の収入累計は会社リセットを生き残る（B13 の材料） */

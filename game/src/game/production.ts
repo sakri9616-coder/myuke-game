@@ -531,7 +531,7 @@ function payFlow(p, a){
 /* sim 実測（game-sim・3シード、段階1）: 0.015 では放置の停滞が 70分、0.04 で 66分、0.08 で 29分。
    秒5クリックの星屑20個は 0.015〜0.08 でほぼ変わらない（15〜18分）。張り付きはリリースが速いぶん棚がすぐ入れ替わり、
    放置はリリースの間が長いぶん棚が長く稼ぐ: 同じ作品棚が遊び方で効き方を変える */
-const CAT = { life: 5, tauMin: 30, decay: 0.4, max: 4, seriesPerMin: 0.04 };
+const CAT = { life: 4.25, tauMin: 30, spacingMin: 12, max: 4, seriesPerMin: 0.04 };   /* B4 再実装（r4-a2）: 減衰廃止・life 4.25・τ30分＋間隔係数（新作の初期レートのみ） */
 /* 段階4: 棚の減り方を「新作が出るたびに ×0.8」から「時間で減る（τ 分で 1/e）」に変えた。
    新作ごとの減衰だと、リリースが速いほど1本の生涯売上が膨らまず遅いほど膨らみ、いつもの買い方でも
    棚が本社ラインの約5倍を稼いで、どこに投資しても作品棚が主役になっていた（sim の G5）。
@@ -542,12 +542,21 @@ function catalogTauSec(){ return CAT.tauMin * 60 * (1 + 0.1 * (S.upgrades.shelfx
 function catalogMult(){ return (1 + 0.1 * engineLv("promo")) * branchMult("b_catalog"); }   /* 段階6: 星屑の枝「星の棚」 */
 /* 依頼達成ボーナスの倍率: 目利き × 星屑の枝「星の名刺」× シリーズの相乗（段階6） */
 function requestBonusMult(){ return (1 + 0.1 * engineLv("scout")) * branchMult("b_sales") * seriesReqMult(); }
+/* 再設計 B4（leveldesign-r4-a2 が正本）: 棚の統一は減衰廃止＋life 4.25 のまま。
+   速い発売間隔だけを狙う「リリース間隔係数」を、新作の初期レートにだけ掛ける:
+   min(1, 前回リリースからの常駐時間（分） ÷ spacingMin)。会社の最初の1本は係数1。
+   既に並んでいる作品のレートには一切触らない（旧 ×0.4 とは別物。ここを既存側に
+   掛けると統一の本旨が崩れるので厳禁）。調整が必要になったら life ではなく spacingMin を触る */
+let lastCatalogAtSec = -1;   /* 前回リリースの常駐時刻（秒）。EXIT で -1 に戻る */
 function catalogAdd(p, price){
   if(!Array.isArray(S.catalog)) S.catalog = [];
-  for(const e of S.catalog) e.r *= CAT.decay;   /* 新作に客が移る（リリースが速いほど1本の生涯売上は小さい） */
+  const nowSec = S.residentSec || 0;
+  const gapMin = lastCatalogAtSec < 0 ? Infinity : (nowSec - lastCatalogAtSec) / 60;
+  const spacing = Math.min(1, gapMin / CAT.spacingMin);
+  lastCatalogAtSec = nowSec;
   /* 再設計 B10（r4-oshi §1.3）: リリース時点で推しだった作品は特等席 — 初期レート ×OSHI_CATALOG_MULT で確定し、
-     後から推しを移しても剥がれない（スナップショット） */
-  S.catalog.unshift({ n: p.name, r: price * CAT.life / CAT.tauMin / 60 * (p.oshi ? OSHI_CATALOG_MULT : 1), oshi: !!p.oshi });
+     後から推しを移しても剥がれない（スナップショット）。間隔係数（B4）とは独立に、同じ初期レートへ乗算で重なる */
+  S.catalog.unshift({ n: p.name, r: price * CAT.life / CAT.tauMin / 60 * spacing * (p.oshi ? OSHI_CATALOG_MULT : 1), oshi: !!p.oshi });
   if(S.catalog.length > catalogMax()) S.catalog.length = catalogMax();
 }
 function seriesRate(ip){ return ip.price * CAT.seriesPerMin / 60 * Math.max(1, workScale() / (ip.scale || 1)) * (ip.oshi ? OSHI_SERIES_MULT : 1); }   /* B10: 推しのまま成立した IP は ×OSHI_SERIES_MULT（確定済み・剥がれない） */
