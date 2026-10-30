@@ -47,11 +47,11 @@ const BAL = {
    子ねこボットは上限3を外した */
 const UPGRADE_DEFS = [
   { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", max:100, ms:true, oc:true },
-  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画を練れる上限 +1 Lv/Lv", max:3 },
-  { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"在庫バグを潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", max:100, ms:true },
+  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画Lv の上限 +1（企画は自動で練られます）", max:3 },
+  { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"バグ在庫を潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", max:100, ms:true },
   { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true, oc:true },
   { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", max:100, ms:true, oc:true },
-  { id:"pack",     name:"自働梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true, oc:true },
+  { id:"pack",     name:"自動梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true, oc:true },
   { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:100, ms:true, oc:true }
 ];
 /* レベルデザイン改修: oc の付いた設備・強化列は Lv100 の先も買える（オーバークロック延長）。
@@ -76,7 +76,7 @@ const ENGINE_DEFS = [
 ];
 function engineLv(id){ return upEff(S.upgrades, id); }
 /* 収入源の名前（内訳の表示と sim の G5 で使う） */
-const INCOME_SRCS = { labor:"労働（応援・イベント）", line:"本社ライン", catalog:"作品棚", sales:"営業（依頼ボーナス）", subs:"子会社" };
+const INCOME_SRCS = { labor:"応援・イベント", line:"本社ライン", catalog:"作品棚", sales:"営業（依頼ボーナス）", subs:"子会社" };
 /* 節目ジャンプ（理念書4「解放ジャンプ」・スケール対価）: 主要な設備と応援強化は Lv 上限を
    100 まで開け、Lv10・25・50・100 に届くたびに、その節目の Lv の半分ぶんの効果が上乗せされる
    （Lv10 で実効 Lv15＝効果 ×1.5、Lv25 で 29.5→42.5 …）。上乗せは足し算なので、節目を越えた後は

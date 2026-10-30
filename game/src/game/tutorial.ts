@@ -7,7 +7,7 @@
    S.tut を鏡写しにして同じロック・バッジ・チップを描く (プロトコル変更なし)。
    帯にモーダルや暗転は出さない。解放は吹き出し (say) と目的チップだけで知らせる */
 const TUT_STAGE = { START:0, RELEASE:1, RESEARCH:2, CLICK:3, STAFF:4, REQUEST:5, LINE2:6, PRESTIGE:7 };
-const TUT_STAGE_NAMES = ["はじまり", "初リリース", "研究", "応援強化", "仲間", "依頼", "第2ライン", "卒業"];
+const TUT_STAGE_NAMES = ["はじまり", "初リリース", "研究", "応援強化", "仲間", "依頼", "並行開発", "卒業"];
 /* タブが実体になるステージ (proj と settings は常時開放 = 表に無い) */
 const TUT_TAB_STAGE = { shelf:1, stats:1, factory:1, research:2, click:3, staff:4, requests:5 };
 /* 解放イベントごとの 🆕 対象: "タブ:そのタブの内容が増えるステージ" */

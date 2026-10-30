@@ -171,18 +171,18 @@ const DUST_PERKS = [
   { id:"stardecor", name:"棚の星飾り",   cost:2,  desc:"帯の作品棚の天板に星の飾りが出ます（見た目の自慢）" },
   { id:"seedmoney", name:"初期資金",     cost:3,  desc:"新会社が、前の会社の自動収入10分ぶん（最低 3,000🪙）を持って始まります" },
   { id:"dreamplus", name:"夢の続き",     cost:3,  desc:"夢のお土産（30分以上あけて戻った時のアイデア）が +1 個増えます" },
-  { id:"focus",     name:"集中ブースト", cost:4,  desc:"応援クリックの威力 +10%" },
+  { id:"focus",     name:"応援ブースト", cost:4,  desc:"応援クリックの威力 +10%" },
   { id:"notebook",  name:"研究ノート",   cost:6,  desc:"売却時に、完了した研究を1件（最も研究Pが高かったもの）引き継ぎます" },
   { id:"veteran",   name:"ベテラン制度", cost:8,  desc:"売却時に、最も育ったスタッフ1人が新会社に来てくれます" },
   /* Sprint 4: レベル制（反復購入できる星屑シンク）。S.dustPerks[id] に数値で持つ。段階6: 星のチャームは廃止（枝に置き換え） */
   { id:"luckyfin",  name:"幸運のヒレ",   lv:true, baseCost:2, costMul:1.8, maxLv:10, desc:"フィッシュの間隔 -8%/Lv（最大Lv10）" },
   /* 段階6: 収入源ごとの枝（上限なし）。1Lv +15%。その会社でその収入源の強化の列に投資したほど強く効く
      （列の Lv 20 ごとに枝の効きが +100%）。どの収入源を主役にするかで、星屑の使い道も分かれる */
-  { id:"b_labor",   name:"星の肉球（労働）",   lv:true, branch:"labor",   baseCost:2, costMul:1.5, maxLv:Infinity, desc:"応援クリックの威力" },
-  { id:"b_line",    name:"星の工房（本社ライン）", lv:true, branch:"line",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品の売上（作りながら・リリース時）" },
-  { id:"b_catalog", name:"星の棚（作品棚）",   lv:true, branch:"catalog", baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品棚とシリーズの売上" },
+  { id:"b_labor",   name:"星の肉球（応援）",   lv:true, branch:"labor",   baseCost:2, costMul:1.5, maxLv:Infinity, desc:"応援クリックの威力" },
+  { id:"b_line",    name:"星の本社工房", lv:true, branch:"line",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品の売上（作りながら・リリース時）" },
+  { id:"b_catalog", name:"星の作品棚",   lv:true, branch:"catalog", baseCost:2, costMul:1.5, maxLv:Infinity, desc:"作品棚とシリーズの売上" },
   { id:"b_sales",   name:"星の名刺（営業）",   lv:true, branch:"sales",   baseCost:2, costMul:1.5, maxLv:Infinity, desc:"依頼達成ボーナス" },
-  { id:"b_subs",    name:"星の持株（子会社）", lv:true, branch:"subs",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"子会社の売上" }
+  { id:"b_subs",    name:"星の子会社", lv:true, branch:"subs",    baseCost:2, costMul:1.5, maxLv:Infinity, desc:"子会社の売上" }
 ];
 /* 枝が効く強さの元: この会社でその収入源の列に積んだ Lv（労働は応援強化。腕前なので売却しても残る） */
 const BRANCH_ENGINE = { labor: null, line: "direct", catalog: "promo", sales: "scout", subs: "gmgmt" };
@@ -422,6 +422,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   if(keptResearch) for(const rid of keptResearch) S.research[rid] = true;
   if(keptStaff){ S.staff = [keptStaff]; S.staffSeq = Math.max(S.staffSeq, keptStaff.id); }
   addLog("🏢 会社を売却して、新会社を創業！ 星屑 +"+gain+"（永続ボーナス +"+Math.round((dustMultFor(S.dustTotal) - 1)*100)+"%）");
+  addLog("🎖 売却実績 +"+ptsGain+"（現在 "+newEraPts+" / "+HOLD_EXITS+"）");
   /* 第2ウェーブ M: 役員の就任・交代・卒業（役員枠は EXIT では消えない） */
   if(execCand){
     const snap = { name: execCand.name, coat: execCand.coat, role: execCand.role };
@@ -463,11 +464,11 @@ function doPrestigeCore(execSel, vetSel, swapSel){
    星団を減らさない形にしてある */
 const LEGACY_TECHS = [
   { id:"forecast", name:"トレンド予報",       cost:1, desc:"次の市場の流れ（ブームと不況）が先読みできます" },
-  { id:"cap1",    name:"上限拡張 I",           cost:2, desc:"スタッフ上限 +6" },
+  { id:"cap1",    name:"雇用枠拡張 I",           cost:2, desc:"スタッフ上限 +6" },
   { id:"ai_base", name:"AI 開発基盤",          cost:2, desc:"モジュールの品質上限 1.5 → 1.75" },
   { id:"group",   name:"持株経営基盤",         cost:2, desc:"子会社の収益 +30%" },
   { id:"quantum", name:"量子コンピュータ",     cost:3, desc:"全生産 +25%" },
-  { id:"cap2",    name:"上限拡張 II",          cost:3, req:"cap1", desc:"スタッフ上限 さらに +6（合わせて最大48人）" }
+  { id:"cap2",    name:"雇用枠拡張 II",          cost:3, req:"cap1", desc:"スタッフ上限 さらに +6（合わせて最大48人）" }
 ];
 function hasLegacyTech(id){ return !!(S.legacyTech && S.legacyTech[id]); }
 /* 段階6: 見た目だけのオフィスグレードは星団で買わず、持株化の回数で開く（星団は力の解放だけに使う）。
@@ -533,8 +534,8 @@ function buyRdInvest(){
   if((S.legacy || 0) < cost){ say("星団が足りないにゃ…"); return; }
   S.legacy -= cost; S.rdInvest = (S.rdInvest || 0) + 1;
   SoundKit.play("purchase");
-  addLog("🌌 恒久R&D投資 Lv"+S.rdInvest+"（星団-"+cost+"）: 星屑1個の生産ボーナスが +"+Math.round(dustBonusEff()*100)+"%/個 になった");
-  say("恒久R&D投資にゃ！ 星屑の効きが強くなったよ");
+  addLog("🌌 恒久研究（星屑増幅） Lv"+S.rdInvest+"（星団-"+cost+"）: 星屑1個の生産ボーナスが +"+Math.round(dustBonusEff()*100)+"%/個 になった");
+  say("恒久研究にゃ！ 星屑の効きが強くなったよ");
   save(); renderPanel();
 }
 /* レベルデザイン改修: 経営方針（次の会社への特性）。売却パネルで事前に選んでおき、

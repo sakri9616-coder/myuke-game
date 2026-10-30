@@ -26,7 +26,7 @@ function recoatFor(st){
 }
 const STAFF_ROLES = {
   prog:    { name:"プログラマ猫", stage:"実装",   base:210, out:6,    unit:"DP/分",   desc:"コード生産 +6 DP/分" },
-  test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"QA +0.5 バグ/分・テスト速度 +8 DP/分" },
+  test:    { name:"テスター",     stage:"テスト", base:180, out:0.5,  unit:"バグ/分", desc:"バグ処理（QA） +0.5 バグ/分・テスト速度 +8 DP/分" },
   carry:   { name:"運搬係",       stage:"出荷",   base:150, out:8,    unit:"DP/分",   desc:"出荷速度 +8 DP/分" },
   research:{ name:"研究員",       stage:"研究",   base:245, out:0.25, unit:"研究P/分", desc:"研究P +0.25/分（少しずつ）" },
   care:    { name:"お世話係",     stage:"お世話", base:170, out:1,    unit:"",        desc:"集中力の減り軽減＋たまに差し入れ＋おねだりに代わりに応える" },
@@ -123,7 +123,7 @@ function buyDept(role){
    （作る手が増えるだけで、テスト以降の工程は本社と共有 — 詰まりの往復が生まれる） */
 const DEPT_LV3 = {   /* 列には「（」の前だけが出るので、前半だけで効果がわかる書き方にする */
   prog:    "実装 +50%（並行開発: 開発部の実装が1.5倍）",
-  test:    "在庫バグを自動でつぶす（テスター1匹につき毎分1匹）",
+  test:    "バグ在庫を自動でつぶす（テスター1匹につき毎分1匹）",
   carry:   "出荷力の半分をビルドにも（運用部がビルド工程も手伝う）",
   research:"研究を自動で進める（安い研究から順に選ぶ）",
   care:    "集中力が60%を下回らない（総務部の下支え）",
@@ -263,7 +263,7 @@ const CLICK_DEFS = [
   { id:"glove",  name:"高級グローブ",     base:60,  max:100, grow:1.12, ms:true, desc:"クリック威力 +0.18/Lv" },
   /* 段階5: うちわ＋旗 → 応援の質。ひらめき連動はオーバークロックのゲージの溜まりへ。研究メモ連動は廃止 */
   { id:"quality",name:"応援の質",         base:250, max:12, desc:"コンボ上限 +0.25倍/Lv・会心率 +1%/Lv" },
-  { id:"synidea",name:"ひらめき連動",     base:350, max:5,  desc:"応援でたまるオーバークロックのゲージ +20%/Lv" }
+  { id:"synidea",name:"ゲージ連動",     base:350, max:5,  desc:"応援でたまるオーバークロックのゲージ +20%/Lv" }
 ];
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
 function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }
@@ -420,7 +420,7 @@ const STAMP_DEFS = [
   { id:"people50",     name:"総勢50人",         test:()=>totalPeople()>=50, prog:()=>[totalPeople(),50] },
   { id:"sub1",         name:"グループ子会社",   hint:"準大手で子会社を設立する", test:s=>(s.subs||[]).length>=1 },
   { id:"subs3",        name:"グループ3社",      test:s=>(s.subs||[]).length>=3, prog:s=>[(s.subs||[]).length,3] },
-  { id:"sub_sold",     name:"部分EXIT",         hint:"子会社を1社売却する", test:s=>(s.totals.subsSold||0)>=1 },
+  { id:"sub_sold",     name:"子会社だけ売却",         hint:"子会社を1社売却する", test:s=>(s.totals.subsSold||0)>=1 },
   /* G5: 5つの収入源のどれも主役になれる。社格 準大手 以上で、この会社の収入の内訳の1位になったらかつ売れる規模（星屑3個）に育っていたら（序盤や売却直後は、寄せなくても労働や作品棚が1位になるので） */
   ...Object.keys(INCOME_SRCS).map(src => ({ id:"main_"+src, name:"主役: "+INCOME_SRCS[src].replace(/（.*）/, ""),
     hint:"準大手・星屑3個の規模で、"+INCOME_SRCS[src].replace(/（.*）/, "")+"を収入1位に",

@@ -366,9 +366,9 @@ function renderPanelInto(el){
     if(S.studioLv < STAFF_CAPS.length){
       const need = nextRankValue(), have = S.runPeakValue || 0;
       const opens = RANK_UNLOCKS[S.studioLv + 1];
-      h += "<div class='item slim rankbox' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>スタジオ拡張 Lv"+(S.studioLv+1)+"（"+rankName(S.studioLv+1)+"）</span>"+
+      h += "<div class='item slim rankbox' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>次の社格: "+rankName(S.studioLv+1)+"</span>"+
         " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"</span>"+
-        "<div class='meter' style='margin-top:5px'><i style='width:"+Math.min(100, Math.round(have / need * 100))+"%'></i></div><div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"</div></div></div>";
+        "<div class='meter' style='margin-top:5px'><i style='width:"+Math.min(100, Math.round(have / need * 100))+"%'></i></div><div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"<br>帯のオフィスも「"+OFFICE_TIER_NAMES[S.studioLv]+"」仕様に</div></div></div>";
     } else {
       h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
     }
@@ -417,7 +417,7 @@ function renderPanelInto(el){
         : [fmtDec(ss.cheer, 1), "回/秒", "みゅけの横で応援"];
       h += "<div class='deptcol" + (locked ? " locked" : "") + "'>" +
         "<div class='depthead' data-fix='hire:" + role + "'>" +
-        "<div class='rh'><span>" + d.icon + "</span><span class='nm'>" + d.name + "</span><span class='dlv'>Lv" + lv + "</span></div>" +
+        "<div class='rh'><span>" + d.icon + "</span><span class='nm'>" + d.name + "（" + def.name + "）</span><span class='dlv'>Lv" + lv + "</span></div>" +
         "<div class='rv'>" + total[0] + " <small>" + total[1] + "</small></div>" +
         "<span class='lampbar'><i style='width:" + Math.min(100, lv * 10) + "%'></i></span>" +
         "<div class='rs'>" + total[2] + "</div>" +
@@ -488,7 +488,7 @@ function renderPanelInto(el){
         subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
           " <span class='tagchip'>得意: " + gname + "</span>" +
           "<div class='ds'>生産力 <b>" + fmtDec(r.dp, 1) + " DP/分</b> ・ 売上 <b>" + fmt(r.coins) + "🪙/分</b> ・ スタッフ <b>" + sub.staff + "人</b> ・ 規模 <b>Lv" + sub.lv + "</b>（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
-          "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 売却（部分EXIT）で星屑 " + subDustValue(sub) + " 個</div>" +
+          "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 子会社だけ売却で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + fmtDec(subFocus(sub), 2) + "）" +
           (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div>" +
           "<div class='ds'>配当率 <b>" + subDiv(sub) + "%</b>（作品のリリースごとにまとめて本社へ・蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙／目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分・残りは人員と規模に再投資）" +
@@ -499,7 +499,7 @@ function renderPanelInto(el){
           maxBtn("addSubStaff(" + sub.id + ",1)", subHeadCost(sub) > S.coins ? " disabled" : "") + "</span></div>" +
           "<div class='item buy slim'><div><span class='nm'>規模Lvを上げる</span><div class='ds'>出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1 }), 1)) + milestoneNote({ ms: true }, sub.lv) + "<br>規模Lvの節目ボーナス（Lv10・25・50・100 で実効Lvが跳ねる）は、本社の設備と同じ仕組みです</div></div>" +
           (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", true)) + "</div>" +
-          "<div class='item slim'><div><span class='nm'>この子会社を売却（部分EXIT）</span><div class='ds'>星屑 +" + subDustValue(sub) + " 個。本社はそのまま残ります</div></div>" +
+          "<div class='item slim'><div><span class='nm'>子会社だけ売却（部分EXIT）</span><div class='ds'>星屑 +" + subDustValue(sub) + " 個。本社はそのまま残ります</div></div>" +
           "<button onclick='sellSub(" + sub.id + ")'>売却する</button></div>";
       }
       let foundHTML = "<div class='item slim'><div><span class='sock'>🌱</span><span class='nm'>新しい子会社を設立</span>" +
@@ -677,7 +677,7 @@ function renderPanelInto(el){
         h += foldSec("holdings", false, "🏛️ ホールディングス化（第2層）", "星団 +" + hp.gain + " 個ぶん",
           kv("最高到達社格", hp.cond.lv6 ? rankName(S.maxStudioLv || S.studioLv) + " ✅" : "あと " + (6 - (S.maxStudioLv || S.studioLv || 1)) + " 段階で大企業（現在 " + rankName(S.maxStudioLv || S.studioLv) + "）") +
           kv("子会社", hp.cond.subs ? ((S.subs || []).length) + " / 2 社 ✅" : "あと " + (2 - (S.subs || []).length) + " 社（現在 " + (S.subs || []).length + " / 2 社）") +
-          kv("売却実績", hp.cond.exits ? eraExitPts() + " / " + HOLD_EXITS + " pt ✅" : "あと " + (HOLD_EXITS - eraExitPts()) + " pt（現在 " + eraExitPts() + " / " + HOLD_EXITS + " pt・EXIT 1回 = 1pt・星屑100個以上の売却 = 2pt・300個以上 = 3pt・通算星屑が条件に届いたあとは +1pt）") +
+          kv("売却実績", hp.cond.exits ? "🎖 " + eraExitPts() + " / " + HOLD_EXITS + " ✅" : "あと " + (HOLD_EXITS - eraExitPts()) + "（現在 🎖 " + eraExitPts() + " / " + HOLD_EXITS + "・EXIT 1回で +1・星屑100個以上の売却で +2・300個以上で +3・この時代の通算星屑が条件に届いたあとの EXIT は +1）") +
           kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど 0.65 乗で増えます）") +
           kv("時代のしるし", ERA_MILESTONES.map(m => ((S.eraDust || 0) >= m.at ? "✅ " : "○ ") + m.desc + "（" + m.name + "）").join("<br>")) +
           kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)));
@@ -693,10 +693,10 @@ function renderPanelInto(el){
         }
         /* レベルデザイン改修: 星団の無限シンク「恒久R&D投資」（全技術取得で解放） */
         const rdBody = allLegacyOwned()
-          ? "<div class='buygrid'><div class='item buy slim'><div><span class='nm'>恒久R&D投資</span> <span class='lvbadge'>Lv" + (S.rdInvest || 0) + "</span>" +
+          ? "<div class='buygrid'><div class='item buy slim'><div><span class='nm'>恒久研究（星屑増幅）</span> <span class='lvbadge'>Lv" + (S.rdInvest || 0) + "</span>" +
             "<div class='ds'>星屑1個あたりの生産ボーナス +10%ポイント（現在 +" + Math.round(dustBonusEff() * 100) + "%/個）。上限なし・持株化でも残ります</div></div>" +
             "<button class='buybtn' onclick='buyRdInvest()'" + ((S.legacy || 0) < rdInvestCost() ? " disabled" : "") + "><span class='pricetag'>" + rdInvestCost() + " 🌌</span></button></div></div>"
-          : "<div class='note' style='margin-top:4px'>レガシー技術を全部そろえると、星団の無限の使い道『恒久R&D投資』が開きます</div>";
+          : "<div class='note' style='margin-top:4px'>レガシー技術を全部そろえると、星団の無限の使い道『恒久研究（星屑増幅）』が開きます</div>";
         const techBody = (techRows ? "<div class='buygrid'>" + techRows + "</div>" : "") +
           (techChips ? "<div class='chiprow'>" + techChips + "</div>" : "") + rdBody;
         h += foldSec("legacy", false, "🌌 " + spaceName("legacy", "レガシー技術"), "所持 " + fmt(S.legacy || 0) + " 🌌 ・ 持株化 " + (S.holdings || 0) + " 回", techBody);
@@ -753,7 +753,7 @@ function renderPanelInto(el){
     h += "<div class='statgrid'>" +
       statBlock("1クリックの威力", fmtClickDP(clickShownDP()), "DP") +
       statBlock("コンボ上限", "×" + fmtDec((1 + comboCapBonus()), 2), "") +
-      statBlock("クリティカル", Math.round(critRate()*100) + "%", "当たると ×10") +
+      statBlock("会心", Math.round(critRate()*100) + "%", "当たると ×10") +
       statBlock("通算クリック", fmt(S.totals.clicks), "回") +
       "</div>";
     h += "<div class='note'>帯のみゅけをクリックで応援（80%はその場で進捗に）。金の魚やバグの群れもクリックで捕獲（逃がしてもペナルティなし）</div>";
@@ -778,7 +778,7 @@ function renderPanelInto(el){
     }
     h += "</div>";
     const clickLog = kv("通算クリック", fmt(S.totals.clicks) + " 回") +
-      kv("クリティカル", fmt(S.totals.crits) + " 回") +
+      kv("会心", fmt(S.totals.crits) + " 回") +
       kv("捕まえた金のフィッシュ", fmt(S.totals.goldFish) + " 匹") +
       kv("叩いたイベントバグ", fmt(S.totals.eventBugs) + " 匹");
     h += foldSec("clicklog", false, "📊 応援の記録", "🐟 "+fmt(S.totals.goldFish)+" 匹 ・ 🐛 "+fmt(S.totals.eventBugs)+" 匹", clickLog);
