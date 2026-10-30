@@ -465,7 +465,7 @@ const LEGACY_TECHS = [
   { id:"forecast", name:"トレンド予報",       cost:1, desc:"次の市場の流れ（ブームと不況）が先読みできます" },
   { id:"cap1",    name:"上限拡張 I",           cost:2, desc:"スタッフ上限 +6" },
   { id:"ai_base", name:"AI 開発基盤",          cost:2, desc:"モジュールの品質上限 1.5 → 1.75" },
-  { id:"group",   name:"グループ経営",         cost:2, desc:"子会社の収益 +30%" },
+  { id:"group",   name:"持株経営基盤",         cost:2, desc:"子会社の収益 +30%" },
   { id:"quantum", name:"量子コンピュータ",     cost:3, desc:"全生産 +25%" },
   { id:"cap2",    name:"上限拡張 II",          cost:3, req:"cap1", desc:"スタッフ上限 さらに +6（合わせて最大48人）" }
 ];
@@ -547,7 +547,7 @@ const POLICY_DEFS = {
 };
 function setRunPolicy(p){
   S.pendingPolicy = (p && POLICY_DEFS[p]) ? p : null;
-  if(S.pendingPolicy) addLog("🧭 次の会社の経営方針を「"+POLICY_DEFS[S.pendingPolicy].name+"」に予約した");
+  if(S.pendingPolicy) addLog("🧭 次期経営方針を「"+POLICY_DEFS[S.pendingPolicy].name+"」に予約した");
   save(); renderPanel();
 }
 /* レベルデザイン改修: 時代マイルストーン（eraDust で進む・その時代の間ずっと有効）。
@@ -709,7 +709,7 @@ function designateIP(_which?){
   if(dp >= p.totalDP * 0.5){ say("IPにするなら、半分できる前に決めないとにゃ"); return; }
   p.ip = true;
   p.totalDP = Math.round(p.totalDP * IP_SIZE_MULT);
-  addLog("🏷 『"+p.name+"』を自社IPねらいに（作り込みで規模 ×"+IP_SIZE_MULT+" → "+fmt(p.totalDP)+"DP。バグ0で出荷すれば IP 化、バグが残ると価格 ×"+IP_FAIL_MULT+"）");
+  addLog("🏷 『"+p.name+"』を自社IPねらいに（大作化：必要DP ×"+IP_SIZE_MULT+" → "+fmt(p.totalDP)+"DP。バグ0で出荷すれば IP 化、バグが残ると価格 ×"+IP_FAIL_MULT+"）");
   say("『"+p.name+"』、自社IPねらいでいくにゃ！ 出荷のときはバグ0にしないとね");
   save(); renderPanel();
 }
