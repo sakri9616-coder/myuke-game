@@ -147,7 +147,7 @@ interface GameState {
   rdInvest: number;   /* レベルデザイン改修: 恒久R&D投資の Lv（星屑1個の生産ボーナス +10%ポイント/Lv・持株化でも残る） */
   runPolicy: string | null; pendingPolicy: string | null;   /* レベルデザイン改修: 経営方針（適用中／次の会社に予約中） */
   challenge: { id: string; startLv: number } | null; challengeRewards: Record<string, boolean>;
-  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number;
+  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number; eraIncome: Record<string, number>; exitHistory: { t: number; gain: number; pts: number; secs: number; peak: number }[]; runStartedAt: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];
   genreKnow: Record<string, number>;   /* 段階5: ジャンル知見（永続） */
   runGenre: Record<string, number>;    /* 段階5: この会社で出した作品のジャンル別本数 */

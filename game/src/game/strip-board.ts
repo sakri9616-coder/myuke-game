@@ -230,7 +230,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const ds = clickDestSums(), dTot = ds.imm + ds.pipe + ds.carry;
     if(ds.n > 0 && dTot > 0){
       let xx = bar.x;
-      const segs = [[ds.imm, "#e8873a"], [ds.pipe, "#5b8dd9"], [ds.carry, "#5aa469"]];
+      const segs: [number, string][] = [[ds.imm, "#e8873a"], [ds.pipe, "#5b8dd9"], [ds.carry, "#5aa469"]];
       sctx.save();
       for(let i = 0; i < segs.length; i++){
         const wSeg = i === segs.length - 1 ? (bar.x + bar.w) - xx : bar.w * (segs[i][0] / dTot);
