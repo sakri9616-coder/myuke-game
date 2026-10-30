@@ -34,6 +34,8 @@ interface Project {
   ip?: boolean;
   flowPaid?: number;   // 作りながら入金済みのコイン（v2.12.1〜。リリース時に差し引く）
   planLv?: number;   // 企画を練った回数（0〜3）
+  plannerName?: string;   // 再設計 B9: 企画者クレジット（着工時に決まる担当の名前。無ければ みゅけ）
+  planReported?: boolean;   // 再設計 B9: この作品の企画日報をもう出したか
   planMeetSec?: number;   // v2.9.1〜v2.9.2 の企画会議の残り秒（v2.9.3 で廃止。旧セーブに残っていても読まない）
   scale?: number;    // 仕事の桁（作品の規模と報酬の倍率・1/2/5/10…。旧セーブは無し＝1）
   deathMarch?: boolean;

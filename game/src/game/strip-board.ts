@@ -199,7 +199,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const genreTxt = p.genreName ? p.genreName + trendTag(p.genre) + (p.ip ? "🏷" : "") + ((p.scale || 1) > 1 ? " ×" + p.scale : "") + " ★" + qualityStars(p) : "";   /* 段階5: 品質★ */   /* 仕事の桁が 1 より大きい作品は「×10」などを添える */
     const genreW = genreTxt ? sctx.measureText(genreTxt).width + 6 : 0;
     const slotW = bn ? 15 : genreW;
-    const nameLim = ix + iw - 3 - slotW;
+    /* 再設計 B9（ux-r3 §2.7）: 企画者クレジット — 作品名の脇に小さく「企画:○○」を常設する。
+       置き場所が狭いときは名前より先にクレジットが落ちる（名前が主、署名は脇役） */
+    const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
+    const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
+    const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0);
     const nx = ix + 16.5 + pctW + 5;
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
@@ -210,6 +214,13 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       nm = "『" + cut + "…』";
     }
     sctx.fillText(nm, nx, iy + 8.5);
+    if(creditTxt){
+      sctx.save();
+      sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      sctx.fillStyle = "#8a6a44";
+      sctx.fillText(creditTxt, nx + sctx.measureText(nm).width + 4, iy + 8.5);
+      sctx.restore();
+    }
     if(bn){
       sDrawTL("icon_warn_plate", ix + iw - 13.5, iy + 2);
     } else if(genreW){

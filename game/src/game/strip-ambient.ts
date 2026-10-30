@@ -13,6 +13,33 @@ function pickChatLine(){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 let stripChat = null;      /* { whoId, text, until } */
+/* 再設計 B9（ux-r3 §2.7）: 自動化の報告キュー。吹き出し経路は全体で1回/20秒まで。
+   優先度は 依頼獲得(3) > 研究完了・入場の挨拶(2) > 育成完了(1)。溢れた分は日報に
+   残っているので、吹き出しを落としても記録は消えない */
+let reportQueue: { whoId: number, text: string, prio: number }[] = [];
+let lastReportSpeechAt = 0;
+let lastReportText = "";      /* メモの空き枠ローテーション用（最新の報告の文面） */
+let lastReportAt = 0;
+function reportNote(text){ lastReportText = text; lastReportAt = Date.now(); }
+function reportSpeech(whoId, text, prio){
+  reportNote(text);
+  const now = Date.now();
+  if(!stripChat && !reportQueue.length && now - lastReportSpeechAt >= 20000){
+    stripChat = { whoId, text, until: now + 4200 };
+    lastReportSpeechAt = now;
+    return;
+  }
+  reportQueue.push({ whoId, text, prio });
+  reportQueue.sort((a, b) => b.prio - a.prio);
+  if(reportQueue.length > 3) reportQueue.length = 3;
+}
+function reportQueueTick(){
+  const now = Date.now();
+  if(stripChat || !reportQueue.length || now - lastReportSpeechAt < 20000) return;
+  const r = reportQueue.shift()!;
+  stripChat = { whoId: r.whoId, text: r.text, until: now + 4200 };
+  lastReportSpeechAt = now;
+}
 let lastChatterAt = 0;
 function maybeStartChatter(now, force){
   if(stripChat){
@@ -75,6 +102,7 @@ function stripAmbientUpdate(dt){
   /* 雑談: たまに試みる（成立条件は maybeStartChatter 側で判定） */
   if(Math.random() < dt * 0.25) maybeStartChatter(stripNow, false);
   if(stripChat && stripNow >= stripChat.until) stripChat = null;
+  reportQueueTick();
   /* 訪問猫: 初回は1.5〜3.5分後、以降は12〜25分間隔で横切る */
   if(!stripVisitor){
     if(nextVisitorAt === 0) nextVisitorAt = stripNow + 90000 + Math.random() * 120000;

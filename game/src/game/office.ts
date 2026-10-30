@@ -286,6 +286,24 @@ function stripMemoText(){
     return "📊 市場: 「" + (bg ? bg.name : "") + "」がブーム中（価格 ×1.5）";
   }
   if(S.requests && S.requests.length) return "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
-  return "";
+  /* 再設計 B9（ux-r3 §2.7）: 目的が無い時間帯は、直近の報告と遠景を持株化までの距離で交互に出す */
+  const far = holdingsFarText();
+  const rep = lastReportText && Date.now() - lastReportAt < 1800000 ? "✉ " + lastReportText : "";
+  if(rep && far) return Math.floor(Date.now() / 20000) % 2 ? far : rep;
+  return rep || far || "";
+}
+/* 遠景: 持株化までの距離（未達の条件だけを短く）。持株化のあとは次の星団までの距離 */
+function holdingsFarText(){
+  if((S.holdings || 0) > 0){
+    const nx = CLUSTER_STEPS.find(t => (S.eraDust || 0) < t);
+    return nx ? "🌌 次の星団まで あと星屑 " + fmt(nx - (S.eraDust || 0)) : "";
+  }
+  if(!((S.prestiges || 0) >= 1 || eraExitPts() > 0)) return "";
+  const parts: string[] = [];
+  if((S.maxStudioLv || 1) < 6) parts.push("社格 あと " + (6 - (S.maxStudioLv || 1)));
+  if((S.subs || []).length < 2) parts.push("子会社 あと " + (2 - (S.subs || []).length) + " 社");
+  if(eraExitPts() < HOLD_EXITS) parts.push("売却実績 あと " + (HOLD_EXITS - eraExitPts()));
+  if((S.eraDust || 0) < HOLD_ERA_DUST) parts.push("星屑 あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)));
+  return parts.length ? "🌌 持株化まで " + parts.join(" ・ ") : "";
 }
 

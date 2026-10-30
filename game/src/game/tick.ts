@@ -128,7 +128,9 @@ function tick(){
       addConc(careMaster ? 18 : 12);
       S.ideas += careMaster ? 2 : 1;
       const carer = S.staff.find(s => s.role === "care");
-      addLog("🍵 " + (carer ? carer.name : "お世話係") + "が差し入れを持ってきた（集中力+" + (careMaster ? 18 : 12) + "・アイデア+" + (careMaster ? 2 : 1) + "）");
+      /* 再設計 B9（§4.4）: お世話係の静かな仕事は静かに。数字は日報に載せない（集中表示が担う） */
+      addLog("🍵 " + (carer ? carer.name : "お世話係") + "が、みゅけにおやつを渡しておきました。");
+      reportNote((carer ? carer.name : "お世話係") + "が、みゅけにおやつを渡しておきました。");
       if(Math.random() < 0.5) say("差し入れだにゃ！みんな休憩〜");
     }
   }

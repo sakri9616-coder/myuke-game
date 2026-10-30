@@ -56,7 +56,11 @@ function hireStaff(role, auto?){
   }
   S.totals.hired++;
   SoundKit.play("purchase");
-  addLog((auto ? "🧑‍💼 " + DEPTS[role].name + "の部長が補充: " : "新しいスタッフ: ")+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
+  if(auto){
+    /* 再設計 B9: 自動補充は「処理」ではなく「入社」。日報＋本人の挨拶（吹き出し）で届ける */
+    addLog("🐾 " + st.name + "が仲間に加わりました（" + DEPTS[role].name + "・" + COAT_NAMES[st.coat] + "）。");
+    reportSpeech(st.id, "はじめまして、" + st.name + "です。よろしくにゃ。", 2);
+  } else addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
   if(!auto) say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
   checkStamps(); save(); renderPanel();
   tutCheck();
@@ -207,12 +211,13 @@ function autoAcquireRequest(){
     repId: rep.id, repName: rep.name, auto: true,
     deadlineAt: tier >= 3 ? Date.now() + 60 * 60000 : null };   /* 拡張ウェーブ G: ティア3には納期（60分） */
   S.nextRequestGenre = g.id;
-  addLog("💼 営業の"+rep.name+"が依頼を取ってきた: "+client+"（"+g.name+"・"+REQUEST_TIERS[tier].name+"）");
-  say("営業の"+rep.name+"が"+client+"の依頼を取ってきたにゃ");
+  /* 再設計 B9（designer-r3 §4）: 日報は担当の名で、吹き出しは担当本人の声で。
+     みゅけの代弁（旧 say）はやめた — 誰の仕事か、が報告の命 */
+  addLog("💼 "+rep.name+"が、"+client+"から『"+g.name+"』の依頼を取ってきました。");
   /* 帯の知覚: 担当がメモを運んで歩く（動き）＋頭上に吹き出し */
   const wk = stripWalkers[rep.id];
   if(wk){ wk.carrying = true; wk.carryKind = "memo"; wk.sitting = false; wk.backing = false; }
-  stripChat = { whoId: rep.id, text: "依頼、取ってきたにゃ！", until: Date.now() + 4200 };
+  reportSpeech(rep.id, tier >= 3 ? "大きな仕事、取ってきました！" : "『"+g.name+"』の依頼、取ってきたよ。", 3);
   save();
   return true;
 }

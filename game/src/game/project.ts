@@ -70,9 +70,17 @@ function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv
    足りる限り自動で企画Lvを上げる。コストは従来の planCost のまま。アイデアの蓄えで
    オーバークロックが速く溜まる仕組み（ideaChargeMult）は、自動消費された分だけ
    所持数が減る形でそのまま残る */
+/* 再設計 B9: 企画者クレジットの担当決定 — 研究職の最古参ではなく最上位Lv の研究者を名乗る。
+   研究者がいない時代は みゅけ 本人が企画者になる（ux-r2: 担当名 or みゅけ） */
+function pickPlannerName(){
+  const rs = S.staff.filter(s => s.role === "research");
+  if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; return best.name; }
+  return "みゅけ";
+}
 function autoPlanTick(){
   const p = S.project;
   if(!p || !canPlan(p, S.projectDP)) return;
+  if(!p.plannerName) p.plannerName = pickPlannerName();
   let changed = false;
   while(canPlan(p, S.projectDP)){
     const cost = planCost(p);
@@ -80,7 +88,13 @@ function autoPlanTick(){
     S.ideas -= cost;
     p.planLv = planLv(p) + 1;
     changed = true;
-    addLog("💡 『" + p.name + "』の企画を自動で練った（企画Lv" + p.planLv + "・価格 ×" + fmtDec(planPriceMult(p), 2) + "・バグ -" + Math.round(15 * p.planLv) + "%）（アイデア-" + cost + "）");
+    /* 再設計 B9（§4.4）: 企画の日報は作品に1回だけ、企画者の署名つきで。
+       Lv が積み上がる過程はボードのクレジットと企画Lv 表示が担う（毎回のログは騒音になる） */
+    if(!p.planReported){
+      p.planReported = true;
+      addLog("💡 企画は" + (p.plannerName || "みゅけ") + "。『" + p.name + "』の進め方を決めておきました。");
+      reportNote("企画は" + (p.plannerName || "みゅけ") + "。『" + p.name + "』の進め方を決めておきました。");
+    }
   }
   if(changed) save();
 }
@@ -88,6 +102,7 @@ function autoPlanTick(){
    足りなければ planning（企画中）にして、貯まるまで工程に流さない */
 function settleProject(p){
   if(!p) return p;
+  if(!p.plannerName) p.plannerName = pickPlannerName();   /* 再設計 B9: 企画者は着工時に決まる */
   if(typeof p.ideaCost !== "number") p.ideaCost = IDEA_COST[p.size] || 0;
   if(p.ideaCost <= 0){ p.planning = false; return p; }
   if(S.ideas >= p.ideaCost){

@@ -139,19 +139,48 @@ function delegateList(role){ return [[3, DEPT_LV3[role]], [6, "自動育成（�
 function delegated(role, lv){ return deptLv(role) >= lv && !!deptChief(role); }
 function parallelDevMult(){ return delegated("prog", 3) ? 1.5 : 1; }
 let delegateClock = 0;
+/* 再設計 B9（LD 報告クラスB）: 設備・部署の自動購入は60秒に集約して日報へ1行だけ出す。
+   高頻度の自動買いが日報を埋めないための受け皿（従来は無ログだった） */
+let autoBuyAgg: { [name: string]: number } = {};
+let autoBuyAggFirstAt = 0;
+function autoBuyNote(name){
+  if(!Object.keys(autoBuyAgg).length) autoBuyAggFirstAt = Date.now();
+  autoBuyAgg[name] = (autoBuyAgg[name] || 0) + 1;
+}
+function autoBuyFlush(){
+  const names = Object.keys(autoBuyAgg);
+  if(!names.length || Date.now() - autoBuyAggFirstAt < 60000) return;
+  const parts = names.slice(0, 2).map(nm => "『" + nm + "』" + (autoBuyAgg[nm] > 1 ? " ×" + autoBuyAgg[nm] : ""));
+  addLog("🛒 " + parts.join("と") + (names.length > 2 ? " ほか" : "") + "を買っておきました。お財布の半分は、残してあります。");
+  reportNote("自動購入で " + parts.join("と") + " を買っておきました。");
+  autoBuyAgg = {};
+}
 /* 1秒ティックから（5秒に1回だけ動く） */
 function deptDelegateTick(){
   if(++delegateClock % 5) return;
+  autoBuyFlush();
   if(delegated("research", 3) || exitMs("autoResearch")){   /* 段階6: EXIT 1回目の節目でも */
     const next = RESEARCH_DEFS.filter(r => !S.research[r.id] && (!r.requires || S.research[r.requires])).sort((a, b) => a.cost - b.cost)[0];
-    if(next && S.rp >= next.cost){ S.rp -= next.cost; S.research[next.id] = true; addLog("🔬 研究部が『" + next.name + "』を進めた（-" + next.cost + "🔬）"); }
+    if(next && S.rp >= next.cost){
+      S.rp -= next.cost; S.research[next.id] = true;
+      /* 再設計 B9（designer-r3 §4.4）: 研究の報告は担当の名で。吹き出しは本人の短い誇り */
+      const rActor = deptChief("research") || S.staff.find(x => x.role === "research");
+      addLog("🔬 " + (rActor ? rActor.name : "みゅけ") + "が『" + next.name + "』を解き明かしました。");
+      if(rActor) reportSpeech(rActor.id, "『" + next.name + "』、分かったよ。", 2); else reportNote("『" + next.name + "』を解き明かしました。");
+    }
   }
   for(const role of Object.keys(DEPTS)){
     if(delegated(role, 6)){
       const cand = S.staff.filter(s => s.role === role).sort((a, b) => a.lv - b.lv)[0];   /* レベルデザイン改修: 訓練は無限になったので最も低い猫を育て続ける */
       if(cand){
         const c = trainCost(cand);
-        if(c <= S.coins * 0.5){ S.coins -= c; cand.lv++; addLog("🎓 " + DEPTS[role].name + "の部長が " + cand.name + " を Lv" + cand.lv + " に育てた（-" + fmt(c) + "🪙）"); }
+        if(c <= S.coins * 0.5){
+          S.coins -= c; cand.lv++;
+          /* 再設計 B9（§4.4）: 育成の報告は日報のみ。部長の名で、数字は Lv の1つだけ */
+          const chief = deptChief(role);
+          addLog("🎓 " + (chief ? chief.name : DEPTS[role].name) + "部長が、" + cand.name + "を育てました。" + cand.name + "は Lv" + cand.lv + " になりました。");
+          reportNote((chief ? chief.name : DEPTS[role].name) + "部長が " + cand.name + " を育てました。");
+        }
       }
     }
     if(delegated(role, 10) && !roleLocked(role) && S.staff.length < staffCap() && hireCost(role) <= S.coins * 0.5) hireStaff(role, true);
@@ -160,12 +189,12 @@ function deptDelegateTick(){
   if(exitMs("autoEquip")){
     let best = null, bc = Infinity;
     for(const d of UPGRADE_DEFS){ const lv = S.upgrades[d.id] || 0; if(lv < d.max){ const c = upgradeCost(d, lv); if(c < bc){ bc = c; best = d; } } }
-    if(best && bc <= S.coins * 0.5){ S.coins -= bc; S.upgrades[best.id] = (S.upgrades[best.id] || 0) + 1; announceMilestone(best, S.upgrades[best.id]); }
+    if(best && bc <= S.coins * 0.5){ S.coins -= bc; S.upgrades[best.id] = (S.upgrades[best.id] || 0) + 1; announceMilestone(best, S.upgrades[best.id]); autoBuyNote(best.name); }
   }
   if(exitMs("autoDept")){
     let best = null, bc = Infinity;
     for(const role of Object.keys(DEPTS)) if(deptLv(role) <= DEPT_MAX_LV && !roleLocked(role) && deptCost(role) < bc){ bc = deptCost(role); best = role; }   /* 自動 Lv.up は従来の上限（Lv10→11）まで。先は手動で */
-    if(best && bc <= S.coins * 0.5){ if(!S.depts) S.depts = freshDepts(); S.coins -= bc; S.depts[best] = deptLv(best) + 1; }
+    if(best && bc <= S.coins * 0.5){ if(!S.depts) S.depts = freshDepts(); S.coins -= bc; S.depts[best] = deptLv(best) + 1; autoBuyNote(DEPTS[best].name); }
   }
 }
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------

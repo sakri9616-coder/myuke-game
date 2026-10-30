@@ -355,7 +355,9 @@ function renderPanelInto(el){
     let logHTML = "<div class='log'>";
     for(const e of S.log.slice(0,18)) logHTML += "<div><span class='tm'>" + esc(e.tm) + "</span> " + esc(e.text) + "</div>";
     logHTML += "</div>";
-    h += foldSec("log", false, "📓 日報ログ", S.log.length ? "全 " + S.log.length + " 件" : "", logHTML);
+    /* 再設計 B9（ux-r3 §2.7）: 見出しの「全 N 件」はやめ、最新1件の文面そのものを出す */
+    const latestLogText = S.log && S.log.length ? S.log[0].text : "";
+    h += foldSec("log", false, "📓 日報ログ", latestLogText.length > 44 ? latestLogText.slice(0, 44) + "…" : latestLogText, logHTML);
   }
   if(currentTab === "staff"){
     const ss = staffSums();
