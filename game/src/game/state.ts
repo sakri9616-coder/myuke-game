@@ -295,6 +295,20 @@ function handworkClick(stage){
 }
 /* 連動シナジー（端数は貯めて整数化）。応援クリックと持ち場の手助けで共通 */
 function clickSynergyTick(){}   /* 段階5: ひらめき連動はゲージの溜まり（chargeFever）へ。研究メモ連動は廃止 */
+/* 再設計 C5: クリックの行き先の実測記録（即進捗／工程へ／運搬の3成分）。
+   直近10秒ぶんだけをセッション内に保持し（セーブしない）、帯の行き先バーが比率で出す */
+let clickDestLog: { t: number, imm: number, pipe: number, carry: number }[] = [];
+function recordClickDest(imm, pipe, carry){
+  const now = Date.now();
+  clickDestLog.push({ t: now, imm, pipe, carry });
+  while(clickDestLog.length && now - clickDestLog[0].t > 10000) clickDestLog.shift();
+}
+function clickDestSums(){
+  const now = Date.now();
+  let imm = 0, pipe = 0, carry = 0, n = 0;
+  for(const e of clickDestLog){ if(now - e.t <= 10000){ imm += e.imm; pipe += e.pipe; carry += e.carry; n++; } }
+  return { imm, pipe, carry, n };
+}
 function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し側 (hitzones) が担う */
   const now = Date.now();
   comboN = (now - lastClickAt <= 2500) ? comboN + 1 : 1;
@@ -314,9 +328,13 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
   if(!challengeActive("idle") && clickBucketTake()){   /* 第2ウェーブ K: 完全放置中はクリックが DP を生まない（反応とコンボだけ残る） */
     if(!feverActive()) chargeFever(FEVER.chargePerClick);
     prodMuted = true;
-    produceDP(gain * (1 - CLINK.directShare), "l1");
-    if(S.project && S.project.planning) produceDP(gain * CLINK.directShare, "l1");
+    let pipeIn = produceDP(gain * (1 - CLINK.directShare), "l1") || 0;
+    if(S.project && S.project.planning) pipeIn += produceDP(gain * CLINK.directShare, "l1") || 0;
     prodMuted = false;
+    let immDest = 0, carryDest = 0;
+    /* 再設計 C4: 工程へ入った分は「仕掛かり」として進捗の返事と分けて返す */
+    if(pipeIn > 0 && document.body.classList.contains("strip"))
+      addStripFloaterSum(bx, by - 38, "pipe", pipeIn, v => "仕掛かり +" + fmtClickDP(v), "#5b8dd9");
     if(S.project && !S.project.planning){
       const direct = gain * CLINK.directShare * clickProdMult();
       S.runDP += direct; S.runHandDP = (S.runHandDP || 0) + direct;
@@ -327,7 +345,9 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
       progressPulseUntil = Date.now() + 500;
       if(document.body.classList.contains("strip"))
         addStripFloaterSum(bx, by - 22, "adv", direct + carried, v => "+" + fmtClickDP(v) + "DP すすんだ！", "#e8873a");
+      immDest = direct; carryDest = carried;
     }
+    recordClickDest(immDest, pipeIn, carryDest);
     if(crit){
       addFloater(bx, by - 12, "CRITICAL! +" + fmtDec(gain, 0) + "DP", "#d9534f");
       say("会心応援！！ すごいパワーだにゃ！");

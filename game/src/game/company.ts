@@ -319,6 +319,18 @@ function notebookTopResearch(){
   const done = RESEARCH_DEFS.filter(r => S.research[r.id]).sort((a,b) => b.cost - a.cost);
   return done[0] || null;
 }
+/* 再設計 C3: 売却の内訳の物差し — 星屑の出どころ（比例枠ぶん／√域ぶん／売却特化ぶん）と
+   売却実績の内訳（大きさ分＋時代ボーナス分）。付与側（doPrestigeCore の ptsGain）と一致させる */
+function prestigeBreakdown(){
+  const base = dustGainFromValue(S.runPeakValue || 0), cap = dustGainCap();
+  const gain = Math.floor(base * (S.runPolicy === "sell" ? 1.25 : 1));
+  return {
+    propPart: Math.min(base, cap), sqrtPart: Math.max(0, base - cap),
+    policyPart: Math.max(0, gain - base),
+    ptsSize: gain >= 300 ? 3 : gain >= 100 ? 2 : 1,
+    ptsEra: (S.eraDust || 0) >= HOLD_ERA_DUST ? 1 : 0
+  };
+}
 function doPrestige(){
   const pv = prestigePreview();
   const gain = pv.gain;
@@ -354,6 +366,7 @@ function resetCompanyRun(){
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
+  S.runStartedAt = Date.now();   /* 再設計 C8: EXIT 履歴の「所要」の起点。eraIncome は時代の間は消さない */
   /* レベルデザイン改修: 時代マイルストーン「シード突破」（eraDust 150）に届いた時代は、
      新しい会社が設備 Lv10 から始まる（ワイドモニターは企画上限の専用枠なので対象外） */
   if((S.eraDust || 0) >= 150) for(const id of ["devenv", "duck", "tester", "ci", "pack", "bot"]) S.upgrades[id] = 10;
@@ -416,6 +429,10 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;
   S.eraExitPts = newEraPts;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算星屑（星団の材料） */
+  /* 再設計 C8: EXIT の履歴を残す（B13 の「前回との差」・時代の記録の材料。直近50件まで） */
+  if(!Array.isArray(S.exitHistory)) S.exitHistory = [];
+  S.exitHistory.push({ t: Date.now(), gain, pts: ptsGain, secs: Math.max(0, Math.round((Date.now() - (S.runStartedAt || Date.now())) / 1000)), peak: S.runPeakValue || 0 });
+  if(S.exitHistory.length > 50) S.exitHistory.splice(0, S.exitHistory.length - 50);
   resetCompanyRun();
   /* 特典の引き継ぎ: 初期資金・星の貯金箱・研究ノート・ベテラン */
   S.coins = carryCoins;
@@ -574,7 +591,7 @@ function doHoldingsCore(){
   S.holdings = (S.holdings || 0) + 1;
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
-  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.dustLegacyMult = base; S.dustLegacyBase = 0;   /* 持株の土台は残る */
+  S.dust = 0; S.dustTotal = 0; S.dustPerks = {}; S.eraDust = 0; S.eraIncome = {}; S.dustLegacyMult = base; S.dustLegacyBase = 0;   /* 持株の土台は残る。再設計 C8: 時代の収入累計は時代ごとに仕切り直す */
   S.eraExitPts = 0; S.eraStartPrestiges = S.prestiges || 0;   /* レベルデザイン改修: 売却実績は新しい時代で 0 から */
   S.clickUp = {}; S.cheerP = 0;   /* 腕前（応援強化）も第1層と一緒に畳む */
   convertKnow();   /* 段階5: ジャンル知見は持株化でも残る（余った研究P も知見に） */

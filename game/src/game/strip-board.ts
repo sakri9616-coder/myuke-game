@@ -224,6 +224,22 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */
   const bar = mainBoardBar(bx);
   drawBoardBar(bar.x, bar.y, bar.w, bar.h, m.frac, bn ? "red" : (m.planning ? "yellow" : "green"), m.ticks);
+  /* 再設計 C4: クリック行き先バー — 直近10秒の実測3成分（即=橙／工程=青／運搬=緑）の比率だけを
+     進捗バーの直下に同幅・細く出す。数値は帯に出さず、クリックが無ければバーごと消える（ux-r3 §2.4） */
+  {
+    const ds = clickDestSums(), dTot = ds.imm + ds.pipe + ds.carry;
+    if(ds.n > 0 && dTot > 0){
+      let xx = bar.x;
+      const segs = [[ds.imm, "#e8873a"], [ds.pipe, "#5b8dd9"], [ds.carry, "#5aa469"]];
+      sctx.save();
+      for(let i = 0; i < segs.length; i++){
+        const wSeg = i === segs.length - 1 ? (bar.x + bar.w) - xx : bar.w * (segs[i][0] / dTot);
+        if(wSeg > 0.5){ sctx.fillStyle = segs[i][1]; sctx.fillRect(xx, bar.y + bar.h + 1, wSeg, 2.5); }
+        xx += wSeg;
+      }
+      sctx.restore();
+    }
+  }
   /* r3: 進捗の実数 (旧表示「現在 / 必要 DP」を残す) + 機能の進み具合。
      企画中は着工までの案内、詰まり中は右側が詰まりの工程名になる */
   const rcy = iy + 32.5;

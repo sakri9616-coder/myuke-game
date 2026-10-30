@@ -43,6 +43,17 @@ function dustGainFromValue(v){
   const x = v / dustValueUnit(), c = dustGainCap();
   return Math.floor(x <= c ? x : c * Math.pow(x / c, BAL.dustGainExp));
 }
+/* 再設計 C2: dustGainFromValue の逆 — 星屑 g 個に届く企業価値（残量表示の材料。
+   比例枠内は 単価×g、枠超えは 単価×枠×(g/枠)^(1/exp) で閉じる） */
+function dustValueForGain(g){
+  const u = dustValueUnit(), c = dustGainCap();
+  return g <= c ? u * g : u * c * Math.pow(g / c, 1 / BAL.dustGainExp);
+}
+/* 次の星屑まで あと企業価値いくつか（方針の ×1.25 は売却時に最後に掛かるので、素の曲線で数える） */
+function nextDustResidual(){
+  const peak = S.runPeakValue || 0;
+  return Math.max(0, dustValueForGain(dustGainFromValue(peak) + 1) - peak);
+}
 /* 自動昇格の閾値（再設計 段階3）: RANK_VALUE[いまの社格] に企業価値が届いたら次の社格へ。下がることはない */
 const RANK_VALUE = [0, 3e3, 2e4, 1e5, 5e5, 2.5e6];
 function nextRankValue(){ return S.studioLv < STAFF_CAPS.length ? RANK_VALUE[S.studioLv] : null; }
@@ -368,9 +379,10 @@ function produceDP(amount, _target?){
   const proj = S.project;
   const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * planBugMult(proj) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
     (fromInput ? BAL.inputBugRate : 1);   /* 応援・入力で増えた分はバグが出にくい（頑張るほど詰まる逆転を防ぐ） */
+  let inflow = 0;   /* 再設計 C5: 実際に仕掛品へ入った量。行き先の実測として呼び出し側へ返す */
   {
     /* Wave H: 自動生産の一部はモジュールのミニラインへ（入力由来は対象外） */
-    let inflow = a;
+    inflow = a;
     if(!fromInput && S.project && S.project.modules && !S.project.planning) inflow -= divertToModules(a);
     S.wip.code += inflow;
     if(S.project) S.project.bugs += aBase * BAL.bugPerDP * bugMul;
@@ -387,6 +399,7 @@ function produceDP(amount, _target?){
     S.tut.seen.first_bug = true;
     say("バグが出たにゃ。あたしが勝手に叩くから大丈夫だよ");
   }
+  return inflow;
 }
 /* 工程中心（2026-10-27）: 応援は「みゅけが手で運ぶ」。溜まった仕掛品を下流から
    （ビルド済み → テスト済み → 実装済みの順に）手で出荷まで運び、その場で進捗に計上する。
@@ -580,6 +593,9 @@ function creditIncome(src, c){
   if(!(c > 0)) return;
   if(!S.incomeBy || typeof S.incomeBy !== "object") S.incomeBy = {};
   S.incomeBy[src] = (S.incomeBy[src] || 0) + c;
+  /* 再設計 C8: 時代単位でも同じ内訳を貯める（時代の最多収入源＝B13 の時代の記録用） */
+  if(!S.eraIncome || typeof S.eraIncome !== "object") S.eraIncome = {};
+  S.eraIncome[src] = (S.eraIncome[src] || 0) + c;
 }
 function laborShare(){ return S.runDP > 0 ? Math.min(1, (S.runHandDP || 0) / S.runDP) : 0; }
 function creditLine(c){ const f = laborShare(); creditIncome("labor", c * f); creditIncome("line", c * (1 - f)); }

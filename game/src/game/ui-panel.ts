@@ -367,7 +367,7 @@ function renderPanelInto(el){
       const need = nextRankValue(), have = S.runPeakValue || 0;
       const opens = RANK_UNLOCKS[S.studioLv + 1];
       h += "<div class='item slim rankbox' data-fix='studio'><div><span class='sock sm'>🏠</span><span class='nm'>次の社格: "+rankName(S.studioLv+1)+"</span>"+
-        " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"</span>"+
+        " <span class='tagchip'>企業価値 "+fmt(have)+" / "+fmt(need)+"（あと "+fmt(Math.max(0, need - have))+"）</span>"+
         "<div class='meter' style='margin-top:5px'><i style='width:"+Math.min(100, Math.round(have / need * 100))+"%'></i></div><div class='ds'>企業価値が届くと自動で昇格 ・ 雇用上限が "+STAFF_CAPS[S.studioLv]+" 人に"+(opens ? " ・ "+opens+"が開く" : "")+"<br>帯のオフィスも「"+OFFICE_TIER_NAMES[S.studioLv]+"」仕様に</div></div></div>";
     } else {
       h += "<div class='item slim'><span class='sock sm'>🏠</span>スタジオ最大（大企業・上限 "+staffCap()+"人）</div>";
@@ -397,7 +397,9 @@ function renderPanelInto(el){
       if(st.role === "care") return "集中力キープ ・ たまに差し入れ";
       if(st.role === "sales"){
         const sg = GENRES.find(x => x.id === st.genre);
-        return "依頼を自動獲得 ・ 得意：" + (sg ? sg.name : "―") + " ・ 担当力 " + (st.lv + deptLv("sales") - 1);
+        const power = st.lv + deptLv("sales") - 1;
+        const nextTier = power < 4 ? 4 : power < 7 ? 7 : power < 11 ? 11 : 0;   /* 再設計 C1: 営業ティア（salesTierFor の閾値 4/7/11）までの残量 */
+        return "依頼を自動獲得 ・ 得意：" + (sg ? sg.name : "―") + " ・ 担当力 " + power + (nextTier ? " ・ 次のティアまで あと " + (nextTier - power) : " ・ 最高ティア");
       }
       return def.desc;
     };
@@ -428,7 +430,7 @@ function renderPanelInto(el){
           const short = t => t.split("（")[0];
           return "<div class='rs dl' title='" + esc(dl.map(x => "Lv" + x[0] + ": " + x[1]).join("\n")) + "'>" +
             done.map(x => "✓ " + short(x[1])).join(" ・ ") + (done.length && !chief ? "（部長がいない）" : "") +
-            (nx ? (done.length ? "<br>" : "") + "Lv" + nx[0] + ": " + short(nx[1]) : "") + "</div>";
+            (nx ? (done.length ? "<br>" : "") + "あと " + (nx[0] - lv) + " Lv で「" + short(nx[1]) + "」（Lv" + nx[0] + "）" : "") + "</div>";
         })() +
         (locked ? "<div class='rs'>社格「" + rankName(CHEER_STAFF_RANK) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
@@ -441,7 +443,8 @@ function renderPanelInto(el){
         /* 行には自分の分の数字だけ（工程名と単位は列の見出しにある）。全文は title に */
         const short = def.unit ? "+" + fmtDec((def.out * m), def.out < 1 ? 2 : 1)
           : role === "sales" ? "担当 " + (st.lv + lv - 1) : "×" + fmtDec(m, 2);
-        h += "<div class='catrow' title='" + esc(st.name + "（" + COAT_NAMES[st.coat] + "）" + eff) + "'>" +
+        const mastery = st.lv < 5 ? " ・ 次の熟練（Lv5 で +15%）まで あと " + (5 - st.lv) + " Lv" : st.lv < 10 ? " ・ 次の熟練（Lv10 で +30%）まで あと " + (10 - st.lv) + " Lv" : "";
+        h += "<div class='catrow' title='" + esc(st.name + "（" + COAT_NAMES[st.coat] + "）" + eff + mastery) + "'>" +
           "<div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
           "<div class='sc-top'><span class='nm'>" + (chief === st ? "⭐" : "") + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span></div>" +
           "<div class='cr-bot'><span class='sc-eff'>" + short + "</span>" +
@@ -638,6 +641,10 @@ function renderPanelInto(el){
     /* プレステージは低頻度: 実行できる時だけ表のカードに出し、それ以外は
        星屑ショップと一緒に折りたたみにまとめる */
     const prestigeBtn = "<button class='primary' onclick='doPrestige()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
+    /* 再設計 C3: 売却の内訳（星屑の出どころ＋売却実績の内訳） */
+    const pb = prestigeBreakdown();
+    const pbTxt = "星屑: 比例枠 " + pb.propPart + " 個" + (pb.sqrtPart > 0 ? "＋√域 " + pb.sqrtPart + " 個" : "") + (pb.policyPart > 0 ? "＋売却特化（+25%）" + pb.policyPart + " 個" : "") +
+      " ／ 売却実績 +" + (pb.ptsSize + pb.ptsEra) + "（大きさ " + pb.ptsSize + (pb.ptsEra ? "＋時代ボーナス " + pb.ptsEra : "") + "）";
     if(tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
       /* チュートリアル導線: 引っ越しと星屑ショップは卒業 (Stage 7) の深層。
          それまでは正体を伏せた深部シルエットだけを見せる */
@@ -650,11 +657,14 @@ function renderPanelInto(el){
         "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
         "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+fmtDec(pv.curMult, 2)+" → <b>×"+fmtDec(pv.nextMult, 2)+"</b>（企業価値の最高 "+fmt(S.runPeakValue || 0)+"）</div></div>"+
         prestigeBtn + "</div>"+
+        "<div class='note' style='margin-top:4px'>内訳: " + pbTxt + "</div>" +
         "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.map(esc).join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div>" + exitMsHTML() + "</div>";
       h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
       const preBody = kv("企業価値の最高", fmt(S.runPeakValue || 0)+" ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能・星屑は売却実績で広がる比例枠 "+dustGainCap()+" 個まで比例、それ以上は逓減）") +
+        kv("次の星屑まで", "あと企業価値 " + fmt(Math.ceil(nextDustResidual()))) +
+        kv("売却の内訳", pbTxt) +
         kv("生産倍率（星屑ボーナス）", "現在 ×"+fmtDec(pv.curMult, 2)+" → 売却後 ×"+fmtDec(pv.nextMult, 2)) +
         (pv.subGain > 0 ? kv("うち子会社ぶん（目安）", "星屑 約 "+pv.subGain+" 個（子会社の売上も企業価値に入っています）") : "") +
         kv("EXIT回数", S.prestiges+" 回") + exitMsHTML() +
@@ -679,7 +689,8 @@ function renderPanelInto(el){
           kv("子会社", hp.cond.subs ? ((S.subs || []).length) + " / 2 社 ✅" : "あと " + (2 - (S.subs || []).length) + " 社（現在 " + (S.subs || []).length + " / 2 社）") +
           kv("売却実績", hp.cond.exits ? "🎖 " + eraExitPts() + " / " + HOLD_EXITS + " ✅" : "あと " + (HOLD_EXITS - eraExitPts()) + "（現在 🎖 " + eraExitPts() + " / " + HOLD_EXITS + "・EXIT 1回で +1・星屑100個以上の売却で +2・300個以上で +3・この時代の通算星屑が条件に届いたあとの EXIT は +1）") +
           kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど階段で増えます）") +
-          kv("時代のしるし", ERA_MILESTONES.map(m => ((S.eraDust || 0) >= m.at ? "✅ " : "○ ") + m.desc + "（" + m.name + "）").join("<br>")) +
+          kv("次の星団", (() => { const ed = S.eraDust || 0, nx = CLUSTER_STEPS.find(t => ed < t); return nx ? "あと " + fmt(nx - ed) + " 個（時代の累計星屑 " + fmt(nx) + " 個で星団 +1）" : "頭打ち（この時代の星団は最大 11 個）"; })()) +
+          kv("時代のしるし", (() => { const ed = S.eraDust || 0; let marked = false; return ERA_MILESTONES.map(m => { const met = ed >= m.at; const res = (!met && !marked) ? (marked = true, " ・ あと " + fmt(m.at - ed) + " 個") : ""; return (met ? "✅ " : "○ ") + m.desc + "（" + m.name + "）" + res; }).join("<br>"); })()) +
           kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)));
       }
       if((S.holdings || 0) > 0 || (S.legacy || 0) > 0){
@@ -708,8 +719,8 @@ function renderPanelInto(el){
         const cdef = challengeDef(S.challenge.id);
         if(cdef){
           const prog = S.challenge.id === "black"
-            ? "企業価値の最高 " + fmt(S.runPeakValue || 0) + " / " + fmt(BLACK_GOAL_DUST * dustValueUnit())
-            : "現在 Lv" + S.studioLv + " / 目標 Lv" + challengeGoalLv();
+            ? "企業価値の最高 " + fmt(S.runPeakValue || 0) + " / " + fmt(BLACK_GOAL_DUST * dustValueUnit()) + ((S.runPeakValue || 0) < BLACK_GOAL_DUST * dustValueUnit() ? "（あと " + fmt(BLACK_GOAL_DUST * dustValueUnit() - (S.runPeakValue || 0)) + "）" : "")
+            : "現在 Lv" + S.studioLv + " / 目標 Lv" + challengeGoalLv() + (S.studioLv < challengeGoalLv() ? "（あと " + (challengeGoalLv() - S.studioLv) + " 段）" : "");
           h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
             "<span class='sock'>🎯</span><span class='nm'>チャレンジ中: " + cdef.name + "</span>" +
             "<div class='ds'>" + cdef.rule + "<br>目標: " + cdef.goal + "（" + prog + "）／ 報酬: " + cdef.reward + "</div></div>" +
@@ -860,7 +871,7 @@ function renderPanelInto(el){
         const lv = knowLvFor(pts), nextPts = Math.pow(lv + 1, 2), lv2 = knowLvFor(pts + add);
         rows += "<div class='item slim'><div><span class='nm'>" + g.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" +
           (lv2 > lv ? " <span class='tagchip'>売却で Lv" + lv2 + "</span>" : "") +
-          "<div class='ds'>" + g.name + "の作品の値段 +" + (lv * 10) + "% ・ 知見 " + fmtDec(pts, 1) + " / 次の Lv まで " + nextPts +
+          "<div class='ds'>" + g.name + "の作品の値段 +" + (lv * 10) + "% ・ 知見 " + fmtDec(pts, 1) + " ・ 次の Lv まで あと " + fmtDec(nextPts - pts, 1) +
           (add > 0 ? " ・ 売却で +" + fmtDec(add, 1) : "") + "</div></div></div>";
       }
       h += "<h3 style='margin-top:12px'>📚 ジャンル知見（会社を売っても残る）</h3>" +

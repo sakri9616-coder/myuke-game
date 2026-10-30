@@ -74,6 +74,9 @@ function freshState(): GameState {
     runPeakValue:0, dustLegacyMult:1, dustLegacyBase:0,
     /* 再設計 段階4 追加分: この会社の収入の内訳（収入源ごとの稼ぎ）と、応援クリックが作った DP */
     incomeBy:{}, runHandDP:0,
+    /* 再設計 C8: 時代サマリ用の記録 — EXIT の履歴（B13 の「時代の記録」の材料）と
+       時代単位の収入累計（incomeBy は会社ごとに消えるが、こちらは時代の間は残る） */
+    eraIncome:{}, exitHistory:[], runStartedAt:0,
     /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
     executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
@@ -309,6 +312,10 @@ function load(rawText?: string){
     if(typeof S.runPeakValue !== "number" || !isFinite(S.runPeakValue)) S.runPeakValue = 0;
     if(!S.incomeBy || typeof S.incomeBy !== "object") S.incomeBy = {};
     if(typeof S.runHandDP !== "number" || !isFinite(S.runHandDP)) S.runHandDP = 0;
+    /* 再設計 C8: 旧セーブには無い欄なので空で補う（記録は今後ぶんだけ貯まる） */
+    if(!S.eraIncome || typeof S.eraIncome !== "object") S.eraIncome = {};
+    if(!Array.isArray(S.exitHistory)) S.exitHistory = [];
+    if(typeof S.runStartedAt !== "number" || !isFinite(S.runStartedAt) || S.runStartedAt <= 0) S.runStartedAt = Date.now();
     if(typeof S.legacy !== "number") S.legacy = 0;
     if(!S.legacyTech || typeof S.legacyTech !== "object") S.legacyTech = {};
     if(typeof S.holdings !== "number") S.holdings = 0;

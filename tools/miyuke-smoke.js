@@ -264,6 +264,15 @@ console.log("== 5. prestige ==");
     sold >= 150 && sold <= 170 && run(sb, "S.catalog.length") === 0);
 }
 {
+  /* 再設計 C8: EXIT の履歴が残り、時代単位の収入累計は会社リセットを生き残る（B13 の材料） */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.eraIncome = { labor: 123 }; S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  check("exit history is recorded and era income survives a company reset (C8)",
+    run(sb, "S.exitHistory.length") === 1 && run(sb, "S.exitHistory[0].gain") >= 3 && run(sb, "S.exitHistory[0].pts") >= 1 &&
+    run(sb, "(S.eraIncome || {}).labor") === 123 && run(sb, "Object.keys(S.incomeBy || {}).length") === 0);
+}
+{
   /* 再設計 段階3: 社格は企業価値が届くと自動で上がる（コインでは買えない） */
   const sb = buildSandbox();
   loadGame(sb);
