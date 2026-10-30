@@ -337,7 +337,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const tabRows: { t: string, mark?: string }[] = [
       { t: companyRank() + " " + S.staff.length + "/" + staffCap() + "人" },
       { t: "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) : ""), mark: sellMark ? "diamond" : undefined },
-      { t: "所持⭐" + fmt(S.dust || 0) + (S.holdings ? " ・ 🌌" + clusterGainFor(S.eraDust || 0) : ""), mark: perkDot ? "dot" : undefined }
+      { t: "所持⭐" + fmt(S.dust || 0) + (S.holdings ? " ・ 🌌" + fmt(S.legacy || 0) : ""), mark: perkDot ? "dot" : undefined }   /* 🌌は使える星団の残高（S.legacy）。次回持株化の見込みは持株フォールド側の領分 */
     ];
     if(S.challenge) tabRows.push({ t: "🎯" + ((challengeDef(S.challenge.id) || {}).name || "") });
     else if(S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]) tabRows.push({ t: "次期: " + POLICY_DEFS[S.pendingPolicy].name });
