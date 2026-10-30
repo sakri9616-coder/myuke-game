@@ -225,6 +225,7 @@ function staffCheerTick(cheersPerSec){
 /* ---------- v2: 応援クリック（コンボ） ---------- */
 let comboN = 0, lastClickAt = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
+let boardArriveFlashUntil = 0;   /* 再設計 B8: 運搬の到達の光を出す期限 (ms)。strip-board が読む */
 function comboMult(){
   return 1 + Math.min(comboCapBonus(), comboN * 0.10);
 }
@@ -344,12 +345,18 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
       const carried = S.project ? cheerCarry(gain * CLINK.carryMult * clickProdMult()) : 0;
       progressPulseUntil = Date.now() + 500;
       if(document.body.classList.contains("strip"))
-        addStripFloaterSum(bx, by - 22, "adv", direct + carried, v => "+" + fmtClickDP(v) + "DP すすんだ！", "#e8873a");
+        addStripFloaterSum(bx, by - 22, "adv", direct + carried, v => (crit ? "会心! +" : "+") + fmtClickDP(v) + "DP すすんだ！", "#e8873a");
       immDest = direct; carryDest = carried;
+      /* 再設計 B8（ux-r3 §2.4）: 運搬が起きたら猫の頭上に荷物の合図、バーの右端に到達の光 */
+      if(carried > 0){
+        boardArriveFlashUntil = Date.now() + 350;
+        if(document.body.classList.contains("strip")) addStripFloater(bx, by - 56, "📦", "#8a6a44");
+      }
     }
     recordClickDest(immDest, pipeIn, carryDest);
     if(crit){
-      addFloater(bx, by - 12, "CRITICAL! +" + fmtDec(gain, 0) + "DP", "#d9534f");
+      /* 再設計 B8（ux-r3 §2.4）: 会心の返事は主返事（実効進捗ベース）に「会心! +N」として併記する。
+         理論値の別フローター（旧 CRITICAL! +gain DP）は廃止した */
       say("会心応援！！ すごいパワーだにゃ！");
     }
   }

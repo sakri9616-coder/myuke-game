@@ -176,10 +176,14 @@ function tick(){
     if(S.runPolicy === "labor") boost *= 2;   /* レベルデザイン改修: 経営方針「労働特化」は入力ブースト ×2 */
     if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
     prodMuted = true;   /* F再設計: ブーストは入力由来（自動生産に数えず、発動倍率も二重に掛けない） */
-    if(boost > 0.01 && coding) produceDP(boost, "l1");
+    let appliedBoost = 0;
+    if(boost > 0.01 && coding) appliedBoost = produceDP(boost, "l1") || 0;
     else if(boost > 0.01) pendingBoost += boost;
-    if(pendingBoost > 0 && coding){ produceDP(pendingBoost, "l1"); pendingBoost = 0; }
+    if(pendingBoost > 0 && coding){ appliedBoost += produceDP(pendingBoost, "l1") || 0; pendingBoost = 0; }
     prodMuted = false;
+    /* 再設計 B8（ux-r3 §2.4）: 実作業ブーストの確定（10秒）ごとに、実測の入りを1回だけ浮き文字で返す */
+    if(appliedBoost > 0 && document.body.classList.contains("strip"))
+      addStripFloater(miyukeStrip.x > 0 ? miyukeStrip.x : stripVW / 2, STRIP_GROUND - 64, "+" + fmtClickDP(appliedBoost) + "（あなたの作業）", "#2e7d6b");
   }
   /* F再設計: 自動生産レートの EMA を毎秒更新（クリック連動ボーナスの基礎） */
   autoProdEMA = autoProdEMA * 0.9 + autoProdSecAcc * 0.1;

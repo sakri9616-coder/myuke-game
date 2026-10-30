@@ -240,6 +240,15 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.restore();
     }
   }
+  /* 再設計 B8（ux-r3 §2.4）: 運搬が届いた瞬間だけ、バーの右端に到達の光を1回出す */
+  if(Date.now() < boardArriveFlashUntil){
+    sctx.save();
+    sctx.fillStyle = "rgba(255, 205, 74, 0.55)";
+    sctx.beginPath(); sctx.arc(bar.x + bar.w - 2, bar.y + bar.h / 2, 5, 0, Math.PI * 2); sctx.fill();
+    sctx.fillStyle = "#ffcd4a";
+    sctx.beginPath(); sctx.arc(bar.x + bar.w - 2, bar.y + bar.h / 2, 2.4, 0, Math.PI * 2); sctx.fill();
+    sctx.restore();
+  }
   /* r3: 進捗の実数 (旧表示「現在 / 必要 DP」を残す) + 機能の進み具合。
      企画中は着工までの案内、詰まり中は右側が詰まりの工程名になる */
   const rcy = iy + 32.5;
@@ -255,7 +264,14 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const rx0 = ix + 2 + sctx.measureText(dpTxt).width + 8, rw = ix + iw - 3 - rx0;
     sctx.font = "7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "right";
-    if(p.ip && m.frac >= 0.7){
+    const effMult = debtEff() * bugFactor();
+    if(effMult < 0.99){
+      /* 再設計 B8（ux-r3 §2.6）: 請求チップ — 効率低下が実際に効いている間だけ、効きの大きい請求元を1つ名指す。
+         効率が ×0.5 を割ったら赤＋⚠（色＋形の二経路）で一段強くする */
+      sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      sctx.fillStyle = effMult < 0.5 ? "#d9534f" : "#b3541e";
+      sctx.fillText(fitMemoText((effMult < 0.5 ? "⚠ " : "") + "効率 ×" + fmtDec(effMult, 1) + "（請求元: " + (bugFactor() <= debtEff() ? "バグ在庫 " + fmt(Math.floor(S.bugStock)) + "匹" : "負債 " + fmt(Math.round(S.debt || 0))) + "）", rw), ix + iw - 3, rcy);
+    } else if(p.ip && m.frac >= 0.7){
       /* IP ねらいの終盤は、出荷時のバグ数（0 で成立）を出す */
       const nb = Math.floor(S.bugStock);
       sctx.fillStyle = nb > 0 ? "#d9534f" : "#3f8f4a";
@@ -302,43 +318,90 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   const memoTxt = stripMemoText();
   if(memoTxt && !propEntry("memo") && layoutEdit.dragId !== "memo")
     drawStripMemoTag2(bx + 4, top + bh + 2, memoTxt, 82);
-  /* Phase B・社格チップ（リーダーボード右上）: r1 は作品名＋ピル、r2 は DP 実数＋
-     生産 +N% で既に満杯で、ボード上端は帯の上端から 3px しかないため、面の中に
-     押し込まず右端にタブとして張り出す。帯の上段はボード以外に高い家具がなく、
-     右隣の家具（研究机・第2ライン机）は地面側の低い物なので重ならない。
+  /* Phase B・社格チップ（リーダーボード右上）: ボード面の中に押し込まず右端にタブとして張り出す。
      端に寄せた配置では反対側へ逃がし、両端とも入らなければ出さない（表示のみで
      クリック判定は持たない。社格の確認はメニューのチップでもできる） */
   {
-    /* 再設計 段階3: 企業価値（社格と売却の元）と、いま売ったときの星屑。比例枠を超えたら「売りどき」
-       （レベルデザイン改修: 比例枠は売却実績で広がる dustGainCap） */
     const sellNow = prestigePreview().gain;
-    const parts = [companyRank() + " " + S.staff.length + "/" + staffCap() + "人",
-      "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) + (sellNow >= dustGainCap() ? "（売りどき）" : "") : "")];
-    if(S.subs && S.subs.length) parts.push("グループ" + S.subs.length + "社・総勢" + totalPeople() + "人");
-    if(S.holdings) parts.push("持株×" + S.holdings);   /* 第2ウェーブ J: 持株化の回数が帯でも読める */
-    if(S.challenge) parts.push("🎯" + (challengeDef(S.challenge.id) || {}).name);   /* 第2ウェーブ K: 挑戦中は帯でも分かる */
+    /* 再設計 B8（ux-r3 §2.2）: 右タブは4行固定・9px 級に再編した。
+       1 社格＋人数 / 2 企業価値＋売却⭐＋売りどき印 / 3 所持⭐（＋持株化後は🌌） / 4 次期方針 or チャレンジ。
+       グループ社数・総勢は子会社タブ側へ、持株×N は持株化パネルと時代の記録側へ移した（帯では出さない） */
+    /* 売りどき印（§2.6）: 売却見込みが立ち、かつ星屑が比例枠の中にある間だけ金の印（色＋形）を付ける。
+       枠を超えたら印は消え、代わりに売却カード側の比例枠バーが担う（designer-r3 の売りどき定義。
+       旧実装の「枠を超えたら（売りどき）」という文字列と条件はこちらが正本） */
+    const sellMark = sellNow >= 3 && dustGainFromValue(S.runPeakValue || 0) <= dustGainCap();
+    /* 所持⭐の金の点: いま買える星屑特典がある間だけ付ける */
+    const perkDot = DUST_PERKS.some(d => d.lv
+      ? perkLv(d.id) < (d.maxLv || 0) && Math.ceil(d.baseCost * Math.pow(d.costMul, perkLv(d.id))) <= (S.dust || 0)
+      : !hasPerk(d.id) && d.cost <= (S.dust || 0));
+    const tabRows: { t: string, mark?: string }[] = [
+      { t: companyRank() + " " + S.staff.length + "/" + staffCap() + "人" },
+      { t: "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) : ""), mark: sellMark ? "diamond" : undefined },
+      { t: "所持⭐" + fmt(S.dust || 0) + (S.holdings ? " ・ 🌌" + clusterGainFor(S.eraDust || 0) : ""), mark: perkDot ? "dot" : undefined }
+    ];
+    if(S.challenge) tabRows.push({ t: "🎯" + ((challengeDef(S.challenge.id) || {}).name || "") });
+    else if(S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]) tabRows.push({ t: "次期: " + POLICY_DEFS[S.pendingPolicy].name });
     sctx.save();
-    sctx.font = "700 7.5px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+    sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";
-    const b2L = Infinity;   /* 段階5: 第2ラインのボードは廃止 */
     let tx = bx + bw + 1;
-    const limit = (b2L > tx ? Math.min(b2L - 2, stripVW - 2) : stripVW - 2) - tx;
-    const lines = [];
-    for(const t of parts){
-      const last = lines.length ? lines[lines.length - 1] : null;
-      if(last && sctx.measureText(last + " ・ " + t).width + 10 <= limit) lines[lines.length - 1] = last + " ・ " + t;
-      else lines.push(t);
-    }
-    const tw = Math.max(...lines.map(t => sctx.measureText(t).width)) + 10;
+    const limit = (stripVW - 2) - tx;
+    const tw = Math.max(...tabRows.map(r => sctx.measureText(r.t).width + (r.mark ? 9 : 0))) + 10;
     if(tw > limit) tx = bx - tw - 1;
     if(tx >= 1){
-      lines.forEach((t, k) => {
+      tabRows.forEach((r, k) => {
         drawBoardTab(tx, top + 1 + k * 13, tw);
         sctx.fillStyle = "#4a3b2c";
-        sctx.fillText(t, tx + 5, top + 7 + k * 13);
+        sctx.fillText(r.t, tx + 5, top + 7 + k * 13);
+        if(r.mark){
+          const mxp = tx + 5 + sctx.measureText(r.t).width + 5.5, myp = top + 7 + k * 13;
+          sctx.save();
+          sctx.fillStyle = "#d9a514";
+          sctx.strokeStyle = "#8a6410"; sctx.lineWidth = 0.8;
+          sctx.beginPath();
+          if(r.mark === "diamond"){ sctx.moveTo(mxp, myp - 3.4); sctx.lineTo(mxp + 3.4, myp); sctx.lineTo(mxp, myp + 3.4); sctx.lineTo(mxp - 3.4, myp); }
+          else sctx.arc(mxp, myp, 2.6, 0, Math.PI * 2);
+          sctx.closePath(); sctx.fill(); sctx.stroke();
+          sctx.restore();
+        }
       });
     }
     sctx.restore();
+    /* 再設計 B8（ux-r3 §2.5）: 追い風チップ — ボード上端に主役（名前＋倍率）＋副役（名前だけ）の最大2個。
+       選定は生産への実効倍率が最大のもの。オーバークロック中は主役をオーバークロックに固定する */
+    if(!small){
+      const cands: { name: string, mult: number }[] = [];
+      if(firstBoost() > 1) cands.push({ name: "🌱 新人ブースト", mult: firstBoost() });
+      if(fishProdMult() > 1) cands.push({ name: "🐟 大漁", mult: fishProdMult() });
+      if(legacyMult() > 1) cands.push({ name: "⚛ 量子", mult: legacyMult() });
+      if(buffProdMult() > 1) cands.push({ name: "🎁 ご褒美", mult: buffProdMult() });
+      if(S.challengeRewards && S.challengeRewards.idle) cands.push({ name: "🌙 放置報酬", mult: 1.15 });
+      cands.sort((a, b) => b.mult - a.mult);
+      if(feverActive()) cands.unshift({ name: "🔥 オーバークロック", mult: FEVER.prodMult });
+      if(cands.length){
+        const mfmt = (v: number) => v % 1 === 0 ? String(v) : fmtDec(v, 2);
+        const main = cands[0];
+        const mainTxt = main.name.indexOf("新人") >= 0 ? "新人ブースト中 ×" + mfmt(main.mult) + "（初リリースまで）" : main.name + " ×" + mfmt(main.mult);
+        const sub = cands[1];
+        sctx.save();
+        sctx.textBaseline = "middle"; sctx.textAlign = "left";
+        let right = bx + bw - 4;
+        if(sub){
+          sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+          const sw = sctx.measureText("＋" + sub.name).width + 8;
+          sDrawNine("ui_tab_9", right - sw, top - 5, sw, 10, 3, 3);
+          sctx.fillStyle = "#4a3b2c";
+          sctx.fillText("＋" + sub.name, right - sw + 4, top + 0.4);
+          right -= sw + 3;
+        }
+        sctx.font = "700 8px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        const mw2 = sctx.measureText(mainTxt).width + 9;
+        sDrawNine("ui_tab_gold_9", right - mw2, top - 5, mw2, 10, 3, 3);
+        sctx.fillStyle = "#4a3b2c";
+        sctx.fillText(mainTxt, right - mw2 + 4.5, top + 0.4);
+        sctx.restore();
+      }
+    }
   }
   /* Stage 3: ボードに付く小物 — 電話 (スタッフ)。コイン残高はボード r3 の札に移した。
      Phase E: 電話は独立した配置項目 (propPlace)。既定ではボード左端についてくるが、

@@ -377,7 +377,41 @@ function renderStrip(){
       sctx.fillText("💡×" + fmtDec(im, 1), gx, gb - 45);
       sctx.restore();
     }
+    /* 再設計 B8（C1 #15＋ux-r3 §2.5）: 溜め中は筒の上に「あと◯% ・ 生産+◯%」（蓄熱の現在値）を出す。
+       💡倍率の札と同じ場所を使うので、札が出ている時はその上にもう1段置く */
+    if(!fActive && fFrac > 0 && fFrac < 1){
+      const gNow = Math.floor((S.fever && S.fever.gauge) || 0);
+      if(gNow > 0){
+        const heatTxt = "あと" + (100 - gNow) + "% ・ 生産+" + Math.round(FEVER.passiveMax * gNow) + "%";
+        sctx.save();
+        sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        sctx.textAlign = "center"; sctx.textBaseline = "bottom";
+        sctx.lineWidth = 2.5; sctx.strokeStyle = "#fff8ec";
+        sctx.strokeText(heatTxt, gx, gb - 45 - (im >= 1.05 ? 11 : 0));
+        sctx.fillStyle = "#4a3b2c";
+        sctx.fillText(heatTxt, gx, gb - 45 - (im >= 1.05 ? 11 : 0));
+        sctx.restore();
+      }
+    }
     stripHitRects.fever = { x: gx - 7, y: gb - 52, w: 14, h: 52 };
+  }
+  /* 再設計 B8（ux-r3 §2.2）: OS入力カウントの常駐目印 — 机の左隅の小物（UI 描画のみ）。
+     数えている間だけ緑に点く。OFF の間は地の色だけが見える */
+  {
+    const dcx = stripDeskCX() - 58, dcy = G - 36;
+    sctx.save();
+    sctx.fillStyle = "#5a4a38";
+    sctx.beginPath(); sctx.arc(dcx, dcy, 3.2, 0, Math.PI * 2); sctx.fill();
+    if(osCountingActive()){
+      sctx.fillStyle = "rgba(88, 166, 74, 0.35)";
+      sctx.beginPath(); sctx.arc(dcx, dcy, 5.4, 0, Math.PI * 2); sctx.fill();
+      sctx.fillStyle = "#58a64a";
+      sctx.beginPath(); sctx.arc(dcx, dcy, 2.1, 0, Math.PI * 2); sctx.fill();
+    } else {
+      sctx.fillStyle = "#8a7a62";
+      sctx.beginPath(); sctx.arc(dcx, dcy, 1.6, 0, Math.PI * 2); sctx.fill();
+    }
+    sctx.restore();
   }
   /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
      ダイジェティック表現: 数字を見なくても「荒れてきた」が分かる） */

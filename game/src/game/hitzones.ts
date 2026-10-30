@@ -199,7 +199,8 @@ if(stripCv){
     if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
       const r = handworkClick(stHit.stage);
       addStripSpark(ux, uy, r.crit);
-      if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+      if(r.crit && r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "会心! +" + fmtClickDP(v) + "DP 手作業");
+      else if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
       else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
       else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
       headerAfterStripClick();
@@ -250,8 +251,8 @@ if(stripCv){
     const crit = cheerClick(ux, uy, part);
     if(part) wantProgress("cheer");   /* v2.21.0: おねだり「おうえん」はみゅけへのクリックで進む */
     addStripSpark(ux, uy, crit);
-    if(!crit){ if(document.body.classList.contains("strip")) addStripFloaterSum(ux, uy - 9, "click", clickShownDP() * comboMult() * heatMult() * fishClickMult(), v => "+" + fmtClickDP(v) + "DP"); }
-    else addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+    /* 再設計 B8（ux-r3 §2.4）: 応援クリックの主返事は cheerClick 側の実効進捗ベース（行き先の内訳つき）に一本化。
+       ここで重ねていた表示用威力の +N と CRITICAL! の別フローターは廃止した（火花が会心の視覚経路） */
     if(part && !crit){
       if(part === "head"){ addConc(2); if(!wantProgress("pat")) clickSay("ん。…悪くないにゃ"); }
       if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
