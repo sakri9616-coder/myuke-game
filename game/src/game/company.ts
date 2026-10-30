@@ -284,7 +284,7 @@ function execSelectHTML(){
   const roleName = r => (STAFF_ROLES[r] || {}).name || r;
   const cands = execCandidates();
   let hh = "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
-    "<div style='font-size:12px'><b>🎗 役員の引き継ぎ</b> <span style='color:var(--sub)'>この会社で一番働いた猫が次の会社の役員になります（上限3匹・頭数に数えず、同じ役職に +10% のオーラ）</span></div>" +
+    "<div style='font-size:12px'><b>🎗 役員に残す猫（ベテラン制度）</b> <span style='color:var(--sub)'>この会社で一番働いた猫が次の会社の役員になります（上限3匹・頭数に数えず、同じ役職に +10% のオーラ）</span></div>" +
     "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:4px'>";
   for(const c of cands){
     const sel = pendingExecPick === undefined ? c === cands[0] : pendingExecPick === c.id;
@@ -354,8 +354,9 @@ function exitMs(id){ const m = EXIT_MILESTONES.find(x => x.id === id); return !!
 function nextExitMs(){ return EXIT_MILESTONES.find(m => (S.prestiges || 0) < m.n) || null; }
 function startRank(){ return exitMs("start3") ? 3 : exitMs("start2") ? 2 : 1; }
 function exitMsHTML(){
+  const nx = nextExitMs();   /* 再設計 C1: 次の節目までの残量（あと◯回）を最初の未達に付ける */
   return "<div class='note' style='margin-top:4px'>🎖 EXIT の節目: " + EXIT_MILESTONES.map(m =>
-    ((S.prestiges || 0) >= m.n ? "✅" : "○") + m.n + "回 " + m.name).join(" ／ ") + "</div>";
+    ((S.prestiges || 0) >= m.n ? "✅" : "○") + m.n + "回 " + m.name + (nx && m === nx ? "（あと " + (m.n - (S.prestiges || 0)) + " 回）" : "")).join(" ／ ") + "</div>";
 }
 /* 段階6: 固定額だった持ち越しを、前の会社の自動収入の N 分ぶんにした（桁が上がっても効き目が残る） */
 function seedMoney(){ return Math.max(3000, Math.floor(autoIncomePerSec() * 600)); }

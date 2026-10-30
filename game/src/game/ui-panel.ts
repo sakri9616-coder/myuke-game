@@ -594,24 +594,7 @@ function renderPanelInto(el){
         "<div class='ds'>"+bdef.desc+milestoneNote(bdef, blv)+(blv >= 100 ? "<br>🔓 限界突破中（節目は Lv100 で固定・価格は ×1.35 ずつ上昇）" : "")+"</div></div>"+
         (bmaxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")", false, "", true))+"</div>";
     }
-    /* レベルデザイン改修: 経営方針（次の会社への特性）。売却前に選んでおき、EXIT で消費される。
-       売却まわりの深層なので、チュートリアル導線では EXIT と同じ条件で隠す */
-    if(!tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
-      const polBtn = (id, label, desc) => {
-        const sel = id === null ? !S.pendingPolicy : S.pendingPolicy === id;
-        return "<button onclick='setRunPolicy(" + (id === null ? "null" : "\"" + id + "\"") + ")'" + (sel ? " class='primary'" : "") + " title='" + esc(desc) + "'>" + label + "</button>";
-      };
-      h += "<div class='item slim' style='margin-top:12px'><div><span class='sock'>🧭</span><span class='nm'>次期経営方針</span>" +
-        "<div class='ds'>会社を売却するとき、この方針が次の会社にだけ効きます（未選択なら方針なし）" +
-        (S.runPolicy && POLICY_DEFS[S.runPolicy] ? "<br>いまの会社： <b>" + POLICY_DEFS[S.runPolicy].name + "</b>（" + POLICY_DEFS[S.runPolicy].desc + "）" : "") +
-        (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy] ? "<br>予約中： <b>" + POLICY_DEFS[S.pendingPolicy].name + "</b>（" + POLICY_DEFS[S.pendingPolicy].desc + "）" : "") +
-        "</div><div style='margin-top:5px;display:flex;gap:6px;flex-wrap:wrap'>" +
-        polBtn(null, "方針なし", "特性なしで始める") +
-        polBtn("labor", "🐾 労働特化", POLICY_DEFS.labor.desc) +
-        polBtn("auto", "🤖 自動化特化", POLICY_DEFS.auto.desc) +
-        polBtn("sell", "💰 売却特化", POLICY_DEFS.sell.desc) +
-        "</div></div></div>";
-    }
+    /* 再設計 B7: 経営方針の UI は売却カードの中へ一本化した（この旧位置には何も残さない） */
     const pv = prestigePreview();
     /* 星屑ショップ: 買えるものだけを行にし、購入済み・MAX はチップに畳む */
     let dustRows = "", dustChips = "";
@@ -638,41 +621,66 @@ function renderPanelInto(el){
     const dustBody = (dustRows ? "<div class='buygrid'>"+dustRows+"</div>" : "") +
       (dustChips ? "<div class='feats'>"+dustChips+"</div>" : "") +
       "<div class='note' style='margin-top:6px'>永続特典（売却しても消えません）。生産倍率は通算の星屑（現在 "+fmt(S.dustTotal||0)+" 個）で決まるので、使っても下がりません</div>";
-    /* プレステージは低頻度: 実行できる時だけ表のカードに出し、それ以外は
-       星屑ショップと一緒に折りたたみにまとめる */
+    /* 再設計 B7（ux-r3 §3）: 売却まわりは常時展開の売却カード1枚に統合した（旧二態は廃止）。
+       要素の並びは固定: 1見出し → 2比例枠バー → 3次期方針の行 → 4受け取るものの予告 →
+       5役員・ベテランの選出 → 6売却ボタン → 7売却実績の節目。星屑ショップは直下の fold */
     const prestigeBtn = "<button class='primary' onclick='doPrestige()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
     /* 再設計 C3: 売却の内訳（星屑の出どころ＋売却実績の内訳） */
     const pb = prestigeBreakdown();
     const pbTxt = "星屑: 比例枠 " + pb.propPart + " 個" + (pb.sqrtPart > 0 ? "＋√域 " + pb.sqrtPart + " 個" : "") + (pb.policyPart > 0 ? "＋売却特化（+25%）" + pb.policyPart + " 個" : "") +
       " ／ 売却実績 +" + (pb.ptsSize + pb.ptsEra) + "（大きさ " + pb.ptsSize + (pb.ptsEra ? "＋時代ボーナス " + pb.ptsEra : "") + "）";
+    const polBtn = (id, label, desc) => {
+      const sel = id === null ? !S.pendingPolicy : S.pendingPolicy === id;
+      return "<button onclick='setRunPolicy(" + (id === null ? "null" : "\"" + id + "\"") + ")'" + (sel ? " class='primary'" : "") + " title='" + esc(desc) + "'>" + label + "</button>";
+    };
     if(tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
       /* チュートリアル導線: 引っ越しと星屑ショップは卒業 (Stage 7) の深層。
-         それまでは正体を伏せた深部シルエットだけを見せる */
+         それまでは正体を伏せた深部シルエットだけを見せる（扱いはカード単位で引き継ぐ） */
       h += "<div class='seclock'><div class='seclock-head'><span class='silh'>⭐</span><span>？？？</span>" +
         "<span class='fold-sum'>🔒 深いところにある何か</span></div>" +
         condBarsHTML([["⭐", pv.gain, 3, "星屑（今回の実績ぶん）"]]) +
         "<div class='lockline'>🐱 まだ内緒にゃ。たくさん作ると分かるよ</div></div>";
-    } else if(pv.gain >= 3){
-      h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>"+
-        "<span class='sock'>🏢</span><span class='nm'>会社を売却できます！</span>"+
-        "<div class='ds'>星屑 <b>+"+pv.gain+"</b> ・ 生産倍率 ×"+fmtDec(pv.curMult, 2)+" → <b>×"+fmtDec(pv.nextMult, 2)+"</b>（企業価値の最高 "+fmt(S.runPeakValue || 0)+"）</div></div>"+
-        prestigeBtn + "</div>"+
-        "<div class='note' style='margin-top:4px'>内訳: " + pbTxt + "</div>" +
-        "<div class='note' style='margin-top:4px'>リセット: "+pv.resets.join("・")+" ／ 引き継ぎ: "+pv.keeps.map(esc).join("・")+" ／ 最高到達社格: "+rankName(S.maxStudioLv||S.studioLv)+"</div>" + exitMsHTML() + "</div>";
-      h += execSelectHTML();   /* 第2ウェーブ M: 役員とベテランの選出（売却カードの中） */
-      h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 "+fmt(S.dust)+" ⭐", dustBody);
     } else {
-      const preBody = kv("企業価値の最高", fmt(S.runPeakValue || 0)+" ＝ 星屑 "+pv.gain+" 個ぶん（3個から売却可能・星屑は売却実績で広がる比例枠 "+dustGainCap()+" 個まで比例、それ以上は逓減）") +
-        kv("次の星屑まで", "あと企業価値 " + fmt(Math.ceil(nextDustResidual()))) +
-        kv("売却の内訳", pbTxt) +
-        kv("生産倍率（星屑ボーナス）", "現在 ×"+fmtDec(pv.curMult, 2)+" → 売却後 ×"+fmtDec(pv.nextMult, 2)) +
-        (pv.subGain > 0 ? kv("うち子会社ぶん（目安）", "星屑 約 "+pv.subGain+" 個（子会社の売上も企業価値に入っています）") : "") +
-        kv("EXIT回数", S.prestiges+" 回") + exitMsHTML() +
-        kv("最高到達社格", rankName(S.maxStudioLv||S.studioLv)+"（売却しても記録は残ります）") +
-        "<div class='note'>リセット: "+pv.resets.join("・")+"<br>引き継ぎ: "+pv.keeps.map(esc).join("・")+"</div>" +
-        "<div style='margin:7px 0'>"+prestigeBtn+"</div>" +
-        "<div class='stagehead'>⭐ 星屑ショップ（所持 "+fmt(S.dust)+")</div>" + dustBody;
-      h += foldSec("prestige", false, "🏢 EXIT（事業売却） ・ ⭐ 星屑ショップ", "星屑 +"+pv.gain+" 個ぶん", preBody);
+      const cap = dustGainCap(), peak = S.runPeakValue || 0, baseGain = dustGainFromValue(peak);
+      const capVal = dustValueForGain(cap), barScale = Math.max(capVal, peak, 1);
+      const greenW = Math.round(Math.min(peak, capVal) / barScale * 1000) / 10, amberW = Math.round(Math.max(0, peak - capVal) / barScale * 1000) / 10;
+      const knowAdd = knowPreview().reduce((a, x) => a + (x.add || 0), 0);
+      h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'>" +
+        /* 1: 見出し（いま売ると星屑 +N を併記） */
+        "<div><span class='sock'>🏢</span><span class='nm'>会社を売却する</span> <b>いま売ると星屑 +" + pv.gain + "</b>" + (pv.gain >= 3 ? "" : " <span class='tagchip'>3個から売却可能</span>") + "</div>" +
+        /* 2: 比例枠バー＋次の星屑までの残量 */
+        "<div style='margin-top:7px'><div class='ds'>企業価値の最高 " + fmt(peak) + "（比例枠 " + cap + " 個まで比例、それ以上は逓減）</div>" +
+        "<div style='position:relative;height:8px;background:#1a1a1a;border:1px solid var(--line);margin-top:2px'>" +
+        "<span style='position:absolute;left:0;top:0;height:100%;width:" + greenW + "%;background:#5aa469'></span>" +
+        (amberW > 0 ? "<span style='position:absolute;left:" + greenW + "%;top:0;height:100%;width:" + amberW + "%;background:#e8b93a'></span>" : "") + "</div>" +
+        "<div class='ds'>" + (baseGain < cap
+          ? "比例枠: あと " + (cap - baseGain) + " 個ぶん比例で伸びます ・ 次の星屑まで あと企業価値 " + fmt(Math.ceil(nextDustResidual()))
+          : "比例枠を超えています（ここから先は伸びが鈍ります） ・ 次の星屑まで あと企業価値 " + fmt(Math.ceil(nextDustResidual()))) + "</div></div>" +
+        /* 3: 次期経営方針の常時表示行（ボタンは旧ブロックから移設・二重管理しない） */
+        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
+        (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
+          ? "<div class='ds'>🧭 次期経営方針: <b>" + POLICY_DEFS[S.pendingPolicy].name + "</b>（" + POLICY_DEFS[S.pendingPolicy].desc + "）</div>"
+          : "<div class='bn'>🧭 次期経営方針: 未設定 — 売却前に選べます</div>") +
+        (S.runPolicy && POLICY_DEFS[S.runPolicy] ? "<div class='ds'>いまの会社: <b>" + POLICY_DEFS[S.runPolicy].name + "</b>（" + POLICY_DEFS[S.runPolicy].desc + "）</div>" : "") +
+        "<div style='margin-top:5px;display:flex;gap:6px;flex-wrap:wrap'>" +
+        polBtn(null, "方針なし", "特性なしで始める") +
+        polBtn("labor", "🐾 労働特化", POLICY_DEFS.labor.desc) +
+        polBtn("auto", "🤖 自動化特化", POLICY_DEFS.auto.desc) +
+        polBtn("sell", "💰 売却特化", POLICY_DEFS.sell.desc) +
+        "</div></div>" +
+        /* 4: 受け取るものの予告 */
+        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で: 星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + (pb.ptsSize + pb.ptsEra) + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
+        "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b>" + (pv.subGain > 0 ? " ・ うち子会社ぶん（目安）星屑 約 " + pv.subGain + " 個" : "") + "</div>" +
+        "<div class='note'>内訳: " + pbTxt + "</div>" +
+        "<div class='note'>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
+        /* 5: 役員・ベテランの選出 */
+        execSelectHTML() +
+        /* 6: 売却ボタン */
+        "<div style='margin:7px 0'>" + prestigeBtn + "</div>" +
+        /* 7: 売却実績の節目 */
+        exitMsHTML() +
+        "</div>";
+      h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 " + fmt(S.dust) + " ⭐", dustBody);
     }
     /* 第2ウェーブ J: ホールディングス化（第2層）。条件が遠いうちは出さず、
        近づいたら進捗、揃ったらカード、持株化後はレガシー技術の店が出る */
@@ -683,7 +691,7 @@ function renderPanelInto(el){
           "<span class='sock'>🏛️</span><span class='nm'>ホールディングス化できます！</span>" +
           "<div class='ds'>グループ全体を持株会社化して、星団 <b>+" + hp.gain + "</b> を得ます。星屑と星屑特典は畳まれますが、星屑倍率の土台は <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> に上がって残ります（レガシー技術・作品棚・実績・最高到達社格も残ります）</div></div>" +
           "<button class='primary' onclick='doHoldings()'>持株化する（星団 +" + hp.gain + "）</button></div></div>";
-      } else if((S.maxStudioLv || 1) >= 5 || (S.prestiges || 0) >= 5){
+      } else if((S.prestiges || 0) >= 1 || (S.maxStudioLv || 1) >= 5){   /* 再設計 B7: 進捗の出現を初回 EXIT 後へ前倒し（旧: 社格5 or EXIT 5回） */
         h += foldSec("holdings", false, "🏛️ ホールディングス化（第2層）", "星団 +" + hp.gain + " 個ぶん",
           kv("最高到達社格", hp.cond.lv6 ? rankName(S.maxStudioLv || S.studioLv) + " ✅" : "あと " + (6 - (S.maxStudioLv || S.studioLv || 1)) + " 段階で大企業（現在 " + rankName(S.maxStudioLv || S.studioLv) + "）") +
           kv("子会社", hp.cond.subs ? ((S.subs || []).length) + " / 2 社 ✅" : "あと " + (2 - (S.subs || []).length) + " 社（現在 " + (S.subs || []).length + " / 2 社）") +
