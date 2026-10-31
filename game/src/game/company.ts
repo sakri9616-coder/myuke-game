@@ -118,8 +118,9 @@ function foundSub(genreId){
   normalizeAlloc();
   SoundKit.play("purchase");
   addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
-  /* 再設計 B11（designer-r3 §3.2）: 新しい別館の告知は1回だけ */
+  /* 再設計 B11（designer-r3 §3.2）: 新しい別館の告知は1回だけ。段階上昇の告知と同じくメモ枠（reportNote）にも載せる */
   addLog("🏢 新しい別館ができました。隣の明かりが、また一つ増えました。");
+  reportNote("新しい別館ができました。隣の明かりが、また一つ増えました。");
   say("子会社「"+name+"」ができたにゃ！ グループ経営のはじまりだね");
   save(); renderPanel();
 }
