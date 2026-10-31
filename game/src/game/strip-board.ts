@@ -354,11 +354,29 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const perkDot = DUST_PERKS.some(d => d.lv
       ? perkLv(d.id) < (d.maxLv || 0) && Math.ceil(d.baseCost * Math.pow(d.costMul, perkLv(d.id))) <= (S.dust || 0)
       : !hasPerk(d.id) && d.cost <= (S.dust || 0));
+    /* 再設計 B13（§1.2 拍1）: 儀式の最初は看板の社名が消える（1行目を伏せる） */
+    const signOff = ceremonyPhase() === "signoff";
     const tabRows: { t: string, mark?: string }[] = [
-      { t: companyRank() + " " + S.staff.length + "/" + staffCap() + "人" },
+      { t: signOff ? "" : companyRank() + " " + S.staff.length + "/" + staffCap() + "人" },
       { t: "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) : ""), mark: sellMark ? "diamond" : undefined },
       { t: "所持⭐" + fmt(S.dust || 0) + (S.holdings ? " ・ 🌌" + fmt(S.legacy || 0) : ""), mark: perkDot ? "dot" : undefined }   /* 🌌は使える星団の残高（S.legacy）。次回持株化の見込みは持株フォールド側の領分 */
     ];
+    /* 再設計 B13（ux-r3 §4.3-4）: 持株化の拍では新時代の名前をボード側の大きめの枠で一時表示する */
+    if(ceremonyEraBanner && Date.now() < ceremonyEraBanner.until){
+      sctx.save();
+      sctx.font = "700 12px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      const bw2 = sctx.measureText(ceremonyEraBanner.name).width + 22;
+      sDrawNine("ui_tab_gold_9", bx + bw / 2 - bw2 / 2, top - 24, bw2, 17, 3, 3);
+      sctx.fillStyle = "#4a3b2c";
+      sctx.fillText(ceremonyEraBanner.name, bx + bw / 2, top - 15);
+      sctx.restore();
+    }
+    /* 再設計 B13（§1.5 拍3）: 金の点灯の間はボードの縁に光を置く */
+    if(Date.now() < holdingsGlowUntil && frame % 10 < 6){
+      sDrawSprite("fx_spark_2", bx + 6, top - 2, 1);
+      sDrawSprite("fx_spark_2", bx + bw - 8, top - 2, 1);
+    }
     if(S.challenge) tabRows.push({ t: "🎯" + ((challengeDef(S.challenge.id) || {}).name || "") });
     else if(S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]) tabRows.push({ t: "次期: " + POLICY_DEFS[S.pendingPolicy].name });
     sctx.save();

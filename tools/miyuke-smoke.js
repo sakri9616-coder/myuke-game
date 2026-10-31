@@ -264,6 +264,27 @@ console.log("== 5. prestige ==");
     sold >= 135 && sold <= 150 && run(sb, "S.catalog.length") === 0);   /* 再設計 B4: life 4.25 で 6000×4.25/30/60×10秒 = 141.7（初作なので間隔係数1） */
 }
 {
+  /* 再設計 B13: EXIT／持株化の儀式（S1 インライン確認・S3 の拍・S4 余韻）。
+     confirm() は使わず、実行で ceremony が立ち、余韻の告知がメモ優先枠に用意される */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true; S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  const exitCere = run(sb, "!!ceremony && ceremony.kind === 'exit' && afterglowNotes.length >= 1 && firstReleasePending");
+  run(sb, "startProject('S'); S.project.doneFeats = 99; releaseProject();");
+  const firstRel = run(sb, "S.log.some(l => l.text.includes('再出発の初リリース')) && !firstReleasePending");
+  run(sb, "currentTab = 'factory'; prestigeAsk();");
+  const cert = run(sb, "document.getElementById('panel').innerHTML");
+  const certOk = cert.includes("卒業証書") && cert.includes("売却して、卒業する") && cert.includes("もう少し育てる");
+  run(sb, "prestigeCancel(); S.maxStudioLv = 6; S.subs = [{ id: 1, name: 'a', genre: 'app', staff: 5, lv: 1, alloc: 0 }, { id: 2, name: 'b', genre: 'app', staff: 5, lv: 1, alloc: 0 }]; S.eraExitPts = 12; S.eraDust = 1500; S.prestiges = 12; S.eraStartPrestiges = 0;");
+  run(sb, "currentTab = 'factory'; holdingsAsk();");
+  const hcert = run(sb, "document.getElementById('panel').innerHTML");
+  run(sb, "doHoldingsCore();");
+  const holdCere = run(sb, "!!ceremony && ceremony.kind === 'holdings' && afterglowNotes[0].includes('新しい時代が始まりました')");
+  const hcertOk = hcert.includes("時代の記録") && hcert.includes("時代を終わらせ、次へ進む") && hcert.includes("この時代を、もう少し生きる") && hcert.includes("星屑の時代");
+  check("EXIT and holdings run the ceremony states without confirm(), with certificates and afterglow (B13)",
+    exitCere && firstRel && certOk && holdCere && hcertOk);
+}
+{
   /* 再設計 B12: 割り込み告知は全体で1回/20秒まで。フィーバーのバグは「的」種別（fever フラグ）。
      メモは単一スロット: 割り込み告知があっても報告ローテーションが必ず枠を得る */
   const sb = buildSandbox();

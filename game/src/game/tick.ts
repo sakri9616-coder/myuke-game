@@ -69,6 +69,7 @@ function tick(){
   if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
   deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
   annexStageTick();   /* 再設計 B11: 別館看板の段階上昇の告知 */
+  holdingsCondTick();   /* 再設計 B13: 持株化の条件が埋まるたびにメモで1回 */
   /* Phase D: 子会社の受動収益。DP は工程に乗る。
      レベルデザイン改修: 配当は連続ドリップをやめ、子会社ごとに「作品のリリース」単位で
      まとめて本社へ入る（売上レートと companyValue の算定は従来どおり連続のまま）。

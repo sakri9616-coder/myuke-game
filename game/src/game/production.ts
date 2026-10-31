@@ -680,6 +680,8 @@ function releaseProject(){
     addLog("⭐ 推しの一本『" + p.name + "』が、世に出ました！");
     if(!ipOk) addLog("⭐ 推しの一本は、棚の特等席に並びました。");
   }
+  /* 再設計 B13（§1.3 余韻）: 再出発の初リリースには一行添える */
+  if(firstReleasePending){ firstReleasePending = false; addLog("⭐ 再出発の初リリースです。前回より、ずっと速かった。"); }
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   say("『"+p.name+"』リリースできたにゃ〜！ +"+coins+"コイン");

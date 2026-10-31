@@ -356,10 +356,11 @@ function prestigeBreakdown(){
   };
 }
 function doPrestige(){
+  /* 再設計 B13（ux-r3 §4.1 S1）: window.confirm は廃止。確認は売却カード内のインライン確認
+     （卒業証書）が担い、ここは S2 の実行だけを行う */
   const pv = prestigePreview();
   const gain = pv.gain;
   if(gain < 3){ say("売却には星屑3個ぶんの実績がいるにゃ（現在 "+gain+" 個ぶん）"); return; }
-  if(!confirm("会社を売却しますか？\n星屑 "+gain+" 個を得て、生産倍率は ×"+fmtDec(pv.curMult, 2)+" → ×"+fmtDec(pv.nextMult, 2)+" になります。\nリセット: "+pv.resets.join("・")+"\n引き継ぎ: "+pv.keeps.join("・"))) return;
   doPrestigeCore(execSelArg(), vetSelArg(), swapSelArg());
 }
 /* 確認なしの本体。menu (viewer) からは VERBS 経由でこちらが呼ばれ、確認は
@@ -493,11 +494,16 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   if(carryCoins > 0) addLog("⭐ " + (hasPerk("seedmoney") ? "初期資金" : "") + (hasPerk("seedmoney") && hasPerk("piggybank") ? "と" : "") + (hasPerk("piggybank") ? "星の貯金箱" : "") + ": " + fmt(carryCoins) + "🪙 からスタート");
   const msNow = EXIT_MILESTONES.find(m => m.n === S.prestiges);
   if(msNow) addLog("🎖 EXIT " + msNow.n + " 回目の節目: 「" + msNow.name + "」— " + msNow.desc);
-  say("売却成立だにゃ〜！ 星屑"+gain+"個ゲット");
   startProject("S");
-  /* 第2ウェーブ M: 役員がいる会社の創業は「おかえり」から始まる */
-  if(S.executives && S.executives.length)
-    say("『"+S.executives[0].name+"』、おかえりにゃ。また一緒にやるにゃ！");
+  /* 再設計 B13: 売却の瞬間は儀式（S3）が担う。締めのセリフは儀式の拍に委ね、
+     余韻（S4）の差の告知をここで用意する（designer-r3 §1.2／§1.3） */
+  startExitCeremony({
+    execName: execCand ? execCand.name : null,
+    keptName: keptStaff ? keptStaff.name : null,
+    keptResearchName: keptResearch && keptResearch.length ? (RESEARCH_DEFS.find(r => r.id === keptResearch[0]) || {}).name : null,
+    eraSeedStart: eraBefore >= 150,
+    startLv: S.studioLv || 1
+  });
   pendingExecPick = pendingVetPick = pendingExecSwap = undefined;
   checkStamps(); save(); renderPanel();
   tutCheck();   /* tut は引っ越しリセット対象外 (卒業状態を維持する) */
@@ -618,6 +624,16 @@ function doHoldingsCore(){
   const hp = holdingsPreview();
   if(!hp.can) return;
   const gain = hp.gain, base = hp.baseNext;
+  /* 再設計 B13: 時代の記録と呼び名の変化は、畳む前に確保する（designer-r3 §1.5） */
+  const NAME_DEFS = { rank6: COMPANY_RANKS[COMPANY_RANKS.length - 1], line: INCOME_SRCS.line || "ライン", subs: "子会社", catalog: "作品棚", sales: "営業", legacy: "レガシー技術" };
+  const cerePre = {
+    oldEraName: eraName(),
+    exitsInEra: (S.prestiges || 0) - (S.eraStartPrestiges || 0),
+    eraDustTotal: S.eraDust || 0,
+    namesBefore: {} as Record<string, string>,
+    nameDefs: NAME_DEFS as Record<string, string>
+  };
+  for(const k of Object.keys(NAME_DEFS)) cerePre.namesBefore[k] = spaceName(k, NAME_DEFS[k]);
   S.holdings = (S.holdings || 0) + 1;
   S.legacy = (S.legacy || 0) + gain;
   /* 第1層は畳む: 星屑・特典・通算（生産倍率の素）・時代の通算 */
@@ -628,16 +644,118 @@ function doHoldingsCore(){
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
   addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目・持株の土台 ×"+fmt(base)+"）");
-  say("持株化したにゃ〜！ 星団"+gain+"個ゲット。これからもよろしくにゃ");
   startProject("S");
-  checkStamps(); save(); renderPanel();
+  checkStamps();
+  /* 再設計 B13: 時代の転換は儀式（S3）が担う。呼び名の変化はスタンプ確定後に比べる */
+  {
+    const renames = [];
+    for(const k of Object.keys(cerePre.namesBefore)){
+      const now = spaceName(k, cerePre.nameDefs[k]);
+      if(now !== cerePre.namesBefore[k]) renames.push({ from: cerePre.namesBefore[k], to: now });
+    }
+    startHoldingsCeremony({ gain, oldEraName: cerePre.oldEraName, newEraName: eraName(), renames, firstHoldings: S.holdings === 1 });
+  }
+  save(); renderPanel();
   tutCheck();
 }
 function doHoldings(){
+  /* 再設計 B13（ux-r3 §4.1 S1）: window.confirm は廃止。確認は持株化カード内のインライン確認
+     （時代の記録）が担い、ここは S2 の実行だけを行う */
   const hp = holdingsPreview();
   if(!hp.can){ say("持株化の条件がまだ揃ってないにゃ"); return; }
-  if(!confirm("ホールディングス化しますか？\n星団 "+hp.gain+" 個を得ます。星屑倍率の土台は ×"+fmt(hp.baseNow)+" → ×"+fmt(hp.baseNext)+" に上がって残ります。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
   doHoldingsCore();
+}
+
+/* ---------- 再設計 B13: 時代の名前と儀式（EXIT 卒業・持株化 改元） ----------
+   遷移は ux-r3 §4（S0 日常 → S1 確認 → S2 実行 → S3 儀式 → S4 余韻）、文案は designer-r3 §1。
+   儀式は帯の上だけで完結し、操作は奪わない。禁止語（喪失の語）は表示文に使わない */
+function eraName(){
+  /* 第1の時代は「星屑の時代」。以降は宇宙編の呼び名の到達に合わせて世界の呼び名が進む */
+  if(S.stamps && S.stamps.holdings9) return "銀河の時代";
+  if(S.stamps && S.stamps.holdings7) return "星間の時代";
+  if(S.stamps && S.stamps.holdings4) return "月面の時代";
+  if(S.stamps && S.stamps.holdings2) return "宇宙の時代";
+  return "星屑の時代";
+}
+/* S3 の拍を進める（帯の常駐更新から呼ばれる）。t0 は最初の呼び出しで立つ（窓の切替に遅れても拍が潰れない） */
+function ceremonyTick(){
+  if(!ceremony) return;
+  if(!ceremony.t0) ceremony.t0 = Date.now();
+  const el = Date.now() - ceremony.t0;
+  while(ceremony.step < ceremony.beats.length && ceremony.beats[ceremony.step].at <= el){
+    const b = ceremony.beats[ceremony.step++];
+    try{ b.run(); }catch(e){}
+  }
+  if(el >= ceremony.dur) ceremony = null;
+}
+/* 帯の描画が読む儀式の局面（看板の社名・棚の封） */
+function ceremonyPhase(){
+  if(!ceremony || !ceremony.t0) return "";
+  const el = Date.now() - ceremony.t0;
+  if(ceremony.kind === "exit"){
+    if(el < 1300) return "signoff";
+    if(el < 7000) return "sealed";
+    return "newsign";
+  }
+  return "";
+}
+function startExitCeremony(pre){
+  /* S4 余韻: 差の告知は発動の瞬間に1回ずつ、メモの優先枠へ（designer-r3 §1.3） */
+  const notes = [(S.prestiges || 0) + " 回目の会社が始まりました。前の会社より速いはず——どこが違うか、見ていてください。"];
+  if(pre.startLv > 1) notes.push("この会社は『" + rankName(pre.startLv) + "』から始まります。前の卒業が、ここに生きています。");
+  if(pre.eraSeedStart) notes.push("時代のしるし：設備が Lv10 から始まりました。");
+  if(pre.keptResearchName) notes.push("研究の引き継ぎ：『" + pre.keptResearchName + "』は、前の会社の成果です。");
+  afterglowNotes = notes; afterglowShownAt = 0;
+  firstReleasePending = true;
+  /* S3 の拍（§1.2）: 看板の社名が消える → 棚に封 → 猫の一言 → 新しい看板と迎え */
+  const cats = (S.staff || []).slice();
+  const beats = [
+    { at: 2600, run(){ say("おつかれさま。いい会社だったね。"); if(cats[0]) stripChat = { whoId: cats[0].id, text: "お世話になりました！", until: stripNow + 2600 }; } },
+    { at: 5000, run(){ if(cats[1]) stripChat = { whoId: cats[1].id, text: "次の会社でも、がんばるにゃ。", until: stripNow + 2600 }; } },
+    { at: 7200, run(){
+      if(pre.execName){
+        const ec = cats.find(c => c.name === pre.execName);
+        if(ec) stripChat = { whoId: ec.id, text: "おかえり。続きから始めよう。", until: stripNow + 2800 };
+        else say(pre.execName + "、おかえりにゃ。また一緒にやるにゃ！");
+      } else say("さあ、新しい会社の始まりだにゃ。");
+    } }
+  ];
+  ceremony = { kind: "exit", t0: 0, step: 0, beats, dur: 9800 };
+}
+function startHoldingsCeremony(pre){
+  /* S4 余韻: 変わったことの告知は最大3件まで、順に（§1.6） */
+  const changes = [];
+  if(pre.newEraName !== pre.oldEraName) changes.push("この時代は『" + pre.newEraName + "』です。");
+  if(pre.firstHoldings) changes.push("レガシー技術が開きました。星団の使い道は、研究のその先です。");
+  changes.push("星屑倍率の土台が大きくなりました。これからの星屑は、もっと重くなります。");
+  const kept = changes.slice(0, 3);
+  afterglowNotes = ["新しい時代が始まりました。この時代で変わったことは、" + kept.length + "つあります。"].concat(kept);
+  afterglowShownAt = 0;
+  /* S3 の拍（§1.5 の核）: 静けさ → 時代の記録 → 金の点灯 → 呼び名 → 星団 → みゅけの一言 */
+  const beats = [
+    { at: 1600, run(){ addLog("🏛️ 『" + pre.oldEraName + "』を記録に収めました。消えたのではなく、収められました。"); } },
+    { at: 3400, run(){ holdingsGlowUntil = Date.now() + 12000; } },
+    { at: 5400, run(){ if(pre.renames.length) say("呼び名が変わりました：" + pre.renames[0].from + " は、これから『" + pre.renames[0].to + "』と呼ばれます。中身は同じ——時代が進んだ証です。"); } },
+    { at: 7800, run(){
+      ceremonyEraBanner = { name: pre.newEraName, until: Date.now() + 3600 };
+      if(document.body.classList.contains("strip"))
+        addStripFloater(102, 24, "星団 +" + pre.gain + " ——次の時代の種です。", "#d9a514");
+    } },
+    { at: 11200, run(){ say("時代が変わるね。……よし、また始めよう。"); } }
+  ];
+  ceremony = { kind: "holdings", t0: 0, step: 0, beats, dur: 14000 };
+}
+/* §1.4: 持株化の条件が1つ埋まるたび、帯メモで1回だけ知らせる */
+let lastHoldCondMask = -1;
+function holdingsCondTick(){
+  if((S.prestiges || 0) < 1 && (S.maxStudioLv || 1) < 5) { lastHoldCondMask = 0; return; }   /* 遠いうちは数えない */
+  const hp = holdingsPreview();
+  const mask = (hp.cond.lv6 ? 1 : 0) | (hp.cond.subs ? 2 : 0) | (hp.cond.exits ? 4 : 0) | (hp.cond.era ? 8 : 0);
+  if(lastHoldCondMask >= 0 && mask !== lastHoldCondMask){
+    const cnt = m => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
+    if(cnt(mask) > cnt(lastHoldCondMask)) reportNote("時代の終わりが、一つ近づきました。");
+  }
+  lastHoldCondMask = mask;
 }
 
 /* ---------- 第2ウェーブ K: チャレンジ周回 ----------

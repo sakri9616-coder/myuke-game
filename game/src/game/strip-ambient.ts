@@ -99,10 +99,11 @@ function spawnStripVendor(){
   return stripVendor;
 }
 function stripAmbientUpdate(dt){
-  /* 雑談: たまに試みる（成立条件は maybeStartChatter 側で判定） */
-  if(Math.random() < dt * 0.25) maybeStartChatter(stripNow, false);
+  ceremonyTick();   /* 再設計 B13: 儀式の拍を進める */
+  /* 雑談: たまに試みる（成立条件は maybeStartChatter 側で判定）。儀式中は止める */
+  if(!ceremony && Math.random() < dt * 0.25) maybeStartChatter(stripNow, false);
   if(stripChat && stripNow >= stripChat.until) stripChat = null;
-  reportQueueTick();
+  if(!ceremony) reportQueueTick();   /* 儀式中は報告キューを止める（ux-r3 §4.3-2） */
   /* 訪問猫: 初回は1.5〜3.5分後、以降は12〜25分間隔で横切る */
   if(!stripVisitor){
     if(nextVisitorAt === 0) nextVisitorAt = stripNow + 90000 + Math.random() * 120000;

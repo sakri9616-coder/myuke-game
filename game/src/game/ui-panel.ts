@@ -1,3 +1,73 @@
+/* ---------- 再設計 B13: S1 インライン確認（ux-r3 §4.1／designer-r3 §1.2・§1.5） ----------
+   window.confirm は廃止し、カード全体がその場で確認モード（卒業証書／時代の記録）に切り替わる。
+   「実行する」で従来の実行関数を呼び、同時にメニューを閉じて帯の儀式（S3）へ渡す */
+let prestigeConfirm = false, holdingsConfirm = false;
+function prestigeAsk(){ prestigeConfirm = true; renderPanel(); }
+function prestigeCancel(){ prestigeConfirm = false; renderPanel(); }
+function prestigeGo(){
+  prestigeConfirm = false;
+  doPrestige();
+  const b = document.getElementById("btn-to-overlay"); if(b) b.click();
+}
+function holdingsAsk(){ holdingsConfirm = true; renderPanel(); }
+function holdingsCancel(){ holdingsConfirm = false; renderPanel(); }
+function holdingsGo(){
+  holdingsConfirm = false;
+  doHoldings();
+  const b = document.getElementById("btn-to-overlay"); if(b) b.click();
+}
+function prestigeCertHTML(pv, pb, knowAdd){
+  const execId = resolvedExecPickId();
+  const execCat = execId !== null && execId !== undefined ? (S.staff || []).find(x => x.id === execId) : null;
+  const pts = pb.ptsSize + pb.ptsEra;
+  let h = "<div class='item' style='border-color:var(--gold-d);margin-top:12px'>" +
+    "<div><span class='sock'>🎓</span><span class='nm'>卒業証書</span></div>" +
+    "<div class='ds' style='margin-top:5px'>『" + rankName(S.maxStudioLv || S.studioLv) + "』のこの会社は、立派に売却されました。</div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——受け取るもの——</div>" +
+    "<div class='ds'>星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + pts + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
+    "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
+    "<div class='ds' style='margin-top:5px'>役員として残る猫：" + (execCat ? "<b>" + esc(execCat.name) + "</b>（次の会社でも、入口で待っています）" : "なし") + "</div>" +
+    (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
+      ? "<div class='ds'>次期経営方針：『" + POLICY_DEFS[S.pendingPolicy].name + "』で、新しい会社が始まります。</div>"
+      : "<div class='ds'>次期経営方針はまだ決まっていません。決めるのは会社の日常で。いま決めずに売ることもできます。</div>") +
+    "<div class='note' style='margin-top:5px'>（手放すもの：" + pv.resets.join("・") + "。記録と功績は残ります。）</div>" +
+    "<div style='margin-top:8px;display:flex;gap:6px'>" +
+    "<button class='primary' onclick='prestigeGo()'>売却して、卒業する</button>" +
+    "<button onclick='prestigeCancel()'>もう少し育てる</button></div></div>";
+  return h;
+}
+function holdingsCertHTML(hp){
+  const eraExits = (S.prestiges || 0) - (S.eraStartPrestiges || 0);
+  const nameDefs = { rank6: COMPANY_RANKS[COMPANY_RANKS.length - 1], line: INCOME_SRCS.line || "ライン", subs: "子会社", catalog: "作品棚", sales: "営業", legacy: "レガシー技術" };
+  let renameNote = "";
+  for(const k of Object.keys(nameDefs)){
+    const steps = SPACE_NAMES[k] || [];
+    for(const st of steps) if(!S.stamps[st[0]] && (S.holdings || 0) + 1 >= parseInt(st[0].replace("holdings", ""), 10)) renameNote = "時代が進み、一部の呼び名が変わります。";
+  }
+  let h = "<div><span class='sock'>🏛️</span><span class='nm'>時代の記録</span></div>" +
+    "<div class='ds' style='margin-top:5px'>『" + eraName() + "』は、EXIT " + eraExits + " 回、星屑 " + fmt(S.eraDust || 0) + " 個の時代でした。</div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——この時代で収めるもの——</div>" +
+    "<div class='ds'>星屑と星屑の特典／応援の蓄え／コイン・スタッフ・研究・部署・子会社（時代の記録に収められます）</div></div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——新しい時代に受け取るもの——</div>" +
+    "<div class='ds'>星団 <b>+" + hp.gain + "</b>（時代の累計星屑からの換算）／ 星屑倍率の土台 <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> ／ レガシー技術への道</div>" +
+    (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
+    "<div style='margin-top:8px;display:flex;gap:6px'>" +
+    "<button class='primary' onclick='holdingsGo()'>時代を終わらせ、次へ進む</button>" +
+    "<button onclick='holdingsCancel()'>この時代を、もう少し生きる</button></div>";
+  return h;
+}
+/* 時代の記録ビューア: EXIT の履歴（C8 の exitHistory）は時代をまたいで残り、ここでいつでも見られる */
+function eraRecordsHTML(){
+  const hist = (S.exitHistory || []).slice(-6).reverse();
+  if(!hist.length) return "";
+  let h = "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>📜 売却の記録（時代をまたいで残ります）</div>";
+  for(const r of hist){
+    const d = new Date(r.t);
+    h += "<div class='ds'>" + (d.getMonth() + 1) + "/" + d.getDate() + " 星屑 +" + r.gain + "（実績 +" + r.pts + " ・ " + Math.floor(r.secs / 60) + "分" + (r.secs % 60) + "秒 ・ ピーク " + fmt(r.peak) + "）</div>";
+  }
+  return h + "<div class='note'>前の時代の記録はいつでも見られます。</div></div>";
+}
+
 /* ---------- Sprint 3: ライン信号機とボトルネックの1クリック対策 ----------
    ランプの意味: 緑=流れている / 黄=素材待ち（飢え）または溜まり気味 /
    赤=止まっている（バグ詰まり・在庫飽和で下流が捌けない）。
@@ -641,7 +711,7 @@ function renderPanelInto(el){
     /* 再設計 B7（ux-r3 §3）: 売却まわりは常時展開の売却カード1枚に統合した（旧二態は廃止）。
        要素の並びは固定: 1見出し → 2比例枠バー → 3次期方針の行 → 4受け取るものの予告 →
        5役員・ベテランの選出 → 6売却ボタン → 7売却実績の節目。星屑ショップは直下の fold */
-    const prestigeBtn = "<button class='primary' onclick='doPrestige()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
+    const prestigeBtn = "<button class='primary' onclick='prestigeAsk()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
     /* 再設計 C3: 売却の内訳（星屑の出どころ＋売却実績の内訳） */
     const pb = prestigeBreakdown();
     const pbTxt = "星屑: 比例枠 " + pb.propPart + " 個" + (pb.sqrtPart > 0 ? "＋√域 " + pb.sqrtPart + " 個" : "") + (pb.policyPart > 0 ? "＋売却特化（+25%）" + pb.policyPart + " 個" : "") +
@@ -662,9 +732,13 @@ function renderPanelInto(el){
       const capVal = dustValueForGain(cap), barScale = Math.max(capVal, peak, 1);
       const greenW = Math.round(Math.min(peak, capVal) / barScale * 1000) / 10, amberW = Math.round(Math.max(0, peak - capVal) / barScale * 1000) / 10;
       const knowAdd = knowPreview().reduce((a, x) => a + (x.add || 0), 0);
+      if(prestigeConfirm){
+        h += prestigeCertHTML(pv, pb, knowAdd);
+      } else {
       h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'>" +
         /* 1: 見出し（いま売ると星屑 +N を併記） */
         "<div><span class='sock'>🏢</span><span class='nm'>会社を売却する</span> <b>いま売ると星屑 +" + pv.gain + "</b>" + (pv.gain >= 3 ? "" : " <span class='tagchip'>3個から売却可能</span>") + "</div>" +
+        "<div class='ds'>この会社も、だいぶ育ちました。</div>" +
         /* 2: 比例枠バー＋次の星屑までの残量 */
         "<div style='margin-top:7px'><div class='ds'>企業価値の最高 " + fmt(peak) + "（比例枠 " + cap + " 個まで比例、それ以上は逓減）</div>" +
         "<div style='position:relative;height:8px;background:#1a1a1a;border:1px solid var(--line);margin-top:2px'>" +
@@ -672,7 +746,10 @@ function renderPanelInto(el){
         (amberW > 0 ? "<span style='position:absolute;left:" + greenW + "%;top:0;height:100%;width:" + amberW + "%;background:#e8b93a'></span>" : "") + "</div>" +
         "<div class='ds'>" + (baseGain < cap
           ? "比例枠: あと " + (cap - baseGain) + " 個ぶん比例で伸びます ・ 次の星屑まで あと企業価値 " + fmt(Math.ceil(nextDustResidual()))
-          : "比例枠を超えています（ここから先は伸びが鈍ります） ・ 次の星屑まで あと企業価値 " + fmt(Math.ceil(nextDustResidual()))) + "</div></div>" +
+          : "比例枠を超えています（ここから先は伸びが鈍ります） ・ 次の星屑まで あと企業価値 " + fmt(Math.ceil(nextDustResidual()))) + "</div>" +
+        (baseGain < cap
+          ? "<div class='ds' style='color:#7ba05b'>いまが売りどきです——伸びが素直なうちに売れる、気持ちのいい卒業になります。</div>"
+          : "<div class='ds'>売りどきは少し過ぎました。ここからは伸びがゆるやかです。——それでも、いつ売るかはあなたが決めることです。</div>") + "</div>" +
         /* 3: 次期経営方針の常時表示行（ボタンは旧ブロックから移設・二重管理しない） */
         "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
         (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
@@ -697,6 +774,7 @@ function renderPanelInto(el){
         /* 7: 売却実績の節目 */
         exitMsHTML() +
         "</div>";
+      }
       h += foldSec("dustshop", false, "⭐ 星屑ショップ", "所持 " + fmt(S.dust) + " ⭐", dustBody);
     }
     /* 第2ウェーブ J: ホールディングス化（第2層）。条件が遠いうちは出さず、
@@ -707,16 +785,20 @@ function renderPanelInto(el){
         h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
           "<span class='sock'>🏛️</span><span class='nm'>ホールディングス化できます！</span>" +
           "<div class='ds'>グループ全体を持株会社化して、星団 <b>+" + hp.gain + "</b> を得ます。星屑と星屑特典は畳まれますが、星屑倍率の土台は <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> に上がって残ります（レガシー技術・作品棚・実績・最高到達社格も残ります）</div></div>" +
-          "<button class='primary' onclick='doHoldings()'>持株化する（星団 +" + hp.gain + "）</button></div></div>";
+          (holdingsConfirm ? "" : "<button class='primary' onclick='holdingsAsk()'>持株化する（星団 +" + hp.gain + "）</button>") + "</div>" +
+          (holdingsConfirm ? "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:7px'>" + holdingsCertHTML(hp) + "</div>" : "") + "</div>";
       } else if((S.prestiges || 0) >= 1 || (S.maxStudioLv || 1) >= 5){   /* 再設計 B7: 進捗の出現を初回 EXIT 後へ前倒し（旧: 社格5 or EXIT 5回） */
         h += foldSec("holdings", false, "🏛️ ホールディングス化（第2層）", "星団 +" + hp.gain + " 個ぶん",
+          "<div class='ds'>時代とは、持株化から次の持株化までのこと。いまは『" + eraName() + "』です。</div>" +
+          "<div class='ds'>この時代: EXIT " + ((S.prestiges || 0) - (S.eraStartPrestiges || 0)) + " 回／集めた星屑 " + fmt(S.eraDust || 0) + " 個" + (hp.can ? "／<b>時代を終わらせる準備ができました。</b>" : "") + "</div>" +
           kv("最高到達社格", hp.cond.lv6 ? rankName(S.maxStudioLv || S.studioLv) + " ✅" : "あと " + (6 - (S.maxStudioLv || S.studioLv || 1)) + " 段階で大企業（現在 " + rankName(S.maxStudioLv || S.studioLv) + "）") +
           kv("子会社", hp.cond.subs ? ((S.subs || []).length) + " / 2 社 ✅" : "あと " + (2 - (S.subs || []).length) + " 社（現在 " + (S.subs || []).length + " / 2 社）") +
           kv("売却実績", hp.cond.exits ? "🎖 " + eraExitPts() + " / " + HOLD_EXITS + " ✅" : "あと " + (HOLD_EXITS - eraExitPts()) + "（現在 🎖 " + eraExitPts() + " / " + HOLD_EXITS + "・EXIT 1回で +1・星屑100個以上の売却で +2・300個以上で +3・この時代の通算星屑が条件に届いたあとの EXIT は +1）") +
           kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど階段で増えます）") +
           kv("次の星団", (() => { const ed = S.eraDust || 0, nx = CLUSTER_STEPS.find(t => ed < t); return nx ? "あと " + fmt(nx - ed) + " 個（時代の累計星屑 " + fmt(nx) + " 個で星団 +1）" : "頭打ち（この時代の星団は最大 11 個）"; })()) +
           kv("時代のしるし", (() => { const ed = S.eraDust || 0; let marked = false; return ERA_MILESTONES.map(m => { const met = ed >= m.at; const res = (!met && !marked) ? (marked = true, " ・ あと " + fmt(m.at - ed) + " 個") : ""; return (met ? "✅ " : "○ ") + m.desc + "（" + m.name + "）" + res; }).join("<br>"); })()) +
-          kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)));
+          kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)) +
+          eraRecordsHTML());
       }
       if((S.holdings || 0) > 0 || (S.legacy || 0) > 0){
         let techRows = "", techChips = "";

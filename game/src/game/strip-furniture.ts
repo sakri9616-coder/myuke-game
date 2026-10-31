@@ -72,6 +72,22 @@ function drawStripShelf(){
     if(bx.glow && frame % 12 < 9) sDrawTL("fx_shelf_glow", bx.x - 1, bx.yb - bx.h - 1);   /* 新作・IP 作品の金の縁 */
   }
   if(hasPerk("stardecor")) drawStripStarOnShelf(scx, topY);
+  /* 再設計 B13（§1.2 拍2）: 卒業の拍では棚の箱に封がされる（「しまった」ではなく「収めた」見え方） */
+  if(ceremonyPhase() === "sealed"){
+    sctx.save();
+    sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+    sctx.textAlign = "center"; sctx.textBaseline = "middle";
+    const tw2 = sctx.measureText("封").width + 10;
+    sDrawNine("ui_tab_gold_9", scx - tw2 / 2, topY - 13, tw2, 12, 3, 3);
+    sctx.fillStyle = "#4a3b2c";
+    sctx.fillText("封", scx, topY - 6.5);
+    sctx.restore();
+  }
+  /* 再設計 B13（§1.5 拍3）: 持株化の金の点灯 */
+  if(Date.now() < holdingsGlowUntil && frame % 10 < 6){
+    sDrawSprite("fx_spark_2", scx - 24, topY - 4, 1);
+    sDrawSprite("fx_spark_2", scx + 22, topY - 4, 1);
+  }
   /* 第2ウェーブ J: オフィスグレードの置物（レガシー技術・Codex 作画の小物） */
   if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - 30, topY + 2, 1);
   if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + 28, G - 8, 1);

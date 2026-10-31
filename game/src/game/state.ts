@@ -238,6 +238,13 @@ let comboN = 0, lastClickAt = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
 let boardArriveFlashUntil = 0;   /* 再設計 B8: 運搬の到達の光を出す期限 (ms)。strip-board が読む */
 let annexArriveFlashUntil = 0;   /* 再設計 B11: 配当の到着で別館看板の明かりが明るくなる期限 (ms) */
+/* 再設計 B13（ux-r3 §4）: EXIT／持株化の儀式 S3 と余韻 S4 の状態。帯の側だけが読み、セーブ形式は変えない */
+let ceremony = null;          /* { kind: "exit"|"holdings", t0, step, beats: [{at, run}], dur } */
+let afterglowNotes = [];      /* S4: 差の告知スロット（メモの優先枠。1件ずつ順に出る） */
+let afterglowShownAt = 0;     /* S4: 先頭の告知が出始めた時刻 */
+let holdingsGlowUntil = 0;    /* S3: 持株化で看板・棚に金が灯る期限 */
+let ceremonyEraBanner = null; /* S3: 新時代の名前の表示枠 { name, until } */
+let firstReleasePending = false;   /* S4: EXIT 後の初回リリースに一行添える */
 function comboMult(){
   return 1 + Math.min(comboCapBonus(), comboN * 0.10);
 }

@@ -282,6 +282,13 @@ function stripMemoText(){
     }
     return "📮 " + r.client + "の依頼：次の作品は「" + r.genreName + "」で作る" + (r.repName ? "（担当：" + r.repName + "）" : "");
   }
+  /* 再設計 B13（ux-r3 §4.1 S4）: 余韻の差の告知は、メモの優先枠で1件ずつ順に出す。
+     1件を20秒の枠いっぱいに見せてから次へ進み、終われば通常のメモに戻る */
+  if(afterglowNotes.length){
+    if(!afterglowShownAt) afterglowShownAt = Date.now();
+    else if(Date.now() - afterglowShownAt >= 20000){ afterglowNotes.shift(); afterglowShownAt = Date.now(); }
+    if(afterglowNotes.length) return "✨ " + afterglowNotes[0];
+  }
   /* 再設計 B12: メモは単一スロット。割り込み告知（トレンド・新着依頼）と報告ローテーションで
      取り合わないよう、割り込みがある間は3枠中2枠を割り込み、1枠を報告に必ず回す調停にする。
      目的メモ（クエスト・大型案件・進行中の依頼・納期）は従来どおり絶対優先 */

@@ -100,6 +100,8 @@ let lastClickSayAt = 0;
 /* ストリップのクリック: みゅけ本人は反応、それ以外は応援クリック */
 if(stripCv){
   stripCv.addEventListener("pointerdown", (e) => {
+    /* 再設計 B13（ux-r3 §4.1 S3 の中断）: 帯を触ったら儀式は即座に終わり、余韻の状態へ移る。操作自体は奪わない */
+    if(ceremony) ceremony = null;
     const rect = stripCv.getBoundingClientRect();
     if(!rect.width || !rect.height) return;
     const ux = (e.clientX - rect.left) / rect.width * stripVW;
