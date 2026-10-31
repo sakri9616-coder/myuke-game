@@ -100,7 +100,7 @@ function designateOshi(){
   else
     addLog("⭐ 『" + p.name + "』を推しにしました。この一本は、最後まで見届けます。");
   if(p.plannerId) reportSpeech(p.plannerId, "『" + p.name + "』、推してもらえた！ がんばるにゃ。", 2);
-  else say("『" + p.name + "』、推してもらえた！ がんばるにゃ。");
+  else say("この一本、わたしも気に入ってる。");   /* designer-r3 §2.3: 企画者がみゅけ本人の場合は専用文案 */
   save(); renderPanel();
 }
 function clearOshi(){

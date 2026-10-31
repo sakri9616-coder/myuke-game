@@ -438,6 +438,7 @@ function creditProject(a){
     p.doneFeats++;
     say("『"+p.feats[p.doneFeats-1]+"』できたにゃ！");
     addLog("機能『"+p.feats[p.doneFeats-1]+"』が完成");
+    if(p.oshi) reportNote("推しの一本『" + p.name + "』：機能が一つ灯りました。");   /* 再設計 B10（designer-r3 §2.4）: 推しの小さな完成はメモで一段丁寧に届ける */
     pulseMilestone();
     spawnFeatNote(1);   /* 可視生産: 付箋が机からボードへ飛ぶ (演出のみ) */
   }

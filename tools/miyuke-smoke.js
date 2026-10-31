@@ -345,9 +345,12 @@ console.log("== 5. prestige ==");
   const sb = buildSandbox();
   loadGame(sb);
   run(sb, "S.tut.skipped = true; startProject('M'); S.project.planLv = 2;");
+  run(sb, "currentTab = 'proj'; renderPanel();");
+  const btnHtml = run(sb, "document.getElementById('panel').innerHTML");
   const base = run(sb, "planPriceMult(S.project)");
   run(sb, "designateOshi();");
   const boosted = run(sb, "planPriceMult(S.project)");
+  const miyukeSay = run(sb, "stripSay.text");   /* 企画者はスタッフ不在のため みゅけ本人 */
   run(sb, "S.catalog = []; catalogAdd(S.project, 1000);");
   const catR = run(sb, "S.catalog[0].r"), catOshi = run(sb, "S.catalog[0].oshi");
   const plainR = run(sb, "clearOshi(); lastCatalogAtSec = -1; S.catalog = []; catalogAdd(S.project, 1000); S.catalog[0].r");   /* B4 の間隔係数を測り直すため前回リリース時刻をリセット（係数自体は B4 ブロックで検証） */
@@ -355,6 +358,8 @@ console.log("== 5. prestige ==");
   const serOshi = run(sb, "seriesRate({ price: 1000, scale: 1, oshi: true })");
   run(sb, "designateOshi(); save();");
   const kept = run(sb, "!!S.project.oshi");
+  run(sb, "S.project.planning = false; creditProject(S.project.totalDP / (S.project.feats.length + 1) + 1);");   /* 着工直後は企画中（planning）で進捗が入らないため外してから機能を1つ灯らせる */
+  const featMemo = run(sb, "lastReportText"), projName = run(sb, "S.project.name");
   run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
 {
   /* 再設計 B10（r4-oshi2）: 推しの枠は1周回に1本。推し作品のリリースで消費され、
@@ -380,6 +385,10 @@ console.log("== 5. prestige ==");
   check("oshi: price reads planLv +1 tier, catalog x1.3 and series x1.25 snapshot, cleared at EXIT (B10)",
     Math.abs(boosted - base - 0.2) < 1e-9 && Math.abs(catR / plainR - 1.3) < 1e-9 && catOshi === true &&
     Math.abs(serOshi / serPlain - 1.25) < 1e-9 && kept && run(sb, "!!(S.project && S.project.oshi)") === false);
+  check("oshi wording: button is この一本を推す, miyuke-planner has her own line, feat completion leaves the section 2.4 memo (B10 review fix)",
+    btnHtml.includes("この一本を推す") && !btnHtml.includes("この作品を推しにする") &&
+    miyukeSay === "この一本、わたしも気に入ってる。" &&
+    featMemo === "推しの一本『" + projName + "』：機能が一つ灯りました。");
 }
 }
 {

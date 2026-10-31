@@ -391,8 +391,8 @@ function renderPanelInto(el){
         h += "<div style='margin-top:7px'>" + (p.oshi
           ? "<span class='vchip'>⭐ 推しの一本（指定中）</span> <button onclick='clearOshi()'>推しを外す</button>"
           : (S.oshiSlotSpent
-            ? "<span class='vchip'>⭐ 推しの一本（この会社の枠は使いました・次の会社でまた選べます）</span> <button disabled>⭐ この作品を推しにする</button>"
-            : "<button onclick='designateOshi()'>⭐ この作品を推しにする</button>")) + "</div>";
+            ? "<span class='vchip'>⭐ 推しの一本（この会社の枠は使いました・次の会社でまた選べます）</span> <button disabled>この一本を推す</button>"
+            : "<button onclick='designateOshi()'>この一本を推す</button>")) + "</div>";
         /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
         if(p.ip || canDesignateIP(p, S.projectDP)){
           const bugsNow = Math.floor(S.bugStock);
