@@ -71,16 +71,25 @@ function pickFishKind(){
   for(const k in FISH_KINDS){ r -= FISH_KINDS[k].w; if(r < 0) return k; }
   return "gold";
 }
+/* 再設計 B12（ux-r3 §2.9）: 割り込みイベントの告知は全体で1回/20秒までに抑える（行儀）。
+   イベントそのもの発生は妨げず、日報にも全部残る。抑えるのは吹き出しの告知だけ */
+let lastEventSayAt = 0;
+function eventSay(text){
+  const now = Date.now();
+  if(now - lastEventSayAt < 20000) return;
+  lastEventSayAt = now;
+  say(text);
+}
 function spawnFish(now){
   fishEvent = { x: 34 + Math.random()*172, y: 40 + Math.random()*86, until: now + 10000, kind: pickFishKind() };
   /* Sprint 4: 帯でも魚が見える・触れる。帯側の位置は帯の仮想座標で別に持つ
      （stripFish は帯レンダラが初期化し、帯の更新で泳がせる） */
   stripFish = null;
   const fname = FISH_KINDS[fishEvent.kind].name;
-  say("✨ " + fname + "が現れたにゃ！クリックで捕まえて！");
+  eventSay("✨ " + fname + "が現れたにゃ！クリックで捕まえて！");
   addLog("✨ " + fname + "が現れた");
 }
-function spawnBugSwarm(now, count?){
+function spawnBugSwarm(now, count?, isFever?){
   const bugs = [];
   const n = count || 6;
   for(let i = 0; i < n; i++){
@@ -91,14 +100,16 @@ function spawnBugSwarm(now, count?){
       sf: 0.08 + Math.random()*0.84, sy: 2 + Math.random()*10,
       svf: (Math.random()-0.5) * 0.03 });
   }
-  bugEvent = { bugs, until: now + 20000 };
-  say("🐛 バグが大量発生！？ 叩くとコインだにゃ（逃がしても平気だよ）");
-  addLog("🐛 バグ大量発生イベント！");
+  /* 再設計 B12（ux-r3 §2.9）: フィーバー中に湧くバグは専用の「的」種別。当てれば報酬のみ、
+     取り逃しても在庫・負債・効率には一切加算しない（帯の描画で金の輪の印を付けて区別する） */
+  bugEvent = { bugs, until: now + 20000, fever: !!isFever };
+  eventSay(isFever ? "🐛 フィーバーのバグだにゃ！ 的だと思って叩いてね（逃がしても平気だよ）" : "🐛 バグが大量発生！？ 叩くとコインだにゃ（逃がしても平気だよ）");
+  addLog(isFever ? "🐛 フィーバーバグ大量発生イベント！" : "🐛 バグ大量発生イベント！");
 }
 function eventTick(now){
   /* F: フィーバー中はバグが湧きやすい（潰すとボーナス DP の的になる） */
   if(feverActive() && !bugEvent && now >= feverBugNext){
-    spawnBugSwarm(now, 10);
+    spawnBugSwarm(now, 10, true);
     feverBugNext = now + 12000;
   }
   if(!fishEvent && !bugEvent){
@@ -112,7 +123,7 @@ function eventTick(now){
   if(bugEvent && now > bugEvent.until){
     bugEvent = null;
     nextBugAt = now + 180000 + Math.random()*150000;
-    if(Math.random() < 0.5) say("バグたちはどこかへ行ったにゃ（被害なし）");
+    if(Math.random() < 0.5) eventSay("バグたちはどこかへ行ったにゃ（被害なし）");
   }
   // バグの群れが発生する（帯の上を這う）
   if(bugEvent){

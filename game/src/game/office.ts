@@ -282,20 +282,28 @@ function stripMemoText(){
     }
     return "📮 " + r.client + "の依頼：次の作品は「" + r.genreName + "」で作る" + (r.repName ? "（担当：" + r.repName + "）" : "");
   }
+  /* 再設計 B12: メモは単一スロット。割り込み告知（トレンド・新着依頼）と報告ローテーションで
+     取り合わないよう、割り込みがある間は3枠中2枠を割り込み、1枠を報告に必ず回す調停にする。
+     目的メモ（クエスト・大型案件・進行中の依頼・納期）は従来どおり絶対優先 */
+  let interruptText = "";
   /* 第2ウェーブ L: トレンドの入れ替え直後だけメモでも知らせる（10分） */
   if(S.trend && S.trend.announceAt && Date.now() - S.trend.announceAt < 600000){
     const bg = GENRES.find(g => g.id === S.trend.boom);
-    return "📊 市場: 「" + (bg ? bg.name : "") + "」がブーム中（価格 ×1.5）";
+    interruptText = "📊 市場: 「" + (bg ? bg.name : "") + "」がブーム中（価格 ×1.5）";
   }
-  if(S.requests && S.requests.length) return "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
+  else if(S.requests && S.requests.length) interruptText = "📮 新しい依頼が " + S.requests.length + " 件あるにゃ";
   /* 再設計 B9（ux-r3 §2.7）: 目的が無い時間帯は、直近の報告と遠景を持株化までの距離で交互に出す */
   const far = holdingsFarText();
   const rep = lastReportText && Date.now() - lastReportAt < 1800000 ? "✉ " + lastReportText : "";
   /* 再設計 B11（designer-r3 §3.3）: 蓄積中の届け方 — 向こうの制作中を低頻度でローテーションに加える */
   const subTxt = (S.subs || []).length ? "向こうでは『" + subWorkName(S.subs[0]) + "』を制作中です。" : "";
   const slots = [rep, far, subTxt].filter(x => x);
-  if(slots.length) return slots[Math.floor(Date.now() / 20000) % slots.length];
-  return "";
+  const rotPick = slots.length ? slots[Math.floor(Date.now() / 20000) % slots.length] : "";
+  if(interruptText){
+    if(!rotPick) return interruptText;
+    return Math.floor(Date.now() / 20000) % 3 === 1 ? rotPick : interruptText;
+  }
+  return rotPick;
 }
 /* 遠景: 持株化までの距離（未達の条件だけを短く）。持株化のあとは次の星団までの距離 */
 function holdingsFarText(){

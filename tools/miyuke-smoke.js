@@ -264,6 +264,24 @@ console.log("== 5. prestige ==");
     sold >= 135 && sold <= 150 && run(sb, "S.catalog.length") === 0);   /* 再設計 B4: life 4.25 で 6000×4.25/30/60×10秒 = 141.7（初作なので間隔係数1） */
 }
 {
+  /* 再設計 B12: 割り込み告知は全体で1回/20秒まで。フィーバーのバグは「的」種別（fever フラグ）。
+     メモは単一スロット: 割り込み告知があっても報告ローテーションが必ず枠を得る */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true; lastEventSayAt = 0; spawnBugSwarm(Date.now(), 6, true);");
+  const feverFlag = run(sb, "!!(bugEvent && bugEvent.fever)");
+  const say1 = run(sb, "lastSayText");
+  run(sb, "spawnFish(Date.now());");
+  const cappedSay = run(sb, "lastSayText") === say1;
+  run(sb, "bugEvent = null; spawnBugSwarm(Date.now(), 6);");
+  const normalFlag = run(sb, "!!(bugEvent && !bugEvent.fever)");
+  run(sb, "S.trend = { boom: 'app', announceAt: Date.now() }; lastReportText = '報告テスト'; lastReportAt = Date.now();");
+  const memo1 = run(sb, "stripMemoText()");
+  const memoOk = memo1.includes("ブーム中") || memo1.includes("報告テスト");
+  check("interruption announcements are capped at one per 20s, fever bugs are a marked target type, memo slot arbitrates (B12)",
+    feverFlag && cappedSay && say1.includes("的だと思って") && normalFlag && memoOk);
+}
+{
   /* 再設計 B11: 別館看板の段階はグループ総勢で駆動し、周回内ラッチし、EXIT でリセットされる。
      配当の文型は子会社名から始まる「リリースされました——配当が届きました」形 */
   const sb = buildSandbox();

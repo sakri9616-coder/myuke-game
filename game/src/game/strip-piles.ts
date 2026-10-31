@@ -613,6 +613,13 @@ function renderStrip(){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
       const l0 = stripSpriteLog.length;
+      /* 再設計 B12（ux-r3 §2.9）: フィーバーのバグは「的」——金の輪（UI の印）で通常バグと区別する */
+      if(bugEvent.fever){
+        sctx.save();
+        sctx.strokeStyle = "rgba(240, 190, 60, 0.95)"; sctx.lineWidth = 1.4;
+        sctx.beginPath(); sctx.arc(bp.x, bp.y + 6, 8 + (frame % 16 < 8 ? 0 : 1), 0, Math.PI * 2); sctx.stroke();
+        sctx.restore();
+      }
       sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
       stripHitRects.bugs.push({ x: bp.x - 30, y: bp.y - 30, w: 60, h: 60, art: [l0, stripSpriteLog.length] });   /* 判定は見た目の約3倍 */
     }
