@@ -64,16 +64,15 @@ function subReinvest(sub, coins){
    旧: 人員と規模の固定式で、安い子会社をいくつも作るだけで星屑が出た */
 function subDustValue(sub){ return Math.floor(subRates(sub).coins * 60 / dustValueUnit()); }
 function subsTotalStaff(){ return (S.subs || []).reduce((a, s) => a + s.staff, 0); }
-/* 再設計 B11（leveldesign-r4-sign が正本）: 別館看板の成長段階はグループ総勢の単一指標で駆動する。
-   段階1 = 設立そのもの／25人→2／60人→3／120人→4。段階は周回内ラッチ（下がらない）。
+/* 再設計 B11（leveldesign-r4-sign が正本、閾値は較正裁定 leveldesign-r4-sign2 で差し替え）:
+   別館看板の成長段階はグループ総勢の単一指標で駆動する。
+   段階1 = 設立そのもの／200人→2／320人→3／450人→4。段階は周回内ラッチ（下がらない）。
    駆動元は旧 legacyGrade >= 2 からここへ移した（金の看板に二つの意味を持たせない） */
-const ANNEX_STAGE_STEPS = [25, 60, 120];
+const ANNEX_STAGE_STEPS = [200, 320, 450];
 function annexStageNow(){
   if(!(S.subs || []).length) return 0;
   const tot = subsTotalStaff();
-  if(tot >= 120) return 4;
-  if(tot >= 60) return 3;
-  if(tot >= 25) return 2;
+  for(let i = ANNEX_STAGE_STEPS.length - 1; i >= 0; i--) if(tot >= ANNEX_STAGE_STEPS[i]) return i + 2;
   return 1;
 }
 function annexStage(){ return Math.max(annexStageNow(), S.annexStage || 0); }

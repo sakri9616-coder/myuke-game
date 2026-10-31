@@ -311,7 +311,7 @@ console.log("== 5. prestige ==");
   run(sb, "S.tut.skipped = true;");
   run(sb, "S.subs = [{ id: 1, name: 'テスト工房', genre: 'app', staff: 24, lv: 1, alloc: 0 }]; S.annexStage = 0;");
   const st1 = run(sb, "annexStageNow()");
-  run(sb, "S.subs[0].staff = 25; annexStageTick();");
+  run(sb, "S.subs[0].staff = 200; annexStageTick();");
   const st2 = run(sb, "annexStage()"), announced = run(sb, "S.log[0].text");
   run(sb, "S.subs[0].staff = 10;");
   const latched = run(sb, "annexStage()");
