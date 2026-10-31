@@ -28,8 +28,9 @@ function prestigeCertHTML(pv, pb, knowAdd){
     "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
     "<div class='ds' style='margin-top:5px'>役員として残る猫：" + (execCat ? "<b>" + esc(execCat.name) + "</b>（次の会社でも、入口で待っています）" : "なし") + "</div>" +
     (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
-      ? "<div class='ds'>次期経営方針：『" + POLICY_DEFS[S.pendingPolicy].name + "』で、新しい会社が始まります。</div>"
+      ? "<div class='ds'>次期経営方針：『" + POLICY_DEFS[S.pendingPolicy].name + "』で、新しい会社が始まります。 <a href='#' onclick='prestigeCancel();return false;' title='カードに戻って方針を選び直せます'>（変更する）</a></div>"
       : "<div class='ds'>次期経営方針はまだ決まっていません。決めるのは会社の日常で。いま決めずに売ることもできます。</div>") +
+    "<div class='ds'>星屑ショップの永続特典は、売却しても消えません。</div>" +
     "<div class='note' style='margin-top:5px'>（手放すもの：" + pv.resets.join("・") + "。記録と功績は残ります。）</div>" +
     "<div style='margin-top:8px;display:flex;gap:6px'>" +
     "<button class='primary' onclick='prestigeGo()'>売却して、卒業する</button>" +

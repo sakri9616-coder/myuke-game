@@ -717,6 +717,11 @@ function startExitCeremony(pre){
         const ec = cats.find(c => c.name === pre.execName);
         if(ec) stripChat = { whoId: ec.id, text: "おかえり。続きから始めよう。", until: stripNow + 2800 };
         else say(pre.execName + "、おかえりにゃ。また一緒にやるにゃ！");
+      } else if(pre.keptName){
+        /* レビュー室の注記（§1.3）: 役員がいなくてもベテランが付いてきた場合は、その猫の迎えの一言を出す */
+        const kc = cats.find(c => c.name === pre.keptName);
+        if(kc) stripChat = { whoId: kc.id, text: "また会えたね。よろしくにゃ。", until: stripNow + 2800 };
+        else say("また会えたね。よろしくにゃ。");
       } else say("さあ、新しい会社の始まりだにゃ。");
     } }
   ];

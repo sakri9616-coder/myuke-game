@@ -272,9 +272,10 @@ console.log("== 5. prestige ==");
   const exitCere = run(sb, "!!ceremony && ceremony.kind === 'exit' && afterglowNotes.length >= 1 && firstReleasePending");
   run(sb, "startProject('S'); S.project.doneFeats = 99; releaseProject();");
   const firstRel = run(sb, "S.log.some(l => l.text.includes('再出発の初リリース')) && !firstReleasePending");
-  run(sb, "currentTab = 'factory'; prestigeAsk();");
+  run(sb, "currentTab = 'factory'; S.pendingPolicy = 'labor'; prestigeAsk();");
   const cert = run(sb, "document.getElementById('panel').innerHTML");
-  const certOk = cert.includes("卒業証書") && cert.includes("売却して、卒業する") && cert.includes("もう少し育てる");
+  const certOk = cert.includes("卒業証書") && cert.includes("売却して、卒業する") && cert.includes("もう少し育てる") &&
+    cert.includes("（変更する）") && cert.includes("星屑ショップの永続特典は、売却しても消えません");
   run(sb, "prestigeCancel(); S.maxStudioLv = 6; S.subs = [{ id: 1, name: 'a', genre: 'app', staff: 5, lv: 1, alloc: 0 }, { id: 2, name: 'b', genre: 'app', staff: 5, lv: 1, alloc: 0 }]; S.eraExitPts = 12; S.eraDust = 1500; S.prestiges = 12; S.eraStartPrestiges = 0;");
   run(sb, "currentTab = 'factory'; holdingsAsk();");
   const hcert = run(sb, "document.getElementById('panel').innerHTML");

@@ -373,7 +373,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.restore();
     }
     /* 再設計 B13（§1.5 拍3）: 金の点灯の間はボードの縁に光を置く */
-    if(Date.now() < holdingsGlowUntil && frame % 10 < 6){
+    if(Date.now() < holdingsGlowUntil && blinkOn(10, 6)){   /* 点滅を減らす設定では点灯固定に読み替える */
       sDrawSprite("fx_spark_2", bx + 6, top - 2, 1);
       sDrawSprite("fx_spark_2", bx + bw - 8, top - 2, 1);
     }

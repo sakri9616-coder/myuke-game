@@ -84,7 +84,7 @@ function drawStripShelf(){
     sctx.restore();
   }
   /* 再設計 B13（§1.5 拍3）: 持株化の金の点灯 */
-  if(Date.now() < holdingsGlowUntil && frame % 10 < 6){
+  if(Date.now() < holdingsGlowUntil && blinkOn(10, 6)){   /* 点滅を減らす設定では点灯固定に読み替える */
     sDrawSprite("fx_spark_2", scx - 24, topY - 4, 1);
     sDrawSprite("fx_spark_2", scx + 22, topY - 4, 1);
   }

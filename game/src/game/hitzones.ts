@@ -99,6 +99,8 @@ const CLICK_SAY_GAP_MS = 1200;
 let lastClickSayAt = 0;
 /* ストリップのクリック: みゅけ本人は反応、それ以外は応援クリック */
 if(stripCv){
+  /* 再設計 B13 フォロー（ux-r3 §4.1 S3 の中断）: キー押下でも儀式は即座に終わり、余韻の状態へ移る */
+  document.addEventListener("keydown", () => { if(ceremony) ceremony = null; });
   stripCv.addEventListener("pointerdown", (e) => {
     /* 再設計 B13（ux-r3 §4.1 S3 の中断）: 帯を触ったら儀式は即座に終わり、余韻の状態へ移る。操作自体は奪わない */
     if(ceremony) ceremony = null;
