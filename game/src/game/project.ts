@@ -74,11 +74,6 @@ function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv
    所持数が減る形でそのまま残る */
 /* 再設計 B9: 企画者クレジットの担当決定 — 研究職の最古参ではなく最上位Lv の研究者を名乗る。
    研究者がいない時代は みゅけ 本人が企画者になる（ux-r2: 担当名 or みゅけ） */
-function pickPlannerName(){
-  const rs = S.staff.filter(s => s.role === "research");
-  if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; return best.name; }
-  return "みゅけ";
-}
 /* 再設計 B10: 企画者の ID も一緒に記録する（推し指定時の小さな反応のため） */
 function assignPlanner(p){
   const rs = S.staff.filter(s => s.role === "research");
@@ -89,16 +84,14 @@ function assignPlanner(p){
    コストなし・外すことにペナルティなし（designer-r3 §2.6）。
    再設計 B10（r4-oshi2）: 指定の枠は1周回（1社）に1本。推し作品がリリースされると枠は消費され、
    その会社ではそれ以上指定できない（リリース前の移し直しは枠がある間は無料・無制限） */
-let lastOshiWorkName = "";   /* 代替わりの言葉用（リリース済みの前の推し）。EXIT・持株化で消える */
 function designateOshi(){
   const p = S.project;
   if(!p || p.oshi) return;
   if(S.oshiSlotSpent){ say("この会社の推し枠は、もう使いました。次の会社でまた選べます。"); return; }
   p.oshi = true;
-  if(lastOshiWorkName && lastOshiWorkName !== p.name)
-    addLog("⭐ 推しは『" + p.name + "』に移りました。前の推し『" + lastOshiWorkName + "』は、棚で元気に売れています。");
-  else
-    addLog("⭐ 『" + p.name + "』を推しにしました。この一本は、最後まで見届けます。");
+  /* designer-r3 §2.6 の代替わり文は置かない: 枠ルール（r4-oshi2）では前の推しがリリースされた
+     時点で枠が消費され、その会社の間は再指定できないため「前の推しがいる状態での指定」は起きない */
+  addLog("⭐ 『" + p.name + "』を推しにしました。この一本は、最後まで見届けます。");
   if(p.plannerId) reportSpeech(p.plannerId, "『" + p.name + "』、推してもらえた！ がんばるにゃ。", 2);
   else say("この一本、わたしも気に入ってる。");   /* designer-r3 §2.3: 企画者がみゅけ本人の場合は専用文案 */
   save(); renderPanel();

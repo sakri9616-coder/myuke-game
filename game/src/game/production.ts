@@ -677,7 +677,6 @@ function releaseProject(){
     /* 再設計 B10（designer-r3 §2.5）: 推しのリリースは一段だけ格を上げる */
     /* 再設計 B10（r4-oshi2）: 推し作品のリリースで1周回の枠が消費される */
     S.oshiSlotSpent = true;
-    lastOshiWorkName = p.name;
     addLog("⭐ 推しの一本『" + p.name + "』が、世に出ました！");
     if(!ipOk) addLog("⭐ 推しの一本は、棚の特等席に並びました。");
   }

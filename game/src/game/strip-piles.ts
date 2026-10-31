@@ -586,12 +586,6 @@ function renderStrip(){
     sDrawStripWalker(v, G);
     if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
-  /* --- 拡張ウェーブ G: 外注ベンダーの猫（帰りはバグを持っている） --- */
-  if(stripVendor){
-    const v = stripVendor;
-    sDrawStripWalker(v, G);
-    if(v.done) sDrawSprite("icon_bug", v.x - 16 * v.dir, G - 46, 0.7);
-  }
   if(stripModCart){
     const v = stripModCart;
     sDrawStripWalker(v, G);

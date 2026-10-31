@@ -24,7 +24,6 @@ let lastShipDispatchAt = 0;
 function stripQAX(){ return propPlace("test").cx; }
 function stripBuildX(){ return propPlace("build").cx; }
 function stripShipX(){ return propPlace("ship").cx; }
-function flowTier(){ return flowTierCur; }
 function flowQuantum(){ return FLOW_Q_BY_TIER[flowTierCur]; }
 /* ティア判定: 総スループット T (DP/分)。昇格は即時、降格は30秒遅延 (ちらつき防止) */
 function flowTierTick(){

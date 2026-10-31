@@ -21,12 +21,15 @@ let lastReportSpeechAt = 0;
 let lastReportText = "";      /* メモの空き枠ローテーション用（最新の報告の文面） */
 let lastReportAt = 0;
 function reportNote(text){ lastReportText = text; lastReportAt = Date.now(); }
+function showReportChat(whoId, text, now){
+  stripChat = { whoId, text, until: now + 4200 };
+  lastReportSpeechAt = now;
+}
 function reportSpeech(whoId, text, prio){
   reportNote(text);
   const now = Date.now();
   if(!stripChat && !reportQueue.length && now - lastReportSpeechAt >= 20000){
-    stripChat = { whoId, text, until: now + 4200 };
-    lastReportSpeechAt = now;
+    showReportChat(whoId, text, now);
     return;
   }
   reportQueue.push({ whoId, text, prio });
@@ -37,8 +40,7 @@ function reportQueueTick(){
   const now = Date.now();
   if(stripChat || !reportQueue.length || now - lastReportSpeechAt < 20000) return;
   const r = reportQueue.shift()!;
-  stripChat = { whoId: r.whoId, text: r.text, until: now + 4200 };
-  lastReportSpeechAt = now;
+  showReportChat(r.whoId, r.text, now);
 }
 let lastChatterAt = 0;
 function maybeStartChatter(now, force){
@@ -70,7 +72,6 @@ function maybeStartChatter(now, force){
 let stripVisitor = null;   /* { x, dir, coat, speed } */
 /* Phase D の子会社コインの端数置き場は、配当のリリース単位化（レベルデザイン改修）で不要になった */
 let stripDelivery = null;  /* Phase D: 子会社の配達猫 { x, dir, coat, speed, walkClock, done } */
-let stripVendor = null;    /* 拡張ウェーブ G: 外注ベンダーの猫（バグを回収に来る） */
 let nextDeliveryAt = 0;
 let nextVisitorAt = 0;
 function spawnStripVisitor(){
@@ -89,14 +90,6 @@ function spawnStripDelivery(){
   const coat = COATS[Math.floor(Math.random() * COATS.length)];
   stripDelivery = { x: stripVW + 20, dir: -1, coat, speed: 17, walkClock: 0, done: false };
   return stripDelivery;
-}
-/* 拡張ウェーブ G: ベンダーの猫は右から手ぶらで来て、机でバグを受け取り、
-   バグを持って右へ帰る（配達猫と逆の物流） */
-function spawnStripVendor(){
-  if(stripVendor) return stripVendor;
-  const coat = COATS[Math.floor(Math.random() * COATS.length)];
-  stripVendor = { x: stripVW + 20, dir: -1, coat, speed: 17, walkClock: 0, done: false };
-  return stripVendor;
 }
 function stripAmbientUpdate(dt){
   ceremonyTick();   /* 再設計 B13: 儀式の拍を進める */
@@ -129,11 +122,6 @@ function stripAmbientUpdate(dt){
       stripDelivery = null;
       nextDeliveryAt = stripNow + (3 + Math.random() * 3) * 60000;
     }
-  }
-  /* 拡張ウェーブ G: ベンダーの猫（机でバグを受け取って帰る） */
-  if(stripVendor){
-    stepStripCourier(stripVendor, stripVendor.speed, dt, "🧳 バグ回収！", "#8a6a44");
-    if(stripVendor.x > stripVW + 30) stripVendor = null;
   }
   /* Wave H: モジュールの箱運び（右から箱を持って机へ・帰りは手ぶら） */
   if(stripModCart){

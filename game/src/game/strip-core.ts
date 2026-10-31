@@ -235,10 +235,6 @@ function stripHoverTarget(){
   }
   return null;
 }
-function stripHoverRect(){
-  const t = stripHoverTarget();
-  return t ? t.r : null;
-}
 /* 描画中の主要スプライトの配置レジストリ (ホバーの輪を「その絵の形」に合わせる
    ため、描画関数が自分のスプライト名と置き場所を記録する) */
 let stripObjArt: Record<string, any> = {}, stripStaffArt = [];

@@ -223,6 +223,7 @@ function branchMult(id){
 function seriesSubMult(){ return 1 + 0.1 * (S.ips || []).length; }
 function seriesReqMult(){ return 1 + 0.05 * (S.ips || []).length; }
 function fishIntervalMul(){ return (1 - 0.08 * perkLv("luckyfin")) * (hasPerk("omamori") ? 0.95 : 1); }   /* 第2ウェーブ I: 星屑のお守りで別枠 -5% */
+function nextFishDelayMs(){ return (150000 + Math.random() * 120000) * fishIntervalMul(); }   /* 次の金の魚までの間隔（Sprint 4: 幸運のヒレ） */
 function buyDustPerk(id){
   const def = DUST_PERKS.find(p => p.id === id);
   if(!def) return;
@@ -390,7 +391,6 @@ function piggyCarry(coins){ return Math.min(Math.floor(coins * 0.1), Math.max(50
 function resetCompanyRun(){
   if(S.project) S.project.oshi = false;   /* 再設計 B10: 推しの指定は会社（ラン）の内側の仕組み — EXIT・持株化で終わる */
   S.oshiSlotSpent = false;   /* 再設計 B10（r4-oshi2）: 推しの枠も会社単位で回復 */
-  lastOshiWorkName = "";
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;

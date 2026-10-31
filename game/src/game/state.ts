@@ -118,7 +118,7 @@ function eventTick(now){
   }
   if(fishEvent && now > fishEvent.until){
     fishEvent = null;
-    nextFishAt = now + (150000 + Math.random()*120000) * fishIntervalMul();   /* Sprint 4: 幸運のヒレ */
+    nextFishAt = now + nextFishDelayMs();
   }
   if(bugEvent && now > bugEvent.until){
     bugEvent = null;
@@ -143,7 +143,7 @@ function addFloater(x, y, text, color){
 function catchFish(bx, by){
   const kind = (fishEvent && fishEvent.kind) || "gold";
   fishEvent = null;
-  nextFishAt = Date.now() + (150000 + Math.random()*120000) * fishIntervalMul();   /* Sprint 4: 幸運のヒレ */
+  nextFishAt = Date.now() + nextFishDelayMs();
   if(kind === "cheer" || kind === "haul"){
     const cheer = kind === "cheer", now = Date.now();
     if(cheer) cheerFishUntil = Math.max(cheerFishUntil, now) + FISH.cheerSec * 1000;
