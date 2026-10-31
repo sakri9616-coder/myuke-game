@@ -273,6 +273,48 @@ console.log("== 5. prestige ==");
     run(sb, "(S.eraIncome || {}).labor") === 123 && run(sb, "Object.keys(S.incomeBy || {}).length") === 0);
 }
 {
+  /* 再設計 B10: 推しの一本 — 指定で価格の読み替えと棚・シリーズのスナップショットが効き、EXIT で指定が終わる */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true; startProject('M'); S.project.planLv = 2;");
+  const base = run(sb, "planPriceMult(S.project)");
+  run(sb, "designateOshi();");
+  const boosted = run(sb, "planPriceMult(S.project)");
+  run(sb, "S.catalog = []; catalogAdd(S.project, 1000);");
+  const catR = run(sb, "S.catalog[0].r"), catOshi = run(sb, "S.catalog[0].oshi");
+  const plainR = run(sb, "clearOshi(); S.catalog = []; catalogAdd(S.project, 1000); S.catalog[0].r");
+  const serPlain = run(sb, "seriesRate({ price: 1000, scale: 1 })");
+  const serOshi = run(sb, "seriesRate({ price: 1000, scale: 1, oshi: true })");
+  run(sb, "designateOshi(); save();");
+  const kept = run(sb, "!!S.project.oshi");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+{
+  /* 再設計 B10（r4-oshi2）: 推しの枠は1周回に1本。推し作品のリリースで消費され、
+     枠消費後の指定は拒否され、EXIT で回復する。リリース前の移し直しは自由 */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.tut.skipped = true;");
+  run(sb, "startProject('S'); designateOshi();");
+  const des1 = run(sb, "S.project.oshi === true && !S.oshiSlotSpent");
+  run(sb, "S.project.doneFeats = 99; releaseProject();");
+  const spent = run(sb, "S.oshiSlotSpent === true");
+  run(sb, "designateOshi();");
+  const refused = run(sb, "S.project.oshi !== true");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  const cleared = run(sb, "S.oshiSlotSpent === false");
+  run(sb, "designateOshi();");
+  const redes = run(sb, "S.project.oshi === true");
+  run(sb, "clearOshi(); currentTab = 'proj';");
+  run(sb, "S.oshiSlotSpent = true; renderPanel();");
+  const uiNote = run(sb, "document.getElementById('panel').innerHTML.includes('この会社の枠は使いました')");
+  check("oshi slot: one per company, spent on release, refused after, cleared at EXIT (B10 r4-oshi2)",
+    des1 && spent && refused && cleared && redes && uiNote);
+  check("oshi: price reads planLv +1 tier, catalog x1.3 and series x1.25 snapshot, cleared at EXIT (B10)",
+    Math.abs(boosted - base - 0.2) < 1e-9 && Math.abs(catR / plainR - 1.3) < 1e-9 && catOshi === true &&
+    Math.abs(serOshi / serPlain - 1.25) < 1e-9 && kept && run(sb, "!!(S.project && S.project.oshi)") === false);
+}
+}
+{
   /* 再設計 段階3: 社格は企業価値が届くと自動で上がる（コインでは買えない） */
   const sb = buildSandbox();
   loadGame(sb);

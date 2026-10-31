@@ -61,7 +61,9 @@ function ideaChargeMultFor(ideas){ return 1 + IDEA_CHARGE_MAX * (1 - Math.exp(-M
 function ideaChargeMult(){ return ideaChargeMultFor(S.ideas || 0); }
 function planLv(p){ return (p && p.planLv) || 0; }
 function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
-function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
+/* 再設計 B10（r4-oshi §1.2）: 推し指定中の作品は、価格計算で企画Lv を +OSHI_PLAN_LV 段として数える。
+   上限を超えられるのは推しだけ。企画Lv そのもの（自動企画の挙動・表示）には触らない */
+function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * (planLv(p) + (p && p.oshi ? OSHI_PLAN_LV : 0)); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
 function planMax(){ return PLAN_MAX + (S.upgrades.monitor || 0); }   /* 段階5: ワイドモニターで企画を練れる上限が伸びる */
 function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < planMax() && dp < p.totalDP * 0.5; }
@@ -77,10 +79,41 @@ function pickPlannerName(){
   if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; return best.name; }
   return "みゅけ";
 }
+/* 再設計 B10: 企画者の ID も一緒に記録する（推し指定時の小さな反応のため） */
+function assignPlanner(p){
+  const rs = S.staff.filter(s => s.role === "research");
+  if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; p.plannerName = best.name; p.plannerId = best.id; }
+  else { p.plannerName = "みゅけ"; p.plannerId = 0; }
+}
+/* 再設計 B10: 推しの一本の指定・解除。同時指定は作品が1本ずつしか進行しないため構造的に1本だけ。
+   コストなし・外すことにペナルティなし（designer-r3 §2.6）。
+   再設計 B10（r4-oshi2）: 指定の枠は1周回（1社）に1本。推し作品がリリースされると枠は消費され、
+   その会社ではそれ以上指定できない（リリース前の移し直しは枠がある間は無料・無制限） */
+let lastOshiWorkName = "";   /* 代替わりの言葉用（リリース済みの前の推し）。EXIT・持株化で消える */
+function designateOshi(){
+  const p = S.project;
+  if(!p || p.oshi) return;
+  if(S.oshiSlotSpent){ say("この会社の推し枠は、もう使いました。次の会社でまた選べます。"); return; }
+  p.oshi = true;
+  if(lastOshiWorkName && lastOshiWorkName !== p.name)
+    addLog("⭐ 推しは『" + p.name + "』に移りました。前の推し『" + lastOshiWorkName + "』は、棚で元気に売れています。");
+  else
+    addLog("⭐ 『" + p.name + "』を推しにしました。この一本は、最後まで見届けます。");
+  if(p.plannerId) reportSpeech(p.plannerId, "『" + p.name + "』、推してもらえた！ がんばるにゃ。", 2);
+  else say("『" + p.name + "』、推してもらえた！ がんばるにゃ。");
+  save(); renderPanel();
+}
+function clearOshi(){
+  const p = S.project;
+  if(!p || !p.oshi) return;
+  p.oshi = false;
+  addLog("⭐ 推しを外しました。『" + p.name + "』は、ふつうの一本に戻ります。");
+  save(); renderPanel();
+}
 function autoPlanTick(){
   const p = S.project;
   if(!p || !canPlan(p, S.projectDP)) return;
-  if(!p.plannerName) p.plannerName = pickPlannerName();
+  if(!p.plannerName) assignPlanner(p);
   let changed = false;
   while(canPlan(p, S.projectDP)){
     const cost = planCost(p);
@@ -102,7 +135,7 @@ function autoPlanTick(){
    足りなければ planning（企画中）にして、貯まるまで工程に流さない */
 function settleProject(p){
   if(!p) return p;
-  if(!p.plannerName) p.plannerName = pickPlannerName();   /* 再設計 B9: 企画者は着工時に決まる */
+  if(!p.plannerName) assignPlanner(p);   /* 再設計 B9: 企画者は着工時に決まる */
   if(typeof p.ideaCost !== "number") p.ideaCost = IDEA_COST[p.size] || 0;
   if(p.ideaCost <= 0){ p.planning = false; return p; }
   if(S.ideas >= p.ideaCost){

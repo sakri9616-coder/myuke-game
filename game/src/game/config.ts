@@ -8,6 +8,12 @@
    スプライト: window.MIYUKE_SPRITES があれば帯レンダラ経由で使い、
    無ければ従来の手続き描画にフォールバックする（graphics/SPRITES.md 参照）。
    ============================================================ */
+/* 再設計 B10: 推しの一本の定数（leveldesign-r4-oshi が正本）。
+   SIM_TWEAK から差し替えられるよう let で宣言する（ゲート計測用） */
+let OSHI_PLAN_LV = 1;          /* リリース時の価格計算で企画Lv を何段ぶん上乗せするか */
+let OSHI_CATALOG_MULT = 1.3;   /* 棚の特等席: リリース時点で推しだった作品の初期レート */
+let OSHI_SERIES_MULT = 1.25;   /* 推しのまま IP 成立した作品のシリーズレート */
+let OSHI_BUG_MULT = 0.85;      /* 指定中だけ効くバグ混入の係数（企画Lv 1段と同じ重さ） */
 const BAL = {
   basePerMin: 8,            // 基本進捗 DP/分
   keysPerDP: 3,             // 何打鍵で +1DP（レーンA・入力ブースト強化）

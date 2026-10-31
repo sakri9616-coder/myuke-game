@@ -377,7 +377,7 @@ function produceDP(amount, _target?){
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
   const proj = S.project;
-  const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * planBugMult(proj) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 */
+  const bugMul = ((proj && proj.genre === "robot" && S.research.res_robot2) ? 0.5 : 1) * planBugMult(proj) * (proj && proj.oshi ? OSHI_BUG_MULT : 1) * (challengeActive("black") ? 3 : 1) *   /* 第2ウェーブ K: ブラック企業はバグ ×3 ／ B10: 推し指定中はバグ混入 ×0.85（状態依存・遡及なし） */
     (fromInput ? BAL.inputBugRate : 1);   /* 応援・入力で増えた分はバグが出にくい（頑張るほど詰まる逆転を防ぐ） */
   let inflow = 0;   /* 再設計 C5: 実際に仕掛品へ入った量。行き先の実測として呼び出し側へ返す */
   {
@@ -492,6 +492,7 @@ function recordRelease(p, coins, rp, devMin, projectDP, naps){
     icon: (typeof p.icon === "number" ? p.icon : Math.floor(Math.random()*8))
   } as ShelfEntry;
   entry.q = qualityStars(p);   /* 段階5: 出荷したときの品質★ */
+  if(p.oshi) (entry as ShelfEntry).oshi = true;   /* 再設計 B10: 棚の特等席の目印 */
   entry.highlight = makeHighlight(p, devMin, naps);
   S.shelf.unshift(entry);
 }
@@ -544,10 +545,12 @@ function requestBonusMult(){ return (1 + 0.1 * engineLv("scout")) * branchMult("
 function catalogAdd(p, price){
   if(!Array.isArray(S.catalog)) S.catalog = [];
   for(const e of S.catalog) e.r *= CAT.decay;   /* 新作に客が移る（リリースが速いほど1本の生涯売上は小さい） */
-  S.catalog.unshift({ n: p.name, r: price * CAT.life / CAT.tauMin / 60 });
+  /* 再設計 B10（r4-oshi §1.3）: リリース時点で推しだった作品は特等席 — 初期レート ×OSHI_CATALOG_MULT で確定し、
+     後から推しを移しても剥がれない（スナップショット） */
+  S.catalog.unshift({ n: p.name, r: price * CAT.life / CAT.tauMin / 60 * (p.oshi ? OSHI_CATALOG_MULT : 1), oshi: !!p.oshi });
   if(S.catalog.length > catalogMax()) S.catalog.length = catalogMax();
 }
-function seriesRate(ip){ return ip.price * CAT.seriesPerMin / 60 * Math.max(1, workScale() / (ip.scale || 1)); }
+function seriesRate(ip){ return ip.price * CAT.seriesPerMin / 60 * Math.max(1, workScale() / (ip.scale || 1)) * (ip.oshi ? OSHI_SERIES_MULT : 1); }   /* B10: 推しのまま成立した IP は ×OSHI_SERIES_MULT（確定済み・剥がれない） */
 /* 🪙/秒（棚＋シリーズ） */
 function catalogRate(){
   let r = 0;
@@ -660,6 +663,14 @@ function releaseProject(){
   S.totals.coinsEarned += bonusNow - coins;
   coins = bonusNow;
   addLog("🎉 リリース！『"+p.name+"』 +"+fmt(coins)+"🪙"+(flowed > 0 ? "（作りながら +"+fmt(flowed)+"🪙 入金済み）" : "")+" / +"+rp+"🔬 "+requestBonus);
+  if(p.oshi){
+    /* 再設計 B10（designer-r3 §2.5）: 推しのリリースは一段だけ格を上げる */
+    /* 再設計 B10（r4-oshi2）: 推し作品のリリースで1周回の枠が消費される */
+    S.oshiSlotSpent = true;
+    lastOshiWorkName = p.name;
+    addLog("⭐ 推しの一本『" + p.name + "』が、世に出ました！");
+    if(!ipOk) addLog("⭐ 推しの一本は、棚の特等席に並びました。");
+  }
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
   say("『"+p.name+"』リリースできたにゃ〜！ +"+coins+"コイン");

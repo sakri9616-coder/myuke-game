@@ -314,6 +314,14 @@ function renderPanelInto(el){
         h += "<div style='margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap'>" +
           "<span class='vchip'>💡 企画は自動で練られます（企画Lv" + planLv(p) + " / 上限 " + planMax() + "＝3＋ワイドモニターLv・価格 ×" + fmtDec(planPriceMult(p), 2) + "・バグ -" + Math.round(15 * planLv(p)) + "%）</span>" +
           "</div>";
+        /* 再設計 B10: 推しの一本の指定（コストなし・いつでも付け外しできる気持ちの宣言） */
+        /* 再設計 B10（r4-oshi2）: 枠消費後は指定コントロールを不活性化し、枠切れが読める表示にする
+           （文言は UX 側の確認が要る場合はそちらへ差し替え） */
+        h += "<div style='margin-top:7px'>" + (p.oshi
+          ? "<span class='vchip'>⭐ 推しの一本（指定中）</span> <button onclick='clearOshi()'>推しを外す</button>"
+          : (S.oshiSlotSpent
+            ? "<span class='vchip'>⭐ 推しの一本（この会社の枠は使いました・次の会社でまた選べます）</span> <button disabled>⭐ この作品を推しにする</button>"
+            : "<button onclick='designateOshi()'>⭐ この作品を推しにする</button>")) + "</div>";
         /* 第2ウェーブ L: 自社IPの指定（M/L・企画中は不可。成立はバグ0出荷） */
         if(p.ip || canDesignateIP(p, S.projectDP)){
           const bugsNow = Math.floor(S.bugStock);
@@ -813,7 +821,7 @@ function renderPanelInto(el){
     h += "<div class='shelfgrid'>";
     for(const w of S.shelf){
       h += "<div class='workcard'><div><span class='sock sm'>📖</span><span class='nm'>『"+esc(w.name)+"』</span></div>"+
-        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.q?"<span class='tagchip'>"+starText(w.q)+"</span>":"")+"</div>"+
+        "<div class='chiprow' style='margin-top:5px'><span class='tagchip'>"+esc(w.genreName)+"</span><span class='tagchip'>"+w.size+"</span>"+(w.q?"<span class='tagchip'>"+starText(w.q)+"</span>":"")+(w.oshi?"<span class='tagchip'>⭐ 特等席</span>":"")+"</div>"+
         (w.highlight ? "<div class='wc-hl'>✨ "+esc(w.highlight)+"</div>" : "")+
         "<div class='wc-stats'>"+esc(w.date)+" リリース ・ 開発 "+w.devMin+"分 ・ "+fmt(w.lines)+"行 ・ バグ "+w.bugs+"匹 ・ 昼寝 "+w.naps+"回</div></div>";
     }
