@@ -642,7 +642,7 @@ function doHoldingsCore(){
   convertKnow();   /* 段階5: ジャンル知見は持株化でも残る（余った研究P も知見に） */
   /* EXIT と同じリセット（特典の引き継ぎは無い — 特典そのものが畳まれる） */
   resetCompanyRun();
-  addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目・持株の土台 ×"+fmt(base)+"）");
+  addLog("🏛️ ホールディングス化！ グループは持株会社の傘下に入った（星団 +"+gain+"・持株化 "+S.holdings+" 回目・星屑倍率の土台 ×"+fmt(base)+"）");
   startProject("S");
   checkStamps();
   /* 再設計 B13: 時代の転換は儀式（S3）が担う。呼び名の変化はスタンプ確定後に比べる */

@@ -798,7 +798,7 @@ function renderPanelInto(el){
           kv("この時代の通算星屑", hp.cond.era ? fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個 ✅" : "あと " + fmt(HOLD_ERA_DUST - (S.eraDust || 0)) + " 個（現在 " + fmt(S.eraDust || 0) + " / " + fmt(HOLD_ERA_DUST) + " 個・星団は 1,000 個で初回 4 個、2回目以降 3 個、粘るほど階段で増えます）") +
           kv("次の星団", (() => { const ed = S.eraDust || 0, nx = CLUSTER_STEPS.find(t => ed < t); return nx ? "あと " + fmt(nx - ed) + " 個（時代の累計星屑 " + fmt(nx) + " 個で星団 +1）" : "頭打ち（この時代の星団は最大 11 個）"; })()) +
           kv("時代のしるし", (() => { const ed = S.eraDust || 0; let marked = false; return ERA_MILESTONES.map(m => { const met = ed >= m.at; const res = (!met && !marked) ? (marked = true, " ・ あと " + fmt(m.at - ed) + " 個") : ""; return (met ? "✅ " : "○ ") + m.desc + "（" + m.name + "）" + res; }).join("<br>"); })()) +
-          kv("持株の土台（星屑倍率に掛かる・持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)) +
+          kv("星屑倍率の土台（持株化で残る）", "×" + fmt(hp.baseNow) + " → 持株化で ×" + fmt(hp.baseNext)) +
           eraRecordsHTML());
       }
       if((S.holdings || 0) > 0 || (S.legacy || 0) > 0){
