@@ -350,7 +350,7 @@ console.log("== 5. prestige ==");
   const boosted = run(sb, "planPriceMult(S.project)");
   run(sb, "S.catalog = []; catalogAdd(S.project, 1000);");
   const catR = run(sb, "S.catalog[0].r"), catOshi = run(sb, "S.catalog[0].oshi");
-  const plainR = run(sb, "clearOshi(); S.catalog = []; catalogAdd(S.project, 1000); S.catalog[0].r");
+  const plainR = run(sb, "clearOshi(); lastCatalogAtSec = -1; S.catalog = []; catalogAdd(S.project, 1000); S.catalog[0].r");   /* B4 の間隔係数を測り直すため前回リリース時刻をリセット（係数自体は B4 ブロックで検証） */
   const serPlain = run(sb, "seriesRate({ price: 1000, scale: 1 })");
   const serOshi = run(sb, "seriesRate({ price: 1000, scale: 1, oshi: true })");
   run(sb, "designateOshi(); save();");
