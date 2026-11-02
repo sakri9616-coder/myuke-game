@@ -20,9 +20,9 @@ function prestigeCertHTML(pv, pb, knowAdd){
   const execId = resolvedExecPickId();
   const execCat = execId !== null && execId !== undefined ? (S.staff || []).find(x => x.id === execId) : null;
   const pts = pb.ptsSize + pb.ptsEra;
-  let h = "<div class='item' style='border-color:var(--gold-d);margin-top:12px'>" +
-    "<div><span class='sock'>🎓</span><span class='nm'>卒業証書</span></div>" +
-    "<div class='ds' style='margin-top:5px'>『" + rankName(S.maxStudioLv || S.studioLv) + "』のこの会社は、立派に売却されました。</div>" +
+  let h = "<div class='item cert' style='margin-top:12px'>" +
+    "<div class='cert-title'>卒業証書</div>" +
+    "<div class='ds' style='margin-top:5px;text-align:center'>『" + rankName(S.maxStudioLv || S.studioLv) + "』のこの会社は、立派に売却されました。</div>" +
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——受け取るもの——</div>" +
     "<div class='ds'>星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + pts + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
     "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
@@ -34,7 +34,7 @@ function prestigeCertHTML(pv, pb, knowAdd){
     "<div class='note' style='margin-top:5px'>（手放すもの：" + pv.resets.join("・") + "。記録と功績は残ります。）</div>" +
     /* A3（2026-11-02 みゅー作画）: 卒業証書には肉球の朱印を押す */
     (hasSprite("a3_exit_seal") ? "<img src='" + spriteURL("a3_exit_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:0 2px 2px 8px'>" : "") +
-    "<div style='margin-top:8px;display:flex;gap:6px'>" +
+    "<div style='margin-top:8px;display:flex;gap:6px;justify-content:center'>" +
     "<button class='primary' onclick='prestigeGo()'>売却して、卒業する</button>" +
     "<button onclick='prestigeCancel()'>もう少し育てる</button></div></div>";
   return h;
@@ -47,8 +47,8 @@ function holdingsCertHTML(hp){
     const steps = SPACE_NAMES[k] || [];
     for(const st of steps) if(!S.stamps[st[0]] && (S.holdings || 0) + 1 >= parseInt(st[0].replace("holdings", ""), 10)) renameNote = "時代が進み、一部の呼び名が変わります。";
   }
-  let h = "<div><span class='sock'>🏛️</span><span class='nm'>時代の記録</span></div>" +
-    "<div class='ds' style='margin-top:5px'>『" + eraName() + "』は、EXIT " + eraExits + " 回、星屑 " + fmt(S.eraDust || 0) + " 個の時代でした。</div>" +
+  let h = "<div class='cert-title'>時代の記録</div>" +
+    "<div class='ds' style='margin-top:5px;text-align:center'>『" + eraName() + "』は、EXIT " + eraExits + " 回、星屑 " + fmt(S.eraDust || 0) + " 個の時代でした。</div>" +
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——この時代で収めるもの——</div>" +
     "<div class='ds'>星屑と星屑の特典／応援の蓄え／コイン・スタッフ・研究・部署・子会社（時代の記録に収められます）</div></div>" +
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——新しい時代に受け取るもの——</div>" +
@@ -56,10 +56,10 @@ function holdingsCertHTML(hp){
     (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
     /* A3（2026-11-02 みゅー作画）: 時代の記録には金の肉球印を押す */
     (hasSprite("a3_holdings_seal") ? "<img src='" + spriteURL("a3_holdings_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:2px 2px 2px 8px'>" : "") +
-    "<div style='margin-top:8px;display:flex;gap:6px'>" +
+    "<div style='margin-top:8px;display:flex;gap:6px;justify-content:center'>" +
     "<button class='primary' onclick='holdingsGo()'>時代を終わらせ、次へ進む</button>" +
     "<button onclick='holdingsCancel()'>この時代を、もう少し生きる</button></div>";
-  return h;
+  return "<div class='cert'>" + h + "</div>";
 }
 /* 時代の記録ビューア: EXIT の履歴（C8 の exitHistory）は時代をまたいで残り、ここでいつでも見られる */
 function eraRecordsHTML(){

@@ -204,10 +204,9 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
     const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
     /* 再設計 B10: 推しの印 — 本来は絵（art-requests A2）の場所。
-       A2（2026-11-02 みゅー作画）: ロゼットリボンの絵が担う。絵が無い間だけ金の星印 */
-    const oshiSpr = !!(p.oshi && hasSprite("a2_oshi_ribbon"));
-    const oshiW = p.oshi ? (oshiSpr ? 15 : sctx.measureText("⭐").width + 3) : 0;
-    const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0) - oshiW;
+       A2（2026-11-02 みゅー作画／sakuri 修正）: リボンは名前の脇ではなく
+       ボードの右上隅に大きめに留める。名前の幅は圧迫しない */
+    const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0);
     const nx = ix + 16.5 + pctW + 5;
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
@@ -225,17 +224,6 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.fillText(creditTxt, nx + sctx.measureText(nm).width + 4, iy + 8.5);
       sctx.restore();
     }
-    if(p.oshi){
-      const ox = nx + sctx.measureText(nm).width + (creditW ? creditW + 4 : 0) + 1;
-      if(oshiSpr){
-        sDrawSprite("a2_oshi_ribbon", ox + 6.5, iy + 11.5, 0.55);
-      } else {
-        sctx.save();
-        sctx.font = "9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-        sctx.fillText("⭐", ox, iy + 8.5);
-        sctx.restore();
-      }
-    }
     if(bn){
       sDrawTL("icon_warn_plate", ix + iw - 13.5, iy + 2);
     } else if(genreW){
@@ -245,6 +233,20 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.fillStyle = "#fff5e6"; sctx.textAlign = "center";
       sctx.fillText(genreTxt, gx + genreW / 2, iy + 8.3);
       sctx.textAlign = "left";
+    }
+    if(p.oshi){
+      /* A2（sakuri 2026-11-02 修正）: 推しのリボンはボードの右上隅に大きめに留める。
+         ジャンルの札より後に描き、リボンの尾が札の端に被る「留めた」見え方にする。
+         絵が無い間は星印を同じ隅に置く */
+      if(hasSprite("a2_oshi_ribbon")){
+        sDrawSprite("a2_oshi_ribbon", bx + bw - 10, iy + 8, small ? 0.7 : 0.9);
+      } else {
+        sctx.save();
+        sctx.font = "11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        sctx.textAlign = "center";
+        sctx.fillText("⭐", bx + bw - 10, iy + 6);
+        sctx.restore();
+      }
     }
   }
   /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */

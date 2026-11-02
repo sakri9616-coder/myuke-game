@@ -97,10 +97,13 @@ function drawStripShelf(){
   /* 第2ウェーブ J: オフィスグレードの置物（レガシー技術・Codex 作画の小物）。
      A8（2026-11-02 みゅー作画）: 点灯条件を満たすまでは、同じスロットに
      未点灯の姿（形は同じ・くすんだ色）が置かれる（ux-r3 §4.3-3 点灯状態スロット） */
-  if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - 30, topY + 2, 1);
-  else if(hasSprite("a8_star_unlit")) sDrawSprite("a8_star_unlit", scx - 30, topY + 2, 1);
-  if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + 28, G - 8, 1);
-  else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + 28, G - 8, 1);
+  /* 置物の接地: 棚スプライトの絵は row 4 から始まるので、天板の見かけの上面は
+     topY + 8。星もトロフィーもそこに 2px 沈めて載せる (sakuri 2026-11-02:
+     トロフィーは床ではなく棚の上。星の浮きも同じ理由で解消) */
+  if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - 30, topY + 10, 1);
+  else if(hasSprite("a8_star_unlit")) sDrawSprite("a8_star_unlit", scx - 30, topY + 10, 1);
+  if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + 30, topY + 10, 1);
+  else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + 30, topY + 10, 1);
   stripHitRects.shelf = { x: scx - 40, y: topY, w: 80, h: G - topY };
 }
 /* 研究ステーション（ゾーン C, §c.3）: 研究員が雇われた時だけ現れる小型机。
