@@ -47,6 +47,8 @@ const required = [
   ...['plant', 'coffee', 'server', 'packmachine', 'shelf', 'pc'].map(item => `prop_${item}`),
   // 再設計 A1-A11 + fx_sparkle (2026-11-02 みゅー作画)
   'prop_annex_sign_2', 'prop_annex_sign_3', 'prop_annex_sign_4',
+  // 作品棚ラック刷新 (2026-11-02 みゅー作画・160×96)
+  'prop_rack_wood', 'prop_rack_steel', 'prop_rack_glass',
   'a5_annex_tag', 'a5_tag_l', 'a5_tag_m', 'a5_tag_r', 'a4_dividend_light',
   'a2_oshi_ribbon', 'a7_special_seat', 'a8_star_unlit', 'a8_trophy_unlit',
   'a3_exit_seal', 'a3_holdings_seal', 'a6_era_plate', 'a9_fever_target',
@@ -59,6 +61,8 @@ const required = [
 const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28, 28], prop_coffee_1: [28, 28], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_ship: [48, 48], prop_annex_sign: [48, 48], prop_sign_gold: [48, 48], prop_star_gold: [24, 24], prop_trophy_gold: [24, 24], prop_snackbox: [24, 24], prop_snackbox_shut: [24, 24],
   /* 再設計 A1 (2026-11-02 みゅー作画): 別館看板の段階2・3・4 */
   prop_annex_sign_2: [48, 48], prop_annex_sign_3: [48, 48], prop_annex_sign_4: [48, 48],
+  /* 作品棚ラック (2026-11-02 みゅー作画): 160×96 のショーケース3段階 */
+  prop_rack_wood: [160, 96], prop_rack_steel: [160, 96], prop_rack_glass: [160, 96],
   /* Sprint 4: 第2ラインの机と壁飾りスロット（仮絵・さくら差し替え可） */
   prop_desk2: [64, 64], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16],
   /* 環境ドット絵 (Codex 一次作): 家具は帯の実フットプリント寸法が正本 */

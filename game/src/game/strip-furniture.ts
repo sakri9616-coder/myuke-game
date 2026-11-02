@@ -4,13 +4,27 @@
    描画順は renderStrip が R3 の固定順（ラグ・影→背面物→家具→運搬物→キャラ→
    吹き出し→HUD）を守る */
 
+/* 新ラック（2026-11-02 sakuri 決定・みゅー作画）: 160×96 原寸のショーケース。
+   段階は officeTier で 木 (0-1) → スチール (2-3) → ガラス＆金 (4-5) */
+function rackStageName(){
+  if(!hasSprite("prop_rack_wood")) return null;
+  const tier = officeTier(S);
+  if(tier >= 4 && hasSprite("prop_rack_glass")) return "prop_rack_glass";
+  if(tier >= 2 && hasSprite("prop_rack_steel")) return "prop_rack_steel";
+  return "prop_rack_wood";
+}
 /* 帯の作品棚スロット（棚板の実測位置・帯座標）。
-   prop_shelf (40×28) を ×2 接地: 板の内側は 上段 yb=G-30 / 下段 yb=G-10、
+   新ラック: 板の上面は上から G-69/G-48/G-27/G-6、横は内側 4 列（箱 20×18・ピッチ 36）。
+   旧棚 prop_shelf (40×28) を ×2 接地: 板の内側は 上段 yb=G-30 / 下段 yb=G-10、
    横は棚中心から 4 枠ずつ。スプライトが無い場合は手続き棚 (76×52) の 2 段×5 枠 */
 function stripShelfSlots(){
   const scx = stripShelfCX(), G = STRIP_GROUND;
   const slots = [];
-  if(hasSprite("prop_shelf")){
+  if(rackStageName()){
+    for(const yb of [G - 69, G - 48, G - 27, G - 6]){
+      for(const dx of [-64, -28, 8, 44]) slots.push({ x: scx + dx, yb, w: 20, h: 18 });
+    }
+  } else if(hasSprite("prop_shelf")){
     for(const dx of [-25, -12.5, 0, 12.5]){
       slots.push({ x: scx + dx, yb: G - 30, w: 10, h: 9 });
       slots.push({ x: scx + dx, yb: G - 10, w: 10, h: 9 });
@@ -51,31 +65,43 @@ function drawStripStarOnShelf(scx, topY){
 function drawStripShelf(){
   const G = STRIP_GROUND, scx = stripShelfCX();
   const tier = officeTier(S);
-  sRug(scx, 100);
+  const rackName = rackStageName();
+  sRug(scx, rackName ? 176 : 100);
   /* 背面の柵セグメント（高さ 24・幅 100 = R9 の許容背面物の上限）。
      tier>=2 では撤去する (オフィス化で最もテーマ外だった要素。
-     OFFICE_ART_DIRECTION の DROP リスト) */
-  if(tier < 2) sDrawSprite("prop_fence", scx, G, 1);
-  sShadow(scx, G - 0.5, 72);
+     OFFICE_ART_DIRECTION の DROP リスト)。新ラックは背面まで覆うので常に出さない */
+  if(tier < 2 && !rackName) sDrawSprite("prop_fence", scx, G, 1);
+  sShadow(scx, G - 0.5, rackName ? 152 : 72);
   let topY;
-  /* tier>=2: 棚枠はスチール (shelf_steel 40×28 — prop_shelf と同一キャンバス・
-     同一接地。板の上面はスロット基線 G-30/G-10 と正確に一致する) */
-  const shelfDrawn = (tier >= 2 && sDrawSprite("shelf_steel", scx, G, 2)) ? "shelf_steel"
-    : (sDrawSprite("prop_shelf", scx, G, 2) ? "prop_shelf" : null);
-  if(shelfDrawn) stripObjArt.shelf = { name: shelfDrawn, gx: scx, gy: G, s: 2 };
-  topY = G - 56;
+  if(rackName && sDrawSprite(rackName, scx, G, 1)){
+    stripObjArt.shelf = { name: rackName, gx: scx, gy: G, s: 1 };
+    topY = G - 96;
+  } else {
+    /* tier>=2: 棚枠はスチール (shelf_steel 40×28 — prop_shelf と同一キャンバス・
+       同一接地。板の上面はスロット基線 G-30/G-10 と正確に一致する) */
+    const shelfDrawn = (tier >= 2 && sDrawSprite("shelf_steel", scx, G, 2)) ? "shelf_steel"
+      : (sDrawSprite("prop_shelf", scx, G, 2) ? "prop_shelf" : null);
+    if(shelfDrawn) stripObjArt.shelf = { name: shelfDrawn, gx: scx, gy: G, s: 2 };
+    topY = G - 56;
+  }
   const shelfBoxes = stripShelfBoxes();
   /* tier>=2: 技術書の列 (prop_books) を下段に置く。下段に作品箱が1つでも
-     ある時は衝突するので出さない (空いている段だけの装飾) */
-  if(tier >= 2 && !shelfBoxes.some(b => b.yb === G - 10)) sDrawSprite("prop_books", scx, G - 10, 2);
+     ある時は衝突するので出さない (空いている段だけの装飾)。新ラックでは出さない */
+  if(!rackName && tier >= 2 && !shelfBoxes.some(b => b.yb === G - 10)) sDrawSprite("prop_books", scx, G - 10, 2);
   /* A7（2026-11-02 みゅー作画）: 推し作品の箱は特等席（金の柱と緋のロープの
-     ショーケース）に収まる。箱より先に台を描く */
+     ショーケース）に収まる。箱より先に台を描く。新ラックの広い枠では台も大きく */
   for(const bx of shelfBoxes){
-    if(bx.oshi && hasSprite("a7_special_seat")) sDrawSprite("a7_special_seat", bx.x + bx.w / 2, bx.yb + 2, 0.75);
+    if(bx.oshi && hasSprite("a7_special_seat")) sDrawSprite("a7_special_seat", bx.x + bx.w / 2, bx.yb + (bx.w >= 20 ? 1 : 2), bx.w >= 20 ? 0.9 : 0.75);
   }
   for(const bx of shelfBoxes){
-    sDrawTL("prop_shelf_box_" + bx.ci, bx.x, bx.yb - bx.h);
-    if(bx.glow && frame % 12 < 9) sDrawTL("fx_shelf_glow", bx.x - 1, bx.yb - bx.h - 1);   /* 新作・IP 作品の金の縁 */
+    if(bx.w >= 20){
+      /* 新ラック: 箱は原寸の2倍で並ぶ */
+      sDrawSprite("prop_shelf_box_" + bx.ci, bx.x + bx.w / 2, bx.yb, bx.w / 10);
+      if(bx.glow && frame % 12 < 9) sDrawSprite("fx_shelf_glow", bx.x + bx.w / 2, bx.yb + 1, 2);   /* 新作・IP 作品の金の縁 */
+    } else {
+      sDrawTL("prop_shelf_box_" + bx.ci, bx.x, bx.yb - bx.h);
+      if(bx.glow && frame % 12 < 9) sDrawTL("fx_shelf_glow", bx.x - 1, bx.yb - bx.h - 1);   /* 新作・IP 作品の金の縁 */
+    }
   }
   if(hasPerk("stardecor")) drawStripStarOnShelf(scx, topY);
   /* 再設計 B13（§1.2 拍2）: 卒業の拍では棚の箱に封がされる（「しまった」ではなく「収めた」見え方） */
@@ -101,11 +127,14 @@ function drawStripShelf(){
      topY + 8。星もトロフィーもそこに 2px 沈めて載せる (sakuri 2026-11-02:
      トロフィーは床ではなく棚の上。星の浮きも同じ理由で解消)。
      横位置は天板の内側 (支柱の内側) に寄せる — 端ギリギリだと地震で落ちる (同日 sakuri) */
-  if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - 20, topY + 10, 1);
-  else if(hasSprite("a8_star_unlit")) sDrawSprite("a8_star_unlit", scx - 20, topY + 10, 1);
-  if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + 20, topY + 10, 1);
-  else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + 20, topY + 10, 1);
-  stripHitRects.shelf = { x: scx - 40, y: topY, w: 80, h: G - topY };
+  /* 新ラック: 冠の上面は topY+3 — 1px だけ触れる座り (sakuri 2026-11-02: めり込み禁止)。
+     横は冠の内寄せ ±55。旧棚は天板の見かけ topY+8 に 2px 沈めて ±20 */
+  const ornX = rackName ? 55 : 20, ornY = rackName ? topY + 4 : topY + 10;
+  if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - ornX, ornY, 1);
+  else if(hasSprite("a8_star_unlit")) sDrawSprite("a8_star_unlit", scx - ornX, ornY, 1);
+  if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + ornX, ornY, 1);
+  else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + ornX, ornY, 1);
+  stripHitRects.shelf = { x: scx - (rackName ? 80 : 40), y: topY, w: rackName ? 160 : 80, h: G - topY };
 }
 /* 研究ステーション（ゾーン C, §c.3）: 研究員が雇われた時だけ現れる小型机。
    本の山＋開いた本＋植木鉢。不在ならゾーンは空白（密度予算の自然な増減） */

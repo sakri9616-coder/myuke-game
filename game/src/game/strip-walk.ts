@@ -168,7 +168,7 @@ function stripEaselDrawX(){
 const layoutEdit = { on: false, dragId: null, grabDX: 0, dragCand: null, shakeId: null, shakeUntil: 0 };
 function layoutItems(): LayoutItem[] {
   const items: LayoutItem[] = [
-    { id: "shelf",    label: "作品棚",       cx: stripShelfCX(),    w: 104, h: 42, top: STRIP_GROUND - 42 },
+    { id: "shelf",    label: "作品棚",       cx: stripShelfCX(),    w: hasSprite("prop_rack_wood") ? 164 : 104, h: hasSprite("prop_rack_wood") ? 96 : 42, top: STRIP_GROUND - (hasSprite("prop_rack_wood") ? 96 : 42) },
     { id: "easel",    label: "イーゼル",     cx: stripEaselDrawX(), w: 34,  h: 36, top: STRIP_GROUND - 36, on: !!S.stamps.first_release },
     { id: "desk",     label: "みゅけの机",   cx: stripDeskCX(),     w: 150, h: 80, top: STRIP_GROUND - 80 },
     { id: "research", label: "研究机",       cx: stripResearchCX(), w: 88,  h: 46, top: STRIP_GROUND - 46, on: hasResearcher() },

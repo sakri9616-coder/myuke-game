@@ -29,7 +29,7 @@ function layoutSurfaces(){
   const list = [
     /* 机の天板は G-33（バッチ14 校正）。中央 ±22 はノートPC＋座り場所として予約 */
     { id: "desk",     cx: stripDeskCX(),     y: G - 33, w: 128, reserved: [[-22, 22]] },
-    { id: "shelf",    cx: stripShelfCX(),    y: G - 42, w: 104 },
+    { id: "shelf",    cx: stripShelfCX(),    y: G - (hasSprite("prop_rack_wood") ? 93 : 42), w: hasSprite("prop_rack_wood") ? 168 : 104 },
     /* 研究机: 左の本の山と中央の開いた本が予約。植木の定位置は右の空き */
     { id: "research", cx: stripResearchCX(), y: G - 12, w: 68,  reserved: [[-30, -12], [-7, 14]], on: hasResearcher() },   /* prop_research_desk の天板 (原寸 row 16)・本の山・開いた本 */
     { id: "trophy",   cx: stripTrophyCX(),   y: G - 22, w: 30,  on: !!S.stamps.prestige1 },

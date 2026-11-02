@@ -34,6 +34,7 @@ const SPRITE_SPEC = {
   shelf_steel:[40,28], prop_books:[24,7], prop_archive_boxes:[18,25], prop_mat:[150,4],
   /* 再設計 A1-A11 + fx_sparkle 素材 (2026-11-02 みゅー作画) */
   prop_annex_sign_2:[48,48], prop_annex_sign_3:[48,48], prop_annex_sign_4:[48,48],
+  prop_rack_wood:[160,96], prop_rack_steel:[160,96], prop_rack_glass:[160,96],
   a5_annex_tag:[48,24], a5_tag_l:[10,24], a5_tag_m:[4,24], a5_tag_r:[10,24], a4_dividend_light:[48,48],
   a2_oshi_ribbon:[24,24], a7_special_seat:[24,24], a8_star_unlit:[24,24], a8_trophy_unlit:[24,24],
   a3_exit_seal:[48,48], a3_holdings_seal:[48,48], a6_era_plate:[64,64], a9_fever_target:[28,28],
