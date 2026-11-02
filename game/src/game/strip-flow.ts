@@ -75,7 +75,7 @@ function tryDispatchShipCarrier(){
   }
   const pick = rolePick || nearPick;
   if(!pick) return false;
-  pick.carrying = true; pick.carryKind = "ship"; pick.sitting = false;
+  pick.carrying = true; pick.carryKind = "ship"; pick.sitting = false; pick.parcelFxAt = Date.now();   /* A11: 頭上の荷物の印 */
   lastShipDispatchAt = stripNow;
   return true;
 }
@@ -171,7 +171,7 @@ function stripUpdate(dt){
       wk = stripWalkers[st.id] = {
         x: st.role === "research" ? stripResearchCX() : 40 + Math.random() * Math.max(40, stripVW - 80),
         dir: Math.random() < 0.5 ? -1 : 1,
-        speed: 5 + Math.random() * 4, sitting: false, until: 0, carrying: false, carryKind: null,
+        speed: 5 + Math.random() * 4, sitting: false, until: 0, carrying: false, carryKind: null, parcelFxAt: 0,
         walkClock: 0, sitStart: 0, backing: false, backStart: 0, pendingSitMs: 0
       };
     }
@@ -259,7 +259,7 @@ function stripUpdate(dt){
         if(d < bd){ bd = d; best = wk; }
       }
     }
-    if(best){ best.carrying = true; best.carryKind = "release"; best.sitting = false; }
+    if(best){ best.carrying = true; best.carryKind = "release"; best.sitting = false; best.parcelFxAt = Date.now(); }   /* A11: 頭上の荷物の印 */
   }
   /* Sprint 4: 帯のクリックイベントの動き。魚は足場ライン上を泳ぎ、
      バグの群れは帯を這う（帯の仮想座標で動かす） */

@@ -36,6 +36,7 @@ function stripShelfBoxes(){
     const sl = slots[i];
     out.push({ x: sl.x, yb: sl.yb, w: sl.w, h: sl.h,
       ci: projectColorIdx(view[i]),
+      oshi: !!view[i].oshi,   /* 再設計 B10: 特等席の印（A7）の対象 */
       glow: (i === 0 && frame < shelfGlowFrame) || !!view[i].ip });   /* 第2ウェーブ L: IP 作品は金の縁で常時点灯 */
   }
   return out;
@@ -67,6 +68,11 @@ function drawStripShelf(){
   /* tier>=2: 技術書の列 (prop_books) を下段に置く。下段に作品箱が1つでも
      ある時は衝突するので出さない (空いている段だけの装飾) */
   if(tier >= 2 && !shelfBoxes.some(b => b.yb === G - 10)) sDrawSprite("prop_books", scx, G - 10, 2);
+  /* A7（2026-11-02 みゅー作画）: 推し作品の箱は特等席（金の柱と緋のロープの
+     ショーケース）に収まる。箱より先に台を描く */
+  for(const bx of shelfBoxes){
+    if(bx.oshi && hasSprite("a7_special_seat")) sDrawSprite("a7_special_seat", bx.x + bx.w / 2, bx.yb + 2, 0.75);
+  }
   for(const bx of shelfBoxes){
     sDrawTL("prop_shelf_box_" + bx.ci, bx.x, bx.yb - bx.h);
     if(bx.glow && frame % 12 < 9) sDrawTL("fx_shelf_glow", bx.x - 1, bx.yb - bx.h - 1);   /* 新作・IP 作品の金の縁 */
@@ -88,9 +94,13 @@ function drawStripShelf(){
     sDrawSprite("fx_spark_2", scx - 24, topY - 4, 1);
     sDrawSprite("fx_spark_2", scx + 22, topY - 4, 1);
   }
-  /* 第2ウェーブ J: オフィスグレードの置物（レガシー技術・Codex 作画の小物） */
+  /* 第2ウェーブ J: オフィスグレードの置物（レガシー技術・Codex 作画の小物）。
+     A8（2026-11-02 みゅー作画）: 点灯条件を満たすまでは、同じスロットに
+     未点灯の姿（形は同じ・くすんだ色）が置かれる（ux-r3 §4.3-3 点灯状態スロット） */
   if(legacyGrade() >= 1 && hasSprite("prop_star_gold")) sDrawSprite("prop_star_gold", scx - 30, topY + 2, 1);
+  else if(hasSprite("a8_star_unlit")) sDrawSprite("a8_star_unlit", scx - 30, topY + 2, 1);
   if(legacyGrade() >= 3 && hasSprite("prop_trophy_gold")) sDrawSprite("prop_trophy_gold", scx + 28, G - 8, 1);
+  else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + 28, G - 8, 1);
   stripHitRects.shelf = { x: scx - 40, y: topY, w: 80, h: G - topY };
 }
 /* 研究ステーション（ゾーン C, §c.3）: 研究員が雇われた時だけ現れる小型机。

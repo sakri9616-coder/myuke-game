@@ -238,6 +238,7 @@ let comboN = 0, lastClickAt = 0;
 let progressPulseUntil = 0;   /* バーにパルス演出を出す期限 (ms) */
 let boardArriveFlashUntil = 0;   /* 再設計 B8: 運搬の到達の光を出す期限 (ms)。strip-board が読む */
 let annexArriveFlashUntil = 0;   /* 再設計 B11: 配当の到着で別館看板の明かりが明るくなる期限 (ms) */
+let annexStageFxAt = 0;          /* A1: 看板の段階が上がった時刻 (ms)。帯が fx_sparkle_burst で祝う */
 /* 再設計 B13（ux-r3 §4）: EXIT／持株化の儀式 S3 と余韻 S4 の状態。帯の側だけが読み、セーブ形式は変えない */
 let ceremony = null;          /* { kind: "exit"|"holdings", t0, step, beats: [{at, run}], dur } */
 let afterglowNotes = [];      /* S4: 差の告知スロット（メモの優先枠。1件ずつ順に出る） */

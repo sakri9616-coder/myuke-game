@@ -81,6 +81,7 @@ function annexStageTick(){
   const now = annexStageNow();
   if(now > (S.annexStage || 0)){
     S.annexStage = now;
+    annexStageFxAt = Date.now();
     if(now >= 2){ addLog("🏢 別館の看板が大きくなりました——向こうも育っています。"); reportNote("別館の看板が大きくなりました——向こうも育っています。"); }
   }
 }

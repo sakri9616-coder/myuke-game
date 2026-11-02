@@ -32,6 +32,8 @@ function prestigeCertHTML(pv, pb, knowAdd){
       : "<div class='ds'>次期経営方針はまだ決まっていません。決めるのは会社の日常で。いま決めずに売ることもできます。</div>") +
     "<div class='ds'>星屑ショップの永続特典は、売却しても消えません。</div>" +
     "<div class='note' style='margin-top:5px'>（手放すもの：" + pv.resets.join("・") + "。記録と功績は残ります。）</div>" +
+    /* A3（2026-11-02 みゅー作画）: 卒業証書には肉球の朱印を押す */
+    (hasSprite("a3_exit_seal") ? "<img src='" + spriteURL("a3_exit_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:0 2px 2px 8px'>" : "") +
     "<div style='margin-top:8px;display:flex;gap:6px'>" +
     "<button class='primary' onclick='prestigeGo()'>売却して、卒業する</button>" +
     "<button onclick='prestigeCancel()'>もう少し育てる</button></div></div>";
@@ -52,6 +54,8 @@ function holdingsCertHTML(hp){
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——新しい時代に受け取るもの——</div>" +
     "<div class='ds'>星団 <b>+" + hp.gain + "</b>（時代の累計星屑からの換算）／ 星屑倍率の土台 <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> ／ レガシー技術への道</div>" +
     (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
+    /* A3（2026-11-02 みゅー作画）: 時代の記録には金の肉球印を押す */
+    (hasSprite("a3_holdings_seal") ? "<img src='" + spriteURL("a3_holdings_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:2px 2px 2px 8px'>" : "") +
     "<div style='margin-top:8px;display:flex;gap:6px'>" +
     "<button class='primary' onclick='holdingsGo()'>時代を終わらせ、次へ進む</button>" +
     "<button onclick='holdingsCancel()'>この時代を、もう少し生きる</button></div>";

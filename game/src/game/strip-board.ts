@@ -203,8 +203,10 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
        置き場所が狭いときは名前より先にクレジットが落ちる（名前が主、署名は脇役） */
     const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
     const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
-    /* 再設計 B10: 推しの印 — 本来は絵（art-requests A2）の場所。絵が来るまでは金の星印で示す */
-    const oshiW = p.oshi ? sctx.measureText("⭐").width + 3 : 0;
+    /* 再設計 B10: 推しの印 — 本来は絵（art-requests A2）の場所。
+       A2（2026-11-02 みゅー作画）: ロゼットリボンの絵が担う。絵が無い間だけ金の星印 */
+    const oshiSpr = !!(p.oshi && hasSprite("a2_oshi_ribbon"));
+    const oshiW = p.oshi ? (oshiSpr ? 15 : sctx.measureText("⭐").width + 3) : 0;
     const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0) - oshiW;
     const nx = ix + 16.5 + pctW + 5;
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
@@ -224,11 +226,15 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.restore();
     }
     if(p.oshi){
-      sctx.save();
-      sctx.font = "9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       const ox = nx + sctx.measureText(nm).width + (creditW ? creditW + 4 : 0) + 1;
-      sctx.fillText("⭐", ox, iy + 8.5);
-      sctx.restore();
+      if(oshiSpr){
+        sDrawSprite("a2_oshi_ribbon", ox + 6.5, iy + 11.5, 0.55);
+      } else {
+        sctx.save();
+        sctx.font = "9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        sctx.fillText("⭐", ox, iy + 8.5);
+        sctx.restore();
+      }
     }
     if(bn){
       sDrawTL("icon_warn_plate", ix + iw - 13.5, iy + 2);
@@ -361,15 +367,25 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       { t: "企業価値 " + fmt(stripMeter("value", companyValue())) + (sellNow >= 3 ? " ・ 売却⭐" + fmt(sellNow) : ""), mark: sellMark ? "diamond" : undefined },
       { t: "所持⭐" + fmt(S.dust || 0) + (S.holdings ? " ・ 🌌" + fmt(S.legacy || 0) : ""), mark: perkDot ? "dot" : undefined }   /* 🌌は使える星団の残高（S.legacy）。次回持株化の見込みは持株フォールド側の領分 */
     ];
-    /* 再設計 B13（ux-r3 §4.3-4）: 持株化の拍では新時代の名前をボード側の大きめの枠で一時表示する */
+    /* 再設計 B13（ux-r3 §4.3-4）: 持株化の拍では新時代の名前をボード側の大きめの枠で一時表示する。
+       A6（2026-11-02 みゅー作画）: その枠は金のプレート絵が担う — 帯の上端から鎖で
+       吊るす構図で掲げ、文字入れだけ表示側が担う。絵が無い間は従来の金タブ枠 */
     if(ceremonyEraBanner && Date.now() < ceremonyEraBanner.until){
       sctx.save();
-      sctx.font = "700 12px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.textAlign = "center"; sctx.textBaseline = "middle";
-      const bw2 = sctx.measureText(ceremonyEraBanner.name).width + 22;
-      sDrawNine("ui_tab_gold_9", bx + bw / 2 - bw2 / 2, top - 24, bw2, 17, 3, 3);
-      sctx.fillStyle = "#4a3b2c";
-      sctx.fillText(ceremonyEraBanner.name, bx + bw / 2, top - 15);
+      if(hasSprite("a6_era_plate")){
+        sctx.font = "700 10px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        const ps = Math.min(1.5, Math.max(1.2, (sctx.measureText(ceremonyEraBanner.name).width + 20) / 36));
+        sDrawSprite("a6_era_plate", bx + bw / 2, 64 * ps, ps);
+        sctx.fillStyle = "#fae1ba";
+        sctx.fillText(ceremonyEraBanner.name, bx + bw / 2, 31.5 * ps);
+      } else {
+        sctx.font = "700 12px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+        const bw2 = sctx.measureText(ceremonyEraBanner.name).width + 22;
+        sDrawNine("ui_tab_gold_9", bx + bw / 2 - bw2 / 2, top - 24, bw2, 17, 3, 3);
+        sctx.fillStyle = "#4a3b2c";
+        sctx.fillText(ceremonyEraBanner.name, bx + bw / 2, top - 15);
+      }
       sctx.restore();
     }
     /* 再設計 B13（§1.5 拍3）: 金の点灯の間はボードの縁に光を置く */

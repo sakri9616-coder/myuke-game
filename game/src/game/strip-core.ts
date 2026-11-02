@@ -31,7 +31,17 @@ const SPRITE_SPEC = {
   /* 環境ドット絵 (Codex 一次作・research/ENV_ART_MANIFEST.md): 既存パレットのみ */
   prop_kanban:[132,30], prop_kanban_wide:[204,64], prop_phone:[24,24], prop_megaphone:[24,24], prop_toolbox:[24,24], desk_laminate_main:[116,3], desk_laminate_2:[80,16],
   desk_laminate_2_sprite:[40,24], prop_chair:[32,36], prop_server_rack:[48,64],
-  shelf_steel:[40,28], prop_books:[24,7], prop_archive_boxes:[18,25], prop_mat:[150,4]
+  shelf_steel:[40,28], prop_books:[24,7], prop_archive_boxes:[18,25], prop_mat:[150,4],
+  /* 再設計 A1-A11 + fx_sparkle 素材 (2026-11-02 みゅー作画) */
+  prop_annex_sign_2:[48,48], prop_annex_sign_3:[48,48], prop_annex_sign_4:[48,48],
+  a5_annex_tag:[48,24], a5_tag_l:[10,24], a5_tag_m:[4,24], a5_tag_r:[10,24], a4_dividend_light:[48,48],
+  a2_oshi_ribbon:[24,24], a7_special_seat:[24,24], a8_star_unlit:[24,24], a8_trophy_unlit:[24,24],
+  a3_exit_seal:[48,48], a3_holdings_seal:[48,48], a6_era_plate:[64,64], a9_fever_target:[28,28],
+  a10_marker_unlit:[24,24], a10_marker_lit:[24,24], a11_parcel:[24,24],
+  fx_sparkle_0:[24,24], fx_sparkle_1:[24,24], fx_sparkle_2:[24,24], fx_sparkle_3:[24,24], fx_sparkle_4:[24,24],
+  fx_sparkle_burst_0:[24,24], fx_sparkle_burst_1:[24,24], fx_sparkle_burst_2:[24,24], fx_sparkle_burst_3:[24,24], fx_sparkle_burst_4:[24,24],
+  fx_sparkle_ring_0:[24,24], fx_sparkle_ring_1:[24,24], fx_sparkle_ring_2:[24,24], fx_sparkle_ring_3:[24,24], fx_sparkle_ring_4:[24,24],
+  fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。
@@ -93,6 +103,13 @@ function buildSprites(){
   }
 }
 function hasSprite(name){ return !!spriteCache[name]; }
+/* fx 部品 (fx_sparkle 系) のフレーム選択: 経過 ms を durations の累積で引く。
+   範囲外は -1 (描かない) */
+function fxFrameAt(durations, el){
+  let acc = 0;
+  for(let i = 0; i < durations.length; i++){ acc += durations[i]; if(el < acc) return i; }
+  return -1;
+}
 /* 実寸（キャンバス優先）。無ければ仕様寸法、それも無ければ null */
 function spriteSize(name){
   const cv = spriteCache[name];

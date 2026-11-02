@@ -116,18 +116,58 @@ function drawStripPiles(){
     /* 看板の板の部分だけ (ビルド室の上に重なって描かれるので、板を押したら持ち場より看板を優先) → 子会社タブ */
     stripHitRects.annex = { x: dx - 59, y: G - 44, w: 34, h: 22 };
     /* 再設計 B11: 看板は子会社の段階（総勢ラッチ）で育つ。旧 legacyGrade >= 2 の金の切り替えは廃止した。
-       A1 の中間2枚が来るまでは、段階2・3は木の看板を少しずつ大きくして育ちを読ませる（既存スプライトの拡縮のみ）。
+       A1（2026-11-02 みゅー作画）: 段階ごとの専用絵が揃った — 段階2=屋根と明かりの木の看板／
+       段階3=銀の看板／段階4=持ち上げた金の看板。絵が無い段階は旧来の拡縮で読ませる。
        段階4だけが金の縁（金の看板に二つの意味を持たせない） */
     const ast = annexStage();
-    if(ast >= 4 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
+    const signNm = ast >= 4 ? "prop_annex_sign_4" : ast === 3 ? "prop_annex_sign_3" : ast === 2 ? "prop_annex_sign_2" : "prop_annex_sign";
+    if(hasSprite(signNm)) sDrawSprite(signNm, dx - 42, G, 1);
+    else if(ast >= 4 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
     else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, ast >= 3 ? 1.3 : ast >= 2 ? 1.15 : 1);
-    /* 看板の明かり（A4 の差分が来るまでの UI の灯り）: 別館がある間は小さく灯り、配当の到着で一度明るくなる */
-    {
+    /* A5: 看板に掛ける「いまの顔」の札（伸縮キット: 左端 + 4px 単位 + 右端）。
+       作品名の文字は表示側が板の上に書く（designer-r3 §3.2） */
+    if(hasSprite("a5_tag_l") && hasSprite("a5_tag_m") && hasSprite("a5_tag_r")){
+      const face = subWorkName(S.subs[S.subs.length - 1]);
+      sctx.save();
+      sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      const tw = Math.ceil(sctx.measureText(face).width);
+      const units = Math.max(1, Math.ceil((tw + 8 - 20) / 4));
+      const tagW = 20 + units * 4, tagCx = dx - 42, tagB = G - 2;
+      sDrawSprite("a5_tag_l", tagCx - tagW / 2 + 5, tagB, 1);
+      for(let u = 0; u < units; u++) sDrawSprite("a5_tag_m", tagCx - tagW / 2 + 12 + u * 4, tagB, 1);
+      sDrawSprite("a5_tag_r", tagCx + tagW / 2 - 5, tagB, 1);
+      sctx.fillStyle = "#4a3b2c"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      sctx.fillText(face, tagCx, tagB - 11.5);
+      sctx.restore();
+    }
+    /* A4: 配当の明かり（光だけの重ね絵）。別館がある間は淡く灯り、配当の到着で
+       一度明るくなって fx_sparkle が3箇所で瞬く。絵が無い間は旧 UI の灯り */
+    if(hasSprite("a4_dividend_light")){
+      const lit = Date.now() < annexArriveFlashUntil;
+      sctx.save();
+      sctx.globalAlpha = lit ? 1 : 0.55;
+      sDrawSprite("a4_dividend_light", dx - 42, G, 1);
+      sctx.restore();
+      if(lit && !motionReduced()){
+        const el = 1200 - Math.max(0, annexArriveFlashUntil - Date.now());
+        const fr = fxFrameAt([70, 70, 120, 70, 90], el % 420);
+        if(fr >= 0){
+          sDrawSprite("fx_sparkle_" + fr, dx - 42, G - 42, 1);
+          sDrawSprite("fx_sparkle_" + ((fr + 2) % 5), dx - 56, G - 22, 1);
+          sDrawSprite("fx_sparkle_" + ((fr + 3) % 5), dx - 28, G - 22, 1);
+        }
+      }
+    } else {
       const lit = Date.now() < annexArriveFlashUntil;
       sctx.save();
       sctx.fillStyle = lit ? "rgba(255, 205, 74, 0.9)" : "rgba(255, 205, 74, 0.45)";
       sctx.beginPath(); sctx.arc(dx - 42 + 17, G - 46, lit ? 4.2 : 2.6, 0, Math.PI * 2); sctx.fill();
       sctx.restore();
+    }
+    /* 段階が上がった瞬間は fx_sparkle_burst が看板の上で弾ける */
+    if(annexStageFxAt && Date.now() - annexStageFxAt < 420 && !motionReduced() && hasSprite("fx_sparkle_burst_0")){
+      const fr = fxFrameAt([60, 60, 110, 80, 110], Date.now() - annexStageFxAt);
+      if(fr >= 0) sDrawSprite("fx_sparkle_burst_" + fr, dx - 42, G - 30, 1.4);
     }
   }
   if(jam.build) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
@@ -407,23 +447,28 @@ function renderStrip(){
     }
     stripHitRects.fever = { x: gx - 7, y: gb - 52, w: 14, h: 52 };
   }
-  /* 再設計 B8（ux-r3 §2.2）: OS入力カウントの常駐目印 — 机の左隅の小物（UI 描画のみ）。
-     数えている間だけ緑に点く。OFF の間は地の色だけが見える */
+  /* 再設計 B8（ux-r3 §2.2）: OS入力カウントの常駐目印 — 机の左隅の小物。
+     A10（2026-11-02 みゅー作画）: ドームランプの絵が担う。数えている間だけ
+     暖かく灯る（色は入力中であることの結論）。絵が無い間は UI の点で示す */
   {
     const dcx = stripDeskCX() - 58, dcy = G - 36;
-    sctx.save();
-    sctx.fillStyle = "#5a4a38";
-    sctx.beginPath(); sctx.arc(dcx, dcy, 3.2, 0, Math.PI * 2); sctx.fill();
-    if(osCountingActive()){
-      sctx.fillStyle = "rgba(88, 166, 74, 0.35)";
-      sctx.beginPath(); sctx.arc(dcx, dcy, 5.4, 0, Math.PI * 2); sctx.fill();
-      sctx.fillStyle = "#58a64a";
-      sctx.beginPath(); sctx.arc(dcx, dcy, 2.1, 0, Math.PI * 2); sctx.fill();
+    if(hasSprite("a10_marker_lit") && hasSprite("a10_marker_unlit")){
+      sDrawSprite(osCountingActive() ? "a10_marker_lit" : "a10_marker_unlit", dcx, G - 30, 0.8);
     } else {
-      sctx.fillStyle = "#8a7a62";
-      sctx.beginPath(); sctx.arc(dcx, dcy, 1.6, 0, Math.PI * 2); sctx.fill();
+      sctx.save();
+      sctx.fillStyle = "#5a4a38";
+      sctx.beginPath(); sctx.arc(dcx, dcy, 3.2, 0, Math.PI * 2); sctx.fill();
+      if(osCountingActive()){
+        sctx.fillStyle = "rgba(88, 166, 74, 0.35)";
+        sctx.beginPath(); sctx.arc(dcx, dcy, 5.4, 0, Math.PI * 2); sctx.fill();
+        sctx.fillStyle = "#58a64a";
+        sctx.beginPath(); sctx.arc(dcx, dcy, 2.1, 0, Math.PI * 2); sctx.fill();
+      } else {
+        sctx.fillStyle = "#8a7a62";
+        sctx.beginPath(); sctx.arc(dcx, dcy, 1.6, 0, Math.PI * 2); sctx.fill();
+      }
+      sctx.restore();
     }
-    sctx.restore();
   }
   /* G: 技術的負債の散らかり（机の周りの書類の山。負債の帯域で増える —
      ダイジェティック表現: 数字を見なくても「荒れてきた」が分かる） */
@@ -545,6 +590,12 @@ function renderStrip(){
       } else {
         sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8, 1);
       }
+      /* A11（ux-r3 §2.4）: 運搬が始まった瞬間だけ、担当猫の頭上に荷物の印が
+         少し浮かぶ（行き先が運搬に流れたことの景色側の合図） */
+      if(wk.parcelFxAt && Date.now() - wk.parcelFxAt < 1400 && hasSprite("a11_parcel")){
+        const pbob = Math.sin((Date.now() - wk.parcelFxAt) / 110) * 1.3;
+        sDrawSprite("a11_parcel", wk.x, srect.y - 9 + pbob, 0.8);
+      }
     }
     /* Sprint 3: 雑談の吹き出し（話している1匹の頭上だけ） */
     if(stripChat && stripChat.whoId === st.id && now < stripChat.until)
@@ -607,14 +658,21 @@ function renderStrip(){
     for(const bg of bugEvent.bugs){
       const bp = stripBugXY(bg);
       const l0 = stripSpriteLog.length;
-      /* 再設計 B12（ux-r3 §2.9）: フィーバーのバグは「的」——金の輪（UI の印）で通常バグと区別する */
-      if(bugEvent.fever){
-        sctx.save();
-        sctx.strokeStyle = "rgba(240, 190, 60, 0.95)"; sctx.lineWidth = 1.4;
-        sctx.beginPath(); sctx.arc(bp.x, bp.y + 6, 8 + (frame % 16 < 8 ? 0 : 1), 0, Math.PI * 2); sctx.stroke();
-        sctx.restore();
+      /* 再設計 B12（ux-r3 §2.9）: フィーバーのバグは「的」として通常バグと区別する。
+         A9（2026-11-02 みゅー作画）: 金の胴に的を背負った専用の絵が担う。
+         絵が無い間だけ金の輪（UI の印）で示す */
+      if(bugEvent.fever && hasSprite("a9_fever_target")){
+        /* 絵の内容下端が icon_bug と同じ地面に着くよう 2px 押し下げる */
+        sDrawSprite("a9_fever_target", bp.x, bp.y + 8, 0.75);
+      } else {
+        if(bugEvent.fever){
+          sctx.save();
+          sctx.strokeStyle = "rgba(240, 190, 60, 0.95)"; sctx.lineWidth = 1.4;
+          sctx.beginPath(); sctx.arc(bp.x, bp.y + 6, 8 + (frame % 16 < 8 ? 0 : 1), 0, Math.PI * 2); sctx.stroke();
+          sctx.restore();
+        }
+        sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
       }
-      sDrawSprite("icon_bug", bp.x, bp.y + 6, 0.7);
       stripHitRects.bugs.push({ x: bp.x - 30, y: bp.y - 30, w: 60, h: 60, art: [l0, stripSpriteLog.length] });   /* 判定は見た目の約3倍 */
     }
   }

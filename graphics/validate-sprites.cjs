@@ -45,8 +45,20 @@ const required = [
   'prop_coffee_0', 'prop_coffee_1',
   ...['coin', 'idea', 'bug', 'box', 'star', 'fish', 'book', 'wrench', 'heart'].map(item => `icon_${item}`),
   ...['plant', 'coffee', 'server', 'packmachine', 'shelf', 'pc'].map(item => `prop_${item}`),
+  // 再設計 A1-A11 + fx_sparkle (2026-11-02 みゅー作画)
+  'prop_annex_sign_2', 'prop_annex_sign_3', 'prop_annex_sign_4',
+  'a5_annex_tag', 'a5_tag_l', 'a5_tag_m', 'a5_tag_r', 'a4_dividend_light',
+  'a2_oshi_ribbon', 'a7_special_seat', 'a8_star_unlit', 'a8_trophy_unlit',
+  'a3_exit_seal', 'a3_holdings_seal', 'a6_era_plate', 'a9_fever_target',
+  'a10_marker_unlit', 'a10_marker_lit', 'a11_parcel',
+  ...Array.from({length: 5}, (_, i) => `fx_sparkle_${i}`),
+  ...Array.from({length: 5}, (_, i) => `fx_sparkle_burst_${i}`),
+  ...Array.from({length: 5}, (_, i) => `fx_sparkle_ring_${i}`),
+  ...Array.from({length: 6}, (_, i) => `fx_sparkle_rain_${i}`),
 ];
 const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28, 28], prop_coffee_1: [28, 28], prop_server: [24, 32], prop_packmachine: [48, 24], prop_shelf: [40, 28], prop_pc: [40, 32], prop_ship: [48, 48], prop_annex_sign: [48, 48], prop_sign_gold: [48, 48], prop_star_gold: [24, 24], prop_trophy_gold: [24, 24], prop_snackbox: [24, 24], prop_snackbox_shut: [24, 24],
+  /* 再設計 A1 (2026-11-02 みゅー作画): 別館看板の段階2・3・4 */
+  prop_annex_sign_2: [48, 48], prop_annex_sign_3: [48, 48], prop_annex_sign_4: [48, 48],
   /* Sprint 4: 第2ラインの机と壁飾りスロット（仮絵・さくら差し替え可） */
   prop_desk2: [64, 64], prop_wall_1: [20, 24], prop_wall_2: [20, 24], prop_wall_3: [28, 16],
   /* 環境ドット絵 (Codex 一次作): 家具は帯の実フットプリント寸法が正本 */
@@ -55,7 +67,9 @@ const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28,
   shelf_steel: [40, 28], prop_books: [24, 7], prop_archive_boxes: [18, 25], prop_mat: [150, 4] };
 const ENV_SPRITES = new Set(['prop_kanban', 'prop_kanban_wide', 'prop_phone', 'prop_megaphone', 'prop_toolbox', 'desk_laminate_main', 'desk_laminate_2',
   'desk_laminate_2_sprite', 'prop_chair', 'prop_server_rack', 'shelf_steel',
-  'prop_books', 'prop_archive_boxes', 'prop_mat']);
+  'prop_books', 'prop_archive_boxes', 'prop_mat',
+  /* 再設計 A1: 別館看板の段階絵は実フットプリントの端まで描くのが正本 */
+  'prop_annex_sign_2', 'prop_annex_sign_3', 'prop_annex_sign_4']);
 /* システム可視化 (2026-10-27・research/VISIBLE_SYSTEMS_ART_ORDER.md) の寸法。
    screen_ide_* はモニタに貼る画面の中身、fx_* は演出の粒なので余白・接地の規則は無い */
 const VIS_SIZES = { prop_qa_tray: [32, 8], prop_build_stand: [32, 8], icon_card: [12, 8], icon_card_ok: [12, 8],
@@ -79,7 +93,19 @@ for (const [n, rows] of Object.entries(HANDWORK)) VIS_SIZES[n] = [rows[0].length
 /* 工程の持ち場のブースと手作業 (research/STATION_ART_ORDER.md): 接地・パレットは納品物の描画スクリプトが検査済み。ここでは寸法とパレット */
 const STATION = (() => { const g = globalThis.window || (globalThis.window = {}); require('./env-sprites-station.js'); return g.MIYUKE_ENV_SPRITES_STATION.sprites; })();
 for (const [n, rows] of Object.entries(STATION)) VIS_SIZES[n] = [rows[0].length, rows.length];
-const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name) || Object.hasOwn(BUGS, name) || Object.hasOwn(HANDWORK, name) || Object.hasOwn(STATION, name);
+/* 再設計 A2-A11 + fx_sparkle (2026-11-02 みゅー作画・Aseprite 納品): 寸法は納品物が正本。
+   印・札・プレート・ランプ・的バグ・配当の重ね絵・fx は浮遊/重ね描きの部品なので
+   寸法とパレットだけを見る (VIS2 等と同じ扱い)。特等席 (a7_special_seat) だけは
+   棚板に接地する小物として通常の接地・余白検査に載せる */
+const A_BATCH = { a5_annex_tag: [48, 24], a5_tag_l: [10, 24], a5_tag_m: [4, 24], a5_tag_r: [10, 24],
+  a4_dividend_light: [48, 48], a2_oshi_ribbon: [24, 24], a8_star_unlit: [24, 24], a8_trophy_unlit: [24, 24],
+  a3_exit_seal: [48, 48], a3_holdings_seal: [48, 48], a6_era_plate: [64, 64], a9_fever_target: [28, 28],
+  a10_marker_unlit: [24, 24], a10_marker_lit: [24, 24], a11_parcel: [24, 24] };
+for (let i = 0; i < 5; i++) Object.assign(A_BATCH, { ['fx_sparkle_' + i]: [24, 24], ['fx_sparkle_burst_' + i]: [24, 24], ['fx_sparkle_ring_' + i]: [24, 24] });
+for (let i = 0; i < 6; i++) A_BATCH['fx_sparkle_rain_' + i] = [24, 24];
+for (const [n, s] of Object.entries(A_BATCH)) VIS_SIZES[n] = s;
+VIS_SIZES['a7_special_seat'] = [24, 24];
+const VIS_UNGROUNDED = name => /^(?:screen_ide_|fx_)/.test(name) || Object.hasOwn(VIS2, name) || Object.hasOwn(BUGS, name) || Object.hasOwn(HANDWORK, name) || Object.hasOwn(STATION, name) || Object.hasOwn(A_BATCH, name);
 function expected(name) {
   if (VIS_SIZES[name]) return VIS_SIZES[name];
   /* sakuri作画スタッフアニメのフレーム (staff_<coat>_<pose>_N) は 48×40 統一仕様。
