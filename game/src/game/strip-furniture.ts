@@ -50,7 +50,6 @@ function stripShelfBoxes(){
     const sl = slots[i];
     out.push({ x: sl.x, yb: sl.yb, w: sl.w, h: sl.h,
       ci: projectColorIdx(view[i]),
-      oshi: !!view[i].oshi,   /* 再設計 B10: 特等席の印（A7）の対象 */
       glow: (i === 0 && frame < shelfGlowFrame) || !!view[i].ip });   /* 第2ウェーブ L: IP 作品は金の縁で常時点灯 */
   }
   return out;
@@ -88,11 +87,6 @@ function drawStripShelf(){
   /* tier>=2: 技術書の列 (prop_books) を下段に置く。下段に作品箱が1つでも
      ある時は衝突するので出さない (空いている段だけの装飾)。新ラックでは出さない */
   if(!rackName && tier >= 2 && !shelfBoxes.some(b => b.yb === G - 10)) sDrawSprite("prop_books", scx, G - 10, 2);
-  /* A7（2026-11-02 みゅー作画）: 推し作品の箱は特等席（金の柱と緋のロープの
-     ショーケース）に収まる。箱より先に台を描く。新ラックの広い枠では台も大きく */
-  for(const bx of shelfBoxes){
-    if(bx.oshi && hasSprite("a7_special_seat")) sDrawSprite("a7_special_seat", bx.x + bx.w / 2, bx.yb + (bx.w >= 20 ? 1 : 2), bx.w >= 20 ? 0.9 : 0.75);
-  }
   for(const bx of shelfBoxes){
     if(bx.w >= 20){
       /* 新ラック: 箱は原寸の2倍で並ぶ */

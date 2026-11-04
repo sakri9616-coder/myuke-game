@@ -29,7 +29,7 @@ const VERBS = {
   buyLegacyTech: buyLegacyTech, buyRdInvest: buyRdInvest, doHoldings: doHoldingsCore,
   setRunPolicy: setRunPolicy,
   startChallenge: startChallenge, abandonChallenge: abandonChallenge,
-  setDevGenrePref: setDevGenrePref, designateIP: designateIP, designateOshi: designateOshi, clearOshi: clearOshi,
+  setDevGenrePref: setDevGenrePref, designateIP: designateIP,
   doDeathMarch: doDeathMarchCore,
   moduleOutsource: moduleOutsourceCore,
   moduleWeight: moduleWeightCore,

@@ -269,8 +269,6 @@ function stripMemoTab(){
 function stripMemoText(){
   const q = stripQuestText();
   if(q) return q;
-  /* 再設計 B10（designer-r3 §2.4）: 推しの一本の詰まりは、他の目的より先にメモへ */
-  if(S.project && S.project.oshi && bottleneckStage()) return "⭐ 推しの一本が詰まっています。";
   if(tutTabLocked("requests")) return "";
   if(S.bigDeal) return "🌟 大型案件: " + S.bigDeal.client + "（" + S.bigDeal.genreName + "・L以上）担当 " + S.bigDeal.repName + " が待ってるにゃ";
   if(S.activeRequest){

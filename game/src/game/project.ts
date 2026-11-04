@@ -61,9 +61,7 @@ function ideaChargeMultFor(ideas){ return 1 + IDEA_CHARGE_MAX * (1 - Math.exp(-M
 function ideaChargeMult(){ return ideaChargeMultFor(S.ideas || 0); }
 function planLv(p){ return (p && p.planLv) || 0; }
 function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
-/* 再設計 B10（r4-oshi §1.2）: 推し指定中の作品は、価格計算で企画Lv を +OSHI_PLAN_LV 段として数える。
-   上限を超えられるのは推しだけ。企画Lv そのもの（自動企画の挙動・表示）には触らない */
-function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * (planLv(p) + (p && p.oshi ? OSHI_PLAN_LV : 0)); }
+function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
 function planBugMult(p){ return 1 - 0.15 * planLv(p); }
 function planMax(){ return PLAN_MAX + (S.upgrades.monitor || 0); }   /* 段階5: ワイドモニターで企画を練れる上限が伸びる */
 function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < planMax() && dp < p.totalDP * 0.5; }
@@ -74,34 +72,10 @@ function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv
    所持数が減る形でそのまま残る */
 /* 再設計 B9: 企画者クレジットの担当決定 — 研究職の最古参ではなく最上位Lv の研究者を名乗る。
    研究者がいない時代は みゅけ 本人が企画者になる（ux-r2: 担当名 or みゅけ） */
-/* 再設計 B10: 企画者の ID も一緒に記録する（推し指定時の小さな反応のため） */
 function assignPlanner(p){
   const rs = S.staff.filter(s => s.role === "research");
-  if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; p.plannerName = best.name; p.plannerId = best.id; }
-  else { p.plannerName = "みゅけ"; p.plannerId = 0; }
-}
-/* 再設計 B10: 推しの一本の指定・解除。同時指定は作品が1本ずつしか進行しないため構造的に1本だけ。
-   コストなし・外すことにペナルティなし（designer-r3 §2.6）。
-   再設計 B10（r4-oshi2）: 指定の枠は1周回（1社）に1本。推し作品がリリースされると枠は消費され、
-   その会社ではそれ以上指定できない（リリース前の移し直しは枠がある間は無料・無制限） */
-function designateOshi(){
-  const p = S.project;
-  if(!p || p.oshi) return;
-  if(S.oshiSlotSpent){ say("この会社の推し枠は、もう使いました。次の会社でまた選べます。"); return; }
-  p.oshi = true;
-  /* designer-r3 §2.6 の代替わり文は置かない: 枠ルール（r4-oshi2）では前の推しがリリースされた
-     時点で枠が消費され、その会社の間は再指定できないため「前の推しがいる状態での指定」は起きない */
-  addLog("⭐ 『" + p.name + "』を推しにしました。この一本は、最後まで見届けます。");
-  if(p.plannerId) reportSpeech(p.plannerId, "『" + p.name + "』、推してもらえた！ がんばるにゃ。", 2);
-  else say("この一本、わたしも気に入ってる。");   /* designer-r3 §2.3: 企画者がみゅけ本人の場合は専用文案 */
-  save(); renderPanel();
-}
-function clearOshi(){
-  const p = S.project;
-  if(!p || !p.oshi) return;
-  p.oshi = false;
-  addLog("⭐ 推しを外しました。『" + p.name + "』は、ふつうの一本に戻ります。");
-  save(); renderPanel();
+  if(rs.length){ let best = rs[0]; for(const s of rs) if(s.lv > best.lv) best = s; p.plannerName = best.name; }
+  else { p.plannerName = "みゅけ"; }
 }
 function autoPlanTick(){
   const p = S.project;

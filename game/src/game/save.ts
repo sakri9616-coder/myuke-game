@@ -76,7 +76,7 @@ function freshState(): GameState {
     incomeBy:{}, runHandDP:0,
     /* 再設計 C8: 時代サマリ用の記録 — EXIT の履歴（B13 の「時代の記録」の材料）と
        時代単位の収入累計（incomeBy は会社ごとに消えるが、こちらは時代の間は残る） */
-    eraIncome:{}, exitHistory:[], runStartedAt:0, oshiSlotSpent:false,
+    eraIncome:{}, exitHistory:[], runStartedAt:0,
     /* 第2ウェーブ M 追加分: 役員猫（EXIT を生き残る常駐メンバー）と卒業記録 */
     executives:[], execAlumni:[],
     /* Sprint 4 追加分: 反復研究のレベルと、ご褒美の一時バフ { prodUntil, clickUntil } */
@@ -316,7 +316,6 @@ function load(rawText?: string){
     /* 再設計 C8: 旧セーブには無い欄なので空で補う（記録は今後ぶんだけ貯まる） */
     if(!S.eraIncome || typeof S.eraIncome !== "object") S.eraIncome = {};
     if(!Array.isArray(S.exitHistory)) S.exitHistory = [];
-    if(typeof S.oshiSlotSpent !== "boolean") S.oshiSlotSpent = false;
     if(typeof S.runStartedAt !== "number" || !isFinite(S.runStartedAt) || S.runStartedAt <= 0) S.runStartedAt = Date.now();
     if(typeof S.legacy !== "number") S.legacy = 0;
     if(!S.legacyTech || typeof S.legacyTech !== "object") S.legacyTech = {};
@@ -354,6 +353,11 @@ function load(rawText?: string){
     }
     S.wip = Object.assign({ code:0, tested:0, built:0 }, data.wip||{});
     delete (S as any).line2;   /* 段階5: 第2ラインは廃止（旧セーブの互換は持たない — sakuri 2026-10-27） */
+    /* 2026-11-05: 推しの一本は機能ごと廃止（sakuri 裁定）。旧セーブの残存フィールドは読み捨てて無害化する */
+    delete (S as any).oshiSlotSpent;
+    if(S.project) delete (S.project as any).oshi;
+    for(const e of (S.catalog || [])) delete (e as any).oshi;
+    for(const ip of (S.ips || [])) delete (ip as any).oshi;
     if(S.dustPerks && typeof S.dustPerks === "object") delete S.dustPerks.starcharm;   /* 段階6: 星のチャームは廃止（枝に置き換え） */
     if(S.today.date !== todayKey()){
       S.today = { date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 };

@@ -35,8 +35,6 @@ interface Project {
   flowPaid?: number;   // 作りながら入金済みのコイン（v2.12.1〜。リリース時に差し引く）
   planLv?: number;   // 企画を練った回数（0〜3）
   plannerName?: string;   // 再設計 B9: 企画者クレジット（着工時に決まる担当の名前。無ければ みゅけ）
-  plannerId?: number;   // 再設計 B10: 企画者の staff id（推し指定時の反応用。みゅけ のときは 0）
-  oshi?: boolean;   // 再設計 B10: 推しの一本に指定中か（リリース時のスナップショット元）
   planReported?: boolean;   // 再設計 B9: この作品の企画日報をもう出したか
   planMeetSec?: number;   // v2.9.1〜v2.9.2 の企画会議の残り秒（v2.9.3 で廃止。旧セーブに残っていても読まない）
   scale?: number;    // 仕事の桁（作品の規模と報酬の倍率・1/2/5/10…。旧セーブは無し＝1）
@@ -95,8 +93,8 @@ interface ShelfEntry {
   [k: string]: any;
 }
 
-interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number; oshi?: boolean }   // oshi は B10: 成立時点の推しスナップショット   // scale は v2.12.1〜。ships・frac は段階1から使わない（シリーズは毎秒売上）
-interface CatalogEntry { n: string; r: number; oshi?: boolean }   // 再設計 段階1: 作品棚の1作品（r = 🪙/秒）
+interface OwnedIP { name: string; genre: string; size: ProjectSize; price: number; bornSec: number; frac: number; ships?: number; scale?: number }   // scale は v2.12.1〜。ships・frac は段階1から使わない（シリーズは毎秒売上）
+interface CatalogEntry { n: string; r: number }   // 再設計 段階1: 作品棚の1作品（r = 🪙/秒）
 
 
 interface DayStats { date: string; keys: number; cursorPx: number; lines: number; bugs: number; releases: number; commits: number; treats: number }
@@ -151,7 +149,7 @@ interface GameState {
   rdInvest: number;   /* レベルデザイン改修: 恒久R&D投資の Lv（星屑1個の生産ボーナス +10%ポイント/Lv・持株化でも残る） */
   runPolicy: string | null; pendingPolicy: string | null;   /* レベルデザイン改修: 経営方針（適用中／次の会社に予約中） */
   challenge: { id: string; startLv: number } | null; challengeRewards: Record<string, boolean>;
-  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number; eraIncome: Record<string, number>; exitHistory: { t: number; gain: number; pts: number; secs: number; peak: number }[]; runStartedAt: number; oshiSlotSpent?: boolean;   /* 再設計 B10（r4-oshi2）: 1周回に1本の推し枠。推し作品のリリースで消費、EXIT・持株化で回復 */
+  trend: Trend | null; devGenrePref: string | null; ips: OwnedIP[]; residentSec: number; catalog: CatalogEntry[]; runPeakValue: number; dustLegacyMult: number; dustLegacyBase: number; incomeBy: Record<string, number>; runHandDP: number; eraIncome: Record<string, number>; exitHistory: { t: number; gain: number; pts: number; secs: number; peak: number }[]; runStartedAt: number;
   executives: Executive[]; execAlumni: { name: string; role: string }[];
   genreKnow: Record<string, number>;   /* 段階5: ジャンル知見（永続） */
   runGenre: Record<string, number>;    /* 段階5: この会社で出した作品のジャンル別本数 */

@@ -390,8 +390,6 @@ function piggyCarry(coins){ return Math.min(Math.floor(coins * 0.1), Math.max(50
 /* 会社ひとつ分の状態を新会社の初期値へ戻す（EXIT と持株化で共通）。
    特典による持ち越しは呼び出し側がこの後に上書きする */
 function resetCompanyRun(){
-  if(S.project) S.project.oshi = false;   /* 再設計 B10: 推しの指定は会社（ラン）の内側の仕組み — EXIT・持株化で終わる */
-  S.oshiSlotSpent = false;   /* 再設計 B10（r4-oshi2）: 推しの枠も会社単位で回復 */
   S.coins = 0; S.rp = 0; S.ideas = 0; S.bugStock = 0; S.packages = 0;
   S.debt = 0; S.brand = 0;   /* 拡張ウェーブ G: 負債もブランドも新会社では清算（承認済み） */
   S.upgrades = {}; S.runDP = 0; S.runPeakValue = 0; S.incomeBy = {}; S.runHandDP = 0; S.activeRequest = null; S.nextRequestGenre = null;
@@ -899,14 +897,11 @@ function settleIP(p, basePrice, work, ipOk){
   if(!ipOk){
     if(Math.floor(S.bugStock) > 0){ addLog("🏷 『"+p.name+"』はバグが残っていたので自社IPにできなかったにゃ（作り込みが空振りして価格 ×"+IP_FAIL_MULT+"）"); say("バグが残ってて IP にできなかったにゃ…"); }
     else addLog("🏷 自社IPの枠がいっぱいで『"+p.name+"』は通常リリースに");
-    /* 再設計 B10（designer-r3 §2.5）: 空振りでも推したこと自体は肯定する（価格の +1段は通常価格側に残る） */
-    if(p.oshi) addLog(Math.floor(S.bugStock) > 0 ? "⭐ バグは残りました。でも、推しは推しのままです。" : "⭐ IP の枠はいっぱいでした。でも、推しは推しのままです。");
     return;
   }
   if(!Array.isArray(S.ips)) S.ips = [];
-  S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: basePrice, bornSec: S.residentSec || 0, frac: 0, ships: 0, scale: p.scale || 1, oshi: !!p.oshi });   /* B10: 推しスナップショット */
+  S.ips.push({ name: p.name, genre: p.genre, size: p.size, price: basePrice, bornSec: S.residentSec || 0, frac: 0, ships: 0, scale: p.scale || 1 });
   if(work) work.ip = true;
-  if(p.oshi) addLog("⭐ 推しの一本は、シリーズになりました。これからも売れ続けます。");
   addLog("🏷 『"+p.name+"』が自社IPになった！ 即時は売却額の30%だけ受け取り、あとはシリーズとして毎秒売れ続けるにゃ");
   say("『"+p.name+"』、自社IPになったにゃ！");
 }

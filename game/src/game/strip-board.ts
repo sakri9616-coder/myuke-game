@@ -203,9 +203,6 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
        置き場所が狭いときは名前より先にクレジットが落ちる（名前が主、署名は脇役） */
     const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
     const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
-    /* 再設計 B10: 推しの印 — 本来は絵（art-requests A2）の場所。
-       A2（2026-11-02 みゅー作画／sakuri 修正）: リボンは名前の脇ではなく
-       ボードの右上隅に大きめに留める。名前の幅は圧迫しない */
     const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0);
     const nx = ix + 16.5 + pctW + 5;
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
@@ -233,20 +230,6 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sctx.fillStyle = "#fff5e6"; sctx.textAlign = "center";
       sctx.fillText(genreTxt, gx + genreW / 2, iy + 8.3);
       sctx.textAlign = "left";
-    }
-    if(p.oshi){
-      /* A2（sakuri 2026-11-02 修正）: 推しのリボンはボードの右上隅に大きめに留める。
-         ジャンルの札より後に描き、リボンの尾が札の端に被る「留めた」見え方にする。
-         絵が無い間は星印を同じ隅に置く */
-      if(hasSprite("a2_oshi_ribbon")){
-        sDrawSprite("a2_oshi_ribbon", bx + bw - 10, iy + 8, small ? 0.7 : 0.9);
-      } else {
-        sctx.save();
-        sctx.font = "11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-        sctx.textAlign = "center";
-        sctx.fillText("⭐", bx + bw - 10, iy + 6);
-        sctx.restore();
-      }
     }
   }
   /* r2: 太いバー (節目ティック付き)。枠→溝→充填→目盛りの順 */

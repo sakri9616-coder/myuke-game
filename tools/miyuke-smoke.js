@@ -197,11 +197,6 @@ console.log("== 4. two windows ==");
   const lv0 = run(sbO, "S.upgrades.devenv || 0");
   run(sbM, "buyUpgrade('devenv');");
   check("a purchase in the menu runs exactly once in the strip", run(sbO, "S.upgrades.devenv || 0") === lv0 + 1);
-  run(sbO, "startProject('M');");
-  run(sbM, "designateOshi();");
-  check("oshi designation from the menu reaches the strip (VERBS registration)", run(sbO, "S.project && S.project.oshi") === true);
-  run(sbM, "clearOshi();");
-  check("oshi clear from the menu reaches the strip", run(sbO, "S.project.oshi") === false);
   check("the menu never writes the save", invokes.every(x => !(x[0] === "menu" && x[1] === "save_game")));
 }
 
@@ -344,57 +339,6 @@ console.log("== 5. prestige ==");
   check("exit history is recorded and era income survives a company reset (C8)",
     run(sb, "S.exitHistory.length") === 1 && run(sb, "S.exitHistory[0].gain") >= 3 && run(sb, "S.exitHistory[0].pts") >= 1 &&
     run(sb, "(S.eraIncome || {}).labor") === 123 && run(sb, "Object.keys(S.incomeBy || {}).length") === 0);
-}
-{
-  /* 再設計 B10: 推しの一本 — 指定で価格の読み替えと棚・シリーズのスナップショットが効き、EXIT で指定が終わる */
-  const sb = buildSandbox();
-  loadGame(sb);
-  run(sb, "S.tut.skipped = true; startProject('M'); S.project.planLv = 2;");
-  run(sb, "currentTab = 'proj'; renderPanel();");
-  const btnHtml = run(sb, "document.getElementById('panel').innerHTML");
-  const base = run(sb, "planPriceMult(S.project)");
-  run(sb, "designateOshi();");
-  const boosted = run(sb, "planPriceMult(S.project)");
-  const miyukeSay = run(sb, "stripSay.text");   /* 企画者はスタッフ不在のため みゅけ本人 */
-  run(sb, "S.catalog = []; catalogAdd(S.project, 1000);");
-  const catR = run(sb, "S.catalog[0].r"), catOshi = run(sb, "S.catalog[0].oshi");
-  const plainR = run(sb, "clearOshi(); lastCatalogAtSec = -1; S.catalog = []; catalogAdd(S.project, 1000); S.catalog[0].r");   /* B4 の間隔係数を測り直すため前回リリース時刻をリセット（係数自体は B4 ブロックで検証） */
-  const serPlain = run(sb, "seriesRate({ price: 1000, scale: 1 })");
-  const serOshi = run(sb, "seriesRate({ price: 1000, scale: 1, oshi: true })");
-  run(sb, "designateOshi(); save();");
-  const kept = run(sb, "!!S.project.oshi");
-  run(sb, "S.project.planning = false; creditProject(S.project.totalDP / (S.project.feats.length + 1) + 1);");   /* 着工直後は企画中（planning）で進捗が入らないため外してから機能を1つ灯らせる */
-  const featMemo = run(sb, "lastReportText"), projName = run(sb, "S.project.name");
-  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
-{
-  /* 再設計 B10（r4-oshi2）: 推しの枠は1周回に1本。推し作品のリリースで消費され、
-     枠消費後の指定は拒否され、EXIT で回復する。リリース前の移し直しは自由 */
-  const sb = buildSandbox();
-  loadGame(sb);
-  run(sb, "S.tut.skipped = true;");
-  run(sb, "startProject('S'); designateOshi();");
-  const des1 = run(sb, "S.project.oshi === true && !S.oshiSlotSpent");
-  run(sb, "S.project.doneFeats = 99; releaseProject();");
-  const spent = run(sb, "S.oshiSlotSpent === true");
-  run(sb, "designateOshi();");
-  const refused = run(sb, "S.project.oshi !== true");
-  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
-  const cleared = run(sb, "S.oshiSlotSpent === false");
-  run(sb, "designateOshi();");
-  const redes = run(sb, "S.project.oshi === true");
-  run(sb, "clearOshi(); currentTab = 'proj';");
-  run(sb, "S.oshiSlotSpent = true; renderPanel();");
-  const uiNote = run(sb, "document.getElementById('panel').innerHTML.includes('この会社の枠は使いました')");
-  check("oshi slot: one per company, spent on release, refused after, cleared at EXIT (B10 r4-oshi2)",
-    des1 && spent && refused && cleared && redes && uiNote);
-  check("oshi: price reads planLv +1 tier, catalog x1.3 and series x1.25 snapshot, cleared at EXIT (B10)",
-    Math.abs(boosted - base - 0.2) < 1e-9 && Math.abs(catR / plainR - 1.3) < 1e-9 && catOshi === true &&
-    Math.abs(serOshi / serPlain - 1.25) < 1e-9 && kept && run(sb, "!!(S.project && S.project.oshi)") === false);
-  check("oshi wording: button is この一本を推す, miyuke-planner has her own line, feat completion leaves the section 2.4 memo (B10 review fix)",
-    btnHtml.includes("この一本を推す") && !btnHtml.includes("この作品を推しにする") &&
-    miyukeSay === "この一本、わたしも気に入ってる。" &&
-    featMemo === "推しの一本『" + projName + "』：機能が一つ灯りました。");
-}
 }
 {
   /* 再設計 段階3: 社格は企業価値が届くと自動で上がる（コインでは買えない） */

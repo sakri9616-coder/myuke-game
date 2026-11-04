@@ -315,76 +315,10 @@ function holdingsRun(days, seed){
 }
 function simGainAt(r, t){ let g = 0; for(const l of r.log) if(l.t <= t) g = l.gain; return g; }
 
-/* 再設計 B10: 推しの一本の合否ゲート（leveldesign-r4-oshi §5 が正本）。
-   検証ポリシーは決定的定義どおり: 着工した作品のうち最大サイズの1本を即座に指定し、
-   リリースまで維持する。次の作品が着工したら、そちらが最大の場合のみ移す */
-const OSHI_SIZE_RANK = { XS: 0, S: 1, M: 2, L: 3 };
-function makeOshiHook(withIP){
-  /* 再設計 B10（r4-oshi2 §3）: 検証ポリシーは周回ごとに最大サイズの1本を指定し、リリースまで維持。
-     その周回で推し作品が既にリリース済みなら以降指定しない（ゲーム側の枠ガードが止める）。
-     会社が変わったら追跡を初期化する（前周回の最大サイズを引きずらない） */
-  const st = { forAt: -1, rank: -1, seriesCoins: 0, prestiges: -1, ipCount: 0 };
-  const hook = (t, run) => {
-    const pr = run("S.prestiges || 0");
-    if(pr !== st.prestiges){ st.prestiges = pr; st.forAt = -1; st.rank = -1; }
-    const info = JSON.parse(run("JSON.stringify(S.project ? { at: S.project.startedAt, size: S.project.size } : null)"));
-    if(info && info.at !== st.forAt){
-      const r = OSHI_SIZE_RANK[info.size] ?? 0;
-      if(r >= st.rank){ run("designateOshi()"); st.forAt = info.at; st.rank = r; }
-    }
-    if(withIP) run("if(S.project && (S.project.size === 'M' || S.project.size === 'L') && !S.project.ip && canDesignateIP(S.project, S.projectDP)) designateIP('l1');");
-    st.seriesCoins += run("(S.ips || []).reduce((a, ip) => a + seriesRate(ip), 0)") * 60;
-    const nIp = run("(S.ips || []).length"); if(nIp > st.ipCount) st.ipCount = nIp;
-  };
-  hook.state = st;
-  return hook;
-}
-function oshiGates(){
-  const rows = [];
-  /* G-oshi-2: 同一シード・同一作品で棚の初期レートとシリーズレートの倍率を式チェック */
-  {
-    const gA = makeGame(7), gB = makeGame(7);
-    gA.run("S.tut.skipped = true; startProject('M'); S.catalog = []; catalogAdd(S.project, 1000);");
-    gB.run("S.tut.skipped = true; startProject('M'); S.project.oshi = true; S.catalog = []; catalogAdd(S.project, 1000);");
-    const ratio = gB.run("S.catalog[0].r") / gA.run("S.catalog[0].r");
-    const sRatio = gB.run("seriesRate({ price: 1000, scale: 1, oshi: true })") / gA.run("seriesRate({ price: 1000, scale: 1 })");
-    rows.push(["G-oshi-2", "棚の生涯売上（初期レート比）とシリーズ ×1.25", "棚 ×" + ratio.toFixed(3) + " / シリーズ ×" + sRatio.toFixed(3), ratio >= 1.25 && ratio <= 1.35 && Math.abs(sRatio - 1.25) < 1e-9]);
-    console.log("[oshi] G-oshi-2 done: 棚 ×" + ratio.toFixed(3) + " / シリーズ ×" + sRatio.toFixed(3));
-  }
-  const base = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20 });
-  console.log("[oshi] base run done: exits=" + base.exits.length + " dust=" + base.dustTotal + " coins=1e" + Math.log10(Math.max(1, base.maxCoins)).toFixed(1));
-  const oh = makeOshiHook(false);
-  const oshi = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20, onMinute: oh });
-  console.log("[oshi] oshi run done: exits=" + oshi.exits.length + " dust=" + oshi.dustTotal + " coins=1e" + Math.log10(Math.max(1, oshi.maxCoins)).toFixed(1));
-  const rel = (a, b) => Math.abs(a - b) / Math.max(1, Math.abs(b));
-  const holdT = r => r.holdReady ? r.holdReady.t : null;
-  const g1 = rel(oshi.exits.length, base.exits.length) <= 0.05 && rel(oshi.dustTotal, base.dustTotal) <= 0.05 &&
-    (holdT(oshi) === null || holdT(base) === null ? holdT(oshi) === holdT(base) : rel(holdT(oshi), holdT(base)) <= 0.05);
-  rows.push(["G-oshi-1", "ペース非劣性（売却・通算星屑・持株化到達）", "売却 " + base.exits.length + "→" + oshi.exits.length + " / 星屑 " + base.dustTotal + "→" + oshi.dustTotal + " / 持株化 " + (holdT(base) || "未") + "分→" + (holdT(oshi) || "未") + "分", g1]);
-  /* 再設計 B10（r4-oshi2 §4）: コイン脚は判定から外し記録のみ。合否は星屑脚（±5%）で決める */
-  const g3 = rel(oshi.dustTotal, base.dustTotal) <= 0.05;
-  rows.push(["G-oshi-3", "非必須性（星屑脚 5% 以内・通算コインは記録のみ）", "通算コイン差 " + (rel(oshi.maxCoins, base.maxCoins) * 100).toFixed(2) + "%（記録のみ） / 星屑差 " + (rel(oshi.dustTotal, base.dustTotal) * 100).toFixed(2) + "%", g3]);
-  const ih = makeOshiHook(true);
-  const ip = simulate({ profile: "passive", days: 10, minPerDay: 180, seed: 1, exitAt: 20, onMinute: ih });
-  console.log("[oshi] oshi+IP run done: coins=1e" + Math.log10(Math.max(1, ip.maxCoins)).toFixed(1));
-  const share = ih.state.seriesCoins / Math.max(1, ip.maxCoins);
-  /* 再設計 B10（r4-oshi2 §5 追補）: 0.0% は「IP が成立しなかった」のではなく「10日窓ではシリーズ収入が
-     無視できるほど小さい」ためで、35% 上限が binding になる場面を何も測っていない。成立件数を併記し、
-     件数 0 の場合は未検証と記録する。後半時代でのシリーズ比は別途の検証ギャップとして残す */
-  const g4note = ih.state.ipCount === 0 ? "（成立 IP 0件＝未検証）" : "（成立 IP " + ih.state.ipCount + "件）";
-  rows.push(["G-oshi-4", "IP 重なりの上限（シリーズ収入比と G8）", "シリーズ比 " + (share * 100).toFixed(1) + "% " + g4note + " / 通算コイン 1e" + Math.log10(Math.max(1, ip.maxCoins)).toFixed(1), share <= 0.35 && ip.maxCoins < 1e250]);
-  return rows;
-}
-
 if(require.main === module){
   const a = process.argv.slice(2);
   const t0 = Date.now();
-  if(a[0] === "oshi"){
-    const rows = oshiGates();
-    console.log("== 推しの一本ゲート（leveldesign-r4-oshi §5） ==");
-    for(const [id, name, val, ok] of rows) console.log((ok ? "  PASS " : "  FAIL ") + id + " " + name + ": " + val);
-    console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
-  } else if(a[0] === "g5"){
+  if(a[0] === "g5"){
     for(const b of g5Builds()) console.log(b.src + " → 主役 " + b.main + "（社格" + b.rank + "） " + JSON.stringify(b.last60));
     console.log("（実行 " + ((Date.now() - t0) / 1000).toFixed(1) + "秒）");
   } else if(a[0] === "holdings"){
