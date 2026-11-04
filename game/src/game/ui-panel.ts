@@ -568,29 +568,57 @@ function renderPanelInto(el){
       for(const sub of (S.subs || [])){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
+        /* 再設計 r4-subs: 方針の行（現在の方針と効果、変更ボタン＝1時間ぶんの売上） */
+        const stNow = sub.stance || "std";
+        const stCost = Math.ceil(r.coins * 60 * SUB_POLICY.stanceCostHours);
+        const stDesc = { std: "すべて ×1.0", mass: "人員 ×1.3 ・ 規模ボーナス ×0.75 ・ 採用コスト ×0.85", elite: "規模ボーナス ×1.5 ・ 人員 ×0.85 ・ 需要に一致すると倍率が ×1.9 に伸びる", wire: "コイン ×0.8 ・ DP ×2.0（本社のラインへ太く送る）" };
+        let stanceRow = "<div class='ds'>方針 <b>" + SUB_POLICY.stances[stNow].name + "</b>（" + stDesc[stNow] + "）";
+        for(const k of Object.keys(SUB_POLICY.stances)){
+          if(k === stNow) continue;
+          stanceRow += " <button onclick='setSubStance(" + sub.id + ",\"" + k + "\")'" + (S.coins < stCost ? " disabled" : "") + ">" + SUB_POLICY.stances[k].name + "</button>";
+        }
+        stanceRow += "<br>方針の変更は、その会社の1時間ぶんの売上（" + fmt(stCost) + "🪙）がかかります</div>";
+        /* 再設計 r4-subs: 節目特性の行（到達済みで未選択なら選択肢、選択済みなら履歴として表示） */
+        let traitRow = "";
+        for(const key of ["m10", "m25", "m50"]){
+          const def = SUB_POLICY.traits[key];
+          const chosen = (sub.traits || {})[key];
+          if(chosen && def.choices[chosen]) traitRow += "<div class='ds'>特性（規模Lv" + def.lv + "）: <b>" + def.choices[chosen].name + "</b>——この会社に刻まれた履歴です</div>";
+          else if(sub.lv >= def.lv){
+            traitRow += "<div class='ds'>規模Lv" + def.lv + " の節目——特性を1つ選べます（恒久・選び直しはできません）";
+            for(const ck of Object.keys(def.choices)){
+              const cd = def.choices[ck];
+              const eff = key === "m10" ? ("コイン ×" + cd.coins + " ・ DP ×" + cd.dp) : key === "m25" ? (ck === "hire" ? "自社の採用コスト ×0.7" : "自社の規模コスト ×0.7") : (ck === "flag" ? "全レート ×1.3" : "配当率によらず売上の25%を必ず再投資");
+              traitRow += " <button onclick='setSubTrait(" + sub.id + ",\"" + key + "\",\"" + ck + "\")'>" + cd.name + "（" + eff + "）</button>";
+            }
+            traitRow += "</div>";
+          }
+        }
         /* レベルデザイン改修: 子会社も本社と同じ文法で見せる（生産力・売上・スタッフ・規模）。
            本社と並んで稼ぐ「もうひとつの会社」であることを、指標の並びで伝える */
         subHTML += "<div class='item slim'><div><span class='sock'>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" +
-          " <span class='tagchip'>得意: " + gname + "</span>" +
+          " <span class='tagchip'>得意: " + gname + "</span>" + (sub.genre === eraDemandGenre() ? " <span class='tagchip'>この時代の需要！（売上 ×" + (stNow === "elite" ? SUB_POLICY.demandMultElite : SUB_POLICY.demandMult) + "）</span>" : "") +
           "<div class='ds'>生産力 <b>" + fmtDec(r.dp, 1) + " DP/分</b> ・ 売上 <b>" + fmt(r.coins) + "🪙/分</b> ・ スタッフ <b>" + sub.staff + "人</b> ・ 規模 <b>Lv" + sub.lv + "</b>（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "） <span style='opacity:.72'>単位: k=千・m=百万・g=10億・t=1兆・p=1000兆・e=100京</span></div>" +
           "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 子会社だけ売却で星屑 " + subDustValue(sub) + " 個</div>" +
           "<div class='ds'>配当率 <b>" + subDiv(sub) + "%</b>（作品のリリースごとにまとめて本社へ）" +
           " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div>" +
           "<div class='ds'>蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙 ・ 目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分</div>" +
-          "<div class='ds'>残りは人員と規模に再投資</div></div></div>" +
+          "<div class='ds'>残りは人員と規模に再投資</div>" + stanceRow + traitRow + "</div></div>" +
           "<div class='item buy slim'><div><span class='nm'>人員を増やす</span><div class='ds'>人は抽象的に数える（帯には出ない）</div></div><span>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ") +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") +
           maxBtn("addSubStaff(" + sub.id + ",1)", subHeadCost(sub) > S.coins ? " disabled" : "") + "</span></div>" +
-          "<div class='item buy slim'><div><span class='nm'>規模Lvを上げる</span><div class='ds'>出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1 }), 1)) + milestoneNote({ ms: true }, sub.lv) + "<br>規模Lvの節目ボーナス（Lv10・25・50・100 で実効Lvが跳ねる）は、本社の設備と同じ仕組みです</div></div>" +
+          "<div class='item buy slim'><div><span class='nm'>規模Lvを上げる</span><div class='ds'>出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "（最大）" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + milestoneNote({ ms: true }, sub.lv) + "<br>規模Lvの節目ボーナス（Lv10・25・50・100 で実効Lvが跳ねる）は、本社の設備と同じ仕組みです</div></div>" +
           (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", true)) + "</div>" +
           "<div class='item slim'><div><span class='nm'>子会社だけ売却（部分EXIT）</span><div class='ds'>星屑 +" + subDustValue(sub) + " 個。本社はそのまま残ります</div></div>" +
           "<button onclick='sellSub(" + sub.id + ")'>売却する</button></div>";
       }
+      const demG = GENRES.find(g => g.id === eraDemandGenre());
       let foundHTML = "<div class='item slim'><div><span class='sock'>🌱</span><span class='nm'>新しい子会社を設立</span>" +
-        "<div class='ds'>設立費 " + fmt(foundCost()) + "🪙 ・ 得意ジャンルを選んで設立（人員 5 人で発足）</div><div style='margin-top:5px'>";
+        "<div class='ds'>設立費 " + fmt(foundCost()) + "🪙 ・ 得意ジャンルを選んで設立（人員 5 人で発足）</div>" +
+        (demG ? "<div class='ds'>📈 この時代の需要は <b>" + demG.name + "</b> です——需要ジャンルの子会社は売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります（時代ごとに変わります）</div>" : "") + "<div style='margin-top:5px'>";
       for(const g of unlockedGenres())
-        foundHTML += "<button onclick='foundSub(\"" + g.id + "\")'" + (S.coins < foundCost() ? " disabled" : "") + ">" + g.name + "</button> ";
+        foundHTML += "<button onclick='foundSub(\"" + g.id + "\")'" + (S.coins < foundCost() ? " disabled" : "") + ">" + g.name + (g.id === eraDemandGenre() ? "（需要）" : "") + "</button> ";
       foundHTML += "</div></div></div>";
       foundHTML += engineRowsHTML("subs");   /* 段階4: 子会社の強化の列 */
       /* レベルデザイン改修: 本社＋子会社の合計を出し、「並列で稼いでいる」ことを一目で */

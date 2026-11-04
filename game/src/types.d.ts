@@ -61,6 +61,7 @@ interface Subsidiary {
   genre: string;
   staff: number;
   lv: number;
+  stance?: string; traits?: { [k: string]: string };   /* 再設計 r4-subs: 方針と節目特性 */
   div?: number; reinv?: number;   /* 段階6: 配当率（%）と再投資の端数 */
   divAcc?: number; divCycle?: number; divClock?: number; workIdx?: number;   /* レベルデザイン改修: 配当のリリース単位化（蓄積・周期・経過・いま作っている作品の番号） */
 }
@@ -143,7 +144,7 @@ interface GameState {
   layout: Record<string, number>;
   layoutProps: Record<string, any>;
   dustPerks: Record<string, boolean | number>; dustTotal: number;
-  legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number;
+  legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number; eraDemand?: string | null;   /* 再設計 r4-subs: その時代の需要ジャンル */
   eraExitPts: number; eraStartPrestiges: number;   /* レベルデザイン改修: 売却実績 pt と、その時代が始まった時点の通算 EXIT 回数 */
   rdInvest: number;   /* レベルデザイン改修: 恒久R&D投資の Lv（星屑1個の生産ボーナス +10%ポイント/Lv・持株化でも残る） */
   runPolicy: string | null; pendingPolicy: string | null;   /* レベルデザイン改修: 経営方針（適用中／次の会社に予約中） */

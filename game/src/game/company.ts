@@ -23,10 +23,49 @@ function subGenreRate(genreId){
   const i = GENRES.findIndex(g => g.id === genreId);
   return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
 }
-function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv") - 1); }
+/* 子会社経営の再設計（LD leveldesign-r4-subs §3）: 注力を抜いたあとの判断は3か所——
+   子会社ごとの方針、その時代の需要ジャンル、規模の節目での特性選択。
+   倍率はすべて subRates（基礎レート側）にのみ掛け、subDustValue は従来どおり subRates から導く */
+let SUB_POLICY = { demandMult: 1.5, demandMultElite: 1.9, stanceCostHours: 1, stances: { std: { name: "標準", staff: 1, scale: 1, headCost: 1, coins: 1, dp: 1 }, mass: { name: "量産型", staff: 1.3, scale: 0.75, headCost: 0.85, coins: 1, dp: 1 }, elite: { name: "精鋭型", staff: 0.85, scale: 1.5, headCost: 1, coins: 1, dp: 1 }, wire: { name: "送金型", staff: 1, scale: 1, headCost: 1, coins: 0.8, dp: 2 } }, traits: { m10: { lv: 10, choices: { sales: { name: "営業所", coins: 1.25, dp: 1 }, dev: { name: "開発所", coins: 1, dp: 1.5 } } }, m25: { lv: 25, choices: { hire: { name: "採用所", headCost: 0.7, scaleCost: 1 }, expand: { name: "拡張所", headCost: 1, scaleCost: 0.7 } } }, m50: { lv: 50, choices: { flag: { name: "旗艦", all: 1.3 }, drive: { name: "自走", reinvestFloor: 0.25 } } } } };
+function stanceOf(sub){ return SUB_POLICY.stances[sub.stance] || SUB_POLICY.stances.std; }
+function traitChoice(sub, key){ const t = (sub.traits || {})[key]; return t && SUB_POLICY.traits[key] && SUB_POLICY.traits[key].choices[t] ? SUB_POLICY.traits[key].choices[t] : null; }
+/* 時代の需要ジャンル: 時代（EXIT 間の1周回）ごとに1つ、通算 EXIT 回数からの決定的ローテーション。
+   時代内では固定（設立前に子会社タブで予告する）。新しい時代の始まりに引き直す */
+function drawEraDemand(){ const u = unlockedGenres(); S.eraDemand = u.length ? u[(S.prestiges || 0) % u.length].id : null; }
+function eraDemandGenre(){ if(typeof S.eraDemand !== "string") drawEraDemand(); return S.eraDemand; }
+function subDemandMult(sub){
+  if(sub.genre !== eraDemandGenre()) return 1;
+  return (sub.stance === "elite") ? SUB_POLICY.demandMultElite : SUB_POLICY.demandMult;   /* 精鋭型は需要の波に強く乗る */
+}
+function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv") - 1) * stanceOf(sub).scale; }   /* 方針の規模係数はボーナス部分にのみ掛ける */
 function subRates(sub){
-  const base = sub.staff * subLvMult(sub) * SUB_ECON.baseMult * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
-  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")) * branchMult("b_subs") * seriesSubMult(), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」／段階6: 星屑の枝とシリーズの相乗 */
+  const st = stanceOf(sub);
+  const tSales = traitChoice(sub, "m10");
+  const tFlag = traitChoice(sub, "m50");
+  const base = sub.staff * st.staff * subLvMult(sub) * SUB_ECON.baseMult * subDemandMult(sub) * (tFlag && tFlag.all ? tFlag.all : 1) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
+  return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")) * branchMult("b_subs") * seriesSubMult() * st.coins * (tSales ? tSales.coins : 1), dp: base * 0.2 * st.dp * (tSales ? tSales.dp : 1) };   /* 段階4: 子会社の列「グループ経営」／段階6: 星屑の枝とシリーズの相乗 */
+}
+function setSubStance(id, stance){
+  const sub = (S.subs || []).find(s => s.id === id);
+  if(!sub || !SUB_POLICY.stances[stance] || (sub.stance || "std") === stance) return;
+  const cost = Math.ceil(subRates(sub).coins * 60 * SUB_POLICY.stanceCostHours);   /* 変更コスト = その会社の1時間ぶんの売上 */
+  if(S.coins < cost){ say("コインが足りないにゃ…（方針の変更には " + fmt(cost) + "🪙）"); return; }
+  S.coins -= cost; sub.stance = stance;
+  addLog("🏢 " + sub.name + " の方針を「" + SUB_POLICY.stances[stance].name + "」に変更（-" + fmt(cost) + "🪙）");
+  say(sub.name + "は" + SUB_POLICY.stances[stance].name + "でいくにゃ");
+  save(); renderPanel();
+}
+function setSubTrait(id, key, choice){
+  const sub = (S.subs || []).find(s => s.id === id);
+  const def = SUB_POLICY.traits[key];
+  if(!sub || !def || !def.choices[choice]) return;
+  if(sub.lv < def.lv) return;
+  if(!sub.traits || typeof sub.traits !== "object") sub.traits = {};
+  if(sub.traits[key]) return;   /* 節目の特性は恒久（選び直し不可） */
+  sub.traits[key] = choice;
+  addLog("🏢 " + sub.name + " が規模Lv" + def.lv + " の節目で「" + def.choices[choice].name + "」を選んだ（この会社の履歴として残ります）");
+  say(sub.name + "は「" + def.choices[choice].name + "」の会社になったにゃ");
+  save(); renderPanel();
 }
 /* 段階6: 配当と再投資。売上のうち配当率ぶんが本社のコインに入り、残りは子会社が自分の人員と規模に
    つぎ込む（複利）。配当を絞るほど今のコインは減り、子会社は速く育つ */
@@ -51,7 +90,7 @@ function subReinvest(sub, coins){
   for(let guard = 0; guard < 50; guard++){
     /* 人員と規模のうち、値段あたりの伸びが大きいほうを買う */
     const hc = subHeadCost(sub), sc = sub.lv < SUB_MAX_LV ? subScaleCost(sub) : Infinity;
-    const hg = 1 / sub.staff / hc, sg = (subLvMult({ lv: sub.lv + 1 }) / subLvMult(sub) - 1) / sc;
+    const hg = 1 / sub.staff / hc, sg = (subLvMult({ lv: sub.lv + 1, stance: sub.stance }) / subLvMult(sub) - 1) / sc;
     const scale = sg > hg, c = scale ? sc : hc;
     if(sub.reinv < c) break;
     sub.reinv -= c;
@@ -85,13 +124,14 @@ function annexStageTick(){
 }
 function totalPeople(){ return S.staff.length + subsTotalStaff(); }
 function foundCost(){ return Math.ceil(SUB_ECON.found * Math.pow(SUB_ECON.foundMul, (S.subs || []).length) * subUnit()); }
-function subHeadCost(sub){ return Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff) * subUnit()); }
+function subHeadCostAt(sub, staffCount){ const t25 = traitChoice(sub, "m25"); return Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, staffCount) * subUnit() * stanceOf(sub).headCost * (t25 ? t25.headCost : 1)); }
+function subHeadCost(sub){ return subHeadCostAt(sub, sub.staff); }
 function subHeadCostN(sub, n){
   let t = 0;
-  for(let i = 0; i < n; i++) t += Math.ceil(SUB_ECON.head * Math.pow(SUB_ECON.headMul, sub.staff + i) * subUnit());
+  for(let i = 0; i < n; i++) t += subHeadCostAt(sub, sub.staff + i);
   return t;
 }
-function subScaleCost(sub){ return Math.ceil(SUB_ECON.scale * Math.pow(SUB_ECON.scaleMul, sub.lv - 1) * subUnit()); }
+function subScaleCost(sub){ const t25 = traitChoice(sub, "m25"); return Math.ceil(SUB_ECON.scale * Math.pow(SUB_ECON.scaleMul, sub.lv - 1) * subUnit() * (t25 ? t25.scaleCost : 1)); }
 function foundSub(genreId){
   if(S.studioLv < 5){ say("子会社は準大手（スタジオLv5）からにゃ"); return; }
   const cost = foundCost();
@@ -101,7 +141,7 @@ function foundSub(genreId){
   if(!Array.isArray(S.subs)) S.subs = [];
   let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.1: 宇宙編は土地の名前 */
   if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
-  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1 };
+  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, stance: "std", traits: {} };
   S.subs.push(sub);
   SoundKit.play("purchase");
   addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
@@ -380,6 +420,7 @@ function resetCompanyRun(){
   S.studioLv = startRank();   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む）。段階6: EXIT の節目で開始社格が上がる */
   /* Phase B: S.maxStudioLv はここでリセットしない — 最高到達社格は売却後も残る永続記録 */
   S.wip = { code:0, tested:0, built:0 };
+  drawEraDemand();   /* 再設計（LD r4-subs §3.2）: 新しい時代の需要ジャンルを引き直す */
 }
 function doPrestigeCore(execSel, vetSel, swapSel){
   const pv = prestigePreview();

@@ -77,7 +77,10 @@ function tick(){
   if(S.subs && S.subs.length){
     let subDP = 0;
     for(const sub of S.subs){
-      const r = subRates(sub), dv = subDiv(sub) / 100;
+      const r = subRates(sub);
+      let dv = subDiv(sub) / 100;
+      const tDrive = traitChoice(sub, "m50");
+      if(tDrive && tDrive.reinvestFloor) dv = Math.min(dv, 1 - tDrive.reinvestFloor);   /* 再設計: 自走の特性は配当率によらず売上の25%を再投資に回す */
       subDP += r.dp;
       if(dv < 1) subReinvest(sub, r.coins * (1 - dv) / 60);   /* 段階6: 配当しない分は子会社が自分に再投資 */
       if(dv > 0){

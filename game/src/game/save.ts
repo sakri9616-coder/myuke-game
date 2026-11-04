@@ -277,7 +277,10 @@ function load(rawText?: string){
       if(typeof sub.staff !== "number") sub.staff = 5;
       if(typeof sub.lv !== "number") sub.lv = 1;
       delete (sub as any).alloc;   /* 2026-11-05: 注力（資金配分）廃止。旧セーブの残存フィールドは読み捨てる */
+      if(typeof sub.stance !== "string" || !SUB_POLICY.stances[sub.stance]) sub.stance = "std";   /* 再設計 r4-subs: 方針の既定は標準 */
+      if(!sub.traits || typeof sub.traits !== "object") sub.traits = {};
     }
+    if(typeof S.eraDemand !== "string") drawEraDemand();   /* 再設計 r4-subs: 時代の需要ジャンル（旧セーブには無い） */
     /* 拡張ウェーブ F: フィーバーゲージ（旧セーブには無い） */
     if(!S.fever || typeof S.fever !== "object") S.fever = { gauge: 0 };
     if(typeof S.fever.gauge !== "number") S.fever.gauge = 0;

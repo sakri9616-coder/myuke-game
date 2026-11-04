@@ -247,6 +247,27 @@ console.log("== 5. prestige ==");
     rank === 2 && Math.abs(m0 - 1.15) < 1e-9 && Math.abs(m1 - 1.3) < 1e-9 && run(sb, "__subGrow") > 0 && !run(sb, "'starcharm' in S.dustPerks"));
 }
 {
+  /* 子会社経営の再設計（LD r4-subs §3）: 方針の変更コストと効果、需要ジャンル、節目特性、自走 */
+  const sb = buildSandbox();
+  loadGame(sb);
+  run(sb, "S.studioLv = 5; S.coins = 1e12; S.eraDemand = 'tool'; foundSub('app');");
+  const base = run(sb, "subRates(S.subs[0]).coins");
+  const baseDp = run(sb, "subRates(S.subs[0]).dp");
+  const demandRatio = run(sb, "S.eraDemand = 'app'; subRates(S.subs[0]).coins") / base;
+  const eliteDemandRatio = run(sb, "S.subs[0].stance = 'elite'; subRates(S.subs[0]).coins") / (base * 1.5);
+  run(sb, "S.subs[0].stance = 'std'; S.eraDemand = 'tool'; const before = S.coins; setSubStance(S.subs[0].id, 'wire'); globalThis.__costPaid = before - S.coins;");
+  const wire = run(sb, "({ c: subRates(S.subs[0]).coins, d: subRates(S.subs[0]).dp })");
+  run(sb, "S.subs[0].lv = 10; setSubTrait(S.subs[0].id, 'm10', 'sales'); setSubTrait(S.subs[0].id, 'm10', 'dev');");
+  const traitKept = run(sb, "S.subs[0].traits.m10");
+  run(sb, "S.subs[0].lv = 50; setSubTrait(S.subs[0].id, 'm50', 'drive'); S.subs[0].div = 100; S.subs[0].reinv = 0; const g0 = S.subs[0].staff + S.subs[0].lv; S.coins = 0; for(let i = 0; i < 400; i++) tick(); globalThis.__driveGrow = S.subs[0].staff + S.subs[0].lv - g0;");
+  check("subsidiary stances, era demand, milestone traits and self-drive reinvestment work",
+    Math.abs(demandRatio - 1.5) < 1e-9 && Math.abs(eliteDemandRatio - 0.85 * 1.9 / 1.5) < 1e-9 &&
+    Math.abs(run(sb, "__costPaid") - Math.ceil(base * 60)) < 1 &&
+    Math.abs(wire.c / base - 0.8) < 1e-9 && Math.abs(wire.d / baseDp - 2) < 1e-9 &&
+    traitKept === "sales" && run(sb, "__driveGrow") > 0);
+}
+
+{
   /* 2026-10-28: 持株化で星屑は畳まれるが、星屑倍率の土台は ×10 で残る（宇宙編でも桁が伸びる） */
   const sb = buildSandbox();
   loadGame(sb);
