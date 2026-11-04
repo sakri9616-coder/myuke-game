@@ -43,22 +43,15 @@ function drawSizeByRank(){
   S.bigDrawStreak = size === "L" ? 1 : 0;
   return size;
 }
-/* ---------- 企画を練る（2026-10-27・工程中心化 → 同日 アイデアの蓄えと天秤に作り直し）----------
+/* ---------- 企画を練る（自動。レベルデザイン改修で手動ボタンから自動機能に — LD 確定） ----------
    進行中の作品の企画を練り直す。企画Lv 1つにつき作品の価格 +PLAN_PRICE_STEP・その作品のバグ混入 -15%
    （仕様が固まるほどテストが楽になる）。最大 Lv3、練れるのは進捗が半分に届くまで。
-   代価は「アイデアの蓄え」: 手元に貯めたアイデアは、オーバークロックのゲージの溜まりを速める
-   （ideaChargeMult。蓄えが多いほど ×2 に近づく）。練るとアイデアが減り、そのぶん溜まりが遅くなる。
-   ・実作業ブーストや応援でオーバークロックを回している人は、蓄えを残すほうが得なことがある
-   ・放置中心の人（ゲージがほとんど溜まらない）は、練るほうが得
-   どちらがいいかは遊び方と作品の大きさ（費用）で変わる（sakuri「押さないメリットがないため作業でしかない」
-   への対応。v2.9.1〜v2.9.2 は「練る間は実装が止まる」企画会議だったが、sakuri の選択でこの形にした）。
-   アイデアの費用は従来どおり（totalDP/20 × 次のLv。桁は掛けない） */
+   アイデアの費用は従来どおり（totalDP/20 × 次のLv。桁は掛けない）。
+   かつては「アイデアの蓄えが多いほどオーバークロックのゲージが速く溜まる」天秤があったが、
+   自動企画が蓄えを消費するため判断として成立せず、2026-11-05 の sakuri 裁定で接続を解除した:
+   アイデアの蓄えはフィーバー充填に影響しない。充填の上乗せは星屑特典の側（星あかり等）だけに置く */
 const PLAN_MAX = 3;
 const PLAN_PRICE_STEP = 0.2;   /* 企画Lv 1つの価格の上がり幅 */
-/* アイデアの蓄え → オーバークロックの溜まり倍率: 1 + IDEA_CHARGE_MAX × (1 − e^(−アイデア / IDEA_CHARGE_SCALE)) */
-const IDEA_CHARGE_MAX = 1.0, IDEA_CHARGE_SCALE = 250;
-function ideaChargeMultFor(ideas){ return 1 + IDEA_CHARGE_MAX * (1 - Math.exp(-Math.max(0, ideas) / IDEA_CHARGE_SCALE)); }
-function ideaChargeMult(){ return ideaChargeMultFor(S.ideas || 0); }
 function planLv(p){ return (p && p.planLv) || 0; }
 function planCost(p){ return Math.ceil(p.totalDP / (p.scale || 1) / 20) * (planLv(p) + 1); }   /* アイデアで払うので桁を掛けない */
 function planPriceMult(p){ return 1 + PLAN_PRICE_STEP * planLv(p); }
@@ -67,9 +60,7 @@ function planMax(){ return PLAN_MAX + (S.upgrades.monitor || 0); }   /* 段階5:
 function canPlan(p, dp){ return !!p && p.size !== "TUT" && !p.planning && planLv(p) < planMax() && dp < p.totalDP * 0.5; }
 /* レベルデザイン改修: 企画を練るは手動ボタンから自動機能になった（sakuri 決定）。
    ティックごとに、進行中作品が「進捗50%未満 かつ 企画Lv < 上限」の間、アイデアが
-   足りる限り自動で企画Lvを上げる。コストは従来の planCost のまま。アイデアの蓄えで
-   オーバークロックが速く溜まる仕組み（ideaChargeMult）は、自動消費された分だけ
-   所持数が減る形でそのまま残る */
+   足りる限り自動で企画Lvを上げる。コストは従来の planCost のまま */
 /* 再設計 B9: 企画者クレジットの担当決定 — 研究職の最古参ではなく最上位Lv の研究者を名乗る。
    研究者がいない時代は みゅけ 本人が企画者になる（ux-r2: 担当名 or みゅけ） */
 function assignPlanner(p){

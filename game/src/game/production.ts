@@ -342,7 +342,7 @@ function clickBucketTake(){
 function chargeFever(amount){
   if(feverActive() || !S.fever) return;
   const before = S.fever.gauge || 0;
-  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1) * ideaChargeMult() * (1 + 0.2 * (S.clickUp.synidea || 0)));   /* 段階5: ひらめき連動 */   /* 第2ウェーブ I: 星あかりで充填 +15% ／ アイデアの蓄えで速まる（企画を練ると減る） */
+  S.fever.gauge = Math.min(100, before + amount * (hasPerk("starlight") ? 1.15 : 1) * (1 + 0.2 * (S.clickUp.synidea || 0)));   /* 段階5: ひらめき連動 ／ 第2ウェーブ I: 星あかり（星屑特典）で充填 +15%。アイデアの蓄えは充填に影響しない（2026-11-05 sakuri 裁定で ideaChargeMult の接続を解除） */
   if(before < 100 && S.fever.gauge >= 100 && !IS_VIEWER){
     say("⚡ オーバークロック準備完了にゃ！ 机脇のゲージをクリックで発動できるよ");
     addLog("⚡ オーバークロックのゲージが満タンになった");

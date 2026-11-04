@@ -415,22 +415,7 @@ function renderStrip(){
     if(fFrac >= 1 && !fActive && blinkOn(50, 30)) sDrawSprite("icon_bolt", gx, gb - 43, 1);
     if(fActive && frame % 24 === 0)   /* 発動中は机から火花（軽い演出・既存の仕組み） */
       stripSparks.push({ x: stripDeskCX() - 20 + Math.random() * 40, y: G - 34, born: Date.now() });
-    /* 2026-10-27: アイデアの蓄えで溜まりが速い時だけ、筒の上に倍率の札（文字のみ） */
-    const im = ideaChargeMult();
-    if(im >= 1.05 && !fActive && fFrac < 1){   /* 満タン・発動中は稲妻の場所なので出さない */
-      sctx.save();
-      sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
-      sctx.textAlign = "center";
-      sctx.textBaseline = "bottom";
-      sctx.lineWidth = 2;
-      sctx.strokeStyle = "#fff8ec";
-      sctx.strokeText("💡×" + fmtDec(im, 1), gx, gb - 45);
-      sctx.fillStyle = "#4a3b2c";
-      sctx.fillText("💡×" + fmtDec(im, 1), gx, gb - 45);
-      sctx.restore();
-    }
-    /* 再設計 B8（C1 #15＋ux-r3 §2.5）: 溜め中は筒の上に「あと◯% ・ 生産+◯%」（蓄熱の現在値）を出す。
-       💡倍率の札と同じ場所を使うので、札が出ている時はその上にもう1段置く */
+    /* 再設計 B8（C1 #15＋ux-r3 §2.5）: 溜め中は筒の上に「あと◯% ・ 生産+◯%」（蓄熱の現在値）を出す */
     if(!fActive && fFrac > 0 && fFrac < 1){
       const gNow = Math.floor((S.fever && S.fever.gauge) || 0);
       if(gNow > 0){
@@ -439,9 +424,9 @@ function renderStrip(){
         sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
         sctx.textAlign = "center"; sctx.textBaseline = "bottom";
         sctx.lineWidth = 2.5; sctx.strokeStyle = "#fff8ec";
-        sctx.strokeText(heatTxt, gx, gb - 45 - (im >= 1.05 ? 11 : 0));
+        sctx.strokeText(heatTxt, gx, gb - 45);
         sctx.fillStyle = "#4a3b2c";
-        sctx.fillText(heatTxt, gx, gb - 45 - (im >= 1.05 ? 11 : 0));
+        sctx.fillText(heatTxt, gx, gb - 45);
         sctx.restore();
       }
     }
