@@ -412,7 +412,7 @@ function renderPanelInto(el){
         /* Wave H: モジュール（L 作品のみ） */
         if(p.modules){
           h += "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
-            "<div style='font-size:12px'><b>🧩 モジュール</b> <span style='color:var(--sub)'>完成するまで本体のビルドは待機します。価格は品質の掛け算（現在 ×" + fmtDec(modulePriceMult(p), 2) + "）</span></div>";
+            "<div style='font-size:12px'><b>🧩 モジュール</b> <span style='color:var(--sub)'>本体のビルドはモジュールを待たずに進みます。自動生産の一部（未完成の間 30%／完成後の磨き 10%）がモジュールへ流れます。価格は品質の掛け算（現在 ×" + fmtDec(modulePriceMult(p), 2) + "）</span></div>";
           p.modules.forEach((m, i) => {
             const q = moduleQuality(m), done = moduleComplete(m);
             const pct = Math.min(150, Math.round(m.inv / m.need * 100));

@@ -197,6 +197,11 @@ console.log("== 4. two windows ==");
   const lv0 = run(sbO, "S.upgrades.devenv || 0");
   run(sbM, "buyUpgrade('devenv');");
   check("a purchase in the menu runs exactly once in the strip", run(sbO, "S.upgrades.devenv || 0") === lv0 + 1);
+  run(sbO, "startProject('M');");
+  run(sbM, "designateOshi();");
+  check("oshi designation from the menu reaches the strip (VERBS registration)", run(sbO, "S.project && S.project.oshi") === true);
+  run(sbM, "clearOshi();");
+  check("oshi clear from the menu reaches the strip", run(sbO, "S.project.oshi") === false);
   check("the menu never writes the save", invokes.every(x => !(x[0] === "menu" && x[1] === "save_game")));
 }
 

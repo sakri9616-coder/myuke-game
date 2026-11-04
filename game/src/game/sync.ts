@@ -29,7 +29,7 @@ const VERBS = {
   buyLegacyTech: buyLegacyTech, buyRdInvest: buyRdInvest, doHoldings: doHoldingsCore,
   setRunPolicy: setRunPolicy,
   startChallenge: startChallenge, abandonChallenge: abandonChallenge,
-  setDevGenrePref: setDevGenrePref, designateIP: designateIP,
+  setDevGenrePref: setDevGenrePref, designateIP: designateIP, designateOshi: designateOshi, clearOshi: clearOshi,
   doDeathMarch: doDeathMarchCore,
   moduleOutsource: moduleOutsourceCore,
   moduleWeight: moduleWeightCore,
@@ -50,7 +50,7 @@ const VERBS = {
    買えなくなった (どの通貨も減らなかった) 時点で止める。メニューからは1コマンドで届く */
 const HOLD_VERBS = {
   buyUpgrade: 1, buyEngine: 1, buyResearch: 1, buyClickUp: 1, hireStaff: 1, trainStaff: 1, buyBulkTrain: 1,
-  buyTreat: 1, buyStudio: 1, buyDept: 1, addSubStaff: 1, scaleSub: 1, buyDustPerk: 1
+  buyTreat: 1, buyDept: 1, addSubStaff: 1, scaleSub: 1, buyDustPerk: 1, buyRdInvest: 1
 };
 let bulkLogLast: { entry: { tm: string; text: string }; shape: string; n: number } | null = null;
 function buyMany(verb, args, n){
@@ -256,14 +256,15 @@ function makeVerbStub(verb){
          出ると帯のスレッドが止まって全体が固まる)。文面は帯側 doPrestige と同一 */
       const pv = prestigePreview();
       if(pv.gain < 3){ showViewerNote("売却には星屑3個ぶんの実績がいるにゃ（現在 " + pv.gain + " 個ぶん）"); return; }
-      if(!confirm("会社を売却しますか？\n星屑 " + pv.gain + " 個を得て、生産倍率は ×" + fmtDec(pv.curMult, 2) + " → ×" + fmtDec(pv.nextMult, 2) + " になります。\nリセット: " + pv.resets.join("・") + "\n引き継ぎ: " + pv.keeps.join("・"))) return;
+      /* 確認は証書UI（prestigeAsk → 卒業証書）が担う。再設計 B13 で window.confirm は廃止されたため、
+         ここで confirm を出すと viewer 経由だけ二重確認になる（2026-11-05 Argon 批評で検出） */
       args.push(execSelArg(), vetSelArg(), swapSelArg());   /* 第2ウェーブ M: 役員とベテランの選択を帯へ渡す */
     }
     if(verb === "doHoldings"){
       /* 持株化の確認も menu 側で済ませる (doPrestige と同じ分担) */
       const hp = holdingsPreview();
       if(!hp.can){ showViewerNote("持株化の条件がまだ揃っていないにゃ"); return; }
-      if(!confirm("ホールディングス化しますか？\n星団 " + hp.gain + " 個を得ます。\nリセット: コイン・スタッフ・研究・部署・子会社・星屑と星屑特典（第1層は畳まれます）\n残るもの: レガシー技術・作品棚・実績スタンプ・最高到達社格・レイアウト")) return;
+      /* 確認は証書UI（holdingsAsk → 時代の記録）が担う。doPrestige と同じ理由で confirm は出さない */
     }
     if(verb === "resetLayout"){
       /* 手で並べた配置が消えるので確認する (帯側では confirm を出さない) */

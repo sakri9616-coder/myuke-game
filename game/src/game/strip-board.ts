@@ -319,11 +319,10 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   }
   sctx.restore();
   /* Wave H: モジュールチップ列（ボード右側に吊るす縦タグ — ボード下は
-     机と猫に遮られるため側面に置く）。統合待ちでテスト済みが詰まって
-     いる間は赤く明滅する（動き＋色の二経路） */
+     机と猫に遮られるため側面に置く）。チップは完成（done）か進行中（todo）か
+     だけを示す。再設計 段階1 で「ビルドはモジュールを待たない」ため、旧仕様の
+     統合待ちの赤点滅は廃止した（2026-11-05 Argon 批評で検出） */
   if(!small && p && p.modules && p.modules.length){
-    const waiting = !modulesDone(p) && S.wip.tested >= 30;
-    const blink = waiting && (motionReduced() || Math.floor(stripNow / 400) % 2 === 0);
     const cw = 66;
     sctx.save();
     sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
@@ -331,7 +330,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     p.modules.forEach((md, i) => {
       const cxp = bx + bw + 4, cyp = top + 14 + i * 13;
       const done = moduleComplete(md);
-      sDrawNine("ui_chip_" + (blink ? "alert" : done ? "done" : "todo") + "_9", cxp, cyp, cw, 11, 3, 3);
+      sDrawNine("ui_chip_" + (done ? "done" : "todo") + "_9", cxp, cyp, cw, 11, 3, 3);
       sctx.fillStyle = "#f5efe2";
       const label = md.name + " " + (md.out ? "外注" : done ? "★" + fmtDec(moduleQuality(md), 1) : Math.min(100, Math.floor(stripMeter("mod" + i, md.inv) / md.need * 100)) + "%");
       sctx.fillText(label, cxp + cw / 2, cyp + 5.8);
