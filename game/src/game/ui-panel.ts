@@ -559,7 +559,7 @@ function renderPanelInto(el){
       h += foldSec("treats", false, "🎁 ご褒美（みんなへ）", "価格は収入と、効果中の重ね買いで上昇", treatHTML);
     }
   }
-  /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・資金配分、
+  /* Phase D: 子会社（準大手から）。レバーは設立・人員・規模Lv・配当率、
      出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
      2026-10-28 sakuri: スタッフタブから独立したタブへ。解放前はタブごと施錠表示 (tutTabLocked) */
   if(currentTab === "subs"){
@@ -574,8 +574,6 @@ function renderPanelInto(el){
           " <span class='tagchip'>得意: " + gname + "</span>" +
           "<div class='ds'>生産力 <b>" + fmtDec(r.dp, 1) + " DP/分</b> ・ 売上 <b>" + fmt(r.coins) + "🪙/分</b> ・ スタッフ <b>" + sub.staff + "人</b> ・ 規模 <b>Lv" + sub.lv + "</b>（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "） <span style='opacity:.72'>単位: k=千・m=百万・g=10億・t=1兆・p=1000兆・e=100京</span></div>" +
           "<div class='ds'>🎬 いま作っている作品： 『" + esc(subWorkName(sub)) + "』（完成すると配当がまとめて入ります）・ 子会社だけ売却で星屑 " + subDustValue(sub) + " 個</div>" +
-          "<div class='ds'>資金配分 <b>" + sub.alloc + "%</b>（注力度 ×" + fmtDec(subFocus(sub), 2) + "）" +
-          (S.subs.length > 1 ? " <button onclick='setAlloc(" + sub.id + ",-10)'>−10%</button> <button onclick='setAlloc(" + sub.id + ",10)'>＋10%</button>" : "") + "</div>" +
           "<div class='ds'>配当率 <b>" + subDiv(sub) + "%</b>（作品のリリースごとにまとめて本社へ）" +
           " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div>" +
           "<div class='ds'>蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙 ・ 目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分</div>" +

@@ -276,9 +276,8 @@ function load(rawText?: string){
     for(const sub of S.subs){
       if(typeof sub.staff !== "number") sub.staff = 5;
       if(typeof sub.lv !== "number") sub.lv = 1;
-      if(typeof sub.alloc !== "number") sub.alloc = 0;
+      delete (sub as any).alloc;   /* 2026-11-05: 注力（資金配分）廃止。旧セーブの残存フィールドは読み捨てる */
     }
-    normalizeAlloc();
     /* 拡張ウェーブ F: フィーバーゲージ（旧セーブには無い） */
     if(!S.fever || typeof S.fever !== "object") S.fever = { gauge: 0 };
     if(typeof S.fever.gauge !== "number") S.fever.gauge = 0;

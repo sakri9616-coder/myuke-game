@@ -61,7 +61,6 @@ interface Subsidiary {
   genre: string;
   staff: number;
   lv: number;
-  alloc: number;
   div?: number; reinv?: number;   /* 段階6: 配当率（%）と再投資の端数 */
   divAcc?: number; divCycle?: number; divClock?: number; workIdx?: number;   /* レベルデザイン改修: 配当のリリース単位化（蓄積・周期・経過・いま作っている作品の番号） */
 }

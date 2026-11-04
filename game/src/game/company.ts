@@ -1,12 +1,11 @@
 /* ---------- Phase D: 子会社（終盤の経営レイヤー） ----------
    準大手（スタジオLv5）から設立できる半自律ユニット。人員は抽象的な数で
    数え（帯に描く本社の猫は最大36匹まで）、収益は受動コイン＋DP。
-   プレイヤーのレバー: 設立 / 人員投資 / 規模Lv / 資金配分（合計100%）。
-   配分は「注力度」として効く（0% で ×0.5、100% で ×2.0）ため、配分を
-   動かすとグループ合計が変わる — それが経営判断になる。注力度は
-   凹関数 0.5+1.5×sqrt(配分/100)（2026-10-26 23:17回・Phase D 注記 (ii)）:
-   線形だと高単価社への100%集中が常に最善で配分判断が消えるため、
-   逓減する注力度で最適配分を内点（約74/26）に移し、誤配分は損になる形にした。端点は不変。
+   プレイヤーのレバー: 設立 / 人員投資 / 規模Lv / 配当率。
+   かつては資金配分（合計100%）が「注力度」として出力に掛かる経営レバーがあったが、
+   遊びとして弱いという sakuri の判断で 2026-11-05 に廃止。倍率は LD の裁定
+   （leveldesign-r4-subs §2）で一律 ×2.0 を基礎レートに畳み込んだ: 経済の天井
+   （全集中時の水準）は変えず、集中しなかった者への税だけを消す形。
    売却は2段構え: 子会社だけ売る部分EXIT（星屑は subDustValue と同額）と、
    本社ごと売るグループEXIT（売却益に全子会社の価値が上乗せされる）。
    部分EXIT の星屑 = グループEXIT での当該子会社の寄与分と同額にそろえて
@@ -16,7 +15,7 @@
    伸びるので、元が取れるまでの時間は周回が進んでも変わらない（理念書4 スケール対価）。
    1日 3 時間・ほぼ毎日売却するペースでも、設立は約1時間で元が取れ、人員と規模の掛け算で
    本社を追い抜ける大きさまで育つ。規模は上限100・節目つき（設備と同じ MILESTONE_LVS） */
-const SUB_ECON = { found: 200, foundMul: 2, head: 30, headMul: 1.03, scale: 150, scaleMul: 1.5, coinPerStaff: 0.7, lvStep: 0.3 };   /* 段階4: 0.35→0.7（子会社に寄せたビルドで子会社が稼ぎ頭になれるように・sim の G5） */
+const SUB_ECON = { found: 200, foundMul: 2, head: 30, headMul: 1.03, scale: 150, scaleMul: 1.5, coinPerStaff: 0.7, lvStep: 0.3, baseMult: 2.0 };   /* 段階4: 0.35→0.7（子会社に寄せたビルドで子会社が稼ぎ頭になれるように・sim の G5）／ baseMult は注力廃止の畳み込み（LD r4-subs §2: 一律 ×2.0、天井不変） */
 const SUB_MAX_LV = 100;
 function subUnit(){ return workScale() * Math.pow(dustMult(), BAL.dustPriceExp); }
 const SUB_NAME_A = ["ねこねこ", "まるまる", "にゃんころ", "ふわラボ", "こねこ", "たまご", "ひげ", "すやすや"];
@@ -25,9 +24,8 @@ function subGenreRate(genreId){
   return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
 }
 function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv") - 1); }
-function subFocus(sub){ return 0.5 + 1.5 * Math.sqrt((sub.alloc || 0) / 100); }
 function subRates(sub){
-  const base = sub.staff * subLvMult(sub) * subFocus(sub) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
+  const base = sub.staff * subLvMult(sub) * SUB_ECON.baseMult * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
   return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")) * branchMult("b_subs") * seriesSubMult(), dp: base * 0.2 };   /* 段階4: 子会社の列「グループ経営」／段階6: 星屑の枝とシリーズの相乗 */
 }
 /* 段階6: 配当と再投資。売上のうち配当率ぶんが本社のコインに入り、残りは子会社が自分の人員と規模に
@@ -94,16 +92,6 @@ function subHeadCostN(sub, n){
   return t;
 }
 function subScaleCost(sub){ return Math.ceil(SUB_ECON.scale * Math.pow(SUB_ECON.scaleMul, sub.lv - 1) * subUnit()); }
-function normalizeAlloc(){
-  const subs = S.subs || [];
-  if(!subs.length) return;
-  let sum = subs.reduce((a, s) => a + (s.alloc || 0), 0);
-  if(sum === 100) return;
-  if(sum <= 0) subs.forEach(s => s.alloc = Math.floor(100 / subs.length));
-  else subs.forEach(s => s.alloc = Math.floor(s.alloc * 100 / sum));
-  let rest = 100 - subs.reduce((a, s) => a + s.alloc, 0);
-  for(let i = 0; rest > 0; i = (i + 1) % subs.length){ subs[i].alloc++; rest--; }
-}
 function foundSub(genreId){
   if(S.studioLv < 5){ say("子会社は準大手（スタジオLv5）からにゃ"); return; }
   const cost = foundCost();
@@ -113,9 +101,8 @@ function foundSub(genreId){
   if(!Array.isArray(S.subs)) S.subs = [];
   let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.1: 宇宙編は土地の名前 */
   if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
-  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, alloc: 0 };
+  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1 };
   S.subs.push(sub);
-  normalizeAlloc();
   SoundKit.play("purchase");
   addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
   /* 再設計 B11（designer-r3 §3.2）: 新しい別館の告知は1回だけ。段階上昇の告知と同じくメモ枠（reportNote）にも載せる */
@@ -144,24 +131,6 @@ function scaleSub(id){
   say(sub.name+"が大きくなったにゃ！");
   save(); renderPanel();
 }
-function setAlloc(id, delta){
-  const subs = S.subs || [];
-  const sub = subs.find(s => s.id === id);
-  if(!sub || subs.length < 2) return;
-  const nv = Math.max(0, Math.min(100, (sub.alloc || 0) + delta));
-  if(nv === sub.alloc) return;
-  sub.alloc = nv;
-  /* 差分は他の子会社から付け替える（合計は常に100%に保つ） */
-  let excess = subs.reduce((a, s) => a + s.alloc, 0) - 100;
-  const others = subs.filter(s => s !== sub).sort((a, b) => b.alloc - a.alloc);
-  for(const o of others){
-    if(excess === 0) break;
-    if(excess > 0){ const d = Math.min(o.alloc, excess); o.alloc -= d; excess -= d; }
-    else { const d = Math.min(100 - o.alloc, -excess); o.alloc += d; excess += d; }
-  }
-  if(excess !== 0) sub.alloc -= excess;
-  save(); renderPanel();
-}
 function sellSubCore(id){
   const subs = S.subs || [];
   const i = subs.findIndex(s => s.id === id);
@@ -170,7 +139,6 @@ function sellSubCore(id){
   const gain = subDustValue(sub);
   subs.splice(i, 1);
   S.totals.subsSold = (S.totals.subsSold || 0) + 1;
-  normalizeAlloc();
   const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain;
   S.eraDust = (S.eraDust || 0) + gain;   /* 第2ウェーブ J: 時代の通算にも積む */
