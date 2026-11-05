@@ -142,6 +142,11 @@ console.log("== 2. save ==");
   loadGame(sbX);
   run(sbX, `importSaveText(${JSON.stringify(JSON.stringify({ coins: 1, staff: [{ id: "1);x();(1", name: "<img src=x onerror=x()>", coat: "kuro", role: "prog", lv: 1 }] }))})`);
   run(sbX, "S.tut.skipped = true; switchTab('staff'); renderPanel();");
+  run(sbX, "S.studioLv = 6; S.coins = 1e12; S.eraDemand = 'app'; switchTab('subs'); foundSub('app'); S.subs[0].lv = 10; renderPanel();");
+  const subHtml = run(sbX, "document.getElementById('panel').innerHTML");
+  check("subsidiary tab renders as side-by-side company cards without focus remnants",
+    subHtml.includes("class='subcols'") && subHtml.includes("選択待ち") && subHtml.includes("方針の変更:") &&
+    !/資金配分|注力度|setAlloc/.test(subHtml));
   const html = sbX._el("panel").innerHTML;
   check("names from a save are never rendered as live HTML", !/<img/i.test(html) && !/x\(\);\(1/.test(html));
 }
