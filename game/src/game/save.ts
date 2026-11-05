@@ -332,6 +332,7 @@ function load(rawText?: string){
     if(typeof S.pendingPolicy !== "string") S.pendingPolicy = null;
     /* 第2ウェーブ K: チャレンジ状態の補完（旧セーブは未挑戦・報酬なし） */
     if(S.challenge !== null && (typeof S.challenge !== "object" || !S.challenge.id)) S.challenge = null;
+    if(S.challenge && typeof S.challenge.rel0 !== "number") S.challenge.rel0 = S.totals.releases || 0;   /* LD r4-challenge §5: 旧セーブの進行中チャレンジは読込時点の通算を起点とみなす */
     if(!S.challengeRewards || typeof S.challengeRewards !== "object") S.challengeRewards = {};
     /* 第2ウェーブ L: トレンド・IP・常駐カウンタの補完 */
     if(S.trend !== null && (typeof S.trend !== "object" || !S.trend.boom)) S.trend = null;
