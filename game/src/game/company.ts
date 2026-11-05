@@ -780,21 +780,29 @@ function holdingsCondTick(){
    社格の目標は開始社格 +3（EXIT の節目で開始社格が上がっても易しくならない） */
 const BLACK_GOAL_DUST = 10;
 const CHALLENGE_DEFS = [
-  { id:"minority", name:"少数精鋭",     rule:"スタッフ上限 6人（社格・技術より優先）／ スタッフの出力 +25%", goal:"開始社格から 3 段上へ", reward:"全スタッフの出力 +10%（永続）" },
+  { id:"minority", name:"少数精鋭",     rule:"スタッフ上限 6人（社格・技術より優先）／ スタッフの出力 +25%", goal:"縛りで3本リリースする", reward:"全スタッフの出力 +10%（永続）" },
   { id:"black",    name:"ブラック企業", rule:"バグ発生率 ×3 ／ 販売価格 ×2", goal:"企業価値を星屑 " + BLACK_GOAL_DUST + " 個ぶんまで", reward:"ブランドの増え幅 +50%（永続）" },
-  { id:"idle",     name:"完全放置",     rule:"応援クリックと実作業ブーストが DP を生まない ／ フィーバーは自動生産から細く貯まる", goal:"開始社格から 3 段上へ", reward:"自動生産 +15%（永続）" }
+  { id:"idle",     name:"完全放置",     rule:"応援クリックと実作業ブーストが DP を生まない ／ フィーバーは自動生産から細く貯まる", goal:"縛りで3本リリースする", reward:"自動生産 +15%（永続）" }
 ];
-function challengeGoalLv(){ return Math.min(STAFF_CAPS.length, (S.challenge && S.challenge.startLv || startRank()) + 3); }
 function challengeDef(id){ return CHALLENGE_DEFS.find(c => c.id === id) || null; }
 function challengeActive(id){ return !!(S.challenge && S.challenge.id === id); }
-function challengeStartable(){
-  return !S.challenge && ((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1) &&
-    S.studioLv === startRank() && (S.runPeakValue || 0) < dustValueUnit();
+/* チャレンジの窓（LD leveldesign-r4-challenge §5）: その会社でまだ1本もリリースしていない間だけ。
+   旧条件（社格 == 開始社格、peak < 星屑1個ぶん）は廃止。ΣrunGenre は出荷本数そのもの */
+function challengeStartable(id){
+  if(S.challenge || !((S.prestiges || 0) >= 1 || (S.holdings || 0) >= 1)) return false;
+  const released = Object.values(S.runGenre || {}).reduce((a, n) => a + (n || 0), 0);
+  if(released > 0) return false;
+  if(id === "minority" && (S.staff || []).length > 6) return false;   /* 少数精鋭は受付時にスタッフ7人以上だと受けられない */
+  return true;
 }
 function startChallenge(id){
   if(!challengeDef(id) || S.challenge) return;
-  if(!challengeStartable()){ say("チャレンジは会社を設立した直後だけ受けられるにゃ"); return; }
-  S.challenge = { id: id, startLv: S.studioLv };
+  if(!challengeStartable(id)){
+    if(id === "minority" && (S.staff || []).length > 6) say("スタッフが7人以上の会社では少数精鋭は受けられないにゃ");
+    else say("チャレンジは、その会社で初めてリリースする前だけ受けられるにゃ");
+    return;
+  }
+  S.challenge = { id: id, startLv: S.studioLv, rel0: S.totals.releases || 0 };   /* minority / idle の目標は受付後の3本リリース */
   addLog("🎯 チャレンジ開始: 『"+challengeDef(id).name+"』— "+challengeDef(id).rule);
   say("チャレンジ『"+challengeDef(id).name+"』、はじめるにゃ！");
   save(); renderPanel();
@@ -810,7 +818,7 @@ function challengeGoalMet(){
   const c = S.challenge;
   if(!c) return false;
   if(c.id === "black") return (S.runPeakValue || 0) >= BLACK_GOAL_DUST * dustValueUnit();
-  return S.studioLv >= challengeGoalLv();   /* minority / idle は開始社格 +3 */
+  return (S.totals.releases || 0) >= (c.rel0 || 0) + 3;   /* minority / idle は受付後の3本リリース（LD r4-challenge §5） */
 }
 function checkChallenge(){
   const c = S.challenge;

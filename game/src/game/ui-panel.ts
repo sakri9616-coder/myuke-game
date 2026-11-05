@@ -262,7 +262,7 @@ function incomeBreakdownHTML(){
       "<div class='meter' style='flex:1;height:8px'><i style='width:" + pct + "%'></i></div><b style='min-width:38px;text-align:right'>" + pct + "%</b></div>";
   }
   return foldSec("income", false, "💰 収入の内訳（この会社）", "主役: " + (main ? incomeSrcName(main) : "―"), rows +
-    "<div class='note' style='font-size:11.5px;margin-top:4px'>どの収入源に強化を積むかで主役が変わります（労働＝応援タブ、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）</div>");
+    "<div class='note' style='font-size:11.5px;margin-top:4px'>どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）</div>");
 }
 function renderPanel(){
   if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
@@ -850,7 +850,7 @@ function renderPanelInto(el){
         if(cdef){
           const prog = S.challenge.id === "black"
             ? "企業価値の最高 " + fmt(S.runPeakValue || 0) + " / " + fmt(BLACK_GOAL_DUST * dustValueUnit()) + ((S.runPeakValue || 0) < BLACK_GOAL_DUST * dustValueUnit() ? "（あと " + fmt(BLACK_GOAL_DUST * dustValueUnit() - (S.runPeakValue || 0)) + "）" : "")
-            : "現在 Lv" + S.studioLv + " / 目標 Lv" + challengeGoalLv() + (S.studioLv < challengeGoalLv() ? "（あと " + (challengeGoalLv() - S.studioLv) + " 段）" : "");
+            : "リリース " + Math.min(3, Math.max(0, (S.totals.releases || 0) - (S.challenge.rel0 || 0))) + " / 3 本";
           h += "<div class='item' style='border-color:var(--gold-d);margin-top:12px'><div class='buy'><div>" +
             "<span class='sock'>🎯</span><span class='nm'>チャレンジ中: " + cdef.name + "</span>" +
             "<div class='ds'>" + cdef.rule + "<br>目標: " + cdef.goal + "（" + prog + "）／ 報酬: " + cdef.reward + "</div></div>" +
@@ -862,9 +862,12 @@ function renderPanelInto(el){
           const owned = S.challengeRewards && S.challengeRewards[cdef.id];
           chRows += "<div class='item buy slim'><div><span class='nm'>" + cdef.name + "</span>" + (owned ? " <span class='tagchip'>✅ 報酬獲得済み</span>" : "") +
             "<div class='ds'>" + cdef.rule + "<br>目標: " + cdef.goal + " ／ 報酬: " + cdef.reward + "</div></div>" +
-            "<button class='buybtn' onclick='startChallenge(\"" + cdef.id + "\")'" + (challengeStartable() ? "" : " disabled") + "><span class='buy-act'>挑戦する</span></button></div>";
+            "<button class='buybtn' onclick='startChallenge(\"" + cdef.id + "\")'" + (challengeStartable(cdef.id) ? "" : " disabled") + "><span class='buy-act'>挑戦する</span></button></div>";
         }
-        const chNote = challengeStartable() ? "" : "<div class='note'>チャレンジは、会社を設立した直後（Lv1・実績が星屑1個ぶん未満）だけ受けられます。初回 EXIT のあと解放されます</div>";
+        const anyStartable = CHALLENGE_DEFS.some(c => challengeStartable(c.id));
+        const minorityBlocked = !challengeStartable("minority") && (S.staff || []).length > 6 && (challengeStartable("black") || challengeStartable("idle"));
+        const chNote = (anyStartable ? "" : "<div class='note'>チャレンジは、その会社で初めてリリースする前だけ受けられます。初回 EXIT のあと解放されます</div>") +
+          (minorityBlocked ? "<div class='note'>スタッフが7人以上の会社では少数精鋭は受けられません</div>" : "");
         const ownedN = S.challengeRewards ? Object.keys(S.challengeRewards).length : 0;
         h += foldSec("challenge", false, "🎯 チャレンジ", ownedN ? "報酬 " + ownedN + " / 3 獲得" : "縛りプレイで永続報酬", chRows + chNote);
       }

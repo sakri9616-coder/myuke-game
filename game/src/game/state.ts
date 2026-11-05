@@ -305,7 +305,13 @@ function handworkClick(stage){
       if(stage === "test"){ moved = Math.min(amt, w.code); w.code -= moved; w.tested += moved; }
       else if(stage === "build"){ moved = Math.min(amt, w.tested); w.tested -= moved; w.built += moved; }
       else if(stage === "ship"){ moved = Math.min(amt, w.built); w.built -= moved; creditProject(moved); }
-      if(moved > 0){ S.totals.handwork = (S.totals.handwork || 0) + moved; progressPulseUntil = now + 500; }
+      if(moved > 0){
+        S.totals.handwork = (S.totals.handwork || 0) + moved;
+        /* LD r4-handwork §0: 運搬1段ぶんを、未計上（自動由来）の割合だけ労働に数える。
+           runDP には足さない（生産の総量は変わらない）。share は加算前の値 */
+        if(S.runDP > 0) S.runHandDP = (S.runHandDP || 0) + moved * (1 - laborShare()) / 3;
+        progressPulseUntil = now + 500;
+      }
     }
   }
   clickSynergyTick();
