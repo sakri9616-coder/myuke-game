@@ -121,6 +121,7 @@ function expected(name) {
   if (name === 'icon_box') return [28, 28];   /* バッチ12: sakuri 作画の荷物箱は 28×28 */
   if (name === 'icon_bug') return [28, 28];   /* 2026-10-26: sakuri 作り直しのバグは 28×28 */
   if (name === 'icon_wrench') return [28, 28];   /* バッチ14: sakuri 作画のスパナは 28×28 */
+  if (name === 'icon_fish') return [32, 32];   /* 2026-11-08: sakuri 許可・承認 (G17) の 32×32 金魚。帯パイル専用・0.8 倍描画 */
   return name.startsWith('miyuke_') ? [48, 40] : name.startsWith('staff_') ? [32, 24]
     : name.startsWith('duck_') ? [24, 20] : name.startsWith('bot_') ? [24, 20]
     : name.startsWith('icon_') ? [16, 16] : props[name];
@@ -223,7 +224,9 @@ for (const [name, rows] of Object.entries(sprites)) {
   }
   rows.forEach((row, y) => [...row].forEach((key, x) => {
     check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key} at ${x},${y}`);
-    if (!sakuriAnim && !envSprite && (y < 2 || x < 2 || x >= w - 2)) check(key === '.', `${name}: margin at ${x},${y}`);
+    /* icon_fish (32×32, 2026-11-08 sakuri 承認 G17) は尾の先端・背ビレ頂上・鼻先が
+       端まで届く構図が正本なのでマージン規則の対象外。寸法とパレットは通常どおり検査する */
+    if (!sakuriAnim && !envSprite && name !== 'icon_fish' && (y < 2 || x < 2 || x >= w - 2)) check(key === '.', `${name}: margin at ${x},${y}`);
   }));
   if (name.startsWith('staff_')) {
     check(rows.slice(0, 6).every(row => /^\.+$/.test(row)), `${name}: maximum 18px occupied height`);

@@ -117,7 +117,7 @@ Actual sizes are measured from the final literal maps, including transparent pad
 | `icon_bug` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; coral-backed beetle with attached legs/antennae redrawn inside the strict two-pixel top/side margins. |
 | `icon_box` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; taped cardboard package redrawn inside the strict two-pixel top/side margins. |
 | `icon_star` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; gold five-point release star redrawn inside the strict two-pixel top/side margins. |
-| `icon_fish` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; teal snack fish redrawn inside the strict two-pixel top/side margins. |
+| `icon_fish` | 32 × 32 | 32 × 32 | PASS | Redrawn 2026-11-08 (sakuri approved, G17): goldfish after the Vecteezy icon reference — ramp + tower dorsal, asymmetric forked tail, long anal fin; orange-family gradient (R/f/A/ご/こ), subdued dot eye. Drawn at 0.8 scale on the strip (was 16×16 at 1.6). |
 | `icon_book` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; teal book with page edge and label redrawn inside the strict two-pixel top/side margins. |
 | `icon_wrench` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; silver open-ended wrench redrawn inside the strict two-pixel top/side margins. |
 | `icon_heart` | 16 × 16 | 16 × 16 | PASS | Unchanged. 16×16 canvas retained; pink heart with white highlight redrawn inside the strict two-pixel top/side margins. |

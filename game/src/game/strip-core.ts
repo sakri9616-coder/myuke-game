@@ -25,7 +25,7 @@ const SPRITE_SPEC = {
   miyuke_snack:[48,40], miyuke_happy:[48,40],
   duck_idle:[24,20], duck_check:[24,20],
   icon_coin:[16,16], icon_idea:[16,16], icon_bug:[28,28], icon_box:[28,28], icon_star:[16,16],
-  icon_fish:[16,16], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
+  icon_fish:[32,32], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
   prop_plant:[16,20], prop_coffee:[28,28], prop_coffee_0:[28,28], prop_coffee_1:[28,28], prop_server:[24,32], prop_packmachine:[48,24], prop_shelf:[40,28], prop_ship:[48,48], prop_annex_sign:[48,48], prop_sign_gold:[48,48], prop_star_gold:[24,24], prop_trophy_gold:[24,24], prop_snackbox:[24,24], prop_snackbox_shut:[24,24],
   prop_pc:[40,32],
   /* 環境ドット絵 (Codex 一次作・research/ENV_ART_MANIFEST.md): 既存パレットのみ */

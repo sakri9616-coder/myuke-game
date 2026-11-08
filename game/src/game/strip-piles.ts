@@ -634,7 +634,7 @@ function renderStrip(){
     const hop = Math.abs(Math.sin(stripNow / 170)) * 3;
     const fx = stripFish.x;
     sShadow(fx, G - 0.5, 26);
-    sDrawSprite("icon_fish", fx, G - 1 - hop, 1.6);
+    sDrawSprite("icon_fish", fx, G - 1 - hop, 0.8);
     if(frame % 8 < 4){ sDrawSprite("fx_spark_2", fx - 13, G - 10 - hop, 1); sDrawSprite("fx_spark_2", fx + 12, G - 12 - hop, 1); }
     stripHitRects.fish = { x: fx - 15, y: G - 20, w: 30, h: 22 };
   }
