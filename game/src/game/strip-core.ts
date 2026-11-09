@@ -46,11 +46,13 @@ const SPRITE_SPEC = {
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。
-   バッチ6: sakuri作画スタッフ (48×40 統一仕様) は staff48 = ×3/2 で 72×60 に
-   描く (みゅけ 96×80 の 3/4 — 主人公より一回り小さい)。ANIMS の無い毛柄は
-   従来の staff (32×24 ×4/3) のまま */
+   主役階層（UX ux-strip-hierarchy §2.2・§5-1、sakuri 2026-11-10）: sakuri作画
+   スタッフ (48×40 統一仕様) は staff48 = ×1.0 で 48×40（原画の等倍表示、
+   みゅけ:スタッフ = 2:1）。旧 ×3/2 は dotPx の量子化で k=1 のとき ×2 と
+   同じ dot 2 に丸められ、みゅけと同寸に潰れていた。ANIMS の無い毛柄は
+   従来の staff (32×24 ×4/3) のまま（移行クラス、UX §2.2） */
 const SPRITE_SCALES = {
-  strip: { miyuke: 2, staff: 4/3, staff48: 3/2, duck: 1 }
+  strip: { miyuke: 2, staff: 4/3, staff48: 1, duck: 1 }
 };
 for(const coat of COATS){
   SPRITE_SPEC["staff_" + coat + "_sit"] = [32,24];

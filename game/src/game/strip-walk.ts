@@ -63,10 +63,10 @@ function hasWalkArt(){
    - 接地した足の fore-aft 移動量 (stance travel) ≈ 6.2 スプライトpx
    - 歩幅の検算 (最広スタンスの足間隔 − パッシング時の足間隔) ≈ 7.7px
    → 1周 = 2歩 ≈ 13 スプライトpx。描画倍率を掛けて帯ユニット/周にすると
-   みゅけ (×2) = 26、スタッフ (×1.5) = 19.5。
+   みゅけ (×2) = 26、スタッフ (×1.0) = 13（倍率は主役階層の staff48 ×1.0 に追随）。
    walkClock は「移動距離 ÷ ユニット/周 × 周期ms」で進め、位相を純粋に
    距離の関数にする。フレーム内リズム (300ms のアクセント含む) は原画どおり。 */
-const WALK_UNITS_PER_CYCLE = { miyuke_walk: 26, staff: 19.5 };   /* 1周の接地距離は脚ジオメトリ実測 (13px×倍率) 由来で不変。周期ms は ANIMS 側 (walk_loop 7f = 3900ms) が正 */
+const WALK_UNITS_PER_CYCLE = { miyuke_walk: 26, staff: 13 };   /* 1周の接地距離は脚ジオメトリ実測 (13px×倍率) 由来で不変。周期ms は ANIMS 側 (walk_loop 7f = 3900ms) が正 */
 function walkAdvanceMs(animName, distUnits){
   const a = ANIMS[animName];
   const cyc = a ? animSegMs(a, a.loopFrom, a.loopTo) : 5100;   /* 周期ms (ANIMS 無し毛柄はスタッフ周期で代用) */
