@@ -264,6 +264,96 @@ function incomeBreakdownHTML(){
   return foldSec("income", false, "💰 収入の内訳（この会社）", "主役: " + (main ? incomeSrcName(main) : "―"), rows +
     "<div class='note' style='font-size:11.5px;margin-top:4px'>どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）</div>");
 }
+/* ---------- 経営サマリ（research/design-system-20261109/03 パターンA） ----------
+   会社タブ（工場タブ）の最上段の型: スコアカード4枚＋目標達成バー＋推移＋秘書の所感。
+   数字の憲法: 数字は単独で置かず、対照（前回比／目標までの残り／全体比／上限）と必ず対で出す。
+   差分の色は --delta-* の3値だけ。前回比の基準と推移サンプルはセッション内メモリのみで、
+   セーブ形式は変えない。数値は既存の算出関数の読み取りだけで、ゲームの計算には触れない */
+let mgmtBase = null;   /* セッション初回表示時の {coins, dust, value, dp, people} */
+let mgmtTrend = [];    /* 推移サンプル {t, dust, value}（最大16点・10秒に1点まで） */
+function mgmtSubDp(){
+  let dp = 0;
+  for(const sub of (S.subs || [])) dp += subRates(sub).dp;
+  return dp;
+}
+function mgmtDelta(now, base, unit){
+  const d = now - base;
+  if(Math.abs(d) < 0.05) return "<span class='d-flat'>前回比 <b>±0</b></span>";
+  return "<span class='" + (d > 0 ? "d-up" : "d-down") + "'>前回比 <b>" + (d > 0 ? "+" : "−") + fmt(Math.abs(d)) + (unit || "") + "</b></span>";
+}
+function mgmtTrendDelta(d, unit){
+  if(Math.abs(d) < 0.05) return "<span class='d-flat'>±0</span>";
+  return "<span class='" + (d > 0 ? "d-up" : "d-down") + "'>" + (d > 0 ? "+" : "−") + fmt(Math.abs(d)) + (unit || "") + "</span>";
+}
+function mgmtSpark(key, cls){
+  if(mgmtTrend.length < 2) return "<span>推移はこれから貯まります</span>";
+  let max = 0;
+  for(const p of mgmtTrend) max = Math.max(max, p[key] || 0);
+  let bars = "";
+  for(const p of mgmtTrend) bars += "<i style='height:" + (max > 0 ? Math.max(2, Math.round((p[key] || 0) / max * 18)) : 2) + "px'></i>";
+  return "<span class='spark " + cls + "'>" + bars + "</span>";
+}
+/* 秘書の所感: 既存の状態シグナルから短い一言を選ぶだけ（新しい判定・数値は作らない） */
+function mgmtSecretary(){
+  if(S.challenge && challengeDef(S.challenge.id)) return "チャレンジ『" + challengeDef(S.challenge.id).name + "』に挑戦中です。縛りのなかの采配が見せどころ。";
+  const bn = bottleneckInfo();
+  if(bn.isBn) return bn.worst.name + "工程が詰まり気味です。対策は下の工程からどうぞ。";
+  if((S.bugStock || 0) > 8) return "バグ在庫が " + fmt(S.bugStock) + " 匹たまっています。テスト工程が苦しそうです。";
+  for(const sub of (S.subs || [])){
+    if(["m10", "m25", "m50"].some(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]))
+      return "子会社「" + esc(sub.name) + "」に特性の選択待ちがあります。子会社タブで選べます。";
+  }
+  const need = nextRankValue();
+  if(need && (S.runPeakValue || 0) / need >= 0.8) return "次の社格「" + rankName(S.studioLv + 1) + "」まであと少し。企業価値は " + Math.round((S.runPeakValue || 0) / need * 100) + "% まで来ています。";
+  if(S.fever && (S.fever.gauge || 0) >= 100) return "フィーバーゲージが満タンです。帯から発動できます。";
+  if((S.debt || 0) >= 100) return "技術的負債が積み気味です（生産効率 ×" + fmtDec(debtEff(), 2) + "）。バグのない出荷で返していけます。";
+  if(S.staff.length >= staffCap()) return "本社は満員です。社格が上がると、もっと仲間を呼べます。";
+  return "ラインは順調です。この調子で会社を育てていきましょう。";
+}
+function mgmtSummaryHTML(){
+  const nowMs = Date.now();
+  const subDp = mgmtSubDp(), dpTot = productionRate() + subDp;
+  const cur = { coins: S.coins || 0, dust: S.dust || 0, value: companyValue(), dp: dpTot, people: totalPeople() };
+  if(!mgmtBase) mgmtBase = { coins: cur.coins, dust: cur.dust, value: cur.value, dp: cur.dp, people: cur.people };
+  const last = mgmtTrend[mgmtTrend.length - 1];
+  if(!last || nowMs - last.t >= 10000){
+    mgmtTrend.push({ t: nowMs, dust: cur.dust, value: cur.value });
+    if(mgmtTrend.length > 16) mgmtTrend.shift();
+  }
+  const need = nextRankValue(), have = S.runPeakValue || 0;
+  const rankContrast = need
+    ? "<span class='d-flat'>次の「" + rankName(S.studioLv + 1) + "」まで <b>あと " + fmt(Math.max(0, need - have)) + "</b> 企業価値</span>"
+    : "<span class='d-flat'>最高社格に到達</span>";
+  const dpContrast = subDp > 0 && dpTot > 0
+    ? "<span class='d-flat'>うち子会社 <b>" + Math.round(subDp / dpTot * 100) + "%</b></span>"
+    : "<span class='d-flat'>本社ラインのみ</span>";
+  const capLeft = staffCap() - S.staff.length;
+  const peopleContrast = capLeft > 0
+    ? "<span class='d-flat'>本社は上限まで <b>あと " + capLeft + " 人</b></span>"
+    : "<span class='d-flat'>本社は上限いっぱい</span>";
+  const card = (label, val, small, contrast) =>
+    "<div class='kpi'><div class='kl'>" + label + "</div><div class='kv'>" + val + (small ? " <small>" + small + "</small>" : "") + "</div><div class='kc'>" + contrast + "</div></div>";
+  let h = "<h3>📊 経営サマリ</h3><div class='kpis'>" +
+    card("社格", companyRank(), "Lv" + S.studioLv, rankContrast) +
+    card("資金", fmt(Math.floor(cur.coins)), "🪙", mgmtDelta(cur.coins, mgmtBase.coins, "🪙")) +
+    card("生産", fmtDec(dpTot, 1), "DP/分", dpContrast) +
+    card("総勢", cur.people, "人", peopleContrast) +
+    "</div>";
+  if(need){
+    const pct = Math.min(100, Math.round(have / need * 100));
+    h += "<div class='goalbar'><div class='goalrow'><span>🎯 次の社格「" + rankName(S.studioLv + 1) + "」まで</span><span class='goalnum'>企業価値 " + fmt(have) + " / " + fmt(need) + "（あと " + fmt(Math.max(0, need - have)) + "・" + pct + "%）</span></div>" +
+      "<div class='meter'><i style='width:" + pct + "%'></i></div></div>";
+  } else {
+    h += "<div class='goalbar'><div class='goalrow'><span>🎯 社格は最高の「" + companyRank() + "」に到達しています</span></div></div>";
+  }
+  const dDust = mgmtTrend.length > 1 ? cur.dust - mgmtTrend[0].dust : 0;
+  const dVal = mgmtTrend.length > 1 ? cur.value - mgmtTrend[0].value : 0;
+  h += "<div class='trendrow'><span class='tl'>⭐ 星屑</span>" + mgmtSpark("dust", "gold") + "<span class='tv'>" + fmt(cur.dust) + " 個</span>" + mgmtTrendDelta(dDust, "") + "</div>" +
+    "<div class='trendrow'><span class='tl'>🏢 企業価値</span>" + mgmtSpark("value", "") + "<span class='tv'>" + fmt(Math.floor(cur.value)) + " 🪙</span>" + mgmtTrendDelta(dVal, "🪙") + "</div>" +
+    "<div class='secline'><span class='sectag'>📝 秘書の所感</span><span>" + mgmtSecretary() + "</span></div>" +
+    "<div class='note' style='font-size:11px;margin-top:4px'>前回比は、このセッションで経営サマリを最初に開いた時点との差です。推移は約10秒ごとの記録です</div>";
+  return h;
+}
 function renderPanel(){
   if(quietBuy) return;   /* 長押し連続購入の途中は描かない (最後に buyMany が1回描く) */
   /* 帯の窓ではパネルは表示されない (メニューは別窓がスナップショットで描く)。メニューから届いた購入の
@@ -659,6 +749,7 @@ function renderPanelInto(el){
   }
   if(currentTab === "factory"){
     const bn = bottleneckInfo();
+    h += mgmtSummaryHTML();   /* 経営サマリ（03 パターンA）: タブ最上段に型で固定 */
     h += "<h3>🏭 開発工場</h3>";
     /* 拡張ウェーブ G: 会社の経営状態（負債とブランド）。数値は大きく、説明は短く */
     {
