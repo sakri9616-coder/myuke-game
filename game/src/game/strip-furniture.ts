@@ -18,7 +18,7 @@ function rackStageName(){
    旧棚 prop_shelf (40×28) を ×2 接地: 板の内側は 上段 yb=G-30 / 下段 yb=G-10、
    横は棚中心から 4 枠ずつ。スプライトが無い場合は手続き棚 (76×52) の 2 段×5 枠 */
 function stripShelfSlots(){
-  const scx = stripShelfCX(), G = STRIP_GROUND;
+  const scx = stripShelfCX(), G = stripTierG("back");   /* 棚は背景段: 板の位置は棚の基線からの相対 */
   const slots = [];
   if(rackStageName()){
     for(const yb of [G - 69, G - 48, G - 27, G - 6]){
@@ -62,10 +62,10 @@ function drawStripStarOnShelf(scx, topY){
 /* 作品棚（ゾーン B, §c.2）: 柵セグメント（背面物）＋棚本体＋作品ボックス。
    「成果は左」という読み順を作るランドマーク（帯で唯一 90 単位級まで高い家具） */
 function drawStripShelf(){
-  const G = STRIP_GROUND, scx = stripShelfCX();
+  const G = stripTierG("back"), scx = stripShelfCX();   /* 背景段の基線（§3.1） */
   const tier = officeTier(S);
   const rackName = rackStageName();
-  sRug(scx, rackName ? 176 : 100);
+  sRug(scx, rackName ? 176 : 100, G);
   /* 背面の柵セグメント（高さ 24・幅 100 = R9 の許容背面物の上限）。
      tier>=2 では撤去する (オフィス化で最もテーマ外だった要素。
      OFFICE_ART_DIRECTION の DROP リスト)。新ラックは背面まで覆うので常に出さない */
@@ -133,8 +133,8 @@ function drawStripShelf(){
 /* 研究ステーション（ゾーン C, §c.3）: 研究員が雇われた時だけ現れる小型机。
    本の山＋開いた本＋植木鉢。不在ならゾーンは空白（密度予算の自然な増減） */
 function drawStripResearchStation(){
-  const G = STRIP_GROUND, rcx = stripResearchCX();
-  sRug(rcx, 84);
+  const G = stripTierG("mid"), rcx = stripResearchCX();   /* 研究机は中景段（§3.1） */
+  sRug(rcx, 84, G);
   sShadow(rcx, G - 0.5, 62);
   /* 机・本の山・開いた本 (prop_research_desk)。研究ポイントで終わらせられる研究があれば
      開いた本が光る絵 (prop_research_desk_on) とゆっくり交互に出す */

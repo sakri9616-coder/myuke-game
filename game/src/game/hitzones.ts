@@ -143,87 +143,15 @@ if(stripCv){
     }
     /* 在庫バグ (常に帯を這う) も手で潰せる */
     if(stripStockBugClick(ux, uy)){ headerAfterStripClick(); return; }
-    /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）。持ち場の手助けは家具の後で判定する */
-    if((stripHitRects.piles || []).some(pr => pr.cone && ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h)){
-      openBottleneckFixPanel(); return;
-    }
-    /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
-    if(stripHitRects.shelf){
-      const sr = stripHitRects.shelf;
-      if(ux >= sr.x && ux <= sr.x + sr.w && uy >= sr.y && uy <= sr.y + sr.h){
-        openShelfPanel();
-        return;
-      }
-    }
-    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12)。
-       ボードの中に貼ったメモ付箋は、ボードより先にメモの行き先を開く */
-    const mr = stripHitRects.memo;
-    if(mr && ux >= mr.x && ux <= mr.x + mr.w && uy >= mr.y && uy <= mr.y + mr.h){
-      openTabPanel(stripMemoTab());
-      return;
-    }
-    for(const bkey of ["board", "board2"]){
-      const br = stripHitRects[bkey];
-      if(br && ux >= br.x && ux <= br.x + br.w && uy >= br.y && uy <= br.y + br.h){
-        openProjPanel();
-        return;
-      }
-    }
-    /* 2026-10-25: おやつ箱のクリックで おやつ (旧メニューのボタンから移設) */
-    if(stripHitRects.snack){
-      const nr = stripHitRects.snack;
-      if(ux >= nr.x && ux <= nr.x + nr.w && uy >= nr.y && uy <= nr.y + nr.h){
-        giveSnack();
-        return;
-      }
-    }
+    /* クリック優先は段順（§3.5、sakuri 裁定 2026-11-10）: 浮遊イベント
+       （魚・バグ、この直前で判定済み）→ おねだり吹き出し → 前景（みゅけ本人）
+       → 中景（コーン・おやつ・ゲージ・持ち場・机まわりの家具・イーゼル）
+       → 背景（棚・メモ・ボード・別館看板・ラック）。段内の順序は従来の
+       個別優先をそのまま残してある */
     /* v2.21.0: おねだり「おやつ」の吹き出しを押してもおやつをあげられる */
     if(stripHitRects.want && wantIs("snack")){
       const wr = stripHitRects.want;
       if(ux >= wr.x && ux <= wr.x + wr.w && uy >= wr.y && uy <= wr.y + wr.h){ giveSnack(); return; }
-    }
-    /* F: オーバークロック・ゲージのクリックで発動（家具タブ導線より先に判定） */
-    if(stripHitRects.fever){
-      const fr = stripHitRects.fever;
-      if(ux >= fr.x && ux <= fr.x + fr.w && uy >= fr.y && uy <= fr.y + fr.h){
-        activateFever();
-        return;
-      }
-    }
-    /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める。
-       みゅけ本人に重なるときは応援クリックを優先する。サーバーラック・研究机（タブへの導線）より先に判定する
-       （ラックはビルド室の中に立つ自動化の設備。ブースより上の部分は従来どおり工場タブを開く） */
-    /* 別館の看板 (子会社がある間だけ) → 子会社タブ。板はビルド室の手前に描かれるので持ち場より先 */
-    const ax = stripHitRects.annex;
-    if(ax && ux >= ax.x && ux <= ax.x + ax.w && uy >= ax.y && uy <= ax.y + ax.h){
-      openTabPanel("subs");
-      return;
-    }
-    const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
-    if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
-      const r = handworkClick(stHit.stage);
-      addStripSpark(ux, uy, r.crit);
-      if(r.crit && r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "会心! +" + fmtClickDP(v) + "DP 手作業");
-      else if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
-      else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
-      else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
-      headerAfterStripClick();
-      return;
-    }
-    /* Stage 3: 家具オブジェクト → 対応タブ (物から管理への導線を全タブに) */
-    for(const [rkey, tab] of [["memo", stripMemoTab()], ["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["rack", "factory"], ["trophy", "stats"], ["calendar", "stats"]]){
-      const rr = stripHitRects[rkey];
-      if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
-        if(FURNITURE_LINES[rkey]) say(FURNITURE_LINES[rkey]);   /* v2.26.1: 思い出の家具の一言 */
-        openTabPanel(tab);
-        return;
-      }
-    }
-    /* v2.26.1: イーゼル（最初の絵）はみゅけの一言だけ。みゅけ本人に重なる所は応援クリックを優先 */
-    const ez = stripHitRects.easel;
-    if(ez && ux >= ez.x && ux <= ez.x + ez.w && uy >= ez.y && uy <= ez.y + ez.h && Math.abs(ux - stripMiyukeX()) > 44){
-      say(FURNITURE_LINES.easel);
-      return;
     }
     /* 連打ツール対策: クリックごとの台詞は CLICK_SAY_GAP_MS に1回まで (台詞はメニューへの同期も伴う)。
        効果 (集中力・アイデア・ひっくり返り) はクリックごとに従来どおり */
@@ -249,22 +177,110 @@ if(stripCv){
         clickTimes = [];
         clickSay("もう！しっぽブンブンだにゃ。ちょっと落ち着いて…");
       }
-    } else {
-      clickTimes = [];
+      const crit = cheerClick(ux, uy, part);
+      wantProgress("cheer");   /* v2.21.0: おねだり「おうえん」はみゅけへのクリックで進む */
+      addStripSpark(ux, uy, crit);
+      /* 再設計 B8（ux-r3 §2.4）: 応援クリックの主返事は cheerClick 側の実効進捗ベース（行き先の内訳つき）に一本化。
+         ここで重ねていた表示用威力の +N と CRITICAL! の別フローターは廃止した（火花が会心の視覚経路） */
+      if(!crit){
+        if(part === "head"){ addConc(2); if(!wantProgress("pat")) clickSay("ん。…悪くないにゃ"); }
+        if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
+        if(part === "belly"){ clickSay("そこはダメにゃ！ひっくり返る…"); setState("react_annoy", 900); }
+        if(Math.random() < 0.15){ S.ideas += 1; addLog("なでられてひらめいた（アイデア+1）"); }
+      }
+      headerAfterStripClick();
+      return;
     }
-    const crit = cheerClick(ux, uy, part);
-    if(part) wantProgress("cheer");   /* v2.21.0: おねだり「おうえん」はみゅけへのクリックで進む */
-    addStripSpark(ux, uy, crit);
-    /* 再設計 B8（ux-r3 §2.4）: 応援クリックの主返事は cheerClick 側の実効進捗ベース（行き先の内訳つき）に一本化。
-       ここで重ねていた表示用威力の +N と CRITICAL! の別フローターは廃止した（火花が会心の視覚経路） */
-    if(part && !crit){
-      if(part === "head"){ addConc(2); if(!wantProgress("pat")) clickSay("ん。…悪くないにゃ"); }
-      if(part === "body"){ clickSay("カタカタの邪魔しないでにゃ〜（嬉しいけど）"); }
-      if(part === "belly"){ clickSay("そこはダメにゃ！ひっくり返る…"); setState("react_annoy", 900); }
-      if(Math.random() < 0.15){ S.ideas += 1; addLog("なでられてひらめいた（アイデア+1）"); }
-    } else if(!part && !crit && Math.random() < 0.3){
-      clickSay(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+    /* 可視生産: 詰まった山の三角コーンは対策パネル（設備・人で自動化）（中景段の先頭） */
+    if((stripHitRects.piles || []).some(pr => pr.cone && ux >= pr.x && ux <= pr.x + pr.w && uy >= pr.y && uy <= pr.y + pr.h)){
+      openBottleneckFixPanel(); return;
     }
+    /* 2026-10-25: おやつ箱のクリックで おやつ (旧メニューのボタンから移設) */
+    if(stripHitRects.snack){
+      const nr = stripHitRects.snack;
+      if(ux >= nr.x && ux <= nr.x + nr.w && uy >= nr.y && uy <= nr.y + nr.h){
+        giveSnack();
+        return;
+      }
+    }
+    /* F: オーバークロック・ゲージのクリックで発動（家具タブ導線より先に判定） */
+    if(stripHitRects.fever){
+      const fr = stripHitRects.fever;
+      if(ux >= fr.x && ux <= fr.x + fr.w && uy >= fr.y && uy <= fr.y + fr.h){
+        activateFever();
+        return;
+      }
+    }
+    /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める。
+       みゅけ本人に重なるときは応援クリックを優先する。サーバーラック・研究机（タブへの導線）より先に判定する
+       （ラックはビルド室の中に立つ自動化の設備。ブースより上の部分は従来どおり工場タブを開く） */
+    /* Stage 3: 家具オブジェクト → 対応タブ (物から管理への導線を全タブに) */
+    for(const [rkey, tab] of [["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["trophy", "stats"], ["calendar", "stats"]]){
+      const rr = stripHitRects[rkey];
+      if(rr && ux >= rr.x && ux <= rr.x + rr.w && uy >= rr.y && uy <= rr.y + rr.h){
+        if(FURNITURE_LINES[rkey]) say(FURNITURE_LINES[rkey]);   /* v2.26.1: 思い出の家具の一言 */
+        openTabPanel(tab);
+        return;
+      }
+    }
+    /* v2.26.1: イーゼル（最初の絵）はみゅけの一言だけ。みゅけ本人に重なる所は応援クリックを優先 */
+    const ez = stripHitRects.easel;
+    if(ez && ux >= ez.x && ux <= ez.x + ez.w && uy >= ez.y && uy <= ez.y + ez.h && Math.abs(ux - stripMiyukeX()) > 44){
+      say(FURNITURE_LINES.easel);
+      return;
+    }
+    /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
+    if(stripHitRects.shelf){
+      const sr = stripHitRects.shelf;
+      if(ux >= sr.x && ux <= sr.x + sr.w && uy >= sr.y && uy <= sr.y + sr.h){
+        openShelfPanel();
+        return;
+      }
+    }
+    /* プロジェクトボードのクリックでプロジェクトパネルを開く (R12)。
+       ボードの中に貼ったメモ付箋は、ボードより先にメモの行き先を開く */
+    const mr = stripHitRects.memo;
+    if(mr && ux >= mr.x && ux <= mr.x + mr.w && uy >= mr.y && uy <= mr.y + mr.h){
+      openTabPanel(stripMemoTab());
+      return;
+    }
+    for(const bkey of ["board", "board2"]){
+      const br = stripHitRects[bkey];
+      if(br && ux >= br.x && ux <= br.x + br.w && uy >= br.y && uy <= br.y + br.h){
+        openProjPanel();
+        return;
+      }
+    }
+    /* 別館の看板 (子会社がある間だけ) → 子会社タブ（背景段: 持ち場・机まわりより後） */
+    const ax = stripHitRects.annex;
+    if(ax && ux >= ax.x && ux <= ax.x + ax.w && uy >= ax.y && uy <= ax.y + ax.h){
+      openTabPanel("subs");
+      return;
+    }
+    const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
+    if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
+      const r = handworkClick(stHit.stage);
+      addStripSpark(ux, uy, r.crit);
+      if(r.crit && r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "会心! +" + fmtClickDP(v) + "DP 手作業");
+      else if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+      else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
+      else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
+      headerAfterStripClick();
+      return;
+    }
+    /* サーバーラック → 工場タブ（背景段の最後。ラックはビルド室の中に立つ
+       自動化の設備なので、ブースと重なる部分は持ち場（中景）が取る） */
+    const rk = stripHitRects.rack;
+    if(rk && ux >= rk.x && ux <= rk.x + rk.w && uy >= rk.y && uy <= rk.y + rk.h){
+      if(FURNITURE_LINES.rack) say(FURNITURE_LINES.rack);
+      openTabPanel("factory");
+      return;
+    }
+    /* どこにも当たらなければ応援クリック（従来の受け皿） */
+    clickTimes = [];
+    const critF = cheerClick(ux, uy, null);
+    addStripSpark(ux, uy, critF);
+    if(!critF && Math.random() < 0.3) clickSay(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
     headerAfterStripClick();
   });
   /* v2.4.6: ホバー位置 (論理座標) を記録する。アクションのある家具の黄色枠に使う */

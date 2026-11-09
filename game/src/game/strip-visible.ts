@@ -63,7 +63,7 @@ function stationSignalXs(){
    判定は工場タブの信号機図と同じ stageStatus の lamp */
 function drawStripStationSignals(){
   if(!hasSprite("prop_signal_green")) return;
-  const G = STRIP_GROUND, xs = stationSignalXs();
+  const G = stripTierG("mid"), xs = stationSignalXs();   /* 信号柱は持ち場（中景段）に立つ */
   for(const st of stageStatus()){
     const x = xs[st.id];
     if(typeof x !== "number") continue;
@@ -86,7 +86,7 @@ function backlogSpriteName(){
 /* 主机まわりのアップグレード (サブモニタ・キーボード)。家具層で、みゅけより背面。
    サブモニタは code ポーズ内のモニタ (cx-40〜cx) の左に並んでデュアル構成に見える */
 function drawStripDeskUpgrades(cx){
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* 机クラスタ（中景段） */
   const mon = upgradeVisSprite("monitor");
   if(mon) sDrawSprite(mon, cx - 54, G, 1);
   const kb = upgradeVisSprite("keyboard");
@@ -96,7 +96,7 @@ function drawStripDeskUpgrades(cx){
 function backlogX(){ return propPlace("plan").cx; }
 function drawStripBacklog(){
   const bl = backlogSpriteName();
-  if(bl) sDrawSprite(bl, backlogX(), STRIP_GROUND, 1);
+  if(bl) sDrawSprite(bl, backlogX(), stripTierG("mid"), 1);   /* 企画の持ち場（中景段） */
 }
 /* モニタ画面の中身 (高機能IDE の段)。prop_pc の画面 (1x) か、みゅけの code ポーズ内の
    モニタ (2x) に貼る。進捗バーはこの上に重なる */
@@ -107,7 +107,7 @@ function drawStripIdeScreen(gx, gy, scale){
 /* 工程ステーションの機械: 自動テスト機 (QA トレイの背後)・梱包機 (ビルド台の背後)・
    企画の付箋ボード。CI (小型サーバ → ラック → ラック2台) は drawStripServerRack が描く */
 function drawStripLineUpgrades(){
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* 工程の機械は持ち場（中景段）の設備 */
   const at = upgradeVisSprite("tester");
   if(at) sDrawSprite(at, stripQAX(), G, 1);      /* トレイと仕掛品の山はこの手前に積まれる */
   const pk = upgradeVisSprite("pack");
@@ -147,7 +147,7 @@ function updateStripBots(dt){
 }
 function stripBotOutDir(){ return stripShipX() >= stripBuildX() ? 1 : -1; }
 function drawStripBots(){
-  const G = STRIP_GROUND, sd = stripBotOutDir();
+  const G = stripTierG("mid"), sd = stripBotOutDir();   /* ボットは中景キャラ（§3.1） */
   for(const b of stripBots){
     let nm;
     if(b.pause > 0) nm = b.dir !== sd ? "bot_carry" : "bot_idle";

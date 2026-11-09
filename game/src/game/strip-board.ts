@@ -129,7 +129,9 @@ function projectBoardModel(p, dp){
   return { has: true, frac, pct: Math.floor(frac * 100), ticks, planning: false };
 }
 function drawStripProjectBoard(bcx, bw, p, dp, key, small){
-  const G = STRIP_GROUND, top = STRIP_BOARD.top;
+  /* ボードは背景段（§3.1）: 面の位置 (STRIP_BOARD.top) は従来のまま、
+     支柱の足と接地影だけが背景基線に着く */
+  const G = stripTierG("back"), top = STRIP_BOARD.top;
   const bh = small ? STRIP_BOARD.h : STRIP_BOARD.hMain;
   const bx = Math.round(bcx - bw / 2);
   const m = projectBoardModel(p, dp);

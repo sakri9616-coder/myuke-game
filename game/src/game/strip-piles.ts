@@ -34,10 +34,10 @@ function pileSlotPos(cx, idx, boxKind){
        接地と段ピッチを可視部基準に補正 (旧 16×16 前提のピッチでは箱が浮いて見える) */
     /* 2026-10-26: prop_ship が 48×48 (Codex 描き直し) になり台の天面が G-16 へ
        上がったため、スタック全体を 12 上へ (旧 +3.2 → -8.8) */
-    if(idx === 4) return { x: cx, yb: STRIP_GROUND - 8.8 - 2 * 9.2 };   /* 5個目は天辺中央 */
-    return { x: cx + (col === 0 ? -6.8 : 6.8), yb: STRIP_GROUND - 8.8 - row * 9.2 };
+    if(idx === 4) return { x: cx, yb: stripTierG("mid") - 8.8 - 2 * 9.2 };   /* 5個目は天辺中央 */
+    return { x: cx + (col === 0 ? -6.8 : 6.8), yb: stripTierG("mid") - 8.8 - row * 9.2 };
   }
-  return { x: cx + (col === 0 ? -5.9 : 5.9), yb: STRIP_GROUND - 3.5 - row * 7.6 };
+  return { x: cx + (col === 0 ? -5.9 : 5.9), yb: stripTierG("mid") - 3.5 - row * 7.6 };   /* 山は持ち場（中景段）基準 */
 }
 /* 工程の持ち場（2026-10-27、sakuri の訂正で v2.12.1 の「詰まった山を押す」から作り直し）。
    企画＝会議室・テスト＝テスト室・ビルド＝ビルド室・出荷＝出荷場のブース（prop_station_*、背景の仕切り壁と道具）を
@@ -62,7 +62,7 @@ function stationNeedsHelp(m, stage){
 }
 /* ブース本体（家具層のいちばん奥）。絵が無ければ描かない */
 function drawStripStationBooths(){
-  const G = STRIP_GROUND;
+  const G = stripTierG("back");   /* ブースは背景段（§3.1） */
   for(const st of HANDWORK_STAGES){
     const nm = "prop_station_" + st;
     if(hasSprite(nm)) sDrawSprite(nm, stationCX(st), G, 1);
@@ -70,7 +70,7 @@ function drawStripStationBooths(){
 }
 /* 手作業の絵・押せる合図・当たり判定（山と信号柱を描いた後） */
 function drawStripStationHelp(m){
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* 手助けの合図と判定は持ち場（中景段） */
   for(const st of HANDWORK_STAGES){
     const cx = stationCX(st), box = STATION_BOX[st];
     const topY = st === "plan" ? G - 30 : Math.min(G - 8, pileTopY(STATION_PILE[st]) - 1);
@@ -82,7 +82,7 @@ function drawStripStationHelp(m){
   }
 }
 function drawStripPiles(){
-  const G = STRIP_GROUND, m = pileModel();
+  const G = stripTierG("mid"), m = pileModel();   /* 台・山・コーンは持ち場（中景段）。別館看板だけ背景段 (GB) */
   /* --- B: QA トレイ (机と研究机の間) --- */
   const bx = stripQAX();
   /* 2026-10-27: トレイ・台・カードは絵。詰まりは赤線ではなく信号柱 (strip-visible.ts) と
@@ -113,17 +113,18 @@ function drawStripPiles(){
   /* Phase D: 子会社がある間だけ、出荷スポットの隣に別館の看板が立つ。
      第2ウェーブ J: オフィスグレード II 以上では金の本社看板に差し替わる */
   if(S.subs && S.subs.length){
-    /* 看板の板の部分だけ (ビルド室の上に重なって描かれるので、板を押したら持ち場より看板を優先) → 子会社タブ */
-    stripHitRects.annex = { x: dx - 59, y: G - 44, w: 34, h: 22 };
+    const GB = stripTierG("back");   /* 看板は背景段の「気配」（§4.3）。出荷場（中景）とは段が違う */
+    /* 看板の板の部分だけ → 子会社タブ */
+    stripHitRects.annex = { x: dx - 59, y: GB - 44, w: 34, h: 22 };
     /* 再設計 B11: 看板は子会社の段階（総勢ラッチ）で育つ。旧 legacyGrade >= 2 の金の切り替えは廃止した。
        A1（2026-11-02 みゅー作画）: 段階ごとの専用絵が揃った — 段階2=屋根と明かりの木の看板／
        段階3=銀の看板／段階4=持ち上げた金の看板。絵が無い段階は旧来の拡縮で読ませる。
        段階4だけが金の縁（金の看板に二つの意味を持たせない） */
     const ast = annexStage();
     const signNm = ast >= 4 ? "prop_annex_sign_4" : ast === 3 ? "prop_annex_sign_3" : ast === 2 ? "prop_annex_sign_2" : "prop_annex_sign";
-    if(hasSprite(signNm)) sDrawSprite(signNm, dx - 42, G, 1);
-    else if(ast >= 4 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, G, 1);
-    else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, G, ast >= 3 ? 1.3 : ast >= 2 ? 1.15 : 1);
+    if(hasSprite(signNm)) sDrawSprite(signNm, dx - 42, GB, 1);
+    else if(ast >= 4 && hasSprite("prop_sign_gold")) sDrawSprite("prop_sign_gold", dx - 42, GB, 1);
+    else if(hasSprite("prop_annex_sign")) sDrawSprite("prop_annex_sign", dx - 42, GB, ast >= 3 ? 1.3 : ast >= 2 ? 1.15 : 1);
     /* A5: 看板に掛ける「いまの顔」の札（伸縮キット: 左端 + 4px 単位 + 右端）。
        作品名の文字は表示側が板の上に書く（designer-r3 §3.2） */
     if(hasSprite("a5_tag_l") && hasSprite("a5_tag_m") && hasSprite("a5_tag_r")){
@@ -132,7 +133,7 @@ function drawStripPiles(){
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       const tw = Math.ceil(sctx.measureText(face).width);
       const units = Math.max(1, Math.ceil((tw + 8 - 20) / 4));
-      const tagW = 20 + units * 4, tagCx = dx - 42, tagB = G - 2;
+      const tagW = 20 + units * 4, tagCx = dx - 42, tagB = GB - 2;
       sDrawSprite("a5_tag_l", tagCx - tagW / 2 + 5, tagB, 1);
       for(let u = 0; u < units; u++) sDrawSprite("a5_tag_m", tagCx - tagW / 2 + 12 + u * 4, tagB, 1);
       sDrawSprite("a5_tag_r", tagCx + tagW / 2 - 5, tagB, 1);
@@ -146,28 +147,28 @@ function drawStripPiles(){
       const lit = Date.now() < annexArriveFlashUntil;
       sctx.save();
       sctx.globalAlpha = lit ? 1 : 0.55;
-      sDrawSprite("a4_dividend_light", dx - 42, G, 1);
+      sDrawSprite("a4_dividend_light", dx - 42, GB, 1);
       sctx.restore();
       if(lit && !motionReduced()){
         const el = 1200 - Math.max(0, annexArriveFlashUntil - Date.now());
         const fr = fxFrameAt([70, 70, 120, 70, 90], el % 420);
         if(fr >= 0){
-          sDrawSprite("fx_sparkle_" + fr, dx - 42, G - 42, 1);
-          sDrawSprite("fx_sparkle_" + ((fr + 2) % 5), dx - 56, G - 22, 1);
-          sDrawSprite("fx_sparkle_" + ((fr + 3) % 5), dx - 28, G - 22, 1);
+          sDrawSprite("fx_sparkle_" + fr, dx - 42, GB - 42, 1);
+          sDrawSprite("fx_sparkle_" + ((fr + 2) % 5), dx - 56, GB - 22, 1);
+          sDrawSprite("fx_sparkle_" + ((fr + 3) % 5), dx - 28, GB - 22, 1);
         }
       }
     } else {
       const lit = Date.now() < annexArriveFlashUntil;
       sctx.save();
       sctx.fillStyle = lit ? "rgba(255, 205, 74, 0.9)" : "rgba(255, 205, 74, 0.45)";
-      sctx.beginPath(); sctx.arc(dx - 42 + 17, G - 46, lit ? 4.2 : 2.6, 0, Math.PI * 2); sctx.fill();
+      sctx.beginPath(); sctx.arc(dx - 42 + 17, GB - 46, lit ? 4.2 : 2.6, 0, Math.PI * 2); sctx.fill();
       sctx.restore();
     }
     /* 段階が上がった瞬間は fx_sparkle_burst が看板の上で弾ける */
     if(annexStageFxAt && Date.now() - annexStageFxAt < 420 && !motionReduced() && hasSprite("fx_sparkle_burst_0")){
       const fr = fxFrameAt([60, 60, 110, 80, 110], Date.now() - annexStageFxAt);
-      if(fr >= 0) sDrawSprite("fx_sparkle_burst_" + fr, dx - 42, G - 30, 1.4);
+      if(fr >= 0) sDrawSprite("fx_sparkle_burst_" + fr, dx - 42, GB - 30, 1.4);
     }
   }
   if(jam.build) sDrawSprite("prop_jam_cone", dx - 32, G, 1);
@@ -188,7 +189,7 @@ function drawStripPiles(){
 }
 /* 移動中の物 (描画層④: 家具より手前・キャラより後ろ) */
 function drawStripFlowItems(){
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* 滑り出る箱は出荷場（中景段）の地面を滑る */
   for(const it of stripFlow){
     if(it.age < 0) continue;
     const t = Math.min(1, it.age / it.dur);
@@ -233,7 +234,7 @@ function openBottleneckFixPanel(){
    その手前に描かれるため「ラックの足元に仕掛品が積まれる」自然な奥行きになる。
    装飾のみ: ヒット矩形は持たない (クリック透過を維持) */
 function drawStripServerRack(){
-  const G = STRIP_GROUND, rx = stripRackCX();
+  const G = stripTierG("back"), rx = stripRackCX();   /* サーバーラックは背景段（§3.1） */
   /* 2026-10-27: CI の段で 小型サーバ → ラック → ラック2台 (strip-visible.ts) */
   if(ciSmallServer()){
     sDrawSprite("prop_ci_1", rx, G, 1);
@@ -253,7 +254,7 @@ function drawStripServerRack(){
 
 /* イーゼル看板（ゾーン E 0.20W, §c.5）: 旧ポスター（prop_wall_1）の家具化。高さ 26 単位級 */
 function drawStripEasel(){
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* イーゼルは中景段の立て看板 */
   /* カレンダーとの衝突回避込みの実描画位置 (stripEaselDrawX に集約) */
   const ex = stripEaselDrawX();
   stripHitRects.easel = { x: ex - 14, y: G - 34, w: 28, h: 34 };   /* v2.26.1: 思い出の家具（クリックでみゅけの一言） */
@@ -270,7 +271,7 @@ function drawStripEasel(){
 }
 /* トロフィー台（ゾーン E 0.93W・2026-10-27 に出荷場の右へ, §c.5）: 旧表彰プレート（prop_wall_3）の家具化。高さ 30 単位級 */
 function drawStripTrophy(){
-  const G = STRIP_GROUND, tx = stripTrophyCX();
+  const G = stripTierG("mid"), tx = stripTrophyCX();   /* トロフィー台は中景段（§3.1） */
   sShadow(tx, G - 0.5, 22);
   sDrawSprite("prop_trophy_stand", tx, G, 1);
   sDrawSprite("prop_wall_3", tx, G - 10, 0.8);
@@ -316,7 +317,13 @@ function renderStrip(){
   sctx.clearRect(0, 0, stripCv.width, stripCv.height);
   sctx.setTransform(stripScale, 0, 0, stripScale, 0, 0);
   const G = STRIP_GROUND, cx = stripDeskCX();
-  stripHitRects.desk = { x: cx - 62, y: G - 31, w: 124, h: 35 };  /* 机板＋PC */
+  /* 段基線（§3.1）: GM = 中景（机クラスタ・持ち場・スタッフ等の生活面）、
+     GB = 背景（ブース・棚・ボード・ラック）。G は前景 = みゅけ専有 */
+  const GM = stripTierG("mid"), GB = stripTierG("back");
+  /* 座位は段ではなく家具に従属する（§3.3）: みゅけの座面は机（中景）の
+     基線 +3。数値としては従来の G-2 と同じ位置に落ちる */
+  const seatY = GM + 3;
+  stripHitRects.desk = { x: cx - 62, y: GM - 31, w: 124, h: 35 };  /* 机板＋PC */
   const coding = catState === "code" || catState === "code_slow";
   const atDesk = stripAtDesk();
   /* --- 家具レイヤー (R3 の固定順: ラグ・影 → 背面物 → 家具本体) ---
@@ -331,16 +338,16 @@ function renderStrip(){
   /* --- デスクゾーン（常設のワークステーション） --- */
   /* §c.1: 机クラスタのラグ 150×4。tier>=1 では疲労軽減マット (prop_mat) に
      差し替わる (アンカー (cx, G+3) で従来のラグ矩形と同フットプリント) */
-  if(!(officeTier(S) >= 1 && sDrawSprite("prop_mat", cx, G + 3, 1))) sRug(cx, 150);
-  sShadow(cx, G - 0.5, 122);
+  if(!(officeTier(S) >= 1 && sDrawSprite("prop_mat", cx, GM + 3, 1))) sRug(cx, 150, GM);
+  sShadow(cx, GM - 0.5, 122);
   drawStripProjectBoardMain();                      /* 机の背後のプロジェクトボード (支柱は机より背面) */
   /* tier>=1: オフィスチェアを みゅけ の背後 (家具層) に置く。猫と PC は
      この後に描くので常に椅子より手前 */
   /* 2026-10-27: 椅子は「ふかふか椅子」の Lv で段が変わる (strip-visible.ts) */
   const chairNm = chairSpriteName();
-  if(chairNm) sDrawSprite(chairNm, cx + 12, G, 2);
+  if(chairNm) sDrawSprite(chairNm, cx + 12, GM, 2);
   /* 主机の天板: tier>=1 ではラミネート (desk_laminate_main 116×3) */
-  sDrawSprite(officeTier(S) >= 1 ? "desk_laminate_main" : "desk_wood_main", cx, G, 1);
+  sDrawSprite(officeTier(S) >= 1 ? "desk_laminate_main" : "desk_wood_main", cx, GM, 1);
   drawStripDeskUpgrades(cx);   /* サブモニタ・キーボード・企画の付箋ボード (アップグレードの段) */
   /* PC はコーディング中も含め常時表示（みゅけより後ろのレイヤー）。
      ただし sakuri作画 code アニメのフレームが解決できる間は、ポーズ内のモニタが
@@ -349,10 +356,10 @@ function renderStrip(){
   const codeFrame = (coding && atDesk) ? catSprite("miyuke_code_a") : null;
   const sakuriCoding = !!codeFrame && codeFrame !== "miyuke_code_a" && hasSprite(codeFrame);
   if(!sakuriCoding){
-    drawStripPC(cx - 34, G - 2);
-    drawStripPCScreen(cx - 34, G - 2);   /* Sprint 4: モニタ内に実プロジェクトの進捗 */
+    drawStripPC(cx - 34, GM - 2);   /* PC は机（中景段）の天板まわり。机基線からの相対は従来どおり -2 */
+    drawStripPCScreen(cx - 34, GM - 2);   /* Sprint 4: モニタ内に実プロジェクトの進捗 */
   } else {
-    drawStripCodeScreen(cx, G);   /* バッチ2: ポーズ内モニタへ進捗表示 */
+    drawStripCodeScreen(cx, seatY + 2);   /* バッチ2: ポーズ内モニタへ進捗表示（座位の猫に従属） */
   }
   /* 机上コーヒー（仕事場クラスタの仕上げ §c.1）と卓上カレンダー（§c.5:
      旧カレンダーはクラスタ内小物として机の脇に。高さ約14単位・独立ゾーンなし）
@@ -436,9 +443,9 @@ function renderStrip(){
      A10（2026-11-02 みゅー作画）: ドームランプの絵が担う。数えている間だけ
      暖かく灯る（色は入力中であることの結論）。絵が無い間は UI の点で示す */
   {
-    const dcx = stripDeskCX() - 58, dcy = G - 36;
+    const dcx = stripDeskCX() - 58, dcy = GM - 36;
     if(hasSprite("a10_marker_lit") && hasSprite("a10_marker_unlit")){
-      sDrawSprite(osCountingActive() ? "a10_marker_lit" : "a10_marker_unlit", dcx, G - 30, 0.8);
+      sDrawSprite(osCountingActive() ? "a10_marker_lit" : "a10_marker_unlit", dcx, GM - 30, 0.8);
     } else {
       sctx.save();
       sctx.fillStyle = "#5a4a38";
@@ -463,7 +470,7 @@ function renderStrip(){
     const spots = [stripDeskCX() - 128, stripDeskCX() + 122, stripDeskCX() - 148];
     for(let i = 0; i < stacks; i++){
       const px = spots[i];
-      sDrawSprite("prop_debt_pile_" + (stacks - i), px, G, 1);   /* 2026-10-27: 帯域ごとの山の絵 (3 は箱も倒れている) */
+      sDrawSprite("prop_debt_pile_" + (stacks - i), px, GM, 1);   /* 2026-10-27: 帯域ごとの山の絵 (3 は箱も倒れている)。机まわり（中景段）の散らかり */
     }
   }
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
@@ -474,6 +481,126 @@ function renderStrip(){
   drawStripFlowItems();
   updateStripBots(dt);
   drawStripBots();             /* 子ねこボット (Lv の台数だけ運搬) */
+  /* --- キャラ層（§3.2/§5-2）: 中景キャラ（ボット・スタッフ・役員・訪問/配達・
+     アヒル）を先に描き、前景のみゅけをキャラ層の最後に描く。スタッフが
+     みゅけの前面を横切ることは構造的に起きない --- */
+  /* --- スタッフのウォーカー ---
+     バッチ6: 毛柄ごとに ANIMS (sakuri作画 48×40) があればアニメ経路、
+     無ければ従来の静止画 (32×24) 経路。歩行フレームは移動距離で進む
+     walkClock、座りは sitStart からの実時間で選ぶ。sakuri作画の歩行は
+     左向き原画なので右行 (dir>0) で反転する (miyuke_walk と同規約) */
+  for(const st of S.staff){
+    const wk = stripWalkers[st.id];
+    if(!wk) continue;
+    const base = "staff_" + st.coat + (wk.backing ? "_back" : wk.sitting ? "_sit" : "_walk");
+    const sa = ANIMS[base];
+    const useAnim = !!(sa && sa.frames.some(f => hasSprite(f)));
+    let nm = base, ssc = SPRITE_SCALES.strip.staff, flip = wk.dir < 0 && !wk.sitting;
+    if(useAnim){
+      ssc = SPRITE_SCALES.strip.staff48;
+      nm = wk.backing ? animFrameAt(base, stripNow - (wk.backStart || stripNow))
+           : wk.sitting ? animFrameAt(base, stripNow - (wk.sitStart || stripNow))
+                      : animFrameAt(base, wk.walkClock || 0);
+      flip = !wk.sitting && wk.dir > 0;
+    }
+    ssc = stripArtScale(ssc);   /* 実際に描かれる大きさ (ドット倍率を整数に丸めた後) で影と当たり判定を作る */
+    const ssz0 = spriteSize(nm);
+    sShadow(wk.x, GM - 0.5, ssz0 ? ssz0[0] * ssc * 0.7 : 30);
+    const bob = useAnim ? 0 : (wk.sitting ? 0 : (frame % 2 ? 0 : -0.8));
+    const drawn = sDrawSprite(nm, wk.x, GM + bob, ssc, flip);
+    const ssz = drawn ? (spriteSize(nm) || [32, 24]) : null;
+    let srect = ssz
+      ? { x: wk.x - ssz[0] * ssc / 2, y: (GM + bob) - ssz[1] * ssc, w: ssz[0] * ssc, h: ssz[1] * ssc }
+      : { x: wk.x - 17, y: GM - 30, w: 34, h: 30 };
+    if(wk.carrying){ const t2 = Math.min(srect.y, GM - (ssz ? ssz[1] * ssc + 11 : 43)); srect.h += srect.y - t2; srect.y = t2; }
+    stripHitRects.staff.push(srect);
+    stripStaffArt.push(drawn ? { name: nm, gx: wk.x, gy: GM + bob, s: ssc, flip } : null);
+    if(deptChief(st.role) === st){
+      /* Phase C: 部長バッジ（その部署で一番 Lv の高いスタッフに自動で付く） */
+      sctx.save();
+      sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      /* 描画の軽量化: x はデバイス画素に揃える (猫の絵と同じ丸め。ずれは 0.5px 未満)。
+         端数のままだと歩くたびに毎フレーム描き直しになっていた */
+      sctx.fillText("⭐", Math.round(wk.x * stripScale) / stripScale, srect.y - 4);
+      sctx.restore();
+    }
+    if(wk.carrying){
+      const bw = ssz ? ssz[0] * ssc : 32 * SPRITE_SCALES.strip.staff;
+      const bh = ssz ? ssz[1] * ssc : 24 * SPRITE_SCALES.strip.staff;
+      if(wk.carryKind === "memo"){
+        /* Phase C: 依頼メモは白いカード＋赤帯で（荷物箱と見分ける） */
+        sDrawSprite("icon_memo", wk.x + bw * 0.26 * wk.dir, GM - bh * 0.8 + 1, 1);
+      } else {
+        sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, GM - bh * 0.8, 1);
+      }
+      /* A11（ux-r3 §2.4）: 運搬が始まった瞬間だけ、担当猫の頭上に荷物の印が
+         少し浮かぶ（行き先が運搬に流れたことの景色側の合図） */
+      if(wk.parcelFxAt && Date.now() - wk.parcelFxAt < 1400 && hasSprite("a11_parcel")){
+        const pbob = Math.sin((Date.now() - wk.parcelFxAt) / 110) * 1.3;
+        sDrawSprite("a11_parcel", wk.x, srect.y - 9 + pbob, 0.8);
+      }
+    }
+    /* Sprint 3: 雑談の吹き出し（話している1匹の頭上だけ） */
+    if(stripChat && stripChat.whoId === st.id && now < stripChat.until)
+      drawStripChatBubble(wk.x, srect.y - 2, stripChat.text);
+  }
+  /* --- 第2ウェーブ M: 役員猫（デスクの脇に座る常駐メンバー） ---
+     生産はせず、頭数にも数えない。🎗 は部長の ⭐ と並ぶ頭上バッジ */
+  (S.executives || []).slice(0, 3).forEach((ex, i) => {
+    const exX = stripDeskCX() - 96 - i * 32;
+    const base = "staff_" + ex.coat + "_sit";
+    const sa = ANIMS[base];
+    let nm = base, esc = SPRITE_SCALES.strip.staff;
+    if(sa && sa.frames.some(f => hasSprite(f))){ nm = animFrameAt(base, stripNow - i * 700); esc = SPRITE_SCALES.strip.staff48; }
+    sShadow(exX, GM - 0.5, 34);
+    sDrawSprite(nm, exX, GM, esc);
+    const esz = spriteSize(nm);
+    sctx.save();
+    sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+    sctx.fillText("🎗", exX, GM - (esz ? esz[1] * esc : 30) - 4);
+    sctx.restore();
+  });
+  /* --- Sprint 3: 訪問猫（雇っていない毛柄が横切るだけ・干渉なし） ---
+     バッチ6: その毛柄に ANIMS があれば歩行アニメで横切る */
+  if(stripVisitor){
+    const v = stripVisitor;
+    const vbase = "staff_" + v.coat + "_walk";
+    const va = ANIMS[vbase];
+    if(va && va.frames.some(f => hasSprite(f))){
+      sDrawStripWalker(v, GM);
+    } else {
+      sShadow(v.x, GM - 0.5, 30);
+      const vbob = frame % 2 ? 0 : -0.8;
+      sDrawSprite(vbase, v.x, GM + vbob, SPRITE_SCALES.strip.staff, v.dir < 0);
+    }
+  }
+  /* --- Phase D: 子会社の配達猫（荷物を持って本社へ） --- */
+  if(stripDelivery){
+    const v = stripDelivery;
+    sDrawStripWalker(v, GM);
+    sDrawStripWalkerBox(v, GM);   /* 箱は描画実寸 bh 基準（固定 G-46 は廃止） */
+  }
+  if(stripModCart){
+    const v = stripModCart;
+    sDrawStripWalker(v, GM);
+    sDrawStripWalkerBox(v, GM);   /* 箱は描画実寸 bh 基準（固定 G-46 は廃止） */
+  }
+  /* --- QAアヒル（デスク脇に常駐。中景キャラ） --- */
+  if((S.upgrades.duck || 0) > 0){
+    const dx = cx + 76;
+    sShadow(dx, GM - 0.5, 24);
+    const dnm = duckSprite();   /* Sprint 4: ANIMS の2フレーム再生 */
+    const dgy = GM - (frame % 6 < 3 ? 0 : 0.8);
+    sDrawSprite(dnm, dx, dgy, 1);
+    const dsz = spriteSize(dnm) || [24, 20];
+    stripHitRects.duck = { x: dx - dsz[0] / 2, y: dgy - dsz[1], w: dsz[0], h: dsz[1] };
+    /* 2026-10-27: Lv 4〜7 で2羽、8〜10 で3羽 */
+    for(let i = 1; i < duckCount(); i++){
+      const ex = stripQAX() + 18 + i * 16;   /* 2羽目以降は QA トレイの右で検査する (信号柱の外側) */
+      sShadow(ex, GM - 0.5, 20);
+      sDrawSprite(dnm, ex, GM - ((frame + i * 3) % 6 < 3 ? 0 : 0.8), 1);
+    }
+  }
   /* --- みゅけ --- */
   if(miyukeTrip){
     /* v2.3.3: 旅程中は移動レイヤーが姿を握る（移動中=歩行フレーム、滞在中=アイドル） */
@@ -484,16 +611,16 @@ function renderStrip(){
   } else if(atDesk){
     if(coding){
       if(sakuriCoding){
-        if(!sDrawMiyuke("miyuke_code_a", cx + 6, G - 2, SPRITE_SCALES.strip.miyuke)) sDrawMiyuke("miyuke_idle", cx + 12, G - 2, SPRITE_SCALES.strip.miyuke);
+        if(!sDrawMiyuke("miyuke_code_a", cx + 6, seatY, SPRITE_SCALES.strip.miyuke)) sDrawMiyuke("miyuke_idle", cx + 12, seatY, SPRITE_SCALES.strip.miyuke);
       } else {
         const nm = codeFrameBit() ? "miyuke_code_a" : "miyuke_code_b";
-        if(!sDrawMiyuke(nm, cx + 6, G - 2, SPRITE_SCALES.strip.miyuke)) sDrawMiyuke("miyuke_idle", cx + 12, G - 2, SPRITE_SCALES.strip.miyuke);
+        if(!sDrawMiyuke(nm, cx + 6, seatY, SPRITE_SCALES.strip.miyuke)) sDrawMiyuke("miyuke_idle", cx + 12, seatY, SPRITE_SCALES.strip.miyuke);
       }
     } else {
       const nm = catState === "think" ? "miyuke_think" : catState === "debug" ? "miyuke_debug" : "miyuke_sleep";
-      sDrawMiyuke(nm, cx + 12, G - 2, SPRITE_SCALES.strip.miyuke);
+      sDrawMiyuke(nm, cx + 12, seatY, SPRITE_SCALES.strip.miyuke);
       /* バッチ2: sleep アニメ (Z 内蔵) 再生中は手続き Z を重ねない */
-      if(catState === "nap" && catSprite("miyuke_sleep") === "miyuke_sleep") drawStripZ(cx + 40, G - 76);
+      if(catState === "nap" && catSprite("miyuke_sleep") === "miyuke_sleep") drawStripZ(cx + 40, seatY - 74);
     }
   } else if(stripIsDeskState()){
     /* 机へ移動中（歩行アートがある時は歩行フレームで戻る） */
@@ -525,107 +652,6 @@ function renderStrip(){
       for(let i = 0; i < 6; i++)
         sDrawSprite("fx_confetti_" + (i % 4) + ((frame + i) % 4 < 2 ? "_a" : "_b"), gx - 42 + ((i * 29 + frame * 7) % 84), 20 + ((i * 17 + frame * 9) % 52), 1);
     }
-  }
-  /* --- スタッフのウォーカー ---
-     バッチ6: 毛柄ごとに ANIMS (sakuri作画 48×40) があればアニメ経路、
-     無ければ従来の静止画 (32×24) 経路。歩行フレームは移動距離で進む
-     walkClock、座りは sitStart からの実時間で選ぶ。sakuri作画の歩行は
-     左向き原画なので右行 (dir>0) で反転する (miyuke_walk と同規約) */
-  for(const st of S.staff){
-    const wk = stripWalkers[st.id];
-    if(!wk) continue;
-    const base = "staff_" + st.coat + (wk.backing ? "_back" : wk.sitting ? "_sit" : "_walk");
-    const sa = ANIMS[base];
-    const useAnim = !!(sa && sa.frames.some(f => hasSprite(f)));
-    let nm = base, ssc = SPRITE_SCALES.strip.staff, flip = wk.dir < 0 && !wk.sitting;
-    if(useAnim){
-      ssc = SPRITE_SCALES.strip.staff48;
-      nm = wk.backing ? animFrameAt(base, stripNow - (wk.backStart || stripNow))
-           : wk.sitting ? animFrameAt(base, stripNow - (wk.sitStart || stripNow))
-                      : animFrameAt(base, wk.walkClock || 0);
-      flip = !wk.sitting && wk.dir > 0;
-    }
-    ssc = stripArtScale(ssc);   /* 実際に描かれる大きさ (ドット倍率を整数に丸めた後) で影と当たり判定を作る */
-    const ssz0 = spriteSize(nm);
-    sShadow(wk.x, G - 0.5, ssz0 ? ssz0[0] * ssc * 0.7 : 30);
-    const bob = useAnim ? 0 : (wk.sitting ? 0 : (frame % 2 ? 0 : -0.8));
-    const drawn = sDrawSprite(nm, wk.x, G + bob, ssc, flip);
-    const ssz = drawn ? (spriteSize(nm) || [32, 24]) : null;
-    let srect = ssz
-      ? { x: wk.x - ssz[0] * ssc / 2, y: (G + bob) - ssz[1] * ssc, w: ssz[0] * ssc, h: ssz[1] * ssc }
-      : { x: wk.x - 17, y: G - 30, w: 34, h: 30 };
-    if(wk.carrying){ const t2 = Math.min(srect.y, G - (ssz ? ssz[1] * ssc + 11 : 43)); srect.h += srect.y - t2; srect.y = t2; }
-    stripHitRects.staff.push(srect);
-    stripStaffArt.push(drawn ? { name: nm, gx: wk.x, gy: G + bob, s: ssc, flip } : null);
-    if(deptChief(st.role) === st){
-      /* Phase C: 部長バッジ（その部署で一番 Lv の高いスタッフに自動で付く） */
-      sctx.save();
-      sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
-      /* 描画の軽量化: x はデバイス画素に揃える (猫の絵と同じ丸め。ずれは 0.5px 未満)。
-         端数のままだと歩くたびに毎フレーム描き直しになっていた */
-      sctx.fillText("⭐", Math.round(wk.x * stripScale) / stripScale, srect.y - 4);
-      sctx.restore();
-    }
-    if(wk.carrying){
-      const bw = ssz ? ssz[0] * ssc : 32 * SPRITE_SCALES.strip.staff;
-      const bh = ssz ? ssz[1] * ssc : 24 * SPRITE_SCALES.strip.staff;
-      if(wk.carryKind === "memo"){
-        /* Phase C: 依頼メモは白いカード＋赤帯で（荷物箱と見分ける） */
-        sDrawSprite("icon_memo", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8 + 1, 1);
-      } else {
-        sDrawSprite("icon_box", wk.x + bw * 0.26 * wk.dir, G - bh * 0.8, 1);
-      }
-      /* A11（ux-r3 §2.4）: 運搬が始まった瞬間だけ、担当猫の頭上に荷物の印が
-         少し浮かぶ（行き先が運搬に流れたことの景色側の合図） */
-      if(wk.parcelFxAt && Date.now() - wk.parcelFxAt < 1400 && hasSprite("a11_parcel")){
-        const pbob = Math.sin((Date.now() - wk.parcelFxAt) / 110) * 1.3;
-        sDrawSprite("a11_parcel", wk.x, srect.y - 9 + pbob, 0.8);
-      }
-    }
-    /* Sprint 3: 雑談の吹き出し（話している1匹の頭上だけ） */
-    if(stripChat && stripChat.whoId === st.id && now < stripChat.until)
-      drawStripChatBubble(wk.x, srect.y - 2, stripChat.text);
-  }
-  /* --- 第2ウェーブ M: 役員猫（デスクの脇に座る常駐メンバー） ---
-     生産はせず、頭数にも数えない。🎗 は部長の ⭐ と並ぶ頭上バッジ */
-  (S.executives || []).slice(0, 3).forEach((ex, i) => {
-    const exX = stripDeskCX() - 96 - i * 32;
-    const base = "staff_" + ex.coat + "_sit";
-    const sa = ANIMS[base];
-    let nm = base, esc = SPRITE_SCALES.strip.staff;
-    if(sa && sa.frames.some(f => hasSprite(f))){ nm = animFrameAt(base, stripNow - i * 700); esc = SPRITE_SCALES.strip.staff48; }
-    sShadow(exX, G - 0.5, 34);
-    sDrawSprite(nm, exX, G, esc);
-    const esz = spriteSize(nm);
-    sctx.save();
-    sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
-    sctx.fillText("🎗", exX, G - (esz ? esz[1] * esc : 30) - 4);
-    sctx.restore();
-  });
-  /* --- Sprint 3: 訪問猫（雇っていない毛柄が横切るだけ・干渉なし） ---
-     バッチ6: その毛柄に ANIMS があれば歩行アニメで横切る */
-  if(stripVisitor){
-    const v = stripVisitor;
-    const vbase = "staff_" + v.coat + "_walk";
-    const va = ANIMS[vbase];
-    if(va && va.frames.some(f => hasSprite(f))){
-      sDrawStripWalker(v, G);
-    } else {
-      sShadow(v.x, G - 0.5, 30);
-      const vbob = frame % 2 ? 0 : -0.8;
-      sDrawSprite(vbase, v.x, G + vbob, SPRITE_SCALES.strip.staff, v.dir < 0);
-    }
-  }
-  /* --- Phase D: 子会社の配達猫（荷物を持って本社へ） --- */
-  if(stripDelivery){
-    const v = stripDelivery;
-    sDrawStripWalker(v, G);
-    if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
-  }
-  if(stripModCart){
-    const v = stripModCart;
-    sDrawStripWalker(v, G);
-    if(!v.done) sDrawSprite("icon_box", v.x - 16 * v.dir, G - 46, 1);
   }
   /* --- Sprint 4: 帯のクリックイベント（金の魚・バグの群れ） ---
      帯の上でクリックイベントとして描き、クリックで捕まえられる。
@@ -662,22 +688,6 @@ function renderStrip(){
     }
   }
   /* 星飾りは棚の天板へ移行済み（drawStripShelf 内, §c.5） */
-  /* --- QAアヒル（デスク脇に常駐） --- */
-  if((S.upgrades.duck || 0) > 0){
-    const dx = cx + 76;
-    sShadow(dx, G - 0.5, 24);
-    const dnm = duckSprite();   /* Sprint 4: ANIMS の2フレーム再生 */
-    const dgy = G - (frame % 6 < 3 ? 0 : 0.8);
-    sDrawSprite(dnm, dx, dgy, 1);
-    const dsz = spriteSize(dnm) || [24, 20];
-    stripHitRects.duck = { x: dx - dsz[0] / 2, y: dgy - dsz[1], w: dsz[0], h: dsz[1] };
-    /* 2026-10-27: Lv 4〜7 で2羽、8〜10 で3羽 */
-    for(let i = 1; i < duckCount(); i++){
-      const ex = stripQAX() + 18 + i * 16;   /* 2羽目以降は QA トレイの右で検査する (信号柱の外側) */
-      sShadow(ex, G - 0.5, 20);
-      sDrawSprite(dnm, ex, G - ((frame + i * 3) % 6 < 3 ? 0 : 0.8), 1);
-    }
-  }
   /* --- フローターとクリックのキラキラ --- */
   drawStripSparks(now);
   drawStripFloaters(now);

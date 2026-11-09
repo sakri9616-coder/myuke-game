@@ -31,7 +31,7 @@ function flowFeedStage(stage, amount, q){
   }
 }
 function fireFlowItem(stage, bundle){
-  const G = STRIP_GROUND, cx = stripDeskCX();
+  const G = stripTierG("mid"), cx = stripDeskCX();   /* 移動物の発着点は全て中景段の持ち場・机 */
   const delay = (flowStaggerN++) * 0.15;
   const jx = (Math.random() - 0.5) * 6;
   if(stage === "code"){
@@ -82,7 +82,7 @@ function tryDispatchShipCarrier(){
 /* feat 完成: 付箋が机からボードの DONE 側 (下枠のピン留め位置) へ飛ぶ */
 function spawnFeatNote(line){
   if(IS_VIEWER || stripFlow.length >= 10) return;
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");   /* 飛び出し位置は机（中景段）。着地点はボード面（従来の絶対位置） */
   const small = false;   /* 段階5: 第2ラインの小型ボードは廃止 */
   const p = S.project;
   if(!p) return;
@@ -109,7 +109,7 @@ function spawnStripCoinFountain(coins){
   const budget = Math.max(0, 140 - particleTotal());
   const n = Math.max(0, Math.min(Math.round(6 + (coins || 0) / 40), 28, budget));
   const boxes = stripShelfBoxes();
-  const src = boxes.length ? boxes[0] : { x: stripShelfCX(), yb: STRIP_GROUND - 30 };
+  const src = boxes.length ? boxes[0] : { x: stripShelfCX(), yb: stripTierG("back") - 30 };   /* 棚（背景段）基準 */
   for(let i = 0; i < n; i++){
     const a = Math.random();
     stripCoins.push({
@@ -296,7 +296,7 @@ function flowVisualUpdate(dt){
       stripFlow.splice(i, 1);
     }
   }
-  const G = STRIP_GROUND;
+  const G = stripTierG("mid");
   /* パッケージ節目: S.packages が増えたら D に完成箱が光って積まれる */
   if(lastPackagesSeen < 0) lastPackagesSeen = S.packages;
   else if(S.packages > lastPackagesSeen){
@@ -337,6 +337,6 @@ function pileTopY(which){
   const m = pileModel();
   const n = which === "build" ? m.build.n : m[which].n;
   const rows = Math.max(1, Math.ceil(n / 2));
-  const baseY = which === "build" ? STRIP_GROUND - 15.5 : STRIP_GROUND - 3.5;  /* build は出荷台の天面 (prop_ship 48×48 化で -12) */
+  const baseY = which === "build" ? stripTierG("mid") - 15.5 : stripTierG("mid") - 3.5;  /* build は出荷台の天面 (prop_ship 48×48 化で -12)。山は持ち場（中景段）基準 */
   return baseY - rows * (which === "build" ? 9.2 : 7.6);   /* build 段ピッチは pileSlotPos と一致 (2026-10-25 icon_box 28×28 化) */
 }

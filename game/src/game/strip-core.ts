@@ -226,6 +226,21 @@ let shelfGlowFrame = -1;
 const stripCv = document.getElementById("strip") as HTMLCanvasElement | null;
 const sctx: CanvasRenderingContext2D | null = stripCv ? makeStripFrameCtx(stripCv.getContext("2d")) : null;   /* 描画の軽量化: strip-frame.ts */
 const STRIP_H = 152, STRIP_GROUND = STRIP_H - 4;
+/* ---------- 段基線（UX ux-strip-hierarchy §3.1・§5-3、sakuri 裁定 2026-11-10） ----------
+   帯の地面は1本ではなく3段。段は「基線オフセット + 描画順」の組で、地面の
+   「面」は描かない（R1 不変: 地面は線）。ラグ・接地影はその段の基線に置く。
+     背景 (back, G-10): 工程ブース、プロジェクトボード、作品棚/ラック、柵、
+                        サーバーラック、別館看板 —「壁際」の大型家具と気配
+     中景 (mid,  G-5):  机クラスタ、研究机、工程の持ち場、トロフィー台、
+                        地面置き小物、スタッフ・役員・ボット・アヒル
+     前景 (front, G):   みゅけ のみ（主役の専有レーン）
+   高さ予算（§3.4）: 背景の家具 ≤98（ラック 96 が最大。これ以上高い家具は
+   作らない）、中景の家具 ≤64、帯上部 40 は吹き出し・札の予約域。
+   段は家具の種別から導出する静的な属性で、セーブには持たせない（§4.2c）。
+   新規家具は §4.1 の申告7項目（所属段／フットプリント／高さ／面の有無／
+   ヒットゾーンの有無／既定位置／描画順の挿入位置）を決めてから追加すること */
+const STRIP_TIER_OFF = { back: 10, mid: 5, front: 0 };
+function stripTierG(tier){ return STRIP_GROUND - (STRIP_TIER_OFF[tier] || 0); }
 let stripVW = 640, stripScale = 2, stripNow = 0;
 let miyukeStrip = { x: -1, targetX: 0, dir: 1, moving: false, nextPick: 0, walkClock: 0 };
 const stripWalkers = {};
@@ -242,14 +257,23 @@ function stripHoverTarget(){
   if(!stripHover) return null;
   const R = stripHitRects, p = stripHover;
   const inR = (r) => r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
-  for(const k of ["bubble", "fish", "snack", "memo", "board", "board2", "shelf", "annex"])
+  /* 段順の手前優先（§3.5）: 浮遊物 → 前景（みゅけ） → 中景 → 背景。
+     段内の順序はクリック判定（hitzones.ts）と揃える */
+  for(const k of ["bubble", "fish"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
-  /* 工程の持ち場はラック・研究机より先（クリックの判定順と同じ。みゅけ本人は除く） */
+  if(inR(R.miyuke)) return { r: R.miyuke, key: "miyuke", idx: -1 };
+  for(let i = 0; i < (R.piles || []).length; i++)
+    if(inR(R.piles[i])) return { r: R.piles[i], key: "piles", idx: i };
+  if(inR(R.snack)) return { r: R.snack, key: "snack", idx: -1 };
   const stI = (R.stations || []).findIndex(r => inR(r));
-  if(stI >= 0 && !inR(R.miyuke)) return { r: R.stations[stI], key: "stations", idx: stI };
-  for(const k of ["phone", "megaphone", "toolbox", "research", "rack", "trophy", "calendar", "miyuke", "desk", "duck", "easel"])
+  if(stI >= 0) return { r: R.stations[stI], key: "stations", idx: stI };
+  for(const k of ["phone", "megaphone", "toolbox", "research", "trophy", "calendar", "desk", "duck", "easel"])
     if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
-  for(const k of ["bugs", "stockBugs", "piles", "staff"]){
+  for(let i = 0; i < (R.staff || []).length; i++)
+    if(inR(R.staff[i])) return { r: R.staff[i], key: "staff", idx: i };
+  for(const k of ["memo", "board", "board2", "shelf", "annex", "rack"])
+    if(inR(R[k])) return { r: R[k], key: k, idx: -1 };
+  for(const k of ["bugs", "stockBugs"]){
     const arr = R[k] || [];
     for(let i = 0; i < arr.length; i++) if(inR(arr[i])) return { r: arr[i], key: k, idx: i };
   }

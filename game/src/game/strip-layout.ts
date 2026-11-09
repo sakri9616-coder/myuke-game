@@ -24,15 +24,27 @@ const PROP_DEFS = {
   test:      { label: "テストの持ち場", w: 48, h: 44, cls: "ground" },
   build:     { label: "ビルドの持ち場", w: 48, h: 44, cls: "ground" },
 };
+/* 小物・機能オブジェクトの所属段（§4.1 申告制の段の部）。段は種別から導出
+   する静的属性で、セーブには持たせない（§4.2c）。面に載った小物は面の持ち主
+   の段に従う（§4.2f: 段をまたぐ積み重ねはしない）ので、ここで効くのは
+   「地面に置いたときの基線」と既定位置だけ */
+const PROP_TIER = {
+  board: "back", memo: "back",   /* ボードとその付属メモは背景段 */
+  phone: "mid", toolbox: "mid", megaphone: "mid", snack: "mid", coffee: "mid",
+  plant: "mid", ship: "mid", calendar: "mid", fever: "mid",
+  plan: "mid", test: "mid", build: "mid",
+};
+function propGroundY(id){ return stripTierG(PROP_TIER[id] || "mid"); }
 function layoutSurfaces(){
-  const G = STRIP_GROUND;
+  /* 面の高さは持ち主の家具の基線からの相対値（§4.1-4）。段基線の導入で
+     家具が段へ移っても、面は家具に付いて動く */
   const list = [
-    /* 机の天板は G-33（バッチ14 校正）。中央 ±22 はノートPC＋座り場所として予約 */
-    { id: "desk",     cx: stripDeskCX(),     y: G - 33, w: 128, reserved: [[-22, 22]] },
-    { id: "shelf",    cx: stripShelfCX(),    y: G - (hasSprite("prop_rack_wood") ? 93 : 42), w: hasSprite("prop_rack_wood") ? 168 : 104 },
+    /* 机の天板は基線-33（バッチ14 校正）。中央 ±22 はノートPC＋座り場所として予約 */
+    { id: "desk",     cx: stripDeskCX(),     y: stripTierG("mid") - 33, w: 128, reserved: [[-22, 22]] },
+    { id: "shelf",    cx: stripShelfCX(),    y: stripTierG("back") - (hasSprite("prop_rack_wood") ? 93 : 42), w: hasSprite("prop_rack_wood") ? 168 : 104 },
     /* 研究机: 左の本の山と中央の開いた本が予約。植木の定位置は右の空き */
-    { id: "research", cx: stripResearchCX(), y: G - 12, w: 68,  reserved: [[-30, -12], [-7, 14]], on: hasResearcher() },   /* prop_research_desk の天板 (原寸 row 16)・本の山・開いた本 */
-    { id: "trophy",   cx: stripTrophyCX(),   y: G - 22, w: 30,  on: !!S.stamps.prestige1 },
+    { id: "research", cx: stripResearchCX(), y: stripTierG("mid") - 12, w: 68,  reserved: [[-30, -12], [-7, 14]], on: hasResearcher() },   /* prop_research_desk の天板 (原寸 row 16)・本の山・開いた本 */
+    { id: "trophy",   cx: stripTrophyCX(),   y: stripTierG("mid") - 22, w: 30,  on: !!S.stamps.prestige1 },
   ];
   return list.filter(s => s.on !== false);
 }
@@ -42,7 +54,9 @@ function propEntry(id){
 }
 /* エントリが無いときの置き場 = 従来のアンカーそのもの（初期配置の不変条件） */
 function propDefaultPlace(id){
-  const G = STRIP_GROUND;
+  /* 既定位置の基線はその小物の所属段（段基線からの相対オフセットは従来の
+     地面基準の校正値をそのまま持ち越す） */
+  const G = propGroundY(id);
   switch(id){
     case "board": return { cx: stripDeskCX(), baseY: G };
     case "phone": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 10, baseY: G };
@@ -50,7 +64,7 @@ function propDefaultPlace(id){
     case "megaphone": return { cx: stripDeskCX() - 76, baseY: G + 1 };
     case "snack": return { cx: stripDeskCX() + 72, baseY: G };
     case "coffee": return { cx: stripDeskCX() + 47, baseY: G - 0.5 };
-    case "plant": return { cx: stripResearchCX() + 22, baseY: G - 12 };
+    case "plant": return { cx: stripResearchCX() + 22, baseY: G - 12 };   /* 研究机の面（基線-12）と一致 */
     case "ship": return { cx: Math.round(stripVW * 0.87), baseY: G };
     case "calendar": return { cx: stripDeskCX() - 70, baseY: G };
     case "fever": return { cx: stripDeskCX() + 88, baseY: G };
@@ -68,7 +82,7 @@ function propPlace(id){
   const e = propEntry(id);
   if(e){
     if(e.on === "ground" && typeof e.x === "number")
-      return { cx: Math.round(e.x * stripVW), baseY: STRIP_GROUND, placed: true };
+      return { cx: Math.round(e.x * stripVW), baseY: propGroundY(id), placed: true };   /* 地面置きはその小物の所属段の基線に立つ */
     const sf = layoutSurfaces().find(s => s.id === e.on);
     if(sf) return { cx: sf.cx + (e.dx || 0), baseY: sf.y, placed: true };
     /* 面が消えた（あり得ないが）場合は既定へ落とす */
@@ -104,7 +118,7 @@ function propDragCandidate(id, ux, uy, centerX){
   }
   let cx = Math.max(def.w / 2 + 2, Math.min(stripVW - def.w / 2 - 2, Math.round(centerX)));
   cx = snapCX(cx, id);
-  return { on: "ground", x: Math.round(cx / stripVW * 1000) / 1000, cx, baseY: STRIP_GROUND, valid: true };
+  return { on: "ground", x: Math.round(cx / stripVW * 1000) / 1000, cx, baseY: propGroundY(id), valid: true };
 }
 function propDrop(id){
   const cand = layoutEdit.dragCand;
@@ -176,11 +190,12 @@ function drawLayoutEditOverlay(){
 function hasResearcher(){ return S.staff.some(st => st.role === "research"); }
 /* クラスタ足元の薄いラグ (R1/R9): 家具クラスタの下だけに敷く最淡色の帯。
    帯全幅の土帯・背景帯は禁止 (R1)。地面の表現はこれと接地影だけ */
-function sRug(cx, w){
-  /* 2026-10-27 第2次発注: ラグの絵 (prop_rug_3) を薄く敷く。透明度だけコード側 */
+function sRug(cx, w, baseY?){
+  /* 2026-10-27 第2次発注: ラグの絵 (prop_rug_3) を薄く敷く。透明度だけコード側。
+     段基線（§3.1）: ラグはクラスタの所属段の基線に敷く */
   sctx.save();
   sctx.globalAlpha = 0.14;
-  sDrawNine("prop_rug_3", cx - w / 2, STRIP_GROUND - 1.5, w, 5, 4, 0);
+  sDrawNine("prop_rug_3", cx - w / 2, (typeof baseY === "number" ? baseY : STRIP_GROUND) - 1.5, w, 5, 4, 0);
   sctx.restore();
 }
 /* 2026-10-28 ドットを揃える: 帯の倍率 (仮想1px = 何デバイスpx) を整数に固定する。
@@ -383,6 +398,16 @@ function sDrawMiyukeWalking(gx, gy){
 function sDrawStripWalker(v, G){
   sShadow(v.x, G - 0.5, 50);
   sDrawSprite(animFrameAt("staff_" + v.coat + "_walk", v.walkClock || 0), v.x, G, SPRITE_SCALES.strip.staff48, v.dir > 0);
+}
+/* 運搬猫の箱: スタッフの運搬（strip-piles の wk.carrying）と同じく、猫の
+   描画実寸 (bw/bh) から持つ位置を決める。固定オフセット (旧 G-46) は猫の
+   実寸が変わると浮くため廃止（レビュー申し送り 2026-11-10） */
+function sDrawStripWalkerBox(v, G){
+  if(v.done) return;
+  const fsz = spriteSize(animFrameAt("staff_" + v.coat + "_walk", v.walkClock || 0)) || [48, 40];
+  const fsc = stripArtScale(SPRITE_SCALES.strip.staff48);
+  const bw = fsz[0] * fsc, bh = fsz[1] * fsc;
+  sDrawSprite("icon_box", v.x - bw * 0.26 * v.dir, G - bh * 0.8, 1);
 }
 /* デスクのPC (prop_pc) */
 function drawStripPC(cx, gy){ sDrawSprite("prop_pc", cx, gy, 1); }

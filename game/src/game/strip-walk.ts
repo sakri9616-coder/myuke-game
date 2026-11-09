@@ -168,12 +168,13 @@ function stripEaselDrawX(){
 const layoutEdit = { on: false, dragId: null, grabDX: 0, dragCand: null, shakeId: null, shakeUntil: 0 };
 function layoutItems(): LayoutItem[] {
   const items: LayoutItem[] = [
-    { id: "shelf",    label: "作品棚",       cx: stripShelfCX(),    w: hasSprite("prop_rack_wood") ? 164 : 104, h: hasSprite("prop_rack_wood") ? 96 : 42, top: STRIP_GROUND - (hasSprite("prop_rack_wood") ? 96 : 42) },
-    { id: "easel",    label: "イーゼル",     cx: stripEaselDrawX(), w: 34,  h: 36, top: STRIP_GROUND - 36, on: !!S.stamps.first_release },
-    { id: "desk",     label: "みゅけの机",   cx: stripDeskCX(),     w: 150, h: 80, top: STRIP_GROUND - 80 },
-    { id: "research", label: "研究机",       cx: stripResearchCX(), w: 88,  h: 46, top: STRIP_GROUND - 46, on: hasResearcher() },
-    { id: "rack",     label: "サーバーラック", cx: stripRackCX(),   w: 52,  h: 68, top: STRIP_GROUND - 68, on: officeTier(S) >= 2 && S.upgrades.ci > 0 },
-    { id: "trophy",   label: "トロフィー台", cx: stripTrophyCX(),   w: 30,  h: 22, top: STRIP_GROUND - 22, on: !!S.stamps.prestige1 },
+    /* 並べ替えの矩形も所属段の基線から組み立てる（棚・ラック=背景、それ以外=中景） */
+    { id: "shelf",    label: "作品棚",       cx: stripShelfCX(),    w: hasSprite("prop_rack_wood") ? 164 : 104, h: hasSprite("prop_rack_wood") ? 96 : 42, top: stripTierG("back") - (hasSprite("prop_rack_wood") ? 96 : 42) },
+    { id: "easel",    label: "イーゼル",     cx: stripEaselDrawX(), w: 34,  h: 36, top: stripTierG("mid") - 36, on: !!S.stamps.first_release },
+    { id: "desk",     label: "みゅけの机",   cx: stripDeskCX(),     w: 150, h: 80, top: stripTierG("mid") - 80 },
+    { id: "research", label: "研究机",       cx: stripResearchCX(), w: 88,  h: 46, top: stripTierG("mid") - 46, on: hasResearcher() },
+    { id: "rack",     label: "サーバーラック", cx: stripRackCX(),   w: 52,  h: 68, top: stripTierG("back") - 68, on: officeTier(S) >= 2 && S.upgrades.ci > 0 },
+    { id: "trophy",   label: "トロフィー台", cx: stripTrophyCX(),   w: 30,  h: 22, top: stripTierG("mid") - 22, on: !!S.stamps.prestige1 },
   ];
   return items.filter(it => it.on !== false).concat(layoutPropItems());
 }
