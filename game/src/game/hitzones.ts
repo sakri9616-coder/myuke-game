@@ -211,9 +211,6 @@ if(stripCv){
         return;
       }
     }
-    /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める。
-       みゅけ本人に重なるときは応援クリックを優先する。サーバーラック・研究机（タブへの導線）より先に判定する
-       （ラックはビルド室の中に立つ自動化の設備。ブースより上の部分は従来どおり工場タブを開く） */
     /* Stage 3: 家具オブジェクト → 対応タブ (物から管理への導線を全タブに) */
     for(const [rkey, tab] of [["phone", "staff"], ["megaphone", "click"], ["toolbox", "settings"], ["research", "research"], ["trophy", "stats"], ["calendar", "stats"]]){
       const rr = stripHitRects[rkey];
@@ -227,6 +224,19 @@ if(stripCv){
     const ez = stripHitRects.easel;
     if(ez && ux >= ez.x && ux <= ez.x + ez.w && uy >= ez.y && uy <= ez.y + ez.h && Math.abs(ux - stripMiyukeX()) > 44){
       say(FURNITURE_LINES.easel);
+      return;
+    }
+    /* 工程の持ち場（会議室・テスト室・ビルド室・出荷場）: みゅけが手でその工程を進める（中景段）。
+       みゅけ本人に重なるときは応援クリックを優先する。背景段のパネル（棚・ボード・別館看板・ラック）より先に判定する */
+    const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
+    if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
+      const r = handworkClick(stHit.stage);
+      addStripSpark(ux, uy, r.crit);
+      if(r.crit && r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "会心! +" + fmtClickDP(v) + "DP 手作業");
+      else if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
+      else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
+      else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
+      headerAfterStripClick();
       return;
     }
     /* Strip Canon (R12): 作品棚のクリックで作品棚パネルを開く */
@@ -255,17 +265,6 @@ if(stripCv){
     const ax = stripHitRects.annex;
     if(ax && ux >= ax.x && ux <= ax.x + ax.w && uy >= ax.y && uy <= ax.y + ax.h){
       openTabPanel("subs");
-      return;
-    }
-    const stHit = (stripHitRects.stations || []).find(r => ux >= r.x && ux <= r.x + r.w && uy >= r.y && uy <= r.y + r.h);
-    if(stHit && !(Math.abs(ux - stripMiyukeX()) <= 30 && uy >= STRIP_GROUND - 82)){
-      const r = handworkClick(stHit.stage);
-      addStripSpark(ux, uy, r.crit);
-      if(r.crit && r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "会心! +" + fmtClickDP(v) + "DP 手作業");
-      else if(r.crit) addStripFloater(ux, uy - 9, "CRITICAL!", "#d9534f");
-      else if(r.moved > 0) addStripFloaterSum(ux, uy - 9, "hand:" + stHit.stage, r.moved, v => "+" + fmtClickDP(v) + "DP 手作業");
-      else if(r.ideas > 0) addStripFloaterSum(ux, uy - 9, "hand:plan", r.ideas, v => "アイデア +" + (v >= 10 ? fmt(v) : v.toFixed(1)));
-      headerAfterStripClick();
       return;
     }
     /* サーバーラック → 工場タブ（背景段の最後。ラックはビルド室の中に立つ
