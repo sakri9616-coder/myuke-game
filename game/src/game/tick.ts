@@ -149,7 +149,7 @@ function tick(){
   }
   // バグのQA処理
   if(S.bugStock > 0){
-    const processed = Math.min(S.bugStock, qaRate()/60);
+    const processed = Math.min(S.bugStock, qaRate()/60 + S.bugStock * BAL.bugStockQaFracSec);
     S.bugStock -= processed;
     if(catState === "debug"){
       if(Math.random() < 0.3 && S.bugStock >= 1){
@@ -188,7 +188,6 @@ function tick(){
        超えた分だけ比例して伸びる）。固定の 120 DP/分のままだと会社が育つほど実作業が無意味になっていた（理念書3） */
     const boostLink = Math.max(1, autoProdEMA * 60 / Math.max(1e-9, clickProdMult()) / BAL.boostLinkRef);   /* 倍率は produceDP が掛けるので割り戻す（応援の連動分と同じ） */
     boost = boostGate(boost * boostLink, boostLink);
-    if(S.runPolicy === "labor") boost *= 2;   /* レベルデザイン改修: 経営方針「労働特化」は入力ブースト ×2 */
     if(boost > 0) chargeFever(boost * FEVER.chargePerBoostDP);   /* F: 実作業がオーバークロックのゲージを貯める */
     prodMuted = true;   /* F再設計: ブーストは入力由来（自動生産に数えず、発動倍率も二重に掛けない） */
     let appliedBoost = 0;

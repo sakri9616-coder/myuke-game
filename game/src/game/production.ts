@@ -49,7 +49,7 @@ function dustValueForGain(g){
   const u = dustValueUnit(), c = dustGainCap();
   return g <= c ? u * g : u * c * Math.pow(g / c, 1 / BAL.dustGainExp);
 }
-/* 次の星屑まで あと企業価値いくつか（方針の ×1.25 は売却時に最後に掛かるので、素の曲線で数える） */
+/* 次の星屑まで あと企業価値いくつか（素の曲線で数える） */
 function nextDustResidual(){
   const peak = S.runPeakValue || 0;
   return Math.max(0, dustValueForGain(dustGainFromValue(peak) + 1) - peak);
@@ -365,14 +365,15 @@ function activateFever(){
     addStripFloater(stripDeskCX(), STRIP_GROUND - 62, "⚡ FEVER!", "#e2543e");
   save(); renderPanel();
 }
-/* レベルデザイン改修: 経営方針の生産側の倍率（自動ぶんだけに掛かる。入力由来は対象外） */
-function runPolicyProdMult(fromInput){
-  if(fromInput) return 1;
-  return S.runPolicy === "labor" ? 0.8 : S.runPolicy === "auto" ? 1.3 : S.runPolicy === "sell" ? 0.85 : 1;
-}
+/* 経営方針の生産倍率は 2026-11-11 方針システム撤去に伴い廃止（自動生産への倍率は掛からない） */
 function produceDP(amount, _target?){
   const fromInput = prodMuted;
-  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive() * runPolicyProdMult(fromInput);
+  const aBase = amount * dpMult(S.upgrades) * dustMult() * firstBoost() * extraMult() * concProdMult() * debtEff() * feverPassive();
+  /* バグ混入の母数: バグは「書かれたコード量」に比例させる。aBase（星屑・フィーバー等の
+     価格/進行インフレ倍率込み）を母数にすると、QA の処理（部門の線形レート）が桁で追いつかず
+     在庫が永遠に空にならない（出荷のたびに負債上限+ブランド-3、自社IP化も不可能になる）。
+     2026-11-11 sakuri 指摘の致命的不具合の修正: 母数は素のスループット × コーディング強化ぶん */
+  const aBugBase = amount * dpMult(S.upgrades);
   const a = aBase * (feverActive() && !fromInput ? FEVER.prodMult : 1);
   if(!fromInput) autoProdSecAcc += a;   /* F再設計: 自動生産レートの計測（入力由来は数えない） */
   /* Sprint 4: ロボット量産ライン研究があると、ロボット作品だけバグ混入が半分。企画を練った作品もバグが出にくい */
@@ -385,12 +386,12 @@ function produceDP(amount, _target?){
     inflow = a;
     if(!fromInput && S.project && S.project.modules && !S.project.planning) inflow -= divertToModules(a);
     S.wip.code += inflow;
-    if(S.project) S.project.bugs += aBase * BAL.bugPerDP * bugMul;
+    if(S.project) S.project.bugs += aBugBase * BAL.bugPerDP * bugMul;
     S.totals.lines += a * 1.05; S.today.lines += a * 1.05;
   }
   S.runDP += a;
   if(fromInput) S.runHandDP = (S.runHandDP || 0) + a;   /* 段階4: 収入の内訳で労働に数える分 */
-  S.bugStock += aBase * BAL.bugPerDP * bugMul;
+  S.bugStock += aBugBase * BAL.bugPerDP * bugMul;
   /* 第2ウェーブ K: 完全放置中はフィーバーが自動生産から細く貯まる */
   if(!fromInput && challengeActive("idle")) chargeFever(a * 0.02);
   /* チュートリアル: 初めてバグ在庫が積まれた瞬間だけ、ほったらかしで
