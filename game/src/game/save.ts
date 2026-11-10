@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.28.0";   /* 表示ラベルの単一の出所 (v2.28.0: 子会社経営の再設計・経営サマリ・帯の視覚階層) */
+const GAME_VERSION = "v2.28.1";   /* 表示ラベルの単一の出所 (v2.28.1: バグ在庫の致命的不具合修正・方針システム撤去) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
