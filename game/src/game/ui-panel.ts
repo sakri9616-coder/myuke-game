@@ -2,6 +2,8 @@
    window.confirm は廃止し、カード全体がその場で確認モード（卒業証書／時代の記録）に切り替わる。
    「実行する」で従来の実行関数を呼び、同時にメニューを閉じて帯の儀式（S3）へ渡す */
 let prestigeConfirm = false, holdingsConfirm = false;
+let subsFoundOpen = false;
+function toggleSubsFound(){ subsFoundOpen = !subsFoundOpen; renderPanel(); }
 function prestigeAsk(){ prestigeConfirm = true; renderPanel(); }
 function prestigeCancel(){ prestigeConfirm = false; renderPanel(); }
 function prestigeGo(){
@@ -27,9 +29,7 @@ function prestigeCertHTML(pv, pb, knowAdd){
     "<div class='ds'>星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + pts + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
     "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
     "<div class='ds' style='margin-top:5px'>役員として残る猫：" + (execCat ? "<b>" + esc(execCat.name) + "</b>（次の会社でも、入口で待っています）" : "なし") + "</div>" +
-    (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
-      ? "<div class='ds'>次期経営方針：『" + POLICY_DEFS[S.pendingPolicy].name + "』で、新しい会社が始まります。 <a href='#' onclick='prestigeCancel();return false;' title='カードに戻って方針を選び直せます'>（変更する）</a></div>"
-      : "<div class='ds'>次期経営方針はまだ決まっていません。決めるのは会社の日常で。いま決めずに売ることもできます。</div>") +
+    "<div class='ds'>新しい会社は、まっさらな状態から始まります。</div>" +
     "<div class='ds'>星屑ショップの永続特典は、売却しても消えません。</div>" +
     "<div class='note' style='margin-top:5px'>（手放すもの：" + pv.resets.join("・") + "。記録と功績は残ります。）</div>" +
     /* A3（2026-11-02 みゅー作画）: 卒業証書には肉球の朱印を押す */
@@ -653,8 +653,6 @@ function renderPanelInto(el){
      出口は部分EXIT（子会社だけ売却）。グループEXIT は工場タブの売却に合算。
      2026-10-28 sakuri: スタッフタブから独立したタブへ。解放前はタブごと施錠表示 (tutTabLocked)
      UX 最終仕様（ux-subsidiary-ui-final.md）: スタッフの部署列と同型の横並び会社列。 */
-  let subsFoundOpen = false;
-  function toggleSubsFound(){ subsFoundOpen = !subsFoundOpen; renderPanel(); }
   const GENRE_COLOR = { app: "#569CD6", tool: "#4EC9B0", sns: "#C586C0", site: "#DCDCAA", widget: "#CE9178", game: "#B5CEA8", ai: "#9CDCFE", robot: "#D16969" };
   if(currentTab === "subs"){
     {
@@ -667,25 +665,16 @@ function renderPanelInto(el){
         groupTotalLine = "<div class='note' style='font-size:12px'>💰 本社 <b>" + fmt(hqOnly) + "🪙/分</b> ＋ 子会社 <b>" + fmt(subCoinTot) + "🪙/分</b> ＝ 合計 <b>" + fmt(hqOnly + subCoinTot) + "🪙/分</b>（本社と子会社が並列で稼いでいます）</div>";
       }
       const demG = GENRES.find(g => g.id === eraDemandGenre());
-      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です——需要ジャンルの子会社は売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります（精鋭型は ×" + SUB_POLICY.demandMultElite + "）。時代の間は変わりません</div>" : "";
+      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です——需要ジャンルの子会社は売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります。時代の間は変わりません</div>" : "";
       let cols = "";
       for(const sub of subs){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
-        const stNow = sub.stance || "std";
-        const stCost = Math.ceil(r.coins * 60 * SUB_POLICY.stanceCostHours);
-        const stDesc = { std: "すべて ×1.0", mass: "人員 ×1.3 ・ 規模ボーナス ×0.75 ・ 採用コスト ×0.85", elite: "規模ボーナス ×1.5 ・ 人員 ×0.85 ・ 需要に一致すると倍率が ×1.9 に伸びる", wire: "コイン ×0.8 ・ DP ×2.0（本社のラインへ太く送る）" };
-        const stColor = { std: "", mass: "#4EC9B0", elite: "#C586C0", wire: "#569CD6" }[stNow];
         const demandMatch = sub.genre === eraDemandGenre();
         /* 選択待ち: 到達済みで未選択の節目が1つでもあれば見出しにバッジ */
         const pendingKeys = ["m10", "m25", "m50"].filter(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]);
         const nextMs = ["m10", "m25", "m50"].find(key => sub.lv < SUB_POLICY.traits[key].lv);
         const share = subCoinTot > 0 ? Math.round(r.coins / subCoinTot * 100) : 0;
-        let stanceBtns = "";
-        for(const k of Object.keys(SUB_POLICY.stances)){
-          if(k === stNow) continue;
-          stanceBtns += " <button onclick='setSubStance(" + sub.id + ",\"" + k + "\")'" + (S.coins < stCost ? " disabled" : "") + ">" + SUB_POLICY.stances[k].name + "</button>";
-        }
         let traitSec = "";
         for(const key of ["m10", "m25", "m50"]){
           const def = SUB_POLICY.traits[key];
@@ -705,15 +694,13 @@ function renderPanelInto(el){
         cols += "<div class='subcol'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
           "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span><span class='dlv'>会社Lv" + sub.lv + "</span></div>" +
-          "<div><span class='tagchip'" + (stColor ? " style='background:" + stColor + ";color:#fff;border-color:#1e1e1e'" : "") + ">" + SUB_POLICY.stances[stNow].name + "</span>" +
-          (pendingKeys.length ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>⚠ 選択待ち</span>" : "") + "</div>" +
+          (pendingKeys.length ? "<div><span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>⚠ 選択待ち</span></div>" : "") +
           "<div class='rv'>" + fmt(r.coins) + " <small>🪙/分</small></div>" +
           "<span class='lampbar'><i style='width:" + share + "%'></i></span>" +
           "<div class='rs'>グループ売上の " + share + "%</div>" +
-          "<div class='rs'>生産力 " + fmtDec(r.dp, 1) + " DP/分" + (stNow === "wire" ? " → 本社のライン" : "") + " ・ スタッフ " + sub.staff + "人 ・ 会社Lv" + sub.lv + "（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
+          "<div class='rs'>生産力 " + fmtDec(r.dp, 1) + " DP/分 ・ スタッフ " + sub.staff + "人 ・ 会社Lv" + sub.lv + "（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
           "</div>" +
-          "<div class='subsec'><div class='rs'>🎬 『" + esc(subWorkName(sub)) + "』" + (demandMatch ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>📈 この時代の需要（売上 ×" + (stNow === "elite" ? SUB_POLICY.demandMultElite : SUB_POLICY.demandMult) + "）</span>" : "") + "</div></div>" +
-          "<div class='subsec'><div class='subsec-h'>方針</div><div class='rs'>" + SUB_POLICY.stances[stNow].name + ": " + stDesc[stNow] + "</div><div class='dh-btns'>" + stanceBtns + "</div><div class='rs'>方針の変更: この会社の1時間ぶんの売上（" + fmt(stCost) + "🪙）</div></div>" +
+          "<div class='subsec'><div class='rs'>🎬 『" + esc(subWorkName(sub)) + "』" + (demandMatch ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>📈 この時代の需要（売上 ×" + SUB_POLICY.demandMult + "）</span>" : "") + "</div></div>" +
           "<div class='subsec'><div class='subsec-h'>節目特性</div>" + traitSec + "</div>" +
           "<div class='subsec'><div class='subsec-h'>操作</div>" +
           "<div class='rs'>人員を増やす</div><div class='dh-btns'>" +
@@ -846,17 +833,15 @@ function renderPanelInto(el){
       (dustChips ? "<div class='feats'>"+dustChips+"</div>" : "") +
       "<div class='note' style='margin-top:6px'>永続特典（売却しても消えません）。生産倍率は通算の星屑（現在 "+fmt(S.dustTotal||0)+" 個）で決まるので、使っても下がりません</div>";
     /* 再設計 B7（ux-r3 §3）: 売却まわりは常時展開の売却カード1枚に統合した（旧二態は廃止）。
-       要素の並びは固定: 1見出し → 2比例枠バー → 3次期方針の行 → 4受け取るものの予告 →
-       5役員・ベテランの選出 → 6売却ボタン → 7売却実績の節目。星屑ショップは直下の fold */
+       要素の並びは固定: 1見出し → 2比例枠バー → 3受け取るものの予告 →
+       4役員・ベテランの選出 → 5売却ボタン → 6売却実績の節目。星屑ショップは直下の fold
+       （旧3の次期方針の行は 2026-11-11 方針システム撤去で削除） */
     const prestigeBtn = "<button class='primary' onclick='prestigeAsk()' "+(pv.gain<3?"disabled":"")+">会社を売却する（星屑 +"+pv.gain+"）</button>";
     /* 再設計 C3: 売却の内訳（星屑の出どころ＋売却実績の内訳） */
     const pb = prestigeBreakdown();
-    const pbTxt = "星屑: 比例枠 " + pb.propPart + " 個" + (pb.sqrtPart > 0 ? "＋√域 " + pb.sqrtPart + " 個" : "") + (pb.policyPart > 0 ? "＋売却特化（+25%）" + pb.policyPart + " 個" : "") +
+    const pbTxt = "星屑: 比例枠 " + pb.propPart + " 個" + (pb.sqrtPart > 0 ? "＋√域 " + pb.sqrtPart + " 個" : "") +
       " ／ 売却実績 +" + (pb.ptsSize + pb.ptsEra) + "（大きさ " + pb.ptsSize + (pb.ptsEra ? "＋時代ボーナス " + pb.ptsEra : "") + "）";
-    const polBtn = (id, label, desc) => {
-      const sel = id === null ? !S.pendingPolicy : S.pendingPolicy === id;
-      return "<button onclick='setRunPolicy(" + (id === null ? "null" : "\"" + id + "\"") + ")'" + (sel ? " class='primary'" : "") + " title='" + esc(desc) + "'>" + label + "</button>";
-    };
+
     if(tutLocked(TUT_STAGE.PRESTIGE, tutOwnsDust())){
       /* チュートリアル導線: 引っ越しと星屑ショップは卒業 (Stage 7) の深層。
          それまでは正体を伏せた深部シルエットだけを見せる（扱いはカード単位で引き継ぐ） */
@@ -887,28 +872,16 @@ function renderPanelInto(el){
         (baseGain < cap
           ? "<div class='ds' style='color:#7ba05b'>いまが売りどきです——伸びが素直なうちに売れる、気持ちのいい卒業になります。</div>"
           : "<div class='ds'>売りどきは少し過ぎました。ここからは伸びがゆるやかです。——それでも、いつ売るかはあなたが決めることです。</div>") + "</div>" +
-        /* 3: 次期経営方針の常時表示行（ボタンは旧ブロックから移設・二重管理しない） */
-        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
-        (S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]
-          ? "<div class='ds'>🧭 次期経営方針: <b>" + POLICY_DEFS[S.pendingPolicy].name + "</b>（" + POLICY_DEFS[S.pendingPolicy].desc + "）</div>"
-          : "<div class='bn'>🧭 次期経営方針: 未設定 — 売却前に選べます</div>") +
-        (S.runPolicy && POLICY_DEFS[S.runPolicy] ? "<div class='ds'>いまの会社: <b>" + POLICY_DEFS[S.runPolicy].name + "</b>（" + POLICY_DEFS[S.runPolicy].desc + "）</div>" : "") +
-        "<div style='margin-top:5px;display:flex;gap:6px;flex-wrap:wrap'>" +
-        polBtn(null, "方針なし", "特性なしで始める") +
-        polBtn("labor", "🐾 労働特化", POLICY_DEFS.labor.desc) +
-        polBtn("auto", "🤖 自動化特化", POLICY_DEFS.auto.desc) +
-        polBtn("sell", "💰 売却特化", POLICY_DEFS.sell.desc) +
-        "</div></div>" +
-        /* 4: 受け取るものの予告 */
+        /* 3: 受け取るものの予告 */
         "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で: 星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + (pb.ptsSize + pb.ptsEra) + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
         "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b>" + (pv.subGain > 0 ? " ・ うち子会社ぶん（目安）星屑 約 " + pv.subGain + " 個" : "") + "</div>" +
         "<div class='note'>内訳: " + pbTxt + "</div>" +
         "<div class='note'>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
-        /* 5: 役員・ベテランの選出 */
+        /* 4: 役員・ベテランの選出 */
         execSelectHTML() +
-        /* 6: 売却ボタン */
+        /* 5: 売却ボタン */
         "<div style='margin:7px 0'>" + prestigeBtn + "</div>" +
-        /* 7: 売却実績の節目 */
+        /* 6: 売却実績の節目 */
         exitMsHTML() +
         "</div>";
       }

@@ -277,7 +277,7 @@ function load(rawText?: string){
       if(typeof sub.staff !== "number") sub.staff = 5;
       if(typeof sub.lv !== "number") sub.lv = 1;
       delete (sub as any).alloc;   /* 2026-11-05: 注力（資金配分）廃止。旧セーブの残存フィールドは読み捨てる */
-      if(typeof sub.stance !== "string" || !SUB_POLICY.stances[sub.stance]) sub.stance = "std";   /* 再設計 r4-subs: 方針の既定は標準 */
+      delete (sub as any).stance;   /* 2026-11-11: 子会社方針を廃止。旧セーブの残存フィールドは読み捨てる */
       if(!sub.traits || typeof sub.traits !== "object") sub.traits = {};
     }
     if(typeof S.eraDemand !== "string") drawEraDemand();   /* 再設計 r4-subs: 時代の需要ジャンル（旧セーブには無い） */
@@ -328,8 +328,8 @@ function load(rawText?: string){
     if(typeof S.eraExitPts !== "number" || !isFinite(S.eraExitPts))
       S.eraExitPts = Math.max(0, Math.min(12, (S.prestiges || 0) - S.eraStartPrestiges));
     if(typeof S.rdInvest !== "number" || !isFinite(S.rdInvest) || S.rdInvest < 0) S.rdInvest = 0;
-    if(typeof S.runPolicy !== "string") S.runPolicy = null;
-    if(typeof S.pendingPolicy !== "string") S.pendingPolicy = null;
+    S.runPolicy = null;   /* 2026-11-11: 経営方針システム廃止。旧セーブの残存値も無効化する */
+    S.pendingPolicy = null;
     /* 第2ウェーブ K: チャレンジ状態の補完（旧セーブは未挑戦・報酬なし） */
     if(S.challenge !== null && (typeof S.challenge !== "object" || !S.challenge.id)) S.challenge = null;
     if(S.challenge && typeof S.challenge.rel0 !== "number") S.challenge.rel0 = S.totals.releases || 0;   /* LD r4-challenge §5: 旧セーブの進行中チャレンジは読込時点の通算を起点とみなす */

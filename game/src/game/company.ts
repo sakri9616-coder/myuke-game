@@ -23,11 +23,14 @@ function subGenreRate(genreId){
   const i = GENRES.findIndex(g => g.id === genreId);
   return 1 + 0.1 * Math.max(0, i);   /* 解放が遅いジャンルほど単価が高い */
 }
-/* 子会社経営の再設計（LD leveldesign-r4-subs §3）: 注力を抜いたあとの判断は3か所——
-   子会社ごとの方針、その時代の需要ジャンル、規模の節目での特性選択。
-   倍率はすべて subRates（基礎レート側）にのみ掛け、subDustValue は従来どおり subRates から導く */
-let SUB_POLICY = { demandMult: 1.5, demandMultElite: 1.9, stanceCostHours: 1, stances: { std: { name: "標準", staff: 1, scale: 1, headCost: 1, coins: 1, dp: 1 }, mass: { name: "量産型", staff: 1.3, scale: 0.75, headCost: 0.85, coins: 1, dp: 1 }, elite: { name: "精鋭型", staff: 0.85, scale: 1.5, headCost: 1, coins: 1, dp: 1 }, wire: { name: "送金型", staff: 1, scale: 1, headCost: 1, coins: 0.8, dp: 2 } }, traits: { m10: { lv: 10, choices: { sales: { name: "営業所", coins: 1.25, dp: 1 }, dev: { name: "開発所", coins: 1, dp: 1.5 } } }, m25: { lv: 25, choices: { hire: { name: "採用所", headCost: 0.7, scaleCost: 1 }, expand: { name: "拡張所", headCost: 1, scaleCost: 0.7 } } }, m50: { lv: 50, choices: { flag: { name: "旗艦", all: 1.3 }, drive: { name: "自走", reinvestFloor: 0.25 } } } } };
-function stanceOf(sub){ return SUB_POLICY.stances[sub.stance] || SUB_POLICY.stances.std; }
+/* 子会社経営の再設計（LD leveldesign-r4-subs §3）: 注力を抜いたあとの判断は2か所——
+   その時代の需要ジャンルと、規模の節目での特性選択。
+   倍率はすべて subRates（基礎レート側）にのみ掛け、subDustValue は従来どおり subRates から導く
+   ※子会社ごとの方針（量産型/精鋭型/送金型）は 2026-11-11 sakuri 指示で撤去
+   （「無駄に判断を煽るようなシステムにしかならない」）。全社一律の標準倍率で固定する */
+let SUB_POLICY = { demandMult: 1.5, traits: { m10: { lv: 10, choices: { sales: { name: "営業所", coins: 1.25, dp: 1 }, dev: { name: "開発所", coins: 1, dp: 1.5 } } }, m25: { lv: 25, choices: { hire: { name: "採用所", headCost: 0.7, scaleCost: 1 }, expand: { name: "拡張所", headCost: 1, scaleCost: 0.7 } } }, m50: { lv: 50, choices: { flag: { name: "旗艦", all: 1.3 }, drive: { name: "自走", reinvestFloor: 0.25 } } } } };
+const SUB_STD_STANCE = { staff: 1, scale: 1, headCost: 1, coins: 1, dp: 1 };
+function stanceOf(_sub){ return SUB_STD_STANCE; }   /* 方針撤去後は常に標準倍率（呼び出し側の形は不変） */
 function traitChoice(sub, key){ const t = (sub.traits || {})[key]; return t && SUB_POLICY.traits[key] && SUB_POLICY.traits[key].choices[t] ? SUB_POLICY.traits[key].choices[t] : null; }
 /* 時代の需要ジャンル: 時代（EXIT 間の1周回）ごとに1つ、通算 EXIT 回数からの決定的ローテーション。
    時代内では固定（設立前に子会社タブで予告する）。新しい時代の始まりに引き直す */
@@ -35,7 +38,7 @@ function drawEraDemand(){ const u = unlockedGenres(); S.eraDemand = u.length ? u
 function eraDemandGenre(){ if(typeof S.eraDemand !== "string") drawEraDemand(); return S.eraDemand; }
 function subDemandMult(sub){
   if(sub.genre !== eraDemandGenre()) return 1;
-  return (sub.stance === "elite") ? SUB_POLICY.demandMultElite : SUB_POLICY.demandMult;   /* 精鋭型は需要の波に強く乗る */
+  return SUB_POLICY.demandMult;
 }
 function subLvMult(sub){ return 1 + SUB_ECON.lvStep * (upEff({ lv: sub.lv }, "lv") - 1) * stanceOf(sub).scale; }   /* 方針の規模係数はボーナス部分にのみ掛ける */
 function subRates(sub){
@@ -44,16 +47,6 @@ function subRates(sub){
   const tFlag = traitChoice(sub, "m50");
   const base = sub.staff * st.staff * subLvMult(sub) * SUB_ECON.baseMult * subDemandMult(sub) * (tFlag && tFlag.all ? tFlag.all : 1) * (hasLegacyTech("group") ? 1.3 : 1);   /* 第2ウェーブ J: グループ経営 +30% */
   return { coins: base * SUB_ECON.coinPerStaff * subGenreRate(sub.genre) * subUnit() * (1 + 0.4 * engineLv("gmgmt")) * branchMult("b_subs") * seriesSubMult() * st.coins * (tSales ? tSales.coins : 1), dp: base * 0.2 * st.dp * (tSales ? tSales.dp : 1) };   /* 段階4: 子会社の列「グループ経営」／段階6: 星屑の枝とシリーズの相乗 */
-}
-function setSubStance(id, stance){
-  const sub = (S.subs || []).find(s => s.id === id);
-  if(!sub || !SUB_POLICY.stances[stance] || (sub.stance || "std") === stance) return;
-  const cost = Math.ceil(subRates(sub).coins * 60 * SUB_POLICY.stanceCostHours);   /* 変更コスト = その会社の1時間ぶんの売上 */
-  if(S.coins < cost){ say("コインが足りないにゃ…（方針の変更には " + fmt(cost) + "🪙）"); return; }
-  S.coins -= cost; sub.stance = stance;
-  addLog("🏢 " + sub.name + " の方針を「" + SUB_POLICY.stances[stance].name + "」に変更（-" + fmt(cost) + "🪙）");
-  say(sub.name + "は" + SUB_POLICY.stances[stance].name + "でいくにゃ");
-  save(); renderPanel();
 }
 function setSubTrait(id, key, choice){
   const sub = (S.subs || []).find(s => s.id === id);
@@ -90,7 +83,7 @@ function subReinvest(sub, coins){
   for(let guard = 0; guard < 50; guard++){
     /* 人員と規模のうち、値段あたりの伸びが大きいほうを買う */
     const hc = subHeadCost(sub), sc = sub.lv < SUB_MAX_LV ? subScaleCost(sub) : Infinity;
-    const hg = 1 / sub.staff / hc, sg = (subLvMult({ lv: sub.lv + 1, stance: sub.stance }) / subLvMult(sub) - 1) / sc;
+    const hg = 1 / sub.staff / hc, sg = (subLvMult({ lv: sub.lv + 1 }) / subLvMult(sub) - 1) / sc;
     const scale = sg > hg, c = scale ? sc : hc;
     if(sub.reinv < c) break;
     sub.reinv -= c;
@@ -141,7 +134,7 @@ function foundSub(genreId){
   if(!Array.isArray(S.subs)) S.subs = [];
   let name = spaceSubName(g.name) || SUB_NAME_A[(S.subSeq || 0) % SUB_NAME_A.length] + g.name + "工房";   /* v2.26.1: 宇宙編は土地の名前 */
   if(S.subs.some(s => s.name === name)) name += " " + (S.subs.filter(s => s.name.startsWith(name.split(" ")[0])).length + 1) + "号";
-  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, stance: "std", traits: {} };
+  const sub = { id: ++S.subSeq, name, genre: g.id, staff: 5, lv: 1, traits: {} };
   S.subs.push(sub);
   SoundKit.play("purchase");
   addLog("🏢 子会社「"+name+"」を設立！（-" + fmt(cost) + "🪙）得意は"+g.name+"、人員 5 人で発足");
@@ -266,7 +259,7 @@ function prestigePreview(){
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
   /* レベルデザイン改修: 経営方針「売却特化」の会社は、EXIT の星屑が ×1.25（最後に掛けて floor。
      プレビューと実際の獲得量を一致させるため、倍率はここで掛ける） */
-  const gain = Math.floor(dustGainFromValue(S.runPeakValue || 0) * (S.runPolicy === "sell" ? 1.25 : 1));
+  const gain = Math.floor(dustGainFromValue(S.runPeakValue || 0));
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ"];
   if((S.subs || []).length) resets.push("子会社");
@@ -356,10 +349,9 @@ function notebookTopResearch(){
    売却実績の内訳（大きさ分＋時代ボーナス分）。付与側（doPrestigeCore の ptsGain）と一致させる */
 function prestigeBreakdown(){
   const base = dustGainFromValue(S.runPeakValue || 0), cap = dustGainCap();
-  const gain = Math.floor(base * (S.runPolicy === "sell" ? 1.25 : 1));
+  const gain = Math.floor(base);
   return {
     propPart: Math.min(base, cap), sqrtPart: Math.max(0, base - cap),
-    policyPart: Math.max(0, gain - base),
     ptsSize: gain >= 300 ? 3 : gain >= 100 ? 2 : 1,
     ptsEra: (S.eraDust || 0) >= HOLD_ERA_DUST ? 1 : 0
   };
@@ -405,8 +397,8 @@ function resetCompanyRun(){
   /* レベルデザイン改修: 時代マイルストーン「シード突破」（eraDust 150）に届いた時代は、
      新しい会社が設備 Lv10 から始まる（ワイドモニターは企画上限の専用枠なので対象外） */
   if((S.eraDust || 0) >= 150) for(const id of ["devenv", "duck", "tester", "ci", "pack", "bot"]) S.upgrades[id] = 10;
-  /* レベルデザイン改修: 経営方針は EXIT のたびに消費される。予約していた方針が次の会社に移り、予約は空になる */
-  S.runPolicy = S.pendingPolicy || null; S.pendingPolicy = null;
+  /* 経営方針（次期方針の予約と適用）は 2026-11-11 sakuri 指示で撤去。新しい会社は常に方針なしで始まる */
+  S.runPolicy = null; S.pendingPolicy = null;
   S.research = {}; S.runGenre = {};   /* 段階5: ジャンル知見の配分はこの会社の出荷から */
   S.depts = freshDepts(); S.bigDeal = null; S.salesRot = 0;   /* Phase C: 部署投資と大型案件もリセット（希望ジャンルは方針なので残す） */
   S.challenge = null;   /* 第2ウェーブ K: 未達のチャレンジは会社と一緒に終わる（報酬層は残る） */
@@ -604,19 +596,10 @@ function buyRdInvest(){
   say("恒久研究にゃ！ 星屑の効きが強くなったよ");
   save(); renderPanel();
 }
-/* レベルデザイン改修: 経営方針（次の会社への特性）。売却パネルで事前に選んでおき、
-   EXIT のたびに消費される。効果の実体は production.ts（生産・売却）／defs.ts（クリック）／
-   tick.ts（入力ブースト）にある */
-const POLICY_DEFS = {
-  labor: { name:"労働特化",   desc:"応援クリック威力と入力ブースト ×2・自動生産 ×0.8" },
-  auto:  { name:"自動化特化", desc:"自動生産 ×1.3・応援クリック威力 ×0.7" },
-  sell:  { name:"売却特化",   desc:"EXIT の獲得星屑 ×1.25・生産 ×0.85" }
-};
-function setRunPolicy(p){
-  S.pendingPolicy = (p && POLICY_DEFS[p]) ? p : null;
-  if(S.pendingPolicy) addLog("🧭 次期経営方針を「"+POLICY_DEFS[S.pendingPolicy].name+"」に予約した");
-  save(); renderPanel();
-}
+/* 経営方針（売却時に次の会社の特性を選ぶ仕組み）は 2026-11-11 sakuri 指示で撤去
+   （「売却時の方針も俺入れろって言ってない」）。POLICY_DEFS / setRunPolicy と、
+   生産・クリック・入力ブースト・売却星屑に掛かっていた効果はすべて廃止した。
+   セーブの runPolicy / pendingPolicy は互換のため残し、読み込み時に null へ正規化する */
 /* レベルデザイン改修: 時代マイルストーン（eraDust で進む・その時代の間ずっと有効）。
    効果の実体: 150 = resetCompanyRun の開始設備 Lv10／400 = production.ts の clickLinkRate／
    750 = production.ts の companyValue ×2 */

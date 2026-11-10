@@ -336,7 +336,7 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
   {
     const sellNow = prestigePreview().gain;
     /* 再設計 B8（ux-r3 §2.2）: 右タブは4行固定・9px 級に再編した。
-       1 社格＋人数 / 2 企業価値＋売却⭐＋売りどき印 / 3 所持⭐（＋持株化後は🌌） / 4 次期方針 or チャレンジ。
+       1 社格＋人数 / 2 企業価値＋売却⭐＋売りどき印 / 3 所持⭐（＋持株化後は🌌） / 4 チャレンジ（挑戦中のみ。旧・次期方針は 2026-11-11 方針撤去で削除）。
        グループ社数・総勢は子会社タブ側へ、持株×N は持株化パネルと時代の記録側へ移した（帯では出さない） */
     /* 売りどき印（§2.6）: 売却見込みが立ち、かつ星屑が比例枠の中にある間だけ金の印（色＋形）を付ける。
        枠を超えたら印は消え、代わりに売却カード側の比例枠バーが担う（designer-r3 の売りどき定義。
@@ -380,7 +380,6 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
       sDrawSprite("fx_spark_2", bx + bw - 8, top - 2, 1);
     }
     if(S.challenge) tabRows.push({ t: "🎯" + ((challengeDef(S.challenge.id) || {}).name || "") });
-    else if(S.pendingPolicy && POLICY_DEFS[S.pendingPolicy]) tabRows.push({ t: "次期: " + POLICY_DEFS[S.pendingPolicy].name });
     sctx.save();
     sctx.font = "700 9px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.textAlign = "left"; sctx.textBaseline = "middle";

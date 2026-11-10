@@ -302,11 +302,10 @@ const CLICK_DEFS = [
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
 function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }
 const CLICK_POWER_BASE = 0.25;   /* てぶくろ Lv0 の威力（持ち場の手助けで「威力の倍率」を測る基準） */
-/* レベルデザイン改修: 経営方針のクリック側の倍率（労働特化 ×2／自動化特化 ×0.7） */
-function runPolicyClickMult(){ return S.runPolicy === "labor" ? 2 : S.runPolicy === "auto" ? 0.7 : 1; }
+/* 経営方針のクリック倍率は 2026-11-11 方針システム撤去に伴い廃止 */
 function clickPower(){
   const base = CLICK_POWER_BASE + 0.18*upEff(S.clickUp, "glove");
-  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult() * branchMult("b_labor") * runPolicyClickMult();   /* 星屑特典「集中ブースト」＋ご褒美バフ＋段階6の枝「星の肉球」＋経営方針 */
+  return base * (hasPerk("focus") ? 1.1 : 1) * buffClickMult() * branchMult("b_labor");   /* 星屑特典「集中ブースト」＋ご褒美バフ＋段階6の枝「星の肉球」 */
 }
 function comboCapBonus(){ return 2.0 + 0.25*(S.clickUp.quality||0); }   // 倍率 = 1 + min(これ, 連続×0.10) → 基本最大 ×3.0
 function critRate(){ return 0.08 + 0.01*(S.clickUp.quality||0); }
