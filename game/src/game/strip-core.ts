@@ -52,7 +52,14 @@ const SPRITE_SPEC = {
   prop_cactus:[24,24], prop_clock:[24,24], prop_controller:[24,24], prop_extinguisher:[24,24],
   prop_figurine:[24,24], prop_trash_can:[24,24],
   /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合/装飾配線) */
-  prop_tablet:[48,48], prop_storage_box:[48,48], prop_succulent:[24,24]
+  prop_tablet:[48,48], prop_storage_box:[48,48], prop_succulent:[24,24],
+  /* みゅー作画 新規家具16点 (2026-11-11 作画・S12 適用・2026-11-16 統合/装飾配線):
+     作画時のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts) */
+  prop_cardboard_fort:[64,64], prop_cat_rack:[64,64], prop_stock_board:[64,64],
+  prop_hammock:[64,64], prop_massage_chair:[64,64], prop_xmas_tree:[64,64],
+  prop_monitors:[48,48], prop_ipo_bell:[48,48], prop_first_desk:[48,48],
+  prop_snack_wagon:[48,48], prop_paper_pile:[48,48], prop_sunny_perch:[48,48],
+  prop_keyboard:[24,24], prop_build_lamp:[24,24], prop_laser:[24,24], prop_can_tower:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。

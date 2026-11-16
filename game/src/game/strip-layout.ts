@@ -47,30 +47,53 @@ const PROP_TIER = {
    行う（§4.1-7 の挿入位置）
    追加戻り3点 (2026-11-13 戻り・同日統合): storage_box / tablet / succulent
    も同じ申告で登録。cls は第1段の寸法規則どおり (48級=ground、24級=small)、
-   x は既存の空きスロット (0.115 / 0.307 / 0.470) へ割り当てた */
+   x は既存の空きスロット (0.115 / 0.307 / 0.470) へ割り当てた
+   みゅー作画 新規16点 (2026-11-11 作画・S12 適用・同日統合): monitors /
+   build_lamp / can_tower / keyboard / ipo_bell / first_desk / stock_board /
+   hammock / massage_chair / snack_wagon / cat_rack / cardboard_fort / laser /
+   paper_pile / xmas_tree / sunny_perch も同じ申告で登録。cls は同じ寸法規則
+   (64/48級=ground、24級=small)。x は既存25点の間隔へ分散配置した。
+   ハンモック・日なた台など猫が使う想定の物も、機能反応は付けず装飾扱いで
+   統一している (反応の設計は別途) */
 const DECOR_DEFS = {
+  decor_build_lamp:   { sprite: "prop_build_lamp",   label: "ビルド状態ランプ",   w: 24, h: 24, cls: "small",  x: 0.018 },
   decor_coat_rack:    { sprite: "prop_coat_rack",    label: "ポールハンガー",     w: 48, h: 48, cls: "ground", x: 0.035 },
+  decor_sunny_perch:  { sprite: "prop_sunny_perch",  label: "日なたの台",         w: 48, h: 48, cls: "ground", x: 0.055 },
   decor_bonsai:       { sprite: "prop_bonsai",       label: "盆栽",               w: 48, h: 48, cls: "ground", x: 0.075 },
+  decor_keyboard:     { sprite: "prop_keyboard",     label: "推しキーボード",     w: 24, h: 24, cls: "small",  x: 0.095 },
   decor_storage_box:  { sprite: "prop_storage_box",  label: "収納ボックス",       w: 48, h: 48, cls: "ground", x: 0.115 },
+  decor_hammock:      { sprite: "prop_hammock",      label: "ハンモック",         w: 64, h: 64, cls: "ground", x: 0.135 },
   decor_floor_lamp:   { sprite: "prop_floor_lamp",   label: "フロアランプ",       w: 48, h: 48, cls: "ground", x: 0.155 },
+  decor_first_desk:   { sprite: "prop_first_desk",   label: "創業の小机",         w: 48, h: 48, cls: "ground", x: 0.172 },
   decor_drawer:       { sprite: "prop_drawer",       label: "引き出しチェスト",   w: 48, h: 48, cls: "ground", x: 0.190 },
+  decor_can_tower:    { sprite: "prop_can_tower",    label: "エナドリ缶タワー",   w: 24, h: 24, cls: "small",  x: 0.204 },
   decor_cactus:       { sprite: "prop_cactus",       label: "サボテン",           w: 24, h: 24, cls: "small",  x: 0.218 },
   decor_cable_box:    { sprite: "prop_cable_box",    label: "ケーブルボックス",   w: 48, h: 48, cls: "ground", x: 0.243 },
   decor_air_purifier: { sprite: "prop_air_purifier", label: "空気清浄機",         w: 48, h: 48, cls: "ground", x: 0.270 },
+  decor_snack_wagon:  { sprite: "prop_snack_wagon",  label: "おやつワゴン",       w: 48, h: 48, cls: "ground", x: 0.288 },
   decor_tablet:       { sprite: "prop_tablet",       label: "液晶タブレット",     w: 48, h: 48, cls: "ground", x: 0.307 },
+  decor_paper_pile:   { sprite: "prop_paper_pile",   label: "書類の山",           w: 48, h: 48, cls: "ground", x: 0.326 },
   decor_cardboard_box:{ sprite: "prop_cardboard_box",label: "段ボール箱",         w: 48, h: 48, cls: "ground", x: 0.345 },
+  decor_massage_chair:{ sprite: "prop_massage_chair",label: "マッサージチェア",   w: 64, h: 64, cls: "ground", x: 0.361 },
   decor_beanbag:      { sprite: "prop_beanbag",      label: "ビーズクッション",   w: 64, h: 64, cls: "ground", x: 0.378 },
+  decor_ipo_bell:     { sprite: "prop_ipo_bell",     label: "上場の鐘",           w: 48, h: 48, cls: "ground", x: 0.395 },
   decor_balance_ball: { sprite: "prop_balance_ball", label: "バランスボール",     w: 48, h: 48, cls: "ground", x: 0.412 },
+  decor_laser:        { sprite: "prop_laser",        label: "レーザーポインタ台", w: 24, h: 24, cls: "small",  x: 0.426 },
   decor_cup_ramen:    { sprite: "prop_cup_ramen",    label: "カップ麺",           w: 48, h: 48, cls: "ground", x: 0.440 },
   decor_succulent:    { sprite: "prop_succulent",    label: "多肉植物",           w: 24, h: 24, cls: "small",  x: 0.470 },
+  decor_monitors:     { sprite: "prop_monitors",     label: "三画面モニタ",       w: 48, h: 48, cls: "ground", x: 0.485 },
   decor_3d_printer:   { sprite: "prop_3d_printer",   label: "3Dプリンタ",         w: 48, h: 48, cls: "ground", x: 0.500 },
+  decor_xmas_tree:    { sprite: "prop_xmas_tree",    label: "クリスマスツリー",   w: 64, h: 64, cls: "ground", x: 0.516 },
   decor_file_cabinet: { sprite: "prop_file_cabinet", label: "ファイルキャビネット", w: 48, h: 48, cls: "ground", x: 0.532 },
+  decor_stock_board:  { sprite: "prop_stock_board",  label: "株価ボード",         w: 64, h: 64, cls: "ground", x: 0.558 },
   decor_aquarium:     { sprite: "prop_aquarium",     label: "金魚鉢",             w: 48, h: 48, cls: "ground", x: 0.585 },
+  decor_cat_rack:     { sprite: "prop_cat_rack",     label: "キャットタワーラック", w: 64, h: 64, cls: "ground", x: 0.612 },
   decor_console:      { sprite: "prop_console",      label: "ゲーム機",           w: 48, h: 48, cls: "ground", x: 0.640 },
   decor_controller:   { sprite: "prop_controller",   label: "コントローラ",       w: 24, h: 24, cls: "small",  x: 0.668 },
   decor_desk_lamp:    { sprite: "prop_desk_lamp",    label: "デスクランプ",       w: 48, h: 48, cls: "ground", x: 0.695 },
   decor_figurine:     { sprite: "prop_figurine",     label: "フィギュア",         w: 24, h: 24, cls: "small",  x: 0.728 },
   decor_calendar:     { sprite: "prop_calendar",     label: "カレンダー",         w: 25, h: 24, cls: "small",  x: 0.752 },
+  decor_cardboard_fort:{ sprite: "prop_cardboard_fort", label: "段ボール要塞",    w: 64, h: 64, cls: "ground", x: 0.776 },
   decor_clock:        { sprite: "prop_clock",        label: "置き時計",           w: 24, h: 24, cls: "small",  x: 0.800 },
   decor_trash_can:    { sprite: "prop_trash_can",    label: "ゴミ箱",             w: 24, h: 24, cls: "small",  x: 0.828 },
   decor_extinguisher: { sprite: "prop_extinguisher", label: "消火器",             w: 24, h: 24, cls: "small",  x: 0.850 },
