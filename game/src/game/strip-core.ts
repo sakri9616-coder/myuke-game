@@ -42,7 +42,15 @@ const SPRITE_SPEC = {
   fx_sparkle_0:[24,24], fx_sparkle_1:[24,24], fx_sparkle_2:[24,24], fx_sparkle_3:[24,24], fx_sparkle_4:[24,24],
   fx_sparkle_burst_0:[24,24], fx_sparkle_burst_1:[24,24], fx_sparkle_burst_2:[24,24], fx_sparkle_burst_3:[24,24], fx_sparkle_burst_4:[24,24],
   fx_sparkle_ring_0:[24,24], fx_sparkle_ring_1:[24,24], fx_sparkle_ring_2:[24,24], fx_sparkle_ring_3:[24,24], fx_sparkle_ring_4:[24,24],
-  fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24]
+  fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24],
+  /* sakuri 家具バッチ2 戻り22点 (2026-11-11 統合・2026-11-16 装飾配線):
+     本人作画のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts) */
+  prop_air_purifier:[48,48], prop_aquarium:[48,48], prop_balance_ball:[48,48], prop_bonsai:[48,48],
+  prop_cable_box:[48,48], prop_cardboard_box:[48,48], prop_coat_rack:[48,48], prop_cup_ramen:[48,48],
+  prop_desk_lamp:[48,48], prop_drawer:[48,48], prop_file_cabinet:[48,48], prop_floor_lamp:[48,48],
+  prop_console:[48,48], prop_3d_printer:[48,48], prop_beanbag:[64,64], prop_calendar:[25,24],
+  prop_cactus:[24,24], prop_clock:[24,24], prop_controller:[24,24], prop_extinguisher:[24,24],
+  prop_figurine:[24,24], prop_trash_can:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。

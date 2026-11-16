@@ -188,6 +188,9 @@ function layoutPropItems(){
     const top = id === "board" ? STRIP_BOARD.top : pl.baseY - def.h;
     items.push({ id, label: def.label, cx: pl.cx, w: def.w, h: def.h, top, prop: true });
   };
+  /* 装飾家具 (sakuri 戻り22点) は機能小物より先に積む: layoutHitTest は
+     末尾から当たるので、装飾の矩形が機能物のドラッグを奪わない */
+  for(const decorId of Object.keys(DECOR_DEFS)) add(decorId);
   add("board");
   if(stripMemoText()) add("memo");
   if(!tutTabLocked("staff")) add("phone");

@@ -340,6 +340,7 @@ function renderStrip(){
      ラグは各家具クラスタの下だけ。歩行者はこの後に描くので常に家具の手前 (R2) */
   drawStripStationBooths();                         /* 工程の持ち場のブース (会議室・テスト室・ビルド室・出荷場)。いちばん奥 */
   drawStripShelf();                                 /* B: 作品棚＋柵 (②背面物+③) */
+  drawStripDecor();                                 /* B': 装飾家具 (sakuri 戻り22点・背景段の景色) */
   if(hasResearcher()) drawStripResearchStation();   /* C: 研究机 */
   drawStripServerRack();                            /* E': サーバーラック (tier>=2 + CIマシン) */
   if(S.stamps.first_release) drawStripEasel();      /* E: イーゼル */

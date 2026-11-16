@@ -34,6 +34,48 @@ const PROP_TIER = {
   plant: "mid", ship: "mid", calendar: "mid", fever: "mid",
   plan: "mid", test: "mid", build: "mid",
 };
+/* ---------- sakuri 家具バッチ2 戻り22点の装飾配線 (2026-11-16) ----------
+   §4.1 申告制で追加する装飾家具。§4.3 の既定どおり全点「背景段・ヒット
+   ゾーンなし・面なし（面は提供しない）」の景色の成長枠として受ける。
+   配置の保存は小物と同じ S.layoutProps（追加のみ・§4.2c）で、並べ替え
+   モードでドラッグできる。24級の小さい物だけ cls:"small" として、既存の
+   面（机・棚・研究机・トロフィー台）にも載せられる。
+   寸法は本人作画のキャンバス寸法が正本（graphics/validate-sprites.cjs の
+   props 表と一致させること）。x は既定位置の帯幅比で、§4.2d の右端 ~14%
+   HUD 予約域には置かない。高さは全点 背景段上限 98 以下。
+   描画は drawStripDecor (strip-furniture.ts) が背景家具層・作品棚の直後に
+   行う（§4.1-7 の挿入位置） */
+const DECOR_DEFS = {
+  decor_coat_rack:    { sprite: "prop_coat_rack",    label: "ポールハンガー",     w: 48, h: 48, cls: "ground", x: 0.035 },
+  decor_bonsai:       { sprite: "prop_bonsai",       label: "盆栽",               w: 48, h: 48, cls: "ground", x: 0.075 },
+  decor_floor_lamp:   { sprite: "prop_floor_lamp",   label: "フロアランプ",       w: 48, h: 48, cls: "ground", x: 0.155 },
+  decor_drawer:       { sprite: "prop_drawer",       label: "引き出しチェスト",   w: 48, h: 48, cls: "ground", x: 0.190 },
+  decor_cactus:       { sprite: "prop_cactus",       label: "サボテン",           w: 24, h: 24, cls: "small",  x: 0.218 },
+  decor_cable_box:    { sprite: "prop_cable_box",    label: "ケーブルボックス",   w: 48, h: 48, cls: "ground", x: 0.243 },
+  decor_air_purifier: { sprite: "prop_air_purifier", label: "空気清浄機",         w: 48, h: 48, cls: "ground", x: 0.270 },
+  decor_cardboard_box:{ sprite: "prop_cardboard_box",label: "段ボール箱",         w: 48, h: 48, cls: "ground", x: 0.345 },
+  decor_beanbag:      { sprite: "prop_beanbag",      label: "ビーズクッション",   w: 64, h: 64, cls: "ground", x: 0.378 },
+  decor_balance_ball: { sprite: "prop_balance_ball", label: "バランスボール",     w: 48, h: 48, cls: "ground", x: 0.412 },
+  decor_cup_ramen:    { sprite: "prop_cup_ramen",    label: "カップ麺",           w: 48, h: 48, cls: "ground", x: 0.440 },
+  decor_3d_printer:   { sprite: "prop_3d_printer",   label: "3Dプリンタ",         w: 48, h: 48, cls: "ground", x: 0.500 },
+  decor_file_cabinet: { sprite: "prop_file_cabinet", label: "ファイルキャビネット", w: 48, h: 48, cls: "ground", x: 0.532 },
+  decor_aquarium:     { sprite: "prop_aquarium",     label: "金魚鉢",             w: 48, h: 48, cls: "ground", x: 0.585 },
+  decor_console:      { sprite: "prop_console",      label: "ゲーム機",           w: 48, h: 48, cls: "ground", x: 0.640 },
+  decor_controller:   { sprite: "prop_controller",   label: "コントローラ",       w: 24, h: 24, cls: "small",  x: 0.668 },
+  decor_desk_lamp:    { sprite: "prop_desk_lamp",    label: "デスクランプ",       w: 48, h: 48, cls: "ground", x: 0.695 },
+  decor_figurine:     { sprite: "prop_figurine",     label: "フィギュア",         w: 24, h: 24, cls: "small",  x: 0.728 },
+  decor_calendar:     { sprite: "prop_calendar",     label: "カレンダー",         w: 25, h: 24, cls: "small",  x: 0.752 },
+  decor_clock:        { sprite: "prop_clock",        label: "置き時計",           w: 24, h: 24, cls: "small",  x: 0.800 },
+  decor_trash_can:    { sprite: "prop_trash_can",    label: "ゴミ箱",             w: 24, h: 24, cls: "small",  x: 0.828 },
+  decor_extinguisher: { sprite: "prop_extinguisher", label: "消火器",             w: 24, h: 24, cls: "small",  x: 0.850 },
+};
+/* 装飾家具を小物の配置機構 (PROP_DEFS / PROP_TIER) へ登録する。段は種別
+   から導出する静的属性なのでセーブには持たせない (§4.2c) */
+for(const decorId of Object.keys(DECOR_DEFS)){
+  const dd = DECOR_DEFS[decorId];
+  PROP_DEFS[decorId] = { label: dd.label, w: dd.w, h: dd.h, cls: dd.cls };
+  PROP_TIER[decorId] = "back";
+}
 function propGroundY(id){ return stripTierG(PROP_TIER[id] || "mid"); }
 function layoutSurfaces(){
   /* 面の高さは持ち主の家具の基線からの相対値（§4.1-4）。段基線の導入で
@@ -57,6 +99,8 @@ function propDefaultPlace(id){
   /* 既定位置の基線はその小物の所属段（段基線からの相対オフセットは従来の
      地面基準の校正値をそのまま持ち越す） */
   const G = propGroundY(id);
+  /* 装飾家具の既定位置は申告した帯幅比 (§4.1-6)。基線は所属段（背景） */
+  if(DECOR_DEFS[id]) return { cx: Math.round(DECOR_DEFS[id].x * stripVW), baseY: G };
   switch(id){
     case "board": return { cx: stripDeskCX(), baseY: G };
     case "phone": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 10, baseY: G };
