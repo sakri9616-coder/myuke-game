@@ -77,7 +77,13 @@ const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28,
   prop_cactus: [24, 24], prop_clock: [24, 24], prop_controller: [24, 24], prop_extinguisher: [24, 24],
   prop_figurine: [24, 24], prop_trash_can: [24, 24],
   /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合): 本人作画の寸法が正本 */
-  prop_tablet: [48, 48], prop_storage_box: [48, 48], prop_succulent: [24, 24] };
+  prop_tablet: [48, 48], prop_storage_box: [48, 48], prop_succulent: [24, 24],
+  /* みゅー作画 新規家具16点 (2026-11-11 作画・S12 適用・2026-11-16 統合): 作画時のキャンバス寸法が正本 */
+  prop_cardboard_fort: [64, 64], prop_cat_rack: [64, 64], prop_stock_board: [64, 64],
+  prop_hammock: [64, 64], prop_massage_chair: [64, 64], prop_xmas_tree: [64, 64],
+  prop_monitors: [48, 48], prop_ipo_bell: [48, 48], prop_first_desk: [48, 48],
+  prop_snack_wagon: [48, 48], prop_paper_pile: [48, 48], prop_sunny_perch: [48, 48],
+  prop_keyboard: [24, 24], prop_build_lamp: [24, 24], prop_laser: [24, 24], prop_can_tower: [24, 24] };
 const ENV_SPRITES = new Set(['prop_kanban', 'prop_kanban_wide', 'prop_phone', 'prop_megaphone', 'prop_toolbox', 'desk_laminate_main', 'desk_laminate_2',
   'desk_laminate_2_sprite', 'prop_chair', 'prop_server_rack', 'shelf_steel',
   'prop_books', 'prop_archive_boxes', 'prop_mat',
@@ -187,7 +193,7 @@ const extraLabels = {
 };
 
 for (const name of required) assert.ok(sprites[name], `required sprite missing: ${name}`);
-assert.equal(Object.keys(palette).length, 435, 'Shared palette count changed (23 base + 140 extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone + 15 annex sign (Codex, quantized on integration) + 26 wave J gold props (Codex sign/star/trophy) + 230 sakuri furniture returns 20261111 (22 items, palette option 1: exact colors, no quantization; mixer console version kept aside, its 19 exclusive colors not imported) + 42 sakuri furniture returns 20261113 (3 items: tablet 17 + succulent 7 + storage_box 18, palette option 1: exact colors, no quantization))');
+assert.equal(Object.keys(palette).length, 505, 'Shared palette count changed (23 base + 140 extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone + 15 annex sign (Codex, quantized on integration) + 26 wave J gold props (Codex sign/star/trophy) + 230 sakuri furniture returns 20261111 (22 items, palette option 1: exact colors, no quantization; mixer console version kept aside, its 19 exclusive colors not imported) + 42 sakuri furniture returns 20261113 (3 items: tablet 17 + succulent 7 + storage_box 18, palette option 1: exact colors, no quantization) + 70 myu new furniture 20261111 (16 items: cardboard_fort 9 + cat_rack 7 + keyboard 4 + monitors 5 + ipo_bell 6 + build_lamp 2 + hammock 3 + laser 3 + can_tower 11 + stock_board 0 + first_desk 2 + massage_chair 4 + snack_wagon 5 + paper_pile 2 + xmas_tree 2 + sunny_perch 5, palette option 1: exact colors incl. S12 outline tones, no quantization))');
 for (const [key, value] of Object.entries(palette)) {
   assert.equal(key.length, 1); assert.notEqual(key, '.'); assert.match(value, /^#[0-9a-f]{6}$/i);
 }
@@ -237,6 +243,14 @@ for (const [name, rows] of Object.entries(sprites)) {
     'prop_3d_printer',
     /* 追加戻り3点 (2026-11-13) も同じ理由で対象外 */
     'prop_tablet', 'prop_storage_box', 'prop_succulent']).has(name);
+  /* みゅー作画 新規家具16点 (2026-11-11): 構図は作画パイプライン (S1-S18 +
+     S12 縁取り) の検証済みが正本。キーボード/モニタ/段ボール要塞は「面が顔」
+     として端まで描く構図 (S3) なので、sakuri 家具と同じ理由でマージン規則の
+     対象外にする (接地・寸法・パレットは通常検査) */
+  const myuFurniture = new Set(['prop_cardboard_fort', 'prop_cat_rack', 'prop_keyboard', 'prop_monitors',
+    'prop_ipo_bell', 'prop_build_lamp', 'prop_hammock', 'prop_laser', 'prop_can_tower', 'prop_stock_board',
+    'prop_first_desk', 'prop_massage_chair', 'prop_snack_wagon', 'prop_paper_pile', 'prop_xmas_tree',
+    'prop_sunny_perch']).has(name);
   if (VIS_UNGROUNDED(name)) {
     rows.forEach((row, x) => [...row].forEach(key => check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key}`)));
     continue;
@@ -245,7 +259,7 @@ for (const [name, rows] of Object.entries(sprites)) {
     check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key} at ${x},${y}`);
     /* icon_fish (32×32, 2026-11-08 sakuri 承認 G17) は尾の先端・背ビレ頂上・鼻先が
        端まで届く構図が正本なのでマージン規則の対象外。寸法とパレットは通常どおり検査する */
-    if (!sakuriAnim && !envSprite && !sakuriFurniture && name !== 'icon_fish' && (y < 2 || x < 2 || x >= w - 2)) check(key === '.', `${name}: margin at ${x},${y}`);
+    if (!sakuriAnim && !envSprite && !sakuriFurniture && !myuFurniture && name !== 'icon_fish' && (y < 2 || x < 2 || x >= w - 2)) check(key === '.', `${name}: margin at ${x},${y}`);
   }));
   if (name.startsWith('staff_')) {
     check(rows.slice(0, 6).every(row => /^\.+$/.test(row)), `${name}: maximum 18px occupied height`);
