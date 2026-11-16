@@ -75,7 +75,9 @@ const props = { prop_plant: [16, 20], prop_coffee: [28, 28], prop_coffee_0: [28,
   prop_desk_lamp: [48, 48], prop_drawer: [48, 48], prop_file_cabinet: [48, 48], prop_floor_lamp: [48, 48],
   prop_console: [48, 48], prop_3d_printer: [48, 48], prop_beanbag: [64, 64], prop_calendar: [25, 24],
   prop_cactus: [24, 24], prop_clock: [24, 24], prop_controller: [24, 24], prop_extinguisher: [24, 24],
-  prop_figurine: [24, 24], prop_trash_can: [24, 24] };
+  prop_figurine: [24, 24], prop_trash_can: [24, 24],
+  /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合): 本人作画の寸法が正本 */
+  prop_tablet: [48, 48], prop_storage_box: [48, 48], prop_succulent: [24, 24] };
 const ENV_SPRITES = new Set(['prop_kanban', 'prop_kanban_wide', 'prop_phone', 'prop_megaphone', 'prop_toolbox', 'desk_laminate_main', 'desk_laminate_2',
   'desk_laminate_2_sprite', 'prop_chair', 'prop_server_rack', 'shelf_steel',
   'prop_books', 'prop_archive_boxes', 'prop_mat',
@@ -185,7 +187,7 @@ const extraLabels = {
 };
 
 for (const name of required) assert.ok(sprites[name], `required sprite missing: ${name}`);
-assert.equal(Object.keys(palette).length, 393, 'Shared palette count changed (23 base + 140 extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone + 15 annex sign (Codex, quantized on integration) + 26 wave J gold props (Codex sign/star/trophy) + 230 sakuri furniture returns 20261111 (22 items, palette option 1: exact colors, no quantization; mixer console version kept aside, its 19 exclusive colors not imported))');
+assert.equal(Object.keys(palette).length, 435, 'Shared palette count changed (23 base + 140 extension: 17 batch1 + 5 batch2 monitor + 2 batch2 sleep-Z + 2 batch3 + 2 batch4 happy sparkles + 1 batch5 walk + 2 batch6 staff shiro eyes/collar + 5 batch7 staff kuro + 8 batch7 staff chatora + 3 batch8 yarn purples + 10 batch9 syamu siamese + 4 batch9 sabatora silver + 1 batch10 hachiware muzzle + 7 batch11 coffee mug shades + 7 batch12 icon_box parcel browns + 2 batch13 hachiware_gray + 4 batch13 chashiro + 1 batch14 chatora tan + 2 batch14 wrench steel + 9 batch14 desk2 + 5 batch14 megaphone + 15 annex sign (Codex, quantized on integration) + 26 wave J gold props (Codex sign/star/trophy) + 230 sakuri furniture returns 20261111 (22 items, palette option 1: exact colors, no quantization; mixer console version kept aside, its 19 exclusive colors not imported) + 42 sakuri furniture returns 20261113 (3 items: tablet 17 + succulent 7 + storage_box 18, palette option 1: exact colors, no quantization))');
 for (const [key, value] of Object.entries(palette)) {
   assert.equal(key.length, 1); assert.notEqual(key, '.'); assert.match(value, /^#[0-9a-f]{6}$/i);
 }
@@ -232,7 +234,9 @@ for (const [name, rows] of Object.entries(sprites)) {
     'prop_bonsai', 'prop_cable_box', 'prop_cactus', 'prop_calendar', 'prop_cardboard_box', 'prop_clock',
     'prop_coat_rack', 'prop_console', 'prop_controller', 'prop_cup_ramen', 'prop_desk_lamp', 'prop_drawer',
     'prop_extinguisher', 'prop_figurine', 'prop_file_cabinet', 'prop_floor_lamp', 'prop_trash_can',
-    'prop_3d_printer']).has(name);
+    'prop_3d_printer',
+    /* 追加戻り3点 (2026-11-13) も同じ理由で対象外 */
+    'prop_tablet', 'prop_storage_box', 'prop_succulent']).has(name);
   if (VIS_UNGROUNDED(name)) {
     rows.forEach((row, x) => [...row].forEach(key => check(key === '.' || Object.hasOwn(palette, key), `${name}: unknown key ${key}`)));
     continue;
