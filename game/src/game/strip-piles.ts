@@ -674,7 +674,11 @@ function renderStrip(){
     const hop = Math.abs(Math.sin(stripNow / 170)) * 3;
     const fx = stripFish.x;
     sShadow(fx, G - 0.5, 26);
-    sDrawSprite("icon_fish", fx, G - 1 - hop, 0.8);
+    /* 2026-11-16: sakuri 承認アニメ v4 (180ms×4・全体ループ、フレーム2が静止画と
+       同一ポーズ) を ANIMS 経由で再生する。時計は prop_coffee / duck と同じ絶対時刻。
+       ANIMS が無い環境では従来の静止画にフォールバック */
+    const fishSpr = ANIMS.icon_fish ? animFrameAt("icon_fish", Date.now()) : "icon_fish";
+    sDrawSprite(fishSpr, fx, G - 1 - hop, 0.8);
     if(frame % 8 < 4){ sDrawSprite("fx_spark_2", fx - 13, G - 10 - hop, 1); sDrawSprite("fx_spark_2", fx + 12, G - 12 - hop, 1); }
     stripHitRects.fish = { x: fx - 15, y: G - 20, w: 30, h: 22 };
   }
