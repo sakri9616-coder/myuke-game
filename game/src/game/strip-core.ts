@@ -59,7 +59,20 @@ const SPRITE_SPEC = {
   prop_hammock:[64,64], prop_massage_chair:[64,64], prop_xmas_tree:[64,64],
   prop_monitors:[48,48], prop_ipo_bell:[48,48], prop_first_desk:[48,48],
   prop_snack_wagon:[48,48], prop_paper_pile:[48,48], prop_sunny_perch:[48,48],
-  prop_keyboard:[24,24], prop_build_lamp:[24,24], prop_laser:[24,24], prop_can_tower:[24,24]
+  prop_keyboard:[24,24], prop_build_lamp:[24,24], prop_laser:[24,24], prop_can_tower:[24,24],
+  /* みゅー作画 R6 描き直し37点 (2026-11-11 作画・S12-S18 適用・2026-11-16 統合/装飾配線):
+     作画時のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts)。
+     tablet / succulent / storage_box は sakuri 本人の描き直し版が正本なので含まない */
+  prop_desk_l:[64,64], prop_desk_lift:[64,64], prop_table_long:[64,64], prop_bookshelf:[64,64],
+  prop_display_shelf:[64,64], prop_locker:[64,64], prop_partition:[64,64], prop_plant_large:[64,64],
+  prop_rug_large:[64,64], prop_bench:[64,64], prop_sofa:[64,64], prop_gaming_chair:[64,64],
+  prop_vending:[64,64], prop_kotatsu:[64,64],
+  prop_side_table:[48,48], prop_wagon:[48,48], prop_printer:[48,48], prop_router:[48,48],
+  prop_headphone_stand:[48,48], prop_speaker:[48,48], prop_mic_arm:[48,48], prop_zabuton:[48,48],
+  prop_safe:[48,48], prop_toaster:[48,48], prop_shredder:[48,48], prop_mirror:[48,48],
+  prop_humidifier:[48,48], prop_robot_vacuum:[48,48], prop_heater:[48,48],
+  prop_power_strip:[24,24], prop_nas:[24,24], prop_vr_headset:[24,24], prop_flower_vase:[24,24],
+  prop_kettle:[24,24], prop_mug:[24,24], prop_globe:[24,24], prop_plush:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。
