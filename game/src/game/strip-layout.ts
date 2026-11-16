@@ -44,19 +44,25 @@ const PROP_TIER = {
    props 表と一致させること）。x は既定位置の帯幅比で、§4.2d の右端 ~14%
    HUD 予約域には置かない。高さは全点 背景段上限 98 以下。
    描画は drawStripDecor (strip-furniture.ts) が背景家具層・作品棚の直後に
-   行う（§4.1-7 の挿入位置） */
+   行う（§4.1-7 の挿入位置）
+   追加戻り3点 (2026-11-13 戻り・同日統合): storage_box / tablet / succulent
+   も同じ申告で登録。cls は第1段の寸法規則どおり (48級=ground、24級=small)、
+   x は既存の空きスロット (0.115 / 0.307 / 0.470) へ割り当てた */
 const DECOR_DEFS = {
   decor_coat_rack:    { sprite: "prop_coat_rack",    label: "ポールハンガー",     w: 48, h: 48, cls: "ground", x: 0.035 },
   decor_bonsai:       { sprite: "prop_bonsai",       label: "盆栽",               w: 48, h: 48, cls: "ground", x: 0.075 },
+  decor_storage_box:  { sprite: "prop_storage_box",  label: "収納ボックス",       w: 48, h: 48, cls: "ground", x: 0.115 },
   decor_floor_lamp:   { sprite: "prop_floor_lamp",   label: "フロアランプ",       w: 48, h: 48, cls: "ground", x: 0.155 },
   decor_drawer:       { sprite: "prop_drawer",       label: "引き出しチェスト",   w: 48, h: 48, cls: "ground", x: 0.190 },
   decor_cactus:       { sprite: "prop_cactus",       label: "サボテン",           w: 24, h: 24, cls: "small",  x: 0.218 },
   decor_cable_box:    { sprite: "prop_cable_box",    label: "ケーブルボックス",   w: 48, h: 48, cls: "ground", x: 0.243 },
   decor_air_purifier: { sprite: "prop_air_purifier", label: "空気清浄機",         w: 48, h: 48, cls: "ground", x: 0.270 },
+  decor_tablet:       { sprite: "prop_tablet",       label: "液晶タブレット",     w: 48, h: 48, cls: "ground", x: 0.307 },
   decor_cardboard_box:{ sprite: "prop_cardboard_box",label: "段ボール箱",         w: 48, h: 48, cls: "ground", x: 0.345 },
   decor_beanbag:      { sprite: "prop_beanbag",      label: "ビーズクッション",   w: 64, h: 64, cls: "ground", x: 0.378 },
   decor_balance_ball: { sprite: "prop_balance_ball", label: "バランスボール",     w: 48, h: 48, cls: "ground", x: 0.412 },
   decor_cup_ramen:    { sprite: "prop_cup_ramen",    label: "カップ麺",           w: 48, h: 48, cls: "ground", x: 0.440 },
+  decor_succulent:    { sprite: "prop_succulent",    label: "多肉植物",           w: 24, h: 24, cls: "small",  x: 0.470 },
   decor_3d_printer:   { sprite: "prop_3d_printer",   label: "3Dプリンタ",         w: 48, h: 48, cls: "ground", x: 0.500 },
   decor_file_cabinet: { sprite: "prop_file_cabinet", label: "ファイルキャビネット", w: 48, h: 48, cls: "ground", x: 0.532 },
   decor_aquarium:     { sprite: "prop_aquarium",     label: "金魚鉢",             w: 48, h: 48, cls: "ground", x: 0.585 },

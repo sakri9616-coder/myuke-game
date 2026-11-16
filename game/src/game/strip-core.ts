@@ -50,7 +50,9 @@ const SPRITE_SPEC = {
   prop_desk_lamp:[48,48], prop_drawer:[48,48], prop_file_cabinet:[48,48], prop_floor_lamp:[48,48],
   prop_console:[48,48], prop_3d_printer:[48,48], prop_beanbag:[64,64], prop_calendar:[25,24],
   prop_cactus:[24,24], prop_clock:[24,24], prop_controller:[24,24], prop_extinguisher:[24,24],
-  prop_figurine:[24,24], prop_trash_can:[24,24]
+  prop_figurine:[24,24], prop_trash_can:[24,24],
+  /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合/装飾配線) */
+  prop_tablet:[48,48], prop_storage_box:[48,48], prop_succulent:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。
