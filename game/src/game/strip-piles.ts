@@ -128,9 +128,15 @@ function drawStripPiles(){
     /* A5: 看板に掛ける「いまの顔」の札（伸縮キット: 左端 + 4px 単位 + 右端）。
        作品名の文字は表示側が板の上に書く（designer-r3 §3.2） */
     if(hasSprite("a5_tag_l") && hasSprite("a5_tag_m") && hasSprite("a5_tag_r")){
-      const face = subWorkName(S.subs[S.subs.length - 1]);
+      let face = subWorkName(S.subs[S.subs.length - 1]);
       sctx.save();
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      /* 札は看板（幅48）の倍まで。長い作品名は … で切る（2026-11-17 まで無制限に伸び、隣のビルド台の柱に文字が隠れた） */
+      const TAG_TEXT_MAX = 62;
+      if(sctx.measureText(face).width > TAG_TEXT_MAX){
+        while(face.length > 2 && sctx.measureText(face + "…").width > TAG_TEXT_MAX) face = face.slice(0, -1);
+        face += "…";
+      }
       const tw = Math.ceil(sctx.measureText(face).width);
       const units = Math.max(1, Math.ceil((tw + 8 - 20) / 4));
       const tagW = 20 + units * 4, tagCx = dx - 42, tagB = GB - 2;

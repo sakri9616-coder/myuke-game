@@ -203,24 +203,29 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const slotW = bn ? 15 : genreW;
     /* 再設計 B9（ux-r3 §2.7）: 企画者クレジット — 作品名の脇に小さく「企画:○○」を常設する。
        置き場所が狭いときは名前より先にクレジットが落ちる（名前が主、署名は脇役） */
-    const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
+    let creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
     const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
-    const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0);
     const nx = ix + 16.5 + pctW + 5;
+    const nameEnd = ix + iw - 3 - slotW;   /* 名前（＋クレジット）が使える右端 */
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
     let nm = "『" + p.name + "』";
+    /* 名前が主・署名は脇役: 名前を丸ごと出すとクレジットが入らないなら、先にクレジットを落とす
+       （2026-11-17 まで常にクレジットの幅を確保していたため、名前が「『にく…』」まで削られていた） */
+    if(creditTxt && nx + sctx.measureText(nm).width + 4 + creditW > nameEnd) creditTxt = "";
+    const nameLim = nameEnd - (creditTxt ? creditW + 4 : 0);
     if(nx + sctx.measureText(nm).width > nameLim){
       let cut = p.name;
       while(cut.length > 1 && nx + sctx.measureText("『" + cut + "…』").width > nameLim) cut = cut.slice(0, -1);
       nm = "『" + cut + "…』";
     }
     sctx.fillText(nm, nx, iy + 8.5);
+    const nmW = sctx.measureText(nm).width;   /* 11px のまま測る（7px に切り替えた後に測るとクレジットが名前に重なった） */
     if(creditTxt){
       sctx.save();
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.fillStyle = "#8a6a44";
-      sctx.fillText(creditTxt, nx + sctx.measureText(nm).width + 4, iy + 8.5);
+      sctx.fillText(creditTxt, nx + nmW + 4, iy + 8.5);
       sctx.restore();
     }
     if(bn){

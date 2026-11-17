@@ -97,7 +97,7 @@ function buildRate(){ return (BAL.stageBaseRate + BAL.equipDP.ci*upEff(S.upgrade
 function shipRate(){ return (BAL.stageBaseRate + BAL.equipDP.pack*upEff(S.upgrades, "pack") + BAL.equipDP.bot*upEff(S.upgrades, "bot") + staffSums().ship) * stageMult("ship"); }
 function botRate(){ return 2 * upEff(S.upgrades, "bot") * (S.research.res_bottrain ? 1.5 : 1) * (S.research.res_bot2 ? 1.5 : 1); }
 /* 初リリースまでの加速（最初の5分を設計する）: まだ1作も出していない間だけ
-   「引っ越したてのみゅけのやる気MAX」で生産 ×3.4。帯で無操作でも初リリースが
+   「来たばかりのみゅけのやる気MAX」（帯では「新人ブースト」）で生産 ×3.4。帯で無操作でも初リリースが
    約5〜6分で届くように実測で調整した値（tools/strip-fresh-measure.js）。
    Sprint 1 の ×1.5 では帯の無操作は約11〜12分かかっていた (C2-P0-2) */
 function firstBoost(){ return S.totals.releases === 0 ? 3.4 : 1; }
@@ -278,10 +278,12 @@ function doDeathMarchCore(){
   dmRelease = false;
   save(); renderPanel();
 }
+/* デスマーチの確認文（帯側 doDeathMarch と menu 側の動詞スタブで共有する） */
+function deathMarchConfirmText(info){ return "デスマーチ出荷しますか？\n残りの工程を飛ばして『" + S.project.name + "』を即リリースします。\n代価: 技術的負債 +" + info.debtAdd + " / ブランド -2"; }
 function doDeathMarch(){
   const info = deathMarchInfo();
   if(!info) return;
-  if(!confirm("デスマーチ出荷しますか？\n残りの工程を飛ばして『" + S.project.name + "』を即リリースします。\n代価: 技術的負債 +" + info.debtAdd + " / ブランド -2")) return;
+  if(!confirm(deathMarchConfirmText(info))) return;
   doDeathMarchCore();
 }
 /* バグ外注（ベンダー）はレベルデザイン改修で廃止した（負債の返済はお世話係と EXIT のみ。
@@ -568,18 +570,21 @@ function catalogRate(){
 /* いまの自動収入 🪙/秒（作りながらの入金・棚・シリーズ・子会社。リリースの山は含めない） */
 function incomePerSec(){
   let r = Math.max(coinFlowEMA, catalogRate());
-  for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
+  /* 本社に届くのは配当ぶんだけ（残りは子会社の再投資。2026-11-17 まで売上の全額を数えていた） */
+  for(const sub of (S.subs || [])) r += subRates(sub).coins * subDiv(sub) / 100 / 60;
   return r;
 }
 /* ---------- 企業価値（再設計 段階3）----------
    会社が「あなたの手なしで」1時間に稼ぐコイン。買い手が買うのは会社であって、あなたの応援ではない。
    = 自動生産のうち工程を通って出荷できる量 × いまの作品の DP 単価 ＋ 作品棚とシリーズ ＋ 子会社。
-   応援や実作業は会社を速く育てる手段で、価値そのものには数えない */
+   応援や実作業は会社を速く育てる手段で、価値そのものには数えない。
+   初リリースまでの「新人ブースト」（firstBoost）も一時的な加速で会社の力ではないので割り戻す
+   （2026-11-17 まで含めていたため、新規の会社は起動1秒で企業価値が 1 万を超え、インディーを飛ばして零細に上がっていた） */
 function autoIncomePerSec(){
   const p = S.project;
   let r = catalogRate();
   if(p && p.totalDP > 0){
-    const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60;
+    const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60 / firstBoost();   /* 4つのレートはどれも firstBoost を1回ずつ掛けている */
     r += dps * basePriceCoins(p) * directMult() / p.totalDP;
   }
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;
@@ -644,9 +649,10 @@ function releaseProject(){
       lateNote = "（納期を過ぎたためボーナスなし）";
     }
     const bonus = Math.round(ipBase * rate);   /* 段階4: 通常価格に掛ける（直販ルートと二重に伸びないように） */
-    coins += bonus; rp += 1; salesBonusPaid = bonus;
+    coins += bonus; salesBonusPaid = bonus;
+    if(rate > 0) rp += 1;   /* 研究P +1 も達成ボーナスの一部（納期切れで消えるのはボーナスと同じ。2026-11-17 まで納期切れでも付いていた） */
     if(rate > 0){ S.totals.requestsDone = (S.totals.requestsDone || 0) + 1; if(rq.big) S.totals.bigDealsDone = (S.totals.bigDealsDone || 0) + 1; }   /* 実績スタンプ用 */
-    requestBonus = rate > 0 ? "（依頼達成ボーナス +"+bonus+"🪙）" : "";
+    requestBonus = rate > 0 ? "（依頼達成ボーナス +"+fmt(bonus)+"🪙）" : "";
     addLog(rate > 0
       ? "依頼達成！『"+p.name+"』"+requestBonus+shortNote
       : "依頼は完了: 『"+p.name+"』"+lateNote);
@@ -674,7 +680,7 @@ function releaseProject(){
   if(firstReleasePending){ firstReleasePending = false; addLog("⭐ 再出発の初リリースです。前回より、ずっと速かった。"); }
   shelfGlowFrame = frame + 40;   /* Sprint 3: 棚の最新作を約6秒ハイライト */
   spawnStripCoinFountain(coins);   /* 可視生産: コインは実際に付与された時だけ湧く */
-  say("『"+p.name+"』リリースできたにゃ〜！ +"+coins+"コイン");
+  say("『"+p.name+"』リリースできたにゃ〜！ +"+fmt(coins)+"コイン");
   SoundKit.play("releaseFanfare");
   pulseMilestone();
   catState = "celebrate"; stateUntil = Date.now() + 4500; stateEnteredAt = Date.now();

@@ -604,7 +604,7 @@ function renderPanelInto(el){
             done.map(x => "✓ " + short(x[1])).join(" ・ ") + (done.length && !chief ? "（部長がいない）" : "") +
             (nx ? (done.length ? "<br>" : "") + "あと " + (nx[0] - lv) + " Lv で「" + short(nx[1]) + "」（Lv" + nx[0] + "）" : "") + "</div>";
         })() +
-        (locked ? "<div class='rs'>社格「" + rankName(CHEER_STAFF_RANK) + "」から</div>" : "") +
+        (locked ? "<div class='rs'>社格「" + rankName(roleRank(role)) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
         buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ", true) +
         buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +

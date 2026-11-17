@@ -28,7 +28,7 @@ function subGenreRate(genreId){
    倍率はすべて subRates（基礎レート側）にのみ掛け、subDustValue は従来どおり subRates から導く
    ※子会社ごとの方針（量産型/精鋭型/送金型）は 2026-11-11 sakuri 指示で撤去
    （「無駄に判断を煽るようなシステムにしかならない」）。全社一律の標準倍率で固定する */
-let SUB_POLICY = { demandMult: 1.5, traits: { m10: { lv: 10, choices: { sales: { name: "営業所", coins: 1.25, dp: 1 }, dev: { name: "開発所", coins: 1, dp: 1.5 } } }, m25: { lv: 25, choices: { hire: { name: "採用所", headCost: 0.7, scaleCost: 1 }, expand: { name: "拡張所", headCost: 1, scaleCost: 0.7 } } }, m50: { lv: 50, choices: { flag: { name: "旗艦", all: 1.3 }, drive: { name: "自走", reinvestFloor: 0.25 } } } } };
+const SUB_POLICY = { demandMult: 1.5, traits: { m10: { lv: 10, choices: { sales: { name: "営業所", coins: 1.25, dp: 1 }, dev: { name: "開発所", coins: 1, dp: 1.5 } } }, m25: { lv: 25, choices: { hire: { name: "採用所", headCost: 0.7, scaleCost: 1 }, expand: { name: "拡張所", headCost: 1, scaleCost: 0.7 } } }, m50: { lv: 50, choices: { flag: { name: "旗艦", all: 1.3 }, drive: { name: "自走", reinvestFloor: 0.25 } } } } };
 const SUB_STD_STANCE = { staff: 1, scale: 1, headCost: 1, coins: 1, dp: 1 };
 function stanceOf(_sub){ return SUB_STD_STANCE; }   /* 方針撤去後は常に標準倍率（呼び出し側の形は不変） */
 function traitChoice(sub, key){ const t = (sub.traits || {})[key]; return t && SUB_POLICY.traits[key] && SUB_POLICY.traits[key].choices[t] ? SUB_POLICY.traits[key].choices[t] : null; }
@@ -179,16 +179,18 @@ function sellSubCore(id){
   say(sub.name+"を売却したにゃ。星屑 +"+gain+" ゲット");
   save(); renderPanel();
 }
+/* 部分EXIT の確認文（帯側 sellSub と menu 側の動詞スタブで共有する） */
+function sellSubConfirmText(sub){ return "子会社「"+sub.name+"」を売却しますか？（部分EXIT）\n星屑 "+fmt(subDustValue(sub))+" 個を得ます。本社と他の子会社はそのまま残ります"; }
 function sellSub(id){
   const sub = (S.subs || []).find(s => s.id === id);
   if(!sub) return;
-  if(!confirm("子会社「"+sub.name+"」を売却しますか？（部分EXIT）\n星屑 "+subDustValue(sub)+" 個を得ます。本社と他の子会社はそのまま残ります")) return;
+  if(!confirm(sellSubConfirmText(sub))) return;
   sellSubCore(id);
 }
-/* ---------- Sprint 3: 星屑ショップ（永続特典）と引っ越しプレビュー ----------
+/* ---------- Sprint 3: 星屑ショップ（永続特典）と EXIT（事業売却）プレビュー ----------
    星屑は「所持分（S.dust）」を消費して特典を買う。生産倍率は通算獲得
    （S.dustTotal）で決まるので、買い物をしても倍率が下がることはない。
-   特典は引っ越ししても消えない（S.dustPerks はリセット対象外）。 */
+   特典は EXIT しても消えない（S.dustPerks はリセット対象外。持株化で畳む）。 */
 const DUST_PERKS = [
   { id:"starlight", name:"星あかり",     cost:1,  desc:"フィーバーのゲージが +15% たまりやすくなります" },
   { id:"omamori",   name:"星屑のお守り", cost:1,  desc:"金の魚の間隔が -5% になります（幸運のヒレと重なります）" },
@@ -251,14 +253,12 @@ function buyDustPerk(id){
   say("『"+def.name+"』、ゲットにゃ！");
   save(); renderPanel();
 }
-/* 引っ越しの事前計算: 得られる星屑・倍率の変化・リセット/引き継ぎ一覧。
+/* EXIT の事前計算: 得られる星屑・倍率の変化・リセット/引き継ぎ一覧。
    doPrestige 本体もこの gain を使うので、プレビューと実際の結果は必ず一致する */
 function prestigePreview(){
   /* Phase D: グループEXIT — 売却益には全子会社の価値が上乗せされる */
   /* 段階3: 企業価値の最高値から。段階4: 子会社の売上は企業価値に入っているので、子会社ぶんを別に足さない（内訳の表示用に数える） */
   const subGain = (S.subs || []).reduce((a, s) => a + subDustValue(s), 0);
-  /* レベルデザイン改修: 経営方針「売却特化」の会社は、EXIT の星屑が ×1.25（最後に掛けて floor。
-     プレビューと実際の獲得量を一致させるため、倍率はここで掛ける） */
   const gain = Math.floor(dustGainFromValue(S.runPeakValue || 0));
   const total = dustTotal();
   const resets = ["コイン", "アップグレード", "研究", "スタッフ"];
@@ -310,7 +310,7 @@ function execSelectHTML(){
   const roleName = r => (STAFF_ROLES[r] || {}).name || r;
   const cands = execCandidates();
   let hh = "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'>" +
-    "<div style='font-size:12px'><b>🎗 役員に残す猫（ベテラン制度）</b> <span style='color:var(--sub)'>この会社で一番働いた猫が次の会社の役員になります（上限3匹・頭数に数えず、同じ役職に +10% のオーラ）</span></div>" +
+    "<div style='font-size:12px'><b>🎗 役員に残す猫</b> <span style='color:var(--sub)'>この会社で一番働いた猫が次の会社の役員になります（上限3匹・頭数に数えず、同じ役職に +10% のオーラ）</span></div>" +
     "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:4px'>";
   for(const c of cands){
     const sel = pendingExecPick === undefined ? c === cands[0] : pendingExecPick === c.id;
@@ -347,13 +347,16 @@ function notebookTopResearch(){
 }
 /* 再設計 C3: 売却の内訳の物差し — 星屑の出どころ（比例枠ぶん／√域ぶん／売却特化ぶん）と
    売却実績の内訳（大きさ分＋時代ボーナス分）。付与側（doPrestigeCore の ptsGain）と一致させる */
+/* 1回の EXIT で得る売却実績 pt の内訳: 大きさ分（星屑 100 個で 2・300 個で 3）＋時代ボーナス（時代の通算星屑が持株化の条件に届いていれば +1） */
+function exitPtsSize(gain){ return gain >= 300 ? 3 : gain >= 100 ? 2 : 1; }
+function exitPtsEra(eraDust){ return eraDust >= HOLD_ERA_DUST ? 1 : 0; }
 function prestigeBreakdown(){
   const base = dustGainFromValue(S.runPeakValue || 0), cap = dustGainCap();
   const gain = Math.floor(base);
   return {
     propPart: Math.min(base, cap), sqrtPart: Math.max(0, base - cap),
-    ptsSize: gain >= 300 ? 3 : gain >= 100 ? 2 : 1,
-    ptsEra: (S.eraDust || 0) >= HOLD_ERA_DUST ? 1 : 0
+    ptsSize: exitPtsSize(gain),
+    ptsEra: exitPtsEra(S.eraDust || 0)
   };
 }
 function doPrestige(){
@@ -453,7 +456,7 @@ function doPrestigeCore(execSel, vetSel, swapSel){
   /* レベルデザイン改修: 売却実績 pt。この EXIT で得た星屑が多いほど pt が増え、
      時代の通算星屑が条件（1,000）に届いている EXIT には +1pt のボーナスが付く */
   const eraBefore = S.eraDust || 0;
-  const ptsGain = (gain >= 300 ? 3 : gain >= 100 ? 2 : 1) + (eraBefore >= HOLD_ERA_DUST ? 1 : 0);
+  const ptsGain = exitPtsSize(gain) + exitPtsEra(eraBefore);
   const newEraPts = eraExitPts() + ptsGain;
   const totalBefore = dustTotal();
   S.dust += gain; S.dustTotal = totalBefore + gain; S.prestiges++;

@@ -271,25 +271,20 @@ function makeVerbStub(verb){
     }
     if(verb === "doDeathMarch"){
       /* デスマーチの確認は menu 側で済ませる (帯側では confirm を出さない) */
-      const p = S.project;
-      if(p && p.totalDP){
-        const frac = S.projectDP / p.totalDP;
-        const bugs = Math.floor(S.bugStock);
-        const debtAdd = Math.round((1 - frac) * ({ TUT: 15, XS: 30, S: 60, M: 120, L: 240 }[p.size] || 60)) + bugs * 2;
-        if(frac >= 0.7 && !confirm("デスマーチ出荷しますか？\n残りの工程を飛ばして『" + p.name + "』を即リリースします。\n代価: 技術的負債 +" + debtAdd + " / ブランド -2")) return;
-      }
+      const info = deathMarchInfo();   /* 帯側と同じ式（DM_SIZE_FACTOR）で代価を出す */
+      if(info && !confirm(deathMarchConfirmText(info))) return;
     }
     if(verb === "dropRequest"){
       /* 大型案件の見送りだけ menu 側で確認する (帯側では confirm を出さない) */
       if(S.activeRequest && S.activeRequest.big){
-        if(!confirm("大型案件（" + S.activeRequest.client + "）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+        if(!confirm(dropBigDealConfirmText(S.activeRequest))) return;
       }
     }
     if(verb === "sellSub"){
       /* 部分EXIT の確認は menu 側で済ませる (帯側では confirm を出さない) */
       const sub = (S.subs || []).find(s => s.id === (args && args[0]));
       if(sub){
-        if(!confirm("子会社「" + sub.name + "」を売却しますか？（部分EXIT）\n星屑 " + subDustValue(sub) + " 個を得ます。本社と他の子会社はそのまま残ります")) return;
+        if(!confirm(sellSubConfirmText(sub))) return;
       }
     }
     let btn = null;

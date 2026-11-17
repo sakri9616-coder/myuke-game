@@ -40,7 +40,7 @@ function buyResearch(id){
 function hireStaff(role, auto?){
   const def = STAFF_ROLES[role];
   if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。企業価値が上がって次の社格になると広がるよ"); return; }
-  if(roleLocked(role)){ say(def.name + "は社格「" + rankName(CHEER_STAFF_RANK) + "」から雇えるにゃ"); return; }
+  if(roleLocked(role)){ say(def.name + "は社格「" + rankName(roleRank(role)) + "」から雇えるにゃ"); return; }
   const cost = hireCost(role);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost;
@@ -279,9 +279,11 @@ function dropRequestCore(){
   S.reqHoldUntil = Date.now() + 90000;
   save(); renderPanel();
 }
+/* 大型案件の見送りの確認文（帯側 dropRequest と menu 側の動詞スタブで共有する） */
+function dropBigDealConfirmText(rq){ return "大型案件（"+rq.client+"）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）"; }
 function dropRequest(){
   if(S.activeRequest && S.activeRequest.big){
-    if(!confirm("大型案件（"+S.activeRequest.client+"）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+    if(!confirm(dropBigDealConfirmText(S.activeRequest))) return;
   }
   dropRequestCore();
 }

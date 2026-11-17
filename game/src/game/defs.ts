@@ -1,6 +1,6 @@
 /* ---------- v2: スタッフ ----------
    雇用費: 同じ役職の人数 n に対して ceil(base × 1.35^n)
-   育成費: ceil(base × 0.9 × 1.45^(lv-1))、効果は lv ごとに +25%（lv1 = 基本値） */
+   育成費: ceil(base × 0.9 × 1.35^(lv-1))、効果は Lv10 まで +25%/Lv・Lv11 から +10%/Lv（lv1 = 基本値。staffMult・trainCost が正本） */
 /* バッチ9 (sakuri 決定): 三毛スタッフ (mike2) は みゅけ と区別がつかないため
    実装しない — COATS から外し、旧セーブの該当個体は load() で決定的に
    着せ替える (recoatFor)。シャム (syamu) を新規追加 */
@@ -38,7 +38,11 @@ const STAFF_ROLES = {
 /* 社格ごとに開く新しい軸（再設計 段階3）。予告の枠と昇格のログに出す */
 const RANK_UNLOCKS = { 2: "営業の雇用と依頼の自動受注", 3: "応援係", 4: "大型案件とチャレンジの目標", 5: "グループ子会社", 6: "持株化への道" };
 const CHEER_STAFF_RANK = 3;   /* 応援係を雇える社格（中小）。序盤の応援はあなたの手で */
-function roleLocked(role){ return role === "cheer" && (S.studioLv || 1) < CHEER_STAFF_RANK; }
+/* 営業を雇える社格（零細）。RANK_UNLOCKS[2] の「営業の雇用と依頼の自動受注」と揃える
+   （理念書6: 手動受注はクリッカー期＝インディーの作法。2026-11-17 までは表示だけが Lv2 で、雇用は Lv1 から開いていた） */
+const SALES_STAFF_RANK = 2;
+function roleRank(role){ return role === "cheer" ? CHEER_STAFF_RANK : role === "sales" ? SALES_STAFF_RANK : 1; }
+function roleLocked(role){ return (S.studioLv || 1) < roleRank(role); }
 const STAFF_CAPS = [3, 6, 10, 16, 24, 36];  // スタジオLv1..6 の雇用上限（レーンB Phase B・社格ラダー）
 const STAFF_MAX_LV = 10;
 /* 社格ラダー（Phase B）: スタジオLvをそのまま社格として扱う。新システムは増やさない。
@@ -198,9 +202,14 @@ function deptDelegateTick(){
   }
 }
 /* ---------- Sprint 4: ご褒美（終盤コインシンク） ----------
-   価格 = base × (1 + 総収入/25000) × 1.5^(効果中に重ねている数)。
+   価格 = max(base, いまの自動収入（autoIncomePerSec）の TREAT_INCOME_SEC 秒ぶん) × 1.5^(効果中に重ねている数)。
    稼ぐほど高くなるので、終盤でも「余り続ける」ことがない設計。
-   v2.12.1: 「その日の購入回数（壁時計の日付で戻る）」をやめ、効果が残っている間の重ね買いだけ高くする */
+   v2.12.1: 「その日の購入回数（壁時計の日付で戻る）」をやめ、効果が残っている間の重ね買いだけ高くする。
+   2026-11-17: 値段の元を「通算の総収入（売却でも減らない）」から「いまの収入」に替えた。旧式は売却のたびに
+   新しい会社の稼ぎと桁が離れ、2社目以降は収入の数日ぶん（sim 放置3日: 最大 約85万秒ぶん）の値札になって
+   買えなかった。ほかの持ち越し（初期資金・貯金箱）やイベント報酬と同じく、収入の N 秒ぶんで数える。
+   240秒 = 30分の +15% ぶん（270秒）を少し下回る値。元が取れるかどうかの判断が残る */
+const TREAT_INCOME_SEC = 240;
 const TREAT_BLOCK_MS = 30 * 60000;
 function treatStack(def){
   const until = def.id === "treat_snack" ? (S.buffs && S.buffs.prodUntil) : (S.buffs && S.buffs.clickUntil);
@@ -211,7 +220,7 @@ const TREAT_DEFS = [
   { id:"treat_toy",   name:"🎁 高級おもちゃ", base:200, desc:"集中力 +10、その後30分 クリック効率 +10%" }
 ];
 function treatCost(def){
-  return Math.ceil(def.base * (1 + S.totals.coinsEarned / 25000) * Math.pow(1.5, treatStack(def)));
+  return Math.ceil(Math.max(def.base, autoIncomePerSec() * TREAT_INCOME_SEC) * Math.pow(1.5, treatStack(def)));   /* 帯とメニューで同じ値になる S 由来の自動収入（初期資金と同じ物差し） */
 }
 function buyTreat(id){
   const def = TREAT_DEFS.find(t => t.id === id);
@@ -284,10 +293,9 @@ function genCatName(){
 }
 
 /* ---------- v2: 応援クリック ----------
-   基本威力 0.15DP（セッション中の生産が放置の約2〜3倍になるよう sim で調整。
-   v2.1 再調整: 威力の伸びとコンボ上限を抑え、強化後も倍率が暴れないようにした）。
-   コンボ: 連続クリックで倍率 +0.10/回（上限は基本 +1.75倍、うちわで伸びる）。
-   クリティカル: 基本5%（旗で +1%/Lv）で ×10。 */
+   基本威力 CLICK_POWER_BASE（0.25DP）＋ 自動生産への連動分（production.ts の clickBaseDP）。
+   コンボ: 連続クリックで倍率 +0.10/回（上限は基本 +2.0倍＝最大 ×3.0、「応援の質」で +0.25倍/Lv）。
+   会心: 基本8%（「応援の質」で +1%/Lv）で ×10。数値の正本は下の関数群 */
 /* 応援強化は応援P（クリックで貯まる、みゅけ自身の腕前）で買う。コインの使い道（設備）と
    取り合わないので「労働を主役にするほど伸びる」別の成長曲線になる。肉球とグローブは
    上限100・節目（設備と同じ MILESTONE_LVS）つきで、売却しても腕前として残る（持株化で畳む）。
