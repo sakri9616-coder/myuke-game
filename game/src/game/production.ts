@@ -641,6 +641,9 @@ function releaseProject(){
     if(rq.reqSize && SIZE_ORDER.indexOf(p.size) < SIZE_ORDER.indexOf(rq.reqSize)){
       rate = rate / 2;
       shortNote = "（要求サイズ未満のためボーナス半額）";
+    } else if(rq.reqStars && qualityStars(p) < rq.reqStars){
+      rate = rate / 2;
+      shortNote = "（品質★" + rq.reqStars + "に届かずボーナス半額）";
     }
     /* 拡張ウェーブ G: 納期を過ぎた出荷はボーナスが消える（作品は通常価格で売れる） */
     let lateNote = "";
