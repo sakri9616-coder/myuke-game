@@ -35,7 +35,7 @@ const VERBS = {
   giveSnack: giveSnack,
   togglePause: togglePause, toggleSound: toggleSound, setSoundVol: setSoundVol,
   toggleInputCount: toggleInputCount,
-  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout, toggleReduceMotion: toggleReduceMotion,
+  setStripSize: setStripSize, resetLayout: resetLayout, toggleLayoutEdit: toggleLayoutEdit, toggleSnapLayout: toggleSnapLayout, buyDecor: buyDecor, toggleDecor: toggleDecor, toggleReduceMotion: toggleReduceMotion,
   tutSkipGuide: tutSkipGuide, tutResetGuide: tutResetGuide, tutVisitTab: tutVisitTab,
   updCheckManual: updCheckManual, updDownload: updDownload,
   updRelaunch: updRelaunch, updDismiss: updDismiss,

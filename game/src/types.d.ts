@@ -144,6 +144,7 @@ interface GameState {
   lastGiftAt: number;
   layout: Record<string, number>;
   layoutProps: Record<string, any>;
+  decor: Record<string, { at: number; hidden?: number }>;
   dustPerks: Record<string, boolean | number>; dustTotal: number;
   legacy: number; legacyTech: Record<string, boolean>; holdings: number; eraDust: number; eraDemand?: string | null;   /* 再設計 r4-subs: その時代の需要ジャンル */
   eraExitPts: number; eraStartPrestiges: number;   /* レベルデザイン改修: 売却実績 pt と、その時代が始まった時点の通算 EXIT 回数 */

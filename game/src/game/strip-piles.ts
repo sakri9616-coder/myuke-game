@@ -344,6 +344,7 @@ function renderStrip(){
   drawStripServerRack();                            /* E': サーバーラック (tier>=2 + CIマシン) */
   if(S.stamps.first_release) drawStripEasel();      /* E: イーゼル */
   if(S.stamps.prestige1) drawStripTrophy();         /* E: トロフィー台 */
+  drawStripDecor("ground");                         /* 家具カタログで買った家具（地面置き） */
   /* --- デスクゾーン（常設のワークステーション） --- */
   /* §c.1: 机クラスタのラグ 150×4。tier>=1 では疲労軽減マット (prop_mat) に
      差し替わる (アンカー (cx, G+3) で従来のラグ矩形と同フットプリント) */
@@ -482,6 +483,7 @@ function renderStrip(){
       sDrawSprite("prop_debt_pile_" + (stacks - i), px, GM, 1);   /* 2026-10-27: 帯域ごとの山の絵 (3 は箱も倒れている)。机まわり（中景段）の散らかり */
     }
   }
+  drawStripDecor("surface");   /* 家具カタログの小物のうち、机・棚・本棚の上に載せたもの */
   /* --- 可視生産: 工程の山 (家具層) と第2ラインのミニ山、移動中の物 (層④) --- */
   drawStripLineUpgrades();     /* 自動テスト機・梱包機 (アップグレードの段)。山の背後に立つ機械 */
   drawStripPiles();

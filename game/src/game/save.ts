@@ -53,6 +53,8 @@ function freshState(): GameState {
        帯の「✥ 並べ替え」モードでドラッグして変更する */
     layout:{},
     layoutProps:{},
+    /* 2026-11-18 家具カタログ: 買った家具 { [id]: { at, hidden? } }。EXIT・持株化でも消えない */
+    decor:{},
     /* Sprint 3 追加分: 星屑ショップの購入済み特典と、通算獲得星屑。
        生産倍率は dustTotal（通算）で決まるので、星屑を使っても倍率は下がらない */
     dustPerks:{}, dustTotal:0,
@@ -249,6 +251,8 @@ function load(rawText?: string){
     if(!S.layout || typeof S.layout !== "object" || Array.isArray(S.layout)) S.layout = {};
     /* Phase E: 小物・機能オブジェクトの配置（追加のみ・不在 = 従来の初期配置） */
     if(!S.layoutProps || typeof S.layoutProps !== "object" || Array.isArray(S.layoutProps)) S.layoutProps = {};
+    /* 家具カタログ（追加のみ・旧セーブは何も持っていない状態） */
+    if(!S.decor || typeof S.decor !== "object" || Array.isArray(S.decor)) S.decor = {};
     if(typeof S.settings.snapLayout !== "boolean") S.settings.snapLayout = true;
     /* v1 → v2 マイグレーション: 新フィールドを既定値で補完する */
     if(!Array.isArray(S.staff)) S.staff = [];

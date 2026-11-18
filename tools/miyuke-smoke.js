@@ -171,6 +171,14 @@ console.log("== 3. strip ==");
   run(sb, "const __r = stripHitRects.stockBugs[0]; stripStockBugClick(__r.x + __r.w / 2, __r.y + __r.h / 2);");
   check("10,000 stock bugs draw as at most 20 sprites and a click squashes some for coins",
     run(sb, "stripBugVis.length") <= 20 && run(sb, "S.bugStock") < bugs0 && run(sb, "S.coins") > coins0);
+  /* 家具カタログ: 買うとコインが減って帯に出る。小物は本棚の天板に載り、売却しても残る */
+  run(sb, "S.bugStock = 0; S.maxStudioLv = 3; S.coins = 20000; buyDecor('bookshelf'); buyDecor('plant'); buyDecor('server');");
+  run(sb, "S.layoutProps.decor_plant = { on: 'decor_bookshelf', dx: 0 }; window.__drawn = []; render();");
+  const plantOnShelf = run(sb, "propPlace('decor_plant').baseY < propPlace('decor_bookshelf').baseY - 40");
+  run(sb, "S.runPeakValue = BAL.valuePerDust * 5; doPrestigeCore('__none', '__auto', -1);");
+  check("bought furniture draws on the strip, sits on the bookshelf and survives a sale",
+    run(sb, "(window.__drawn.includes('prop_shelf') || window.__drawn.includes('shelf_steel')) && window.__drawn.includes('prop_plant')") && plantOnShelf &&
+    run(sb, "!S.decor.server") && run(sb, "!!S.decor.bookshelf && !!S.decor.plant"));
 
   const vet = fs.readFileSync(path.join(__dirname, "strip-seeds", "veteran.json"), "utf8");
   const sbV = buildSandbox({ hash: "#strip" });

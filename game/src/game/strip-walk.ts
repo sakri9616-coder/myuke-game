@@ -202,6 +202,7 @@ function layoutPropItems(){
   add("test");
   add("build");
   add("ship");
+  for(const d of DECOR_DEFS) if(decorShown(d.id)) add("decor_" + d.id);   /* 家具カタログで買った家具 */
   return items;
 }
 function layoutHitTest(ux, uy){
