@@ -1160,6 +1160,7 @@ function renderPanelInto(el){
     }
     h += "<div class='item buy slim'><div><span class='sock'>✥</span><span class='nm'>家具の並び</span><div class='ds'>並べ替えモード中は、帯の家具も小物もドラッグで好きな場所へ動かせます（机や棚の上に重ね置きもできます）</div></div>"+
       "<span style='display:flex;gap:4px'><button onclick='toggleLayoutEdit()'>並べ替えモード</button><button onclick='resetLayout()'>初期配置に戻す</button></span></div>";
+    h += decorCatalogHTML();   /* 2026-11-18 家具カタログ: 買った家具は並べ替えで置ける */
     h += "<div class='item buy slim'><div><span class='sock'>🧲</span><span class='nm'>並べ替えのスナップ</span><div class='ds'>ドラッグ中、近くの家具の中心へ弱く吸着します</div></div>"+
       "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()' aria-pressed='"+(S.settings.snapLayout?"true":"false")+"'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🌙</span><span class='nm'>点滅を減らす</span><div class='ds'>帯の点滅（企画中・雇える・ゲージ満タンなどの合図）を点けっぱなしにします。OS の「視差効果を減らす」が ON のときも自動で控えます</div></div>"+

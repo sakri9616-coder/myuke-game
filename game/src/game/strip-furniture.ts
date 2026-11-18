@@ -130,20 +130,6 @@ function drawStripShelf(){
   else if(hasSprite("a8_trophy_unlit")) sDrawSprite("a8_trophy_unlit", scx + ornX, ornY, 1);
   stripHitRects.shelf = { x: scx - (rackName ? 80 : 40), y: topY, w: rackName ? 160 : 80, h: G - topY };
 }
-/* 装飾家具 (sakuri 家具バッチ2 戻り22点・2026-11-16 配線): DECOR_DEFS の
-   申告順に、背景段の基線へ原寸で描く。位置は propPlace が解決する
-   (S.layoutProps の保存値か、無ければ申告した既定の帯幅比)。面に載って
-   いる小さい物には接地影を付けない (R4 の影は接地物だけ)。ヒットゾーンは
-   持たない装飾 (§4.3) なので stripHitRects には何も書かない */
-function drawStripDecor(){
-  for(const id of Object.keys(DECOR_DEFS)){
-    const d = DECOR_DEFS[id];
-    if(!hasSprite(d.sprite)) continue;
-    const pl = propPlace(id);
-    if(pl.baseY >= propGroundY(id) - 1) sShadow(pl.cx, pl.baseY - 0.5, Math.round(d.w * 0.8));
-    sDrawSprite(d.sprite, pl.cx, pl.baseY, 1);
-  }
-}
 /* 研究ステーション（ゾーン C, §c.3）: 研究員が雇われた時だけ現れる小型机。
    本の山＋開いた本＋植木鉢。不在ならゾーンは空白（密度予算の自然な増減） */
 function drawStripResearchStation(){

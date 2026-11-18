@@ -188,9 +188,9 @@ function layoutPropItems(){
     const top = id === "board" ? STRIP_BOARD.top : pl.baseY - def.h;
     items.push({ id, label: def.label, cx: pl.cx, w: def.w, h: def.h, top, prop: true });
   };
-  /* 装飾家具 (sakuri 戻り22点) は機能小物より先に積む: layoutHitTest は
-     末尾から当たるので、装飾の矩形が機能物のドラッグを奪わない */
-  for(const decorId of Object.keys(DECOR_DEFS)) add(decorId);
+  /* 家具カタログで買った床置きの家具は機能小物より先に積む: layoutHitTest は
+     末尾から当たるので、大きな家具の矩形が機能物のドラッグを奪わない */
+  for(const d of DECOR_DEFS) if(d.cls === "ground" && decorShown(d.id)) add("decor_" + d.id);
   add("board");
   if(stripMemoText()) add("memo");
   if(!tutTabLocked("staff")) add("phone");
@@ -205,6 +205,7 @@ function layoutPropItems(){
   add("test");
   add("build");
   add("ship");
+  for(const d of DECOR_DEFS) if(d.cls !== "ground" && decorShown(d.id)) add("decor_" + d.id);   /* 小物は最後（机や棚の上で先に当たる） */
   return items;
 }
 function layoutHitTest(ux, uy){

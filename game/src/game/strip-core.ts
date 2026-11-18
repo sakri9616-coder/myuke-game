@@ -44,7 +44,7 @@ const SPRITE_SPEC = {
   fx_sparkle_ring_0:[24,24], fx_sparkle_ring_1:[24,24], fx_sparkle_ring_2:[24,24], fx_sparkle_ring_3:[24,24], fx_sparkle_ring_4:[24,24],
   fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24],
   /* sakuri 家具バッチ2 戻り22点 (2026-11-11 統合・2026-11-16 装飾配線):
-     本人作画のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts) */
+     本人作画のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts) */
   prop_air_purifier:[48,48], prop_aquarium:[48,48], prop_balance_ball:[48,48], prop_bonsai:[48,48],
   prop_cable_box:[48,48], prop_cardboard_box:[48,48], prop_coat_rack:[48,48], prop_cup_ramen:[48,48],
   prop_desk_lamp:[48,48], prop_drawer:[48,48], prop_file_cabinet:[48,48], prop_floor_lamp:[48,48],
@@ -54,14 +54,14 @@ const SPRITE_SPEC = {
   /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合/装飾配線) */
   prop_tablet:[48,48], prop_storage_box:[48,48], prop_succulent:[24,24],
   /* みゅー作画 新規家具16点 (2026-11-11 作画・S12 適用・2026-11-16 統合/装飾配線):
-     作画時のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts) */
+     作画時のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts) */
   prop_cardboard_fort:[64,64], prop_cat_rack:[64,64], prop_stock_board:[64,64],
   prop_hammock:[64,64], prop_massage_chair:[64,64], prop_xmas_tree:[64,64],
   prop_monitors:[48,48], prop_ipo_bell:[48,48], prop_first_desk:[48,48],
   prop_snack_wagon:[48,48], prop_paper_pile:[48,48], prop_sunny_perch:[48,48],
   prop_keyboard:[24,24], prop_build_lamp:[24,24], prop_laser:[24,24], prop_can_tower:[24,24],
   /* みゅー作画 R6 描き直し37点 (2026-11-11 作画・S12-S18 適用・2026-11-16 統合/装飾配線):
-     作画時のキャンバス寸法が正本。配置申告は DECOR_DEFS (strip-layout.ts)。
+     作画時のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts)。
      tablet / succulent / storage_box は sakuri 本人の描き直し版が正本なので含まない */
   prop_desk_l:[64,64], prop_desk_lift:[64,64], prop_table_long:[64,64], prop_bookshelf:[64,64],
   prop_display_shelf:[64,64], prop_locker:[64,64], prop_partition:[64,64], prop_plant_large:[64,64],
