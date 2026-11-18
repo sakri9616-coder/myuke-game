@@ -1046,7 +1046,7 @@ function renderPanelInto(el){
         "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * requestBonusMult() * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
         (r.reqStars ? " ・ 品質★" + r.reqStars + "以上で満額（未満は半額）" : "") +
-        (r.reqSize ? " ・ " + r.reqSize + "サイズで作る" : "") +
+        (r.reqSize ? (r.reqStars ? " ・ " + r.reqSize + "サイズで作る" : " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）") : "")   /* reqStars の無い依頼は v2.28 以前に受けたもの（従来の規則で判定） */ +
         (r.repName ? " ・ 担当: " + r.repName : "") +
         (r.deadlineAt ? " ・ ⏰ 納期 あと約 " + Math.max(0, Math.ceil((r.deadlineAt - Date.now()) / 60000)) + "分" : "") + "</div>" +
         "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";
