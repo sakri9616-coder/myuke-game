@@ -179,6 +179,9 @@ console.log("== 3. strip ==");
   check("bought furniture draws on the strip, sits on the bookshelf and survives a sale",
     run(sb, "(window.__drawn.includes('prop_shelf') || window.__drawn.includes('shelf_steel')) && window.__drawn.includes('prop_plant')") && plantOnShelf &&
     run(sb, "!S.decor.server") && run(sb, "!!S.decor.bookshelf && !!S.decor.plant"));
+  /* 特別な家具は星屑で買う（コインは減らない） */
+  run(sb, "S.dust = 10; S.coins = 1e9; buyDecor('vipseat');");
+  check("special furniture is bought with stardust", run(sb, "!!S.decor.vipseat && S.dust === 5 && S.coins === 1e9"));
 
   const vet = fs.readFileSync(path.join(__dirname, "strip-seeds", "veteran.json"), "utf8");
   const sbV = buildSandbox({ hash: "#strip" });

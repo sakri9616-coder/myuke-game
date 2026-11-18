@@ -1,7 +1,8 @@
 /* ================= 家具カタログ（2026-11-18 sakuri 指示「家具配置と家具購入の仕組み」） =================
    コインで買う見た目だけの家具。効果は持たないので数値バランス（sim ゲート）は変わらない。
    - 品は最高到達社格（または通算 EXIT 回数）で増える。値段はその頃の手持ちで「少し迷う」額。
-   - 買った家具は会社の資産ではなくみゅけの持ち物: EXIT でも持株化でも消えない（レイアウトと同じ）。
+   - 通常の家具はコイン、特別な家具は星屑で買う（sakuri 決定 2026-11-18）。
+   - 買った家具は恒久的に所持する。会社の資産ではなくみゅけの持ち物: EXIT でも持株化でも消えない（レイアウトと同じ）。
    - 置き場所は並べ替え（Phase E の layoutProps）にそのまま乗る: PROP_DEFS に "decor_<id>" で登録し、
      地面にも、小物なら机・棚・本棚の上にも置ける。本棚は買うと新しい「面」になる。
    - 帯の絵は既存アセットだけを使う（理念書 9章: スクリプト生成アートは禁止）。sprite が無い品は
@@ -11,7 +12,7 @@
 interface DecorDef {
   id: string; name: string; desc: string; spr: string; scale: number;
   w: number; h: number; cls: "ground" | "small";
-  rank?: number; exits?: number; cost: number;
+  rank?: number; exits?: number; cost: number; dust?: boolean;   /* dust = 特別な家具（星屑で買う） */
   def: { on: "ground"; x: number } | { on: string; dx: number };   /* 買った直後の置き場 */
 }
 const DECOR_DEFS: DecorDef[] = [
@@ -26,6 +27,11 @@ const DECOR_DEFS: DecorDef[] = [
     rank: 3, cost: 15000, def: { on: "ground", x: 0.415 } },
   { id: "server", name: "小型サーバー", desc: "棚に収まらなかった一台。ランプが光る", spr: "prop_server", scale: 1, w: 24, h: 32, cls: "ground",
     rank: 4, cost: 200000, def: { on: "ground", x: 0.965 } },
+  /* --- 特別な家具（星屑で買う）。廃止した「推しの一本」用に sakuri が描いた絵（A7 特等席・A2 推しリボン）を家具として活かす --- */
+  { id: "vipseat", name: "特等席", desc: "赤いじゅうたんとロープの特別な台。星屑で買う特別な家具", spr: "a7_special_seat", scale: 1, w: 24, h: 24, cls: "ground",
+    exits: 1, cost: 5, dust: true, def: { on: "ground", x: 0.5 } },
+  { id: "rosette", name: "金のロゼット", desc: "勲章のリボン飾り。机や棚の上に飾れる特別な家具", spr: "a2_oshi_ribbon", scale: 1, w: 24, h: 24, cls: "small",
+    exits: 1, cost: 3, dust: true, def: { on: "shelf", dx: 0 } },
   /* --- 発注中の絵（届くまでカタログに出ない。名前契約は DECOR_ORDER と同じ） --- */
   { id: "water",  name: "ウォーターサーバー", desc: "冷たい水とお湯が出る", spr: "prop_water_server", scale: 1, w: 20, h: 44, cls: "ground",
     rank: 5, cost: 5e4, def: { on: "ground", x: 0.43 } },
@@ -36,12 +42,12 @@ const DECOR_DEFS: DecorDef[] = [
   { id: "sofa",   name: "ソファ",     desc: "休憩用のふかふかソファ", spr: "prop_sofa", scale: 1, w: 64, h: 32, cls: "ground",
     exits: 1, cost: 1e8, def: { on: "ground", x: 0.42 } },
   { id: "cattower", name: "キャットタワー", desc: "社員猫の憧れ", spr: "prop_cat_tower", scale: 1, w: 32, h: 64, cls: "ground",
-    exits: 5, cost: 1e10, def: { on: "ground", x: 0.975 } },
+    exits: 3, cost: 15, dust: true, def: { on: "ground", x: 0.975 } },
   { id: "aquarium", name: "金魚の水槽", desc: "台に載った小さな水槽。泳ぐ金魚", spr: "prop_aquarium", scale: 1, w: 40, h: 40, cls: "ground",
-    exits: 20, cost: 1e12, def: { on: "ground", x: 0.04 } },
+    exits: 10, cost: 40, dust: true, def: { on: "ground", x: 0.04 } },
 ];
 /* 発注リスト（sakuri 作画）。DECOR_DEFS の「発注中」と同じ名前・原寸。下端中央が接地点 */
-const DECOR_ORDER = DECOR_DEFS.filter(d => !["plant", "books", "boxes", "bookshelf", "server"].includes(d.id)).map(d => d.spr + " " + d.w + "×" + d.h);
+const DECOR_ORDER = DECOR_DEFS.filter(d => !["plant", "books", "boxes", "bookshelf", "server", "vipseat", "rosette"].includes(d.id)).map(d => d.spr + " " + d.w + "×" + d.h);
 /* 並べ替えの項目として登録（PROP_DEFS は strip-layout.ts。段は中景） */
 for(const d of DECOR_DEFS) PROP_DEFS["decor_" + d.id] = { label: d.name, w: d.w, h: d.h, cls: d.cls };
 
@@ -55,20 +61,26 @@ function decorUnlocked(d){
   return true;
 }
 function decorUnlockText(d){ return d.exits ? "EXIT " + d.exits + " 回で解放" : "社格「" + rankName(d.rank) + "」で解放"; }
-function decorCatalog(){
-  const withArt = DECOR_DEFS.filter(d => hasSprite(d.spr));
+function decorCatalog(dust){
+  const withArt = DECOR_DEFS.filter(d => hasSprite(d.spr) && !!d.dust === dust);
   const open = withArt.filter(d => decorUnlocked(d));
   const next = withArt.find(d => !decorUnlocked(d));
   return { open, next };
 }
+function decorPrice(d){ return d.dust ? "星屑 " + d.cost + "⭐" : fmt(d.cost) + "🪙"; }
 function buyDecor(id){
   const d = decorDef(id);
   if(!d || !hasSprite(d.spr)) return;
   if(!S.decor || typeof S.decor !== "object") S.decor = {};
   if(S.decor[id]){ say("もう持ってるにゃ"); return; }
   if(!decorUnlocked(d)){ say("まだ買えないにゃ（" + decorUnlockText(d) + "）"); return; }
-  if(S.coins < d.cost){ say("コインが足りないにゃ…"); return; }
-  S.coins -= d.cost;
+  if(d.dust){
+    if((S.dust || 0) < d.cost){ say("星屑が足りないにゃ…"); return; }
+    S.dust -= d.cost;
+  } else {
+    if(S.coins < d.cost){ say("コインが足りないにゃ…"); return; }
+    S.coins -= d.cost;
+  }
   S.decor[id] = { at: Date.now() };
   /* 地面に置く家具は、買った時点の帯でいちばん広い空きの真ん中に置く（帯幅や家具の数で既定位置が埋まっていることがあるため） */
   if(d.def.on === "ground" && !propEntry("decor_" + id)){
@@ -79,7 +91,7 @@ function buyDecor(id){
     }
   }
   SoundKit.play("purchase");
-  addLog("🪑 家具: 『" + d.name + "』を買った（-" + fmt(d.cost) + "🪙）");
+  addLog("🪑 家具: 『" + d.name + "』を買った（-" + decorPrice(d) + "）");
   say("『" + d.name + "』が届いたにゃ！ ✥ 並べ替えで好きな所に置いてね");
   checkStamps(); save(); renderPanel();
 }
@@ -145,8 +157,16 @@ function drawStripDecor(pass){
 }
 /* 設定タブ「家具の並び」の下に出すカタログ（新しい画面は作らない） */
 function decorCatalogHTML(){
-  const { open, next } = decorCatalog();
+  return decorGroupHTML(false) + decorGroupHTML(true);
+}
+/* 通常の家具（コイン）と特別な家具（星屑）を分けて並べる。特別な家具は解放されるまで見出しごと出さない */
+function decorGroupHTML(dust){
+  const { open, next } = decorCatalog(dust);
   let h = "";
+  if(dust){
+    if(!open.length) return "";
+    h += "<div class='note'>✨ 特別な家具（星屑で買う・ずっと持っていられる）</div>";
+  }
   for(const d of open){
     const url = spriteURL(d.spr);
     const ico = url ? "<img class='decor-ico' src='" + url + "' alt=''>" : "<span class='sock'>🪑</span>";
@@ -154,15 +174,15 @@ function decorCatalogHTML(){
     if(decorOwned(d.id)){
       btn = "<span style='display:flex;gap:4px'><button onclick='toggleDecor(\"" + d.id + "\")'>" + (S.decor[d.id].hidden ? "出す" : "しまう") + "</button></span>";
     } else {
-      const can = S.coins >= d.cost;
-      btn = "<button" + (can ? "" : " disabled") + " onclick='buyDecor(\"" + d.id + "\")'>" + fmt(d.cost) + "🪙</button>";
+      const can = d.dust ? (S.dust || 0) >= d.cost : S.coins >= d.cost;
+      btn = "<button" + (can ? "" : " disabled") + " onclick='buyDecor(\"" + d.id + "\")'>" + decorPrice(d) + "</button>";
     }
     h += "<div class='item buy slim'><div>" + ico + "<span class='nm'>" + d.name + (decorOwned(d.id) ? " <small>（持っている）</small>" : "") +
       "</span><div class='ds'>" + d.desc + "</div></div>" + btn + "</div>";
   }
   if(next){
     h += "<div class='item buy slim locked'><div><span class='sock'>🔒</span><span class='nm'>" + next.name + "</span><div class='ds'>" +
-      decorUnlockText(next) + "</div></div><button disabled>" + fmt(next.cost) + "🪙</button></div>";
+      decorUnlockText(next) + "</div></div><button disabled>" + decorPrice(next) + "</button></div>";
   }
   return h;
 }
