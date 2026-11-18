@@ -105,6 +105,41 @@ console.log("== 1. boot and core loop ==");
   const tabs = run(sb, "TABS.map(t => t[0])");
   const bad = tabs.filter(t => !noThrow(() => run(sb, `switchTab(${JSON.stringify(t)}); renderPanel();`)) || run(sb, "document.getElementById('panel').innerHTML.length") < 50);
   check("every menu tab renders", bad.length === 0, bad.join(","));
+  /* 2026-11-19: ステップボタン (+50/+100) と一括育成の配分 (sakuri 要望) */
+  run(sb, "S.staff.length = 0; S.staff.push({ id: 901, name: 'A', coat: 0, role: Object.keys(STAFF_ROLES)[0], lv: 1 }, { id: 902, name: 'B', coat: 0, role: Object.keys(STAFF_ROLES)[0], lv: 40 });");
+  const bulkTotal = run(sb, "S.staff.reduce((a, s) => a + trainCost(s), 0)");
+  run(sb, "S.coins = " + Math.floor(bulkTotal / 2) + ";");
+  const bulkBefore = run(sb, "S.staff.map(s => s.lv).join(',')");
+  run(sb, "buyBulkTrain();");
+  check("bulk train (all-or-nothing) still refuses when the total is unaffordable",
+    run(sb, "S.staff.map(s => s.lv).join(',')") === bulkBefore);
+  const stepped = run(sb, "buyMany('bulkTrainStep', [], 50)");
+  check("bulk +50 distributes levels cheapest-first instead of stalling on one expensive cat",
+    stepped > 0 && run(sb, "S.staff[0].lv") > 1 && run(sb, "S.staff[1].lv") === 40,
+    "stepped " + stepped + ", lvs " + run(sb, "S.staff.map(s => s.lv).join(',')"));
+  run(sb, "S.coins = 1e12; S.upgrades.devenv = 0;");
+  const up50 = run(sb, "buyMany('buyUpgrade', ['devenv'], 50)");
+  check("+50 buys exactly 50 levels when rich", up50 === 50 && run(sb, "S.upgrades.devenv") === 50, "bought " + up50);
+  let allHtml = "";
+  for (const t of tabs) { run(sb, `switchTab(${JSON.stringify(t)}); renderPanel();`); allHtml += run(sb, "document.getElementById('panel').innerHTML"); }
+  const bulkInfos = [...allHtml.matchAll(/data-bulk='([^']*)'/g)].map(m => JSON.parse(m[1].replace(/&quot;/g, "\"").replace(/&amp;/g, "&")));
+  const findBulk = (v, a0) => bulkInfos.find(b => b.v === v && (a0 === undefined || String(b.a[0]) === String(a0)));
+  check("buy buttons carry long-press popup data instead of +50/+100 buttons (bulk row aims at bulkTrainStep)",
+    !!findBulk("bulkTrainStep") && !!findBulk("buyUpgrade", "devenv") && !!findBulk("trainStaff", 901) && !allHtml.includes("stepopt"),
+    "bulk " + !!findBulk("bulkTrainStep") + ", up " + !!findBulk("buyUpgrade", "devenv") + ", train " + !!findBulk("trainStaff", 901));
+  check("hire keeps a bare max button and no popup when fewer than 50 slots remain",
+    allHtml.includes("buyMany(\"hireStaff\",[\"prog\"],1000)") && !findBulk("hireStaff"));
+  const expUpTot = run(sb, "Array.from({length: 50}, (_, i) => upgradeCost(UPGRADE_DEFS.find(u => u.id === 'devenv'), 50 + i)).reduce((a, b) => a + b, 0)");
+  const upBulk = findBulk("buyUpgrade", "devenv");
+  check("popup data carries the true +50 total (upgrade: sum of the next 50 levels)",
+    !!upBulk && upBulk.c50 === expUpTot, "expected " + expUpTot + ", got " + (upBulk && upBulk.c50));
+  const expBulkTot = run(sb, "bulkStepCosts().c50");
+  const bulkBulk = findBulk("bulkTrainStep");
+  check("bulk-row popup total matches the cheapest-first simulation",
+    !!bulkBulk && bulkBulk.c50 === expBulkTot, "expected " + expBulkTot + ", got " + (bulkBulk && bulkBulk.c50));
+  check("popup rows flag affordability from the wallet",
+    run(sb, "bulkPopRows({v:'buyUpgrade', a:['devenv'], cur:'coins', c50: 10, c100: 20}).every(r => r.ok)") === true &&
+    run(sb, "S.coins = 15; bulkPopRows({v:'buyUpgrade', a:['devenv'], cur:'coins', c50: 10, c100: 20}).map(r => r.ok).join(',')") === "true,false");
 }
 
 /* ================= 2. セーブ ================= */

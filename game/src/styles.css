@@ -367,8 +367,16 @@
   .buy>button, .staffcard>button{flex:0 0 auto;}
   .buybtn .buy-act{white-space:nowrap;}
   /* 「最大」: 購入ボタンの右隣の小さな相棒ボタン (買えるだけ一括で買う) */
-  .buypair{display:inline-flex;align-items:stretch;gap:3px;flex:0 0 auto;}
+  .buypair{display:inline-flex;align-items:stretch;gap:3px;flex:0 1 auto;flex-wrap:wrap;min-width:0;}
   .buybtn.maxbtn{font-size:10.5px;font-weight:800;padding:2px 6px;white-space:nowrap;}
+  /* 長押しまとめ買い: 元ボタンの真上に、buybtn と同じ見た目の +50/+100 四角ボタンが浮く */
+  #bulkfloat{position:fixed;z-index:9999;display:flex;gap:4px;pointer-events:none;border:2px solid var(--gold);border-radius:3px;background:var(--paper);padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
+  .bulkfloat-sep{width:1px;background:#9a9a9a;opacity:.65;align-self:stretch;margin:3px 0;}
+  .bulkfloat-btn{cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  .bulkfloat-btn.hot{outline:2px solid var(--accent);outline-offset:1px;filter:brightness(1.2);}
+  .bulkfloat-btn.dis{opacity:.45;}
+  .buybtn.bulk-src{outline:2px solid var(--accent);outline-offset:1px;}
+  .buybtn.bulk-hot{filter:brightness(1.3);}
   .dh-btns .buypair{flex:1 1 auto;}
   .dh-btns .buypair>.buybtn:first-child{flex:1 1 auto;}
   .dh-btns .buybtn.maxbtn{flex:0 0 auto;padding:2px 4px;}

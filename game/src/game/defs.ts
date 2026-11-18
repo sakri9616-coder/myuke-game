@@ -63,9 +63,9 @@ function studioCost(lv){ return STUDIO_COSTS[lv]; }  // 段階3 からは使わ�
    +0.10/Lv に逓減するが、コストは全域で一本（基礎 × 0.9 × 1.35^(Lv−1)）— A3 で
    Lv11 以降の追加曲線（×1.35^(Lv−10) の上乗せ）を廃止した */
 function staffMult(st){ return 1 + 0.25 * Math.min(st.lv - 1, 9) + 0.10 * Math.max(0, st.lv - 10); }
+function hireCostAt(role, n){ return Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, n)); }
 function hireCost(role){
-  const n = S.staff.filter(s => s.role === role).length;
-  return Math.ceil(STAFF_ROLES[role].base * Math.pow(1.35, n));
+  return hireCostAt(role, S.staff.filter(s => s.role === role).length);
 }
 function trainCost(st){
   /* Sprint 4: 終盤の育成コストを緩和（1.45 → 1.35 乗）(C2-P1-4)。
@@ -104,10 +104,12 @@ function deptLv(role){ return (S.depts && S.depts[role]) || 1; }
    切り替わる（deptCost）— ×2 のまま延長していた旧形の壁をなくした */
 function deptMultForLv(lv){ return 1 + 0.15 * Math.min(lv - 1, 9) + 0.05 * Math.max(0, lv - 10); }
 function deptMult(role){ return deptMultForLv(deptLv(role)); }
-function deptCost(role){
-  const lv = deptLv(role);
-  /* 再設計 A3（形Y）: Lv10 までは現行どおり 300 × 2^(Lv−1)、先は 300 × 2^9 × 1.35^(Lv−10)（Lv10 で連続） */
+/* 再設計 A3（形Y）: Lv10 までは現行どおり 300 × 2^(Lv−1)、先は 300 × 2^9 × 1.35^(Lv−10)（Lv10 で連続） */
+function deptCostAt(lv){
   return Math.ceil(lv <= 10 ? 300 * Math.pow(2, lv - 1) : 300 * Math.pow(2, 9) * Math.pow(1.35, lv - 10));
+}
+function deptCost(role){
+  return deptCostAt(deptLv(role));
 }
 function deptChief(role){
   let best = null;
@@ -256,6 +258,21 @@ function buyBulkTrain(){
   SoundKit.play("purchase");
   addLog("🎓 全員+1Lv育成（-" + fmt(total) + "🪙）");
   say("みんな1レベル上がったにゃ！");
+  save(); renderPanel();
+}
+/* 一括育成のステップ版 (2026-11-19 sakuri 要望): いま一番安い1匹を +1Lv するだけの動詞。
+   一括行の +50/+100/最大 が buyMany でこれを繰り返すと、安い順に均等にレベルが上がり、
+   高Lvの1匹のコストが全体を止めることがない (全員+1Lv の全額必須とは別の経路)。
+   買えない時は財布を動かさずに返るので、buyMany はそこで止まる */
+function bulkTrainStep(){
+  if(!S.staff.length) return;
+  let best = null, bc = Infinity;
+  for(const st of S.staff){ const c = trainCost(st); if(c < bc){ bc = c; best = st; } }
+  if(!best || S.coins < bc) return;
+  S.coins -= bc; best.lv = (best.lv || 1) + 1;
+  SoundKit.play("purchase");
+  addLog("🎓 育成: " + best.name + "（" + STAFF_ROLES[best.role].name + "）が Lv" + best.lv + " になった（-" + fmt(bc) + "🪙）");
+  say(best.name + "、レベルアップにゃ！");
   save(); renderPanel();
 }
 /* スタッフ合計は1フレームの描画中に30回ほど呼ばれる (工程レート・山・ボトルネック判定…)。
