@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.29.0";   /* 表示ラベルの単一の出所 (v2.29.0: 全体見直し・依頼は品質★を求める) */
+const GAME_VERSION = "v2.30.0";   /* 表示ラベルの単一の出所 (v2.30.0: 家具カタログ・届いた家具78点・金の魚アニメ) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {

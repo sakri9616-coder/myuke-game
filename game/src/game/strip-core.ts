@@ -25,7 +25,7 @@ const SPRITE_SPEC = {
   miyuke_snack:[48,40], miyuke_happy:[48,40],
   duck_idle:[24,20], duck_check:[24,20],
   icon_coin:[16,16], icon_idea:[16,16], icon_bug:[28,28], icon_box:[28,28], icon_star:[16,16],
-  icon_fish:[32,32], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
+  icon_fish:[32,32], icon_fish_0:[32,32], icon_fish_1:[32,32], icon_fish_2:[32,32], icon_fish_3:[32,32], icon_book:[16,16], icon_wrench:[28,28], icon_heart:[16,16],
   prop_plant:[16,20], prop_coffee:[28,28], prop_coffee_0:[28,28], prop_coffee_1:[28,28], prop_server:[24,32], prop_packmachine:[48,24], prop_shelf:[40,28], prop_ship:[48,48], prop_annex_sign:[48,48], prop_sign_gold:[48,48], prop_star_gold:[24,24], prop_trophy_gold:[24,24], prop_snackbox:[24,24], prop_snackbox_shut:[24,24],
   prop_pc:[40,32],
   /* 環境ドット絵 (Codex 一次作・research/ENV_ART_MANIFEST.md): 既存パレットのみ */
@@ -42,7 +42,37 @@ const SPRITE_SPEC = {
   fx_sparkle_0:[24,24], fx_sparkle_1:[24,24], fx_sparkle_2:[24,24], fx_sparkle_3:[24,24], fx_sparkle_4:[24,24],
   fx_sparkle_burst_0:[24,24], fx_sparkle_burst_1:[24,24], fx_sparkle_burst_2:[24,24], fx_sparkle_burst_3:[24,24], fx_sparkle_burst_4:[24,24],
   fx_sparkle_ring_0:[24,24], fx_sparkle_ring_1:[24,24], fx_sparkle_ring_2:[24,24], fx_sparkle_ring_3:[24,24], fx_sparkle_ring_4:[24,24],
-  fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24]
+  fx_sparkle_rain_0:[24,24], fx_sparkle_rain_1:[24,24], fx_sparkle_rain_2:[24,24], fx_sparkle_rain_3:[24,24], fx_sparkle_rain_4:[24,24], fx_sparkle_rain_5:[24,24],
+  /* sakuri 家具バッチ2 戻り22点 (2026-11-11 統合・2026-11-16 装飾配線):
+     本人作画のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts) */
+  prop_air_purifier:[48,48], prop_aquarium:[48,48], prop_balance_ball:[48,48], prop_bonsai:[48,48],
+  prop_cable_box:[48,48], prop_cardboard_box:[48,48], prop_coat_rack:[48,48], prop_cup_ramen:[48,48],
+  prop_desk_lamp:[48,48], prop_drawer:[48,48], prop_file_cabinet:[48,48], prop_floor_lamp:[48,48],
+  prop_console:[48,48], prop_3d_printer:[48,48], prop_beanbag:[64,64], prop_calendar:[25,24],
+  prop_cactus:[24,24], prop_clock:[24,24], prop_controller:[24,24], prop_extinguisher:[24,24],
+  prop_figurine:[24,24], prop_trash_can:[24,24],
+  /* sakuri 家具バッチ2 追加戻り3点 (2026-11-13 戻り・2026-11-16 統合/装飾配線) */
+  prop_tablet:[48,48], prop_storage_box:[48,48], prop_succulent:[24,24],
+  /* みゅー作画 新規家具16点 (2026-11-11 作画・S12 適用・2026-11-16 統合/装飾配線):
+     作画時のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts) */
+  prop_cardboard_fort:[64,64], prop_cat_rack:[64,64], prop_stock_board:[64,64],
+  prop_hammock:[64,64], prop_massage_chair:[64,64], prop_xmas_tree:[64,64],
+  prop_monitors:[48,48], prop_ipo_bell:[48,48], prop_first_desk:[48,48],
+  prop_snack_wagon:[48,48], prop_paper_pile:[48,48], prop_sunny_perch:[48,48],
+  prop_keyboard:[24,24], prop_build_lamp:[24,24], prop_laser:[24,24], prop_can_tower:[24,24],
+  /* みゅー作画 R6 描き直し37点 (2026-11-11 作画・S12-S18 適用・2026-11-16 統合/装飾配線):
+     作画時のキャンバス寸法が正本。品・値段・解放は家具カタログの DECOR_DEFS (decor.ts)。
+     tablet / succulent / storage_box は sakuri 本人の描き直し版が正本なので含まない */
+  prop_desk_l:[64,64], prop_desk_lift:[64,64], prop_table_long:[64,64], prop_bookshelf:[64,64],
+  prop_display_shelf:[64,64], prop_locker:[64,64], prop_partition:[64,64], prop_plant_large:[64,64],
+  prop_rug_large:[64,64], prop_bench:[64,64], prop_sofa:[64,64], prop_gaming_chair:[64,64],
+  prop_vending:[64,64], prop_kotatsu:[64,64],
+  prop_side_table:[48,48], prop_wagon:[48,48], prop_printer:[48,48], prop_router:[48,48],
+  prop_headphone_stand:[48,48], prop_speaker:[48,48], prop_mic_arm:[48,48], prop_zabuton:[48,48],
+  prop_safe:[48,48], prop_toaster:[48,48], prop_shredder:[48,48], prop_mirror:[48,48],
+  prop_humidifier:[48,48], prop_robot_vacuum:[48,48], prop_heater:[48,48],
+  prop_power_strip:[24,24], prop_nas:[24,24], prop_vr_headset:[24,24], prop_flower_vase:[24,24],
+  prop_kettle:[24,24], prop_mug:[24,24], prop_globe:[24,24], prop_plush:[24,24]
 };
 /* 帯レンダラのスケール比（仕様 48:32:24）。
    みゅけ ×2 / スタッフ ×4/3 / アヒル ×1 = 96:43:24。
