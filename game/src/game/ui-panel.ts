@@ -604,7 +604,7 @@ function renderPanelInto(el){
             done.map(x => "✓ " + short(x[1])).join(" ・ ") + (done.length && !chief ? "（部長がいない）" : "") +
             (nx ? (done.length ? "<br>" : "") + "あと " + (nx[0] - lv) + " Lv で「" + short(nx[1]) + "」（Lv" + nx[0] + "）" : "") + "</div>";
         })() +
-        (locked ? "<div class='rs'>社格「" + rankName(CHEER_STAFF_RANK) + "」から</div>" : "") +
+        (locked ? "<div class='rs'>社格「" + rankName(roleRank(role)) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
         buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ", true) +
         buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +
@@ -1036,7 +1036,7 @@ function renderPanelInto(el){
     if(S.bigDeal){
       const bd = S.bigDeal, leftMin = Math.max(0, Math.ceil((bd.expiresAt - Date.now()) / 60000));
       h += "<div class='item' style='border-color:var(--gold-d)'><div class='buy'><div><span class='sock'>🌟</span><span class='nm'>大型案件：" + esc(bd.client) + "</span>" +
-        "<div class='ds'>「" + esc(bd.genreName) + "」の L サイズ以上で達成 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
+        "<div class='ds'>「" + esc(bd.genreName) + "」の L サイズの大作・品質★" + BIG_DEAL_STARS + "以上で満額 ・ コイン+250% ・ 担当：" + bd.repName + " ・ ⏳ あと約" + leftMin + "分</div></div>" +
         "<span><button class='primary' onclick='acceptBigDeal()' " + (S.activeRequest ? "disabled" : "") + ">受ける</button> " +
         "<button onclick='declineBigDeal()'>見送る</button></span></div></div>";
     }
@@ -1045,7 +1045,8 @@ function renderPanelInto(el){
       h += "<div class='item slim'><span class='sock'>📌</span><span class='nm'>受注中：" + esc(r.client) + "</span>" +
         "<div class='ds'>次の作品（" + esc(r.genreName) + "）をリリースで達成（コイン+" + Math.round((typeof r.bonus === "number" ? r.bonus : 0.6) * requestBonusMult() * 100) + "%・研究P+1）" +
         (r.tier ? " ・ クライアント: " + REQUEST_TIERS[r.tier].name : "") +
-        (r.reqSize ? " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）" : "") +
+        (r.reqStars ? " ・ 品質★" + r.reqStars + "以上で満額（未満は半額）" : "") +
+        (r.reqSize ? (r.reqStars ? " ・ " + r.reqSize + "サイズで作る" : " ・ " + r.reqSize + "サイズ以上で満額（未満は半額）") : "")   /* reqStars の無い依頼は v2.28 以前に受けたもの（従来の規則で判定） */ +
         (r.repName ? " ・ 担当: " + r.repName : "") +
         (r.deadlineAt ? " ・ ⏰ 納期 あと約 " + Math.max(0, Math.ceil((r.deadlineAt - Date.now()) / 60000)) + "分" : "") + "</div>" +
         "<div style='margin-top:5px'><button onclick='dropRequest()'>見送る（差し替え）</button></div></div>";

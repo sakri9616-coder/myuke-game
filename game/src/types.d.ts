@@ -74,6 +74,7 @@ interface WorkRequest {
   big?: boolean;
   tier?: number;
   reqSize?: ProjectSize | null;
+  reqStars?: number;   /* 2026-11-17: 求める品質★（未満はボーナス半額）。0/未設定 = 指定なし */
   deadlineAt?: number | null;
   [k: string]: any;
 }

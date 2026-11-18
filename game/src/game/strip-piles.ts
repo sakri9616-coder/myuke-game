@@ -128,12 +128,21 @@ function drawStripPiles(){
     /* A5: 看板に掛ける「いまの顔」の札（伸縮キット: 左端 + 4px 単位 + 右端）。
        作品名の文字は表示側が板の上に書く（designer-r3 §3.2） */
     if(hasSprite("a5_tag_l") && hasSprite("a5_tag_m") && hasSprite("a5_tag_r")){
-      const face = subWorkName(S.subs[S.subs.length - 1]);
+      let face = subWorkName(S.subs[S.subs.length - 1]);
       sctx.save();
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
+      /* 札は看板（幅48）ほどまで。長い作品名は … で切る（2026-11-17 まで無制限に伸び、隣のビルド台の柱に文字が隠れた） */
+      const TAG_TEXT_MAX = 50;
+      if(sctx.measureText(face).width > TAG_TEXT_MAX){
+        while(face.length > 2 && sctx.measureText(face + "…").width > TAG_TEXT_MAX) face = face.slice(0, -1);
+        face += "…";
+      }
       const tw = Math.ceil(sctx.measureText(face).width);
       const units = Math.max(1, Math.ceil((tw + 8 - 20) / 4));
-      const tagW = 20 + units * 4, tagCx = dx - 42, tagB = GB - 2;
+      const tagW = 20 + units * 4, tagB = GB - 2;
+      /* 札の左端がビルド台の信号柱（中景段・幅±4）に隠れないよう、その右へ寄せる */
+      const poleR = stationSignalXs().build + 4 + 2;
+      const tagCx = Math.max(dx - 42, poleR + tagW / 2);
       sDrawSprite("a5_tag_l", tagCx - tagW / 2 + 5, tagB, 1);
       for(let u = 0; u < units; u++) sDrawSprite("a5_tag_m", tagCx - tagW / 2 + 12 + u * 4, tagB, 1);
       sDrawSprite("a5_tag_r", tagCx + tagW / 2 - 5, tagB, 1);
@@ -515,13 +524,17 @@ function renderStrip(){
     if(wk.carrying){ const t2 = Math.min(srect.y, GM - (ssz ? ssz[1] * ssc + 11 : 43)); srect.h += srect.y - t2; srect.y = t2; }
     stripHitRects.staff.push(srect);
     stripStaffArt.push(drawn ? { name: nm, gx: wk.x, gy: GM + bob, s: ssc, flip } : null);
-    if(deptChief(st.role) === st){
+    const starX = Math.round(wk.x * stripScale) / stripScale, starY = srect.y - 4;
+    const memoR = stripHitRects.memo;
+    /* 吊りメモの真下を歩く間は ⭐ を出さない（スタッフは前景なので、メモの字の上に星が乗っていた） */
+    const underMemo = !!memoR && starX > memoR.x - 5 && starX < memoR.x + memoR.w + 5 && starY > memoR.y - 5 && starY < memoR.y + memoR.h + 5;
+    if(deptChief(st.role) === st && !underMemo){
       /* Phase C: 部長バッジ（その部署で一番 Lv の高いスタッフに自動で付く） */
       sctx.save();
       sctx.font = "9px sans-serif"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
       /* 描画の軽量化: x はデバイス画素に揃える (猫の絵と同じ丸め。ずれは 0.5px 未満)。
          端数のままだと歩くたびに毎フレーム描き直しになっていた */
-      sctx.fillText("⭐", Math.round(wk.x * stripScale) / stripScale, srect.y - 4);
+      sctx.fillText("⭐", starX, starY);
       sctx.restore();
     }
     if(wk.carrying){

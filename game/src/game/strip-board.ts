@@ -26,7 +26,9 @@ function drawBoardBar(x, y, w, h, frac, tone, ticks){
   for(const t of ticks) sDrawTL("ui_bar_tick", Math.round((x + Math.round(w * t)) * stripScale - tdw / 2) / stripScale, y, tdw / stripScale, h);
 }
 /* 木の縁の札 (社格 = ui_tab_9) */
-function drawBoardTab(x, y, w, gold?){ sDrawNine(gold ? "ui_tab_gold_9" : "ui_tab_9", x, y, w, 12, 3, 3); }
+/* 右タブの1段。9px の字が枠線に触れないよう高さ 14（2026-11-17 まで 12） */
+const BOARD_TAB_H = 14, BOARD_TAB_STEP = 15;
+function drawBoardTab(x, y, w, gold?){ sDrawNine(gold ? "ui_tab_gold_9" : "ui_tab_9", x, y, w, BOARD_TAB_H, 3, 3); }
 /* 吊りメモ札の地 (ui_memo_9。大型案件の間は金の札 ui_memo_gold_9 と交互に明滅 = 色＋動きの二経路) */
 function drawMemoFace(x, y, w, h){
   const gold = !!S.bigDeal && blinkOn(50, 25);
@@ -203,24 +205,29 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     const slotW = bn ? 15 : genreW;
     /* 再設計 B9（ux-r3 §2.7）: 企画者クレジット — 作品名の脇に小さく「企画:○○」を常設する。
        置き場所が狭いときは名前より先にクレジットが落ちる（名前が主、署名は脇役） */
-    const creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
+    let creditTxt = p.plannerName ? "企画:" + p.plannerName : "";
     const creditW = creditTxt ? sctx.measureText(creditTxt).width : 0;
-    const nameLim = ix + iw - 3 - slotW - (creditW ? creditW + 4 : 0);
     const nx = ix + 16.5 + pctW + 5;
+    const nameEnd = ix + iw - 3 - slotW;   /* 名前（＋クレジット）が使える右端 */
     sctx.font = "700 11px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
     sctx.fillStyle = "#4a3b2c";
     let nm = "『" + p.name + "』";
+    /* 名前が主・署名は脇役: 名前を丸ごと出すとクレジットが入らないなら、先にクレジットを落とす
+       （2026-11-17 まで常にクレジットの幅を確保していたため、名前が「『にく…』」まで削られていた） */
+    if(creditTxt && nx + sctx.measureText(nm).width + 4 + creditW > nameEnd) creditTxt = "";
+    const nameLim = nameEnd - (creditTxt ? creditW + 4 : 0);
     if(nx + sctx.measureText(nm).width > nameLim){
       let cut = p.name;
       while(cut.length > 1 && nx + sctx.measureText("『" + cut + "…』").width > nameLim) cut = cut.slice(0, -1);
       nm = "『" + cut + "…』";
     }
     sctx.fillText(nm, nx, iy + 8.5);
+    const nmW = sctx.measureText(nm).width;   /* 11px のまま測る（7px に切り替えた後に測るとクレジットが名前に重なった） */
     if(creditTxt){
       sctx.save();
       sctx.font = "700 7px 'Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif";
       sctx.fillStyle = "#8a6a44";
-      sctx.fillText(creditTxt, nx + sctx.measureText(nm).width + 4, iy + 8.5);
+      sctx.fillText(creditTxt, nx + nmW + 4, iy + 8.5);
       sctx.restore();
     }
     if(bn){
@@ -389,11 +396,11 @@ function drawStripProjectBoard(bcx, bw, p, dp, key, small){
     if(tw > limit) tx = bx - tw - 1;
     if(tx >= 1){
       tabRows.forEach((r, k) => {
-        drawBoardTab(tx, top + 1 + k * 13, tw);
+        drawBoardTab(tx, top + 1 + k * BOARD_TAB_STEP, tw);
         sctx.fillStyle = "#4a3b2c";
-        sctx.fillText(r.t, tx + 5, top + 7 + k * 13);
+        sctx.fillText(r.t, tx + 5, top + 1 + BOARD_TAB_H / 2 + k * BOARD_TAB_STEP);
         if(r.mark){
-          const mxp = tx + 5 + sctx.measureText(r.t).width + 5.5, myp = top + 7 + k * 13;
+          const mxp = tx + 5 + sctx.measureText(r.t).width + 5.5, myp = top + 1 + BOARD_TAB_H / 2 + k * BOARD_TAB_STEP;
           sctx.save();
           sctx.fillStyle = "#d9a514";
           sctx.strokeStyle = "#8a6410"; sctx.lineWidth = 0.8;

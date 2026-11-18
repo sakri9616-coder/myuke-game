@@ -314,14 +314,12 @@ function handworkClick(stage){
       }
     }
   }
-  clickSynergyTick();
   SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 + (crit ? 0.25 : 0) });
   updateComboUI();
   checkStamps();
   return { moved, ideas, crit };
 }
-/* 連動シナジー（端数は貯めて整数化）。応援クリックと持ち場の手助けで共通 */
-function clickSynergyTick(){}   /* 段階5: ひらめき連動はゲージの溜まり（chargeFever）へ。研究メモ連動は廃止 */
+/* 旧「連動シナジー」（clickSynergyTick）は段階5で中身が空になり、2026-11-17 に撤去した（ひらめき連動はゲージの溜まり chargeFever へ） */
 /* 再設計 C5: クリックの行き先の実測記録（即進捗／工程へ／運搬の3成分）。
    直近10秒ぶんだけをセッション内に保持し（セーブしない）、帯の行き先バーが比率で出す */
 let clickDestLog: { t: number, imm: number, pipe: number, carry: number }[] = [];
@@ -386,7 +384,6 @@ function cheerClick(bx, by, _part?){   /* 部位ごとの反応は呼び出し�
       say("会心応援！！ すごいパワーだにゃ！");
     }
   }
-  clickSynergyTick();
   /* Sprint 2: 応援の音（コンボで微上昇）と、みゅけのバウンス */
   SoundKit.play("click", { pitch: 1 + Math.min(comboN, 12) * 0.02 + (crit ? 0.25 : 0) });
   startBounce();

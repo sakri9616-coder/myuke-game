@@ -164,7 +164,11 @@ function genProject(sizeOverride, genreId?, scaleRate?){   /* scaleRate: 桁を�
   const genre = genreId ? GENRES.find(g=>g.id===genreId) : pickDevGenre(gs);
   const subj = SUBJECTS[Math.floor(Math.random()*SUBJECTS.length)];
   const scale = sizeOverride === "TUT" ? 1 : workScaleFor(scaleRate || effThroughput());
-  const size = sizeOverride || drawSizeByRank();
+  let size = sizeOverride || drawSizeByRank();
+  /* 依頼の注文サイズ（2026-11-17）: 受注中の依頼のジャンルで作るなら、依頼主の求める大きさ以上で作る。
+     以前は要求サイズが XS/S/M で、零細以降の M/L 中心の作品には効いていなかった */
+  const floor = !sizeOverride && genreId ? requestSizeFloor(genreId) : null;
+  if(floor && SIZE_ORDER.indexOf(size) < SIZE_ORDER.indexOf(floor)){ size = floor; if(size === "L") S.bigDrawStreak = 1; }
   const featPool = genre.feats.slice();
   const nFeat = 3 + Math.floor(Math.random()*3);
   const feats = [];

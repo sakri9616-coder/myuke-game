@@ -40,7 +40,7 @@ function buyResearch(id){
 function hireStaff(role, auto?){
   const def = STAFF_ROLES[role];
   if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。企業価値が上がって次の社格になると広がるよ"); return; }
-  if(roleLocked(role)){ say(def.name + "は社格「" + rankName(CHEER_STAFF_RANK) + "」から雇えるにゃ"); return; }
+  if(roleLocked(role)){ say(def.name + "は社格「" + rankName(roleRank(role)) + "」から雇えるにゃ"); return; }
   const cost = hireCost(role);
   if(S.coins < cost){ say("コインが足りないにゃ…"); return; }
   S.coins -= cost;
@@ -162,6 +162,17 @@ function acceptRequest(idx){
    営業の雇用コストは他ロール同水準の base 230（研究 245 と開発 210 の間。
    育成曲線は既存と同一なので新しい価格体系は増えない） */
 const SIZE_ORDER: ProjectSize[] = ["TUT", "XS", "S", "M", "L"];
+/* 依頼ティアごとに求める品質★（個人＝指定なし／中小企業・大企業＝★2／グローバル級・大型案件＝★3）。
+   未満の作品で達成するとボーナス半額。2026-11-17 まではサイズ（XS/S/M）を求めていたが、零細以降の作品は
+   M/L 中心・準大手から L だけなので、sim で一度も効いていなかった。品質★は 企画Lv・モジュール・ブランドで
+   上がり、どの社格でも手の打ちどころがある */
+const REQUEST_TIER_STARS = [0, 2, 2, 3];
+const BIG_DEAL_STARS = 3;
+/* 大型案件は「L の大作」を注文する。受けたら次の作品は L で作る（genProject） */
+function requestSizeFloor(genreId){
+  const rq = S.activeRequest;
+  return rq && rq.genre === genreId && rq.reqSize ? rq.reqSize : null;
+}
 const REQUEST_TIERS = [
   { name:"個人", bonus:0.6 },
   { name:"中小企業", bonus:0.9 },
@@ -207,7 +218,7 @@ function autoAcquireRequest(){
   const clients = REQUEST_CLIENTS_TIER[tier];
   const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.1: 星間営業の依頼主 */
   S.activeRequest = { client, genre: g.id, genreName: g.name, text: requestText(client0, g.name),
-    tier, bonus: REQUEST_TIERS[tier].bonus, reqSize: tier >= 1 ? SIZE_ORDER[tier] : null,
+    tier, bonus: REQUEST_TIERS[tier].bonus, reqSize: null, reqStars: REQUEST_TIER_STARS[tier],
     repId: rep.id, repName: rep.name, auto: true,
     deadlineAt: tier >= 3 ? Date.now() + 60 * 60000 : null };   /* 拡張ウェーブ G: ティア3には納期（60分） */
   S.nextRequestGenre = g.id;
@@ -238,7 +249,7 @@ function maybeSpawnBigDeal(){
   const client0 = clients[Math.floor(Math.random() * clients.length)], client = spaceClient(client0);   /* v2.26.1: 星間営業の依頼主 */
   S.bigDeal = { client, genre: g.id, genreName: g.name, bonus: 2.5, reqSize: "L",
     repId: rep.id, repName: rep.name, expiresAt: Date.now() + 30 * 60000 };
-  addLog("🌟 大型案件が届いた: "+client+"（"+g.name+"・Lサイズ以上・コイン+250%）担当: "+rep.name+" — 30分以内に判断してね");
+  addLog("🌟 大型案件が届いた: "+client+"（"+g.name+"・Lサイズ・品質★"+BIG_DEAL_STARS+"以上・コイン+250%）担当: "+rep.name+" — 30分以内に判断してね");
   say("大型案件が届いたにゃ！ 担当は"+rep.name+"。依頼ボードで確認してね");
   save();
 }
@@ -247,7 +258,7 @@ function acceptBigDeal(){
   if(!bd) return;
   if(S.activeRequest){ say("いま受けてる依頼があるにゃ。それが終わってからね"); return; }
   S.activeRequest = { client: bd.client, genre: bd.genre, genreName: bd.genreName,
-    text: requestText(bd.client, bd.genreName), tier: 3, bonus: bd.bonus, reqSize: bd.reqSize,
+    text: requestText(bd.client, bd.genreName), tier: 3, bonus: bd.bonus, reqSize: bd.reqSize, reqStars: BIG_DEAL_STARS,
     repId: bd.repId, repName: bd.repName, auto: true, big: true,
     deadlineAt: Date.now() + 45 * 60000 };   /* 拡張ウェーブ G: 大型案件には納期（45分） */
   S.nextRequestGenre = bd.genre;
@@ -279,9 +290,11 @@ function dropRequestCore(){
   S.reqHoldUntil = Date.now() + 90000;
   save(); renderPanel();
 }
+/* 大型案件の見送りの確認文（帯側 dropRequest と menu 側の動詞スタブで共有する） */
+function dropBigDealConfirmText(rq){ return "大型案件（"+rq.client+"）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）"; }
 function dropRequest(){
   if(S.activeRequest && S.activeRequest.big){
-    if(!confirm("大型案件（"+S.activeRequest.client+"）を見送りますか？\n大きなボーナスを逃します（ペナルティはありません）")) return;
+    if(!confirm(dropBigDealConfirmText(S.activeRequest))) return;
   }
   dropRequestCore();
 }
