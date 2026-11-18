@@ -278,6 +278,7 @@ function prestigePreview(){
   if(hasPerk("piggybank")) keeps.push("星の貯金箱（コインの10% " + fmt(piggyCarry(S.coins)) + "🪙 を持ち越し）");
   const nx = nextExitMs();
   if(nx && (S.prestiges || 0) + 1 >= nx.n) keeps.push("売却実績の節目「" + nx.name + "」が開く");
+  if(S.decor && Object.keys(S.decor).length) keeps.push("買った家具と並び");   /* 家具カタログ: みゅけの持ち物 */
   if(S.executives && S.executives.length) keeps.push("役員 " + S.executives.map(e => "『"+e.name+"』").join(""));   /* 第2ウェーブ M */
   return {
     gain, subGain,

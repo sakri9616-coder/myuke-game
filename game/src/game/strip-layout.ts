@@ -6,7 +6,7 @@
    機能ではなく幾何学（幅・高さ上限120・面の予約域）だけ。
    ボードと出荷スポットは地面クラスのみ（ボードは幅204で台に載らない、
    出荷は運び屋の行き先が宙に浮かないため） */
-const PROP_DEFS = {
+const PROP_DEFS: Record<string, { label: string; w: number; h: number; cls: string }> = {
   board:     { label: "進捗ボード",   w: 204, h: 44, cls: "ground" },   /* h = STRIP_BOARD.hMain (strip-board.ts はこの後に読まれるので数値で持つ) */
   memo:      { label: "つりメモ",     w: 150, h: 16, cls: "ground" },
   phone:     { label: "電話",         w: 24,  h: 24, cls: "small" },
@@ -28,7 +28,7 @@ const PROP_DEFS = {
    する静的属性で、セーブには持たせない（§4.2c）。面に載った小物は面の持ち主
    の段に従う（§4.2f: 段をまたぐ積み重ねはしない）ので、ここで効くのは
    「地面に置いたときの基線」と既定位置だけ */
-const PROP_TIER = {
+const PROP_TIER: Record<string, string> = {
   board: "back", memo: "back",   /* ボードとその付属メモは背景段 */
   phone: "mid", toolbox: "mid", megaphone: "mid", snack: "mid", coffee: "mid",
   plant: "mid", ship: "mid", calendar: "mid", fever: "mid",
@@ -46,7 +46,7 @@ function layoutSurfaces(){
     { id: "research", cx: stripResearchCX(), y: stripTierG("mid") - 12, w: 68,  reserved: [[-30, -12], [-7, 14]], on: hasResearcher() },   /* prop_research_desk の天板 (原寸 row 16)・本の山・開いた本 */
     { id: "trophy",   cx: stripTrophyCX(),   y: stripTierG("mid") - 22, w: 30,  on: !!S.stamps.prestige1 },
   ];
-  return list.filter(s => s.on !== false);
+  return list.filter(s => s.on !== false).concat(decorSurfaces());   /* 家具カタログの本棚の天板 */
 }
 function propEntry(id){
   const lp = (typeof S !== "undefined") ? S.layoutProps : null;
@@ -57,6 +57,7 @@ function propDefaultPlace(id){
   /* 既定位置の基線はその小物の所属段（段基線からの相対オフセットは従来の
      地面基準の校正値をそのまま持ち越す） */
   const G = propGroundY(id);
+  if(id.startsWith("decor_")) return decorDefaultPlace(id);   /* 家具カタログの品 */
   switch(id){
     case "board": return { cx: stripDeskCX(), baseY: G };
     case "phone": return { cx: Math.round(propPlace("board").cx - STRIP_BOARD.w / 2) + 10, baseY: G };
