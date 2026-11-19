@@ -130,6 +130,7 @@ function tick(){
     : processPipe(S.wip, capsL1, bugF, creditProject);
   /* 可視生産フローへの供給: 実フローの積分だけが帯の「物の流れ」になる */
   flowFeedTick(_fd1, used);
+  floorTick(1);   /* 工場フロア（工業拡張・試作）: 滞留シミュレーション（信号の材料。実パイプとは独立） */
   // 研究員の研究Pトリクル
   if(ss.rp > 0) S.rp += ss.rp/60;
   /* Sprint 4: ティア1研究を全て終えた研究員は、第二の仕事として余った

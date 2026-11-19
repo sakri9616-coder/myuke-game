@@ -121,9 +121,9 @@ interface Settings {
 interface Trend { boom: string; slump: string; nextBoom: string | null; nextSlump: string | null; cycleSec: number; ships?: number; announceAt: number }   // cycleSec は v2.12.1 から使わない（出荷の本数 ships で回る）
 
 /* 工場フロア（工業拡張・最小試作 2026-11-20）: 配置はセーブに持つ。段・種別は kind から導出 */
-interface FloorMachine { id: number; kind: string; x: number; y: number }
-interface FloorLink { from: number; to: number }
-interface FloorState { machines: FloorMachine[]; links: FloorLink[]; seq: number }
+interface FloorMachine { id: number; kind: string; x: number; y: number; crew: number[]; buf: number; hold: number }
+interface FloorLink { from: number; to: number; cats: number[] }
+interface FloorState { machines: FloorMachine[]; links: FloorLink[]; seq: number; target?: number | null }
 
 interface GameState {
   coins: number; ideas: number; packages: number; bugStock: number; rp: number; dust: number; prestiges: number;
