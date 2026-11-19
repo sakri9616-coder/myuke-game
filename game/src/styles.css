@@ -648,9 +648,11 @@
   body:not(.strip) .floorrow .fchip{margin-left:auto;font-size:var(--fs-cap);font-weight:700;color:#101010;border-radius:3px;padding:1px var(--sp-2);}
   body:not(.strip) #floorCv{width:100%;max-width:840px;display:block;background:var(--ide-bg);border:1px solid var(--ide-line);border-radius:3px;cursor:pointer;}
   /* フロア編集の1画面構成（UX §1.2: 左=計画／右=配置＋下部ドック） */
-  body:not(.strip) .floorwrap{display:flex;gap:var(--sp-4);align-items:flex-start;}
-  body:not(.strip) .floorpane{flex:0 0 302px;background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-3);}
-  body:not(.strip) .floorright{flex:1;min-width:0;}
+  body:not(.strip) .floorwrap{display:flex;gap:var(--sp-4);align-items:flex-start;flex-wrap:wrap;}
+  body:not(.strip) .floorpane{flex:1 1 302px;max-width:340px;background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-3);}
+  /* 狭いグループでは計画パネルがキャンバスの上段へ畳まれる（ux-tab-split §4: 幅への適応は中身の責任）。
+     302+340+余白 ≒ 700px が折り返し点になる */
+  body:not(.strip) .floorright{flex:1 1 340px;min-width:min(340px,100%);}
   body:not(.strip) .frow1{display:flex;gap:var(--sp-2);align-items:center;margin:var(--sp-2) 0;font-size:12px;}
   body:not(.strip) .floorin{width:76px;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;color:var(--ide-ink);padding:3px 6px;font-family:var(--mono);text-align:right;}
   body:not(.strip) .floorreq{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}

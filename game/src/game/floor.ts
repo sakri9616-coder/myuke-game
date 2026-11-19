@@ -224,9 +224,11 @@ function floorTick(dtSec){
     for(const m of f.machines.filter(mm => mm.kind === FLOOR_KINDS[ki].id)){
       const rate = floorMachineRate(m) * (m.kind === "test" ? bugFactor() : 1);
       const room = Math.max(0, floorBufCap(m) - m.hold);
-      if(m.kind === "plan"){ m.hold += Math.min(rate * dt, room); continue; }
-      const take = m.kind === "ship" ? Math.min(m.buf, rate * dt) : Math.min(m.buf, rate * dt, room);
+      if(m.kind === "plan"){ if(room <= 1e-9) overflow.add(m.kind); m.hold += Math.min(rate * dt, room); continue; }
+      const want = Math.min(m.buf, rate * dt);
+      const take = m.kind === "ship" ? want : Math.min(want, room);
       if(take < rate * dt - 1e-9 && m.buf <= 0) starved.add(m.kind);
+      if(m.kind !== "ship" && take < want - 1e-9) overflow.add(m.kind);   /* 出力満杯で処理が止まった */
       m.buf -= take;
       if(m.kind === "ship") floorSim.shipped += take;
       else m.hold += take;
@@ -247,7 +249,9 @@ function floorTick(dtSec){
         down.buf += can; pushed += can;
       }
       m.hold -= pushed;
-      if(m.hold > 1e-9) overflow.add(m.kind);
+      /* 「溢れ」は出力側が満杯で実際に止まったときだけ（滞留があるだけでは
+         出さない: 企画は設計上つねに下流より大きいため、常時表示になると狼少年になる） */
+      if(m.hold >= floorBufCap(m) - 1e-9) overflow.add(m.kind);
     }
   }
   floorSim.overflow = overflow; floorSim.starved = starved;
@@ -263,7 +267,11 @@ function floorStatus(kind){
   if(floorSim.overflow.has(kind)) return { key: "overflow", label: "溢れ", color: "#d9534f" };
   if(floorSim.starved.has(kind)) return { key: "starved", label: "空", color: "#e8b93a" };
   const st = stageStatus().find(s => s.id === kind);
-  if(st && st.lamp === "red") return { key: "overflow", label: "溢れ", color: "#d9534f" };
+  /* 従来ランプの読み替え: 下流工程の赤（バグ詰まり・在庫飽和）は「溢れ」、
+     黄（素材待ち）は「空」。企画の赤はアイデア不足＝入力側の不足なので「空」 */
+  if(st && st.lamp === "red") return kind === "plan"
+    ? { key: "starved", label: "空", color: "#e8b93a" }
+    : { key: "overflow", label: "溢れ", color: "#d9534f" };
   if(st && st.lamp === "yellow") return { key: "starved", label: "空", color: "#e8b93a" };
   return { key: "flow", label: "流れている", color: "#5aa469" };
 }
@@ -340,7 +348,9 @@ function floorDiagnoses(): FloorDiag[] {
     if(st.key === "overflow")
       out.push({ kind: k.id, word: "溢れ", color: st.color, text: esc(k.name) + "「溢れ」 — 力 " + fmtDec(floorPower(k.id), 0) + "/分 に対し 実効 " + fmtDec(floorFlow(k.id), 0) + "/分（下流が捌けていません）" });
     else if(st.key === "starved")
-      out.push({ kind: k.id, word: "空", color: st.color, text: esc(k.name) + "「空」 — 実効 " + fmtDec(floorFlow(k.id), 0) + "/分（力が " + fmtDec(floorPower(k.id), 0) + "/分 あります）" });
+      out.push({ kind: k.id, word: "空", color: st.color, text: k.id === "plan"
+        ? esc(k.name) + "「空」 — アイデアが足りず着工待ちです（力 " + fmtDec(floorPower(k.id), 0) + "/分）"
+        : esc(k.name) + "「空」 — 実効 " + fmtDec(floorFlow(k.id), 0) + "/分（力が " + fmtDec(floorPower(k.id), 0) + "/分 あります）" });
   }
   return out;
 }
@@ -378,7 +388,7 @@ function floorPlanHTML(){
   }
   h += "</div>";
   if(!diags.length) h += "<div class='ok' style='margin-top:6px'>✅ 計画どおりの配置です</div>";
-  else h += "<div class='floornote' style='margin-top:6px'>詰まり " + diags.length + " 件 — 先頭: " + diags[0].text + "</div>";
+  else h += "<div class='floornote' style='margin-top:6px'>診断 " + diags.length + " 件 — 先頭: " + diags[0].text + "</div>";
   h += "<button class='primary floorverify' onclick='floorToggleVerify()'>" + (floorVerify ? "検証を閉じる" : "検証する") + "</button>";
   if(floorVerify){
     h += "<div class='floordiag'>";
