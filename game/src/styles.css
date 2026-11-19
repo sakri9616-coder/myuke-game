@@ -646,7 +646,39 @@
   body:not(.strip) .floorrow .fv{font-size:var(--fs-cap);color:var(--ide-sub);}
   body:not(.strip) .floorrow .fv b{font-family:var(--mono);font-size:var(--fs-num);color:var(--ide-ink);}
   body:not(.strip) .floorrow .fchip{margin-left:auto;font-size:var(--fs-cap);font-weight:700;color:#101010;border-radius:3px;padding:1px var(--sp-2);}
-  body:not(.strip) #floorCv{width:100%;max-width:720px;display:block;background:var(--ide-bg);border:1px solid var(--ide-line);border-radius:3px;cursor:pointer;}
+  body:not(.strip) #floorCv{width:100%;max-width:840px;display:block;background:var(--ide-bg);border:1px solid var(--ide-line);border-radius:3px;cursor:pointer;}
+  /* フロア編集の1画面構成（UX §1.2: 左=計画／右=配置＋下部ドック） */
+  body:not(.strip) .floorwrap{display:flex;gap:var(--sp-4);align-items:flex-start;}
+  body:not(.strip) .floorpane{flex:0 0 302px;background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-3);}
+  body:not(.strip) .floorright{flex:1;min-width:0;}
+  body:not(.strip) .frow1{display:flex;gap:var(--sp-2);align-items:center;margin:var(--sp-2) 0;font-size:12px;}
+  body:not(.strip) .floorin{width:76px;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;color:var(--ide-ink);padding:3px 6px;font-family:var(--mono);text-align:right;}
+  body:not(.strip) .floorreq{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .reqrow{display:flex;gap:var(--sp-2);align-items:center;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-2);font-size:12px;cursor:pointer;}
+  body:not(.strip) .reqrow .fv{flex:1;}
+  body:not(.strip) .reqrow .fv b{font-family:var(--mono);}
+  body:not(.strip) .fdown{color:var(--delta-down);}
+  body:not(.strip) .fflat{color:var(--delta-flat);}
+  body:not(.strip) .floorverify{width:100%;margin-top:var(--sp-3);}
+  body:not(.strip) .floordiag{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .diagrow{display:flex;gap:var(--sp-2);align-items:center;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-2);font-size:12px;}
+  body:not(.strip) .diagrow .dtext{flex:1;}
+  body:not(.strip) .floorsel{margin-top:var(--sp-2);background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-2);font-size:12px;}
+  body:not(.strip) .floorsel b{font-family:var(--mono);}
+  /* パレットドック（UX §3.1: 3カテゴリ＋カード解剖学。購入導線は混ぜない） */
+  body:not(.strip) .paldock{margin-top:var(--sp-3);background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-2);}
+  body:not(.strip) .palcats{display:flex;gap:var(--sp-1);margin-bottom:var(--sp-2);}
+  body:not(.strip) .palcats button.on{border-color:var(--ide-status);color:var(--ide-ink);box-shadow:inset 0 -2px 0 var(--ide-status);}
+  body:not(.strip) .palcards{display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+  body:not(.strip) .mcard{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;min-width:118px;border-radius:3px;}
+  body:not(.strip) .mcard.on{border-color:#FFD94D;color:var(--ide-ink);}
+  body:not(.strip) .mcard.dis{opacity:.55;border:1px dashed var(--ide-line);border-radius:3px;padding:var(--sp-2);font-size:12px;}
+  body:not(.strip) .mchead{display:flex;gap:var(--sp-1);align-items:center;font-weight:700;font-size:12px;}
+  body:not(.strip) .mchead i{display:inline-block;width:8px;height:8px;border-radius:2px;}
+  body:not(.strip) .mchead small{color:var(--ide-sub);font-weight:400;}
+  body:not(.strip) .mcrate{font-family:var(--mono);font-size:15px;color:var(--kpi-ink);}
+  body:not(.strip) .mcrate small{font-size:10px;color:var(--ide-sub);}
+  body:not(.strip) .mcline{font-size:11px;color:var(--ide-sub);}
   body:not(.strip) .sectag{font-weight:700;color:var(--ide-sub);font-size:var(--fs-cap);white-space:nowrap;}
   @media (min-width:761px){
     body:not(.strip) .ratecell:not(:last-child)::after{content:"";position:absolute;

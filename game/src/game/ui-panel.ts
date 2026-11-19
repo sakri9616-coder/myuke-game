@@ -817,6 +817,13 @@ function renderPanelInto(el){
     const bn = bottleneckInfo();
     h += mgmtSummaryHTML();   /* 経営サマリ（03 パターンA）: タブ最上段に型で固定 */
     h += "<h3>🏭 開発工場</h3>";
+    /* 工業拡張・試作（2026-11-20, UX §1.1）: 工場タブ内のサブビュー切替（新タブは作らない） */
+    h += "<div class='floorbar' style='margin-bottom:6px'>" +
+      "<button class='" + (floorTabView === "line" ? "on" : "") + "' onclick='floorSetTabView(\"line\")'>ライン表示</button>" +
+      "<button class='" + (floorTabView === "floor" ? "on" : "") + "' onclick='floorSetTabView(\"floor\")'>フロア編集</button></div>";
+    if(floorTabView === "floor"){
+      h += floorScreenHTML();
+    } else {
     /* 拡張ウェーブ G: 会社の経営状態（負債とブランド）。数値は大きく、説明は短く */
     {
       const d = fmt(Math.round(S.debt || 0)), b = fmt(Math.round(S.brand || 0));
@@ -853,7 +860,6 @@ function renderPanelInto(el){
     } else {
       h += "<div class='ok' style='margin-top:5px'>✅ ラインは順調です（生産 "+fmtDec(bn.prod, 1)+" DP/分）</div>";
     }
-    h += floorSectionHTML();   /* 工業拡張・最小試作（2026-11-20）: 計画→配置の二段階 */
     /* 段階5: 第2ラインは廃止。開発部 Lv3 の並行開発で作る手が増える（テスト以降は共有） */
     h += "<div class='note' style='margin-top:6px'>🏭 並行開発: " + (delegated("prog", 3)
       ? "稼働中（開発部の実装 ×" + fmtDec(parallelDevMult(), 1) + "。テスト以降の工程は共有なので、下流が詰まりやすくなります）"
@@ -1054,6 +1060,7 @@ function renderPanelInto(el){
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }
+    }   /* フロア編集サブビューとの else（工業拡張・試作） */
   }
   if(currentTab === "click"){
     h += "<h3>👆 応援クリック</h3>";
