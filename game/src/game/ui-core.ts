@@ -461,22 +461,24 @@ function renderHeader(){
     else diagBn.style.display = "none";
   }
   /* レーン生産効率 (2026-11-20 sakuri 指示): 常時参照したい情報は青色帯に小型で置く。
-     詰まっている工程は色+▼で示す。プロジェクトが無い・生産ゼロの間は出さない */
+     ネックの通知は工場サマリの工程ボックス（.ratecell）の設計を引き継ぐ (同日 sakuri 指示):
+     工程ごとに小さなボックスにし、上辺の色とランプ点が stageStatus() の信号
+     （緑=流れている / 黄=待ち・溜まり気味 / 赤=詰まり）を示す。判定もサマリと合算で一本化。
+     プロジェクトが無い・生産ゼロの間は出さない */
   const lanesEl = document.getElementById("r-lanes");
   if(lanesEl){
     let html = "";
     try{
       const prod = productionRate();
       if(S.project || prod > 0){
-        const bn = bottleneckStage();
-        const parts = [["生産", prod, ""], ["テスト", testRate() * bugFactor(), "test"], ["ビルド", buildRate(), "build"], ["出荷", shipRate(), "ship"]];
-        html = "🏭 " + parts.map(p => {
-          const t = p[0] + " " + fmtRate(p[1]) + "/分";
-          return (bn.isBn && p[2] && bn.worst.id === p[2]) ? "<span class='lane-bn'>" + t + "▼</span>" : t;
-        }).join(" ・ ");
+        const stgs = stageStatus();
+        const chip = (name: string, rate: number, stg: { lamp: string }) =>
+          "<span class='lane-chip pipe-" + stg.lamp + "'><i></i>" + name + " " + fmtRate(rate) + "/分</span>";
+        html = chip("生産", prod, stgs[1]) + chip("テスト", testRate() * bugFactor(), stgs[2]) +
+               chip("ビルド", buildRate(), stgs[3]) + chip("出荷", shipRate(), stgs[4]);
       }
     }catch(e){ html = ""; }
-    if(html){ lanesEl.style.display = ""; if(lanesEl.innerHTML !== html) lanesEl.innerHTML = html; }
+    if(html){ lanesEl.style.display = "inline-flex"; if(lanesEl.innerHTML !== html) lanesEl.innerHTML = html; }
     else lanesEl.style.display = "none";
   }
   /* Stage 3: 節目チップと目的チップは廃止 (情報はリーダーボードと吊りメモへ) */

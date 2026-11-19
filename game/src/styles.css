@@ -934,8 +934,15 @@
   body:not(.strip) .side{display:flex;flex-direction:column;min-height:0;align-self:stretch;}  /* main の align-items:flex-start のままだと .side が内容丈になり、パネルが伸びてスクロールできなくなる */
   body:not(.strip) #editor-wrap{display:flex;align-items:stretch;
     flex:1 1 auto;min-height:0;}
-  /* レーン効率チップの詰まり表示 */
-  .lane-bn{color:var(--red);font-weight:800;}
+  /* レーン効率チップ: 工場サマリの工程ボックス (.ratecell) の小型版。
+     上辺2pxとランプ点が --pipe-tone (信号色) を担う */
+  #r-lanes{align-items:center;gap:4px;}
+  .lane-chip{--pipe-tone:var(--syn-green);display:inline-flex;align-items:center;gap:4px;
+    border:1px solid rgba(255,255,255,.28);border-top:2px solid var(--pipe-tone);border-radius:3px;
+    background:rgba(0,0,0,.22);padding:1px 6px;font-weight:700;white-space:nowrap;}
+  .lane-chip.pipe-yellow{--pipe-tone:var(--ide-warn);}
+  .lane-chip.pipe-red{--pipe-tone:var(--ide-errtx);}
+  .lane-chip i{width:6px;height:6px;border-radius:50%;background:var(--pipe-tone);flex:0 0 auto;}
   body:not(.strip) #activity-bar{display:flex;flex-direction:column;gap:2px;flex:0 0 42px;
     padding:6px 0;margin-top:4px;background:var(--ide-taboff);border:1px solid var(--ide-linesoft);
     border-right:0;border-radius:3px 0 0 3px;}
