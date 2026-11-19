@@ -26,7 +26,7 @@ for(const modulePath of [process.env.MIYUKE_PLAYWRIGHT_MODULE, "playwright", "/o
   try{ ({ chromium } = require(modulePath)); break; }catch{}
 }
 if(!chromium) throw new Error("Playwright is unavailable; set MIYUKE_PLAYWRIGHT_MODULE to an installed copy");
-const tabs = ["proj", "staff", "factory", "click", "shelf", "requests", "research", "stats", "settings"];
+const tabs = ["proj", "staff", "factory", "click", "shelf", "requests", "research", "stats", "howto", "settings"];
 // Same veteran facts as menu-ide-after-*-rev1.png; fixed project removes RNG drift.
 const veteran = {
   coins:5000, rp:30, dust:3, dustTotal:12, prestiges:1,
@@ -102,11 +102,19 @@ async function main(){
           await page.screenshot({path:out(version+"-"+tab)+".png",animations:"disabled"});
         }
         if(!locked){
-          await page.evaluate(() => switchTab("proj"));   /* 段階4: 雇用の折りたたみは部署の列に変わったので、常にある「あそびかた」で確かめる */
-          await page.locator("[data-fold='howto'] .fold-head").click();
-          if(!await page.locator("[data-fold='howto'] .fold-body").isVisible()) result.errors.push(version+": howto fold did not open");
-          await page.locator("[data-fold='howto'] .fold-head").click();
-          if(await page.locator("[data-fold='howto'] .fold-body").isVisible()) result.errors.push(version+": howto fold did not close");
+          /* 折りたたみの開閉確認: 旧版はプロジェクトタブの「あそびかた」、新版は「遊び方」タブの節で確かめる */
+          const foldSel = await page.evaluate(() => {
+            try{ switchTab("howto"); renderPanel(); }catch{}
+            if(document.querySelector("[data-fold='howto-income']")) return "howto-income";
+            try{ switchTab("proj"); renderPanel(); }catch{}
+            return document.querySelector("[data-fold='howto']") ? "howto" : null;
+          });
+          if(foldSel){
+            await page.locator(`[data-fold='${foldSel}'] .fold-head`).click();
+            if(!await page.locator(`[data-fold='${foldSel}'] .fold-body`).isVisible()) result.errors.push(version+": howto fold did not open");
+            await page.locator(`[data-fold='${foldSel}'] .fold-head`).click();
+            if(await page.locator(`[data-fold='${foldSel}'] .fold-body`).isVisible()) result.errors.push(version+": howto fold did not close");
+          } else result.errors.push(version+": no howto fold found");
         }
         await context.close();
       }

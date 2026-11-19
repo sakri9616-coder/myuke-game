@@ -3,7 +3,7 @@
    子会社は 2026-10-28 sakuri の指示でスタッフから独立したタブ (並びはスタッフの隣) */
 const TABS = [
   ["proj","📋 プロジェクト"], ["factory","🏭 工場"], ["staff","👥 スタッフ"], ["subs","🏢 子会社"], ["click","👆 応援"],
-  ["requests","📮 依頼"], ["research","🔬 研究"], ["shelf","📚 作品棚"], ["stats","📊 統計"], ["settings","⚙️ 設定"]
+  ["requests","📮 依頼"], ["research","🔬 研究"], ["shelf","📚 作品棚"], ["stats","📊 統計"], ["howto","📖 遊び方"], ["settings","⚙️ 設定"]
 ];
 let currentTab = "proj";   /* 分割ビューでは「今のグループ」の表のタブ */
 let layoutLive = false;    /* 分割ビューが組み上がったか (ui-layout)。false なら従来の1枚表示 */
@@ -394,6 +394,9 @@ try{
   }, true);
 }catch(e){}
 
+/* 説明文は「遊び方」タブに集約した (sakuri 指示 2026-11-20)。作業タブのカードに残すのは
+   節目予告などの機能情報だけ — 中身が空なら行そのものを出さない */
+function dsLine(html){ return html ? "<div class='ds'>" + html + "</div>" : ""; }
 /* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
 function setTextIfChanged(id, text){
   const el = document.getElementById(id);
@@ -456,6 +459,25 @@ function renderHeader(){
     const bnH = currentBottleneck();
     if(bnH){ diagBn.style.display = ""; diagBn.title = bnH.text; }
     else diagBn.style.display = "none";
+  }
+  /* レーン生産効率 (2026-11-20 sakuri 指示): 常時参照したい情報は青色帯に小型で置く。
+     詰まっている工程は色+▼で示す。プロジェクトが無い・生産ゼロの間は出さない */
+  const lanesEl = document.getElementById("r-lanes");
+  if(lanesEl){
+    let html = "";
+    try{
+      const prod = productionRate();
+      if(S.project || prod > 0){
+        const bn = bottleneckStage();
+        const parts = [["生産", prod, ""], ["テスト", testRate() * bugFactor(), "test"], ["ビルド", buildRate(), "build"], ["出荷", shipRate(), "ship"]];
+        html = "🏭 " + parts.map(p => {
+          const t = p[0] + " " + fmtRate(p[1]) + "/分";
+          return (bn.isBn && p[2] && bn.worst.id === p[2]) ? "<span class='lane-bn'>" + t + "▼</span>" : t;
+        }).join(" ・ ");
+      }
+    }catch(e){ html = ""; }
+    if(html){ lanesEl.style.display = ""; if(lanesEl.innerHTML !== html) lanesEl.innerHTML = html; }
+    else lanesEl.style.display = "none";
   }
   /* Stage 3: 節目チップと目的チップは廃止 (情報はリーダーボードと吊りメモへ) */
 }

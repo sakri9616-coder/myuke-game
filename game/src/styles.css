@@ -926,8 +926,16 @@
      見た目は既存のファイルタブ・パネルのまま。増えたのは左のアイコン列、
      グループの境目 (ドラッグで幅を変える)、ドラッグ中の影と落とし先の青い面だけ */
   #activity-bar{display:none;}
+  /* 青色帯 (ヘッダ) はスクロールしても不動 (2026-11-20 sakuri 指示): 画面全体を
+     縦フレックスにして、スクロールはパネル内部だけに閉じ込める */
+  body:not(.strip){height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  body:not(.strip) header{flex:0 0 auto;}
+  body:not(.strip) main{flex:1 1 auto;min-height:0;width:100%;}  /* width必須: margin:0 auto のフレックス子は内容幅に膨らむ */
+  body:not(.strip) .side{display:flex;flex-direction:column;min-height:0;align-self:stretch;}  /* main の align-items:flex-start のままだと .side が内容丈になり、パネルが伸びてスクロールできなくなる */
   body:not(.strip) #editor-wrap{display:flex;align-items:stretch;
-    height:max(380px, calc(100vh - 88px));min-height:0;}
+    flex:1 1 auto;min-height:0;}
+  /* レーン効率チップの詰まり表示 */
+  .lane-bn{color:var(--red);font-weight:800;}
   body:not(.strip) #activity-bar{display:flex;flex-direction:column;gap:2px;flex:0 0 42px;
     padding:6px 0;margin-top:4px;background:var(--ide-taboff);border:1px solid var(--ide-linesoft);
     border-right:0;border-radius:3px 0 0 3px;}

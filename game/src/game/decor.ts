@@ -257,7 +257,7 @@ function decorRowHTML(d){
     btn = "<button" + (can ? "" : " disabled") + " onclick='buyDecor(\"" + d.id + "\")'>" + decorPrice(d) + "</button>";
   }
   return "<div class='item buy slim'><div>" + ico + "<span class='nm'>" + d.name + (decorOwned(d.id) ? " <small>（持っている）</small>" : "") +
-    "</span><div class='ds'>" + decorDesc(d) + "</div></div>" + btn + "</div>";
+    "</span></div>" + btn + "</div>";
 }
 function decorGroupHTML(dust){
   const { open, next } = decorCatalog(dust);
