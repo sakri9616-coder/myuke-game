@@ -276,6 +276,7 @@ function bulkPopPaint(){
 function bulkPopBuy(i){
   const info = bulkPop.info, row = bulkPop.rows && bulkPop.rows[i];
   const onclickStr = bulkPop.onclickStr, btn = bulkPop.btn;
+  const menuRect = bulkPop.el ? bulkPop.el.getBoundingClientRect() : null;
   bulkPopClose();
   if(!info || !row) return;
   if(row.n === 1){
@@ -300,6 +301,8 @@ function bulkPopBuy(i){
   }
   if(IS_VIEWER) sendMenuCmd("buyMany", [info.v, info.a, row.n], null, null);
   else buyMany(info.v, info.a, row.n);
+  floatBuyText(menuRect, "+" + row.n, true);
+  popButtonLater(onclickStr, 0);
 }
 try{
   document.addEventListener("pointerdown", (e) => {
@@ -339,11 +342,66 @@ try{
   }, true);
   document.addEventListener("contextmenu", (e) => { if(bulkPop.pending || bulkPop.open) e.preventDefault(); }, true);   /* タッチ長押しのメニューを出さない */
 }catch(e){}
+/* ===== 購入フィードバックのアニメーション (2026-11-19 sakuri 指示「メニューと購入にアニメーション」) =====
+   時間の階段は CSS の --dur-1〜4 と同じ 80/120/180/300ms に揃える。パネルは再描画が多いので、
+   アニメは body 直下のオーバーレイ (浮き文字) か、再描画後の要素への WAAPI (ポップ) で付ける。
+   reduced-motion の時は全部止める */
+const RMQ = (() => { try{ return window.matchMedia("(prefers-reduced-motion: reduce)"); }catch(e){ return null; } })();
+function motionOK(){ return !RMQ || !RMQ.matches; }
+/* 買ったボタン (または長押しメニュー) の位置から +N の浮き文字を出す */
+function floatBuyText(rect, text, big){
+  if(!motionOK() || !rect) return;
+  try{
+    const el = document.createElement("div");
+    el.className = "buyfloat" + (big ? " big" : "");
+    el.textContent = text;
+    el.style.left = (rect.left + rect.width / 2) + "px";
+    el.style.top = (rect.top - 4) + "px";
+    document.body.appendChild(el);
+    const anim = el.animate([
+      { transform: "translate(-50%,-100%)", opacity: 1 },
+      { transform: "translate(-50%,calc(-100% - 26px))", opacity: 0 }
+    ], { duration: 650, easing: "cubic-bezier(.2,.7,.3,1)" });
+    if(anim) anim.onfinish = () => el.remove();
+    setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
+  }catch(e){}
+}
+/* 再描画後の同じボタンにポップを付ける (onclick 文字列で照合。viewer の反映待ちも拾うよう少し粘る) */
+function popButtonLater(onclickStr, tries){
+  if(!motionOK() || !onclickStr) return;
+  let found = null;
+  document.querySelectorAll("button.buybtn").forEach(b => {
+    if(!found && b.getAttribute("onclick") === onclickStr) found = b;
+  });
+  if(found){
+    (found as HTMLElement).animate(
+      [{ transform: "scale(1)" }, { transform: "scale(1.07)", offset: .35 }, { transform: "scale(1)" }],
+      { duration: 180, easing: "cubic-bezier(.2,.9,.3,1.2)" });
+    return;
+  }
+  if((tries || 0) < 12) setTimeout(() => popButtonLater(onclickStr, (tries || 0) + 1), 40);
+}
+/* 通常の購入クリック: 浮き文字 + ポップ。「最大」(buyMany) は浮き文字なしでポップだけ */
+try{
+  document.addEventListener("click", (e) => {
+    if(bulkPop.open || bulkPop.pending) return;   /* 長押し購入は bulkPopBuy 側で出す */
+    const t = e.target as HTMLElement;
+    const btn = t && t.closest ? (t.closest("button.buybtn") as HTMLElement) : null;
+    if(!btn || (btn as HTMLButtonElement).disabled) return;
+    const oc = btn.getAttribute("onclick") || "";
+    if(oc.indexOf("buyMany(") < 0) floatBuyText(btn.getBoundingClientRect(), "+1", false);
+    popButtonLater(oc, 0);
+  }, true);
+}catch(e){}
+
 /* 値が変わった時だけ書く (毎フレーム同じ文字を書き直すとスタイル再計算が走る) */
 function setTextIfChanged(id, text){
   const el = document.getElementById(id);
   if(el && el.textContent !== text) el.textContent = text;
 }
+/* ヘッダー数字のロールは hudNum が毎フレーム 0.32 ずつ寄せる既存の平滑化が担っている
+   (生産の微増は即時に見え、購入・売却の大きな出入りだけが目に見えて流れる)。
+   2026-11-19 に専用ローラーを足しかけて二重平滑になったのでやめた */
 function renderHeader(){
   renderEditorBreadcrumb();
   setTextIfChanged("r-coins", fmt(hudNum("coins", S.coins)));

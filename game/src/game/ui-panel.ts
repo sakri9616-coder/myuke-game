@@ -393,6 +393,34 @@ function renderPanel(){
      作り直した直後は HTML の初期値に戻っているので、同じ処理の中で書き直してから画面に出す
      (v2.19.1 でメニューの描画を間引いた後、初期値のまま1フレーム映ってチラついていた) */
   renderHeader();
+  /* 画面遷移のアニメーション (2026-11-19 sakuri 指示): renderPanel は状態変化のたびに呼ばれるので、
+     パネルごとの「表示中タブキー」が変わった時だけ発火させる。初回 (キー未記録) は
+     パネルが開いた合図として少し大きめに。reduced-motion の時は付けない */
+  try{
+    if(motionOK()){
+      const targets = [];
+      if(!layoutLive){
+        const p = document.getElementById("panel");
+        if(p) targets.push([p, currentTab]);
+      } else {
+        for(const g of layoutGroups()){
+          const d = groupDom[g.id];
+          if(d && d.panel) targets.push([d.panel, g.active || ""]);
+        }
+      }
+      for(const pair of targets){
+        const el = pair[0] as HTMLElement, key = pair[1];
+        const prev = (el as any).__animKey;
+        (el as any).__animKey = key;
+        if(prev === undefined)
+          el.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }],
+            { duration: 180, easing: "cubic-bezier(.2,.7,.3,1)" });
+        else if(prev !== key)
+          el.animate([{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }],
+            { duration: 150, easing: "cubic-bezier(.2,.7,.3,1)" });
+      }
+    }
+  }catch(e){}
 }
 function renderPanelInto(el){
   /* 2ウィンドウ化: viewer は初回スナップショットが届くまで実データと

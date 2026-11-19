@@ -15,6 +15,9 @@
     /* 互換エイリアス（既存ルール・JS の参照用） */
     --bg:#f6efe6; --panel:#fff5e6; --line:#dfcdb7; --chip:#f9ecd4;
     --accent2:#85ca91; --good:#437660; --warn:#c53333;
+    /* 動きの文法 (2026-11-19 sakuri 指示): 時間は4段だけ、イージングは2種だけに統一する */
+    --dur-1:80ms; --dur-2:120ms; --dur-3:180ms; --dur-4:300ms;
+    --ease-out:cubic-bezier(.2,.7,.3,1); --ease-pop:cubic-bezier(.2,.9,.3,1.2);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{margin:0;background:var(--cream);color:var(--ink);
@@ -47,7 +50,7 @@
     box-shadow:inset 0 1px 0 rgba(70,49,38,.25);}
   .res small{color:var(--sub);font-weight:400;font-size:11px;}
   @keyframes resBump{0%{background:var(--paper);}30%{background:var(--gold);}100%{background:var(--paper);}}
-  .res.bump{animation:resBump .45s ease;}
+  .res.bump{animation:resBump var(--dur-4) ease;}
   main{display:flex;gap:14px;padding:14px;max-width:1180px;margin:0 auto;align-items:flex-start;}
   @media (max-width:860px){ main{flex-direction:column;} .side{width:100%!important;} }
   #bubble{min-height:34px;margin:0 2px 8px;font-size:14px;background:var(--paper-2);
@@ -60,7 +63,7 @@
   button{font-family:inherit;border:2.5px solid var(--ink);background:var(--paper);border-radius:8px;
     padding:6px 14px;font-size:13px;font-weight:800;color:var(--ink);cursor:pointer;
     box-shadow:inset 0 -5px 0 var(--tan), inset 0 2px 0 rgba(255,255,255,.5), 0 2px 0 rgba(70,49,38,.25);
-    transition:transform .05s, box-shadow .05s, background .12s, filter .12s;}
+    transition:transform var(--dur-1), box-shadow var(--dur-1), background var(--dur-2), filter var(--dur-2);}
   button:hover{background:#fff;border-color:var(--ink);}
   button:active{transform:translateY(3px);
     box-shadow:inset 0 -2px 0 var(--tan), inset 0 2px 0 rgba(255,255,255,.5), 0 0 0 rgba(70,49,38,0);}
@@ -372,6 +375,10 @@
   /* 長押しまとめ買い: 元ボタンの真上に、buybtn と同じ見た目の +50/+100 四角ボタンが浮く */
   #bulkfloat{position:fixed;z-index:9999;display:flex;gap:4px;pointer-events:none;border:2px solid var(--gold);border-radius:3px;background:var(--paper);padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
   .bulkfloat-sep{width:1px;background:#9a9a9a;opacity:.65;align-self:stretch;margin:3px 0;}
+  /* 購入の浮き文字: 買ったボタンから +N が浮いて消える (JS が body 直下に出す) */
+  .buyfloat{position:fixed;z-index:9999;pointer-events:none;font-weight:800;color:var(--accent-d);white-space:nowrap;
+    text-shadow:0 1px 0 rgba(255,255,255,.55), 0 2px 8px rgba(0,0,0,.35);}
+  .buyfloat.big{color:var(--gold-d);font-size:1.3em;}
   .bulkfloat-btn{cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);}
   .bulkfloat-btn.hot{outline:2px solid var(--accent);outline-offset:1px;filter:brightness(1.2);}
   .bulkfloat-btn.dis{opacity:.45;}
@@ -485,7 +492,7 @@
     box-shadow:none;width:18px;height:18px;}
   body:not(.strip) .res small{color:rgba(239,231,215,.72);}
   body:not(.strip) .res span[id]{font-family:var(--mono);font-weight:700;}
-  body:not(.strip) .res.bump{animation:resBumpIde .45s ease;}
+  body:not(.strip) .res.bump{animation:resBumpIde var(--dur-4) ease;}
   @keyframes resBumpIde{0%{background:transparent;}30%{background:rgba(241,191,65,.55);}100%{background:transparent;}}
   /* 診断表示: バグ在庫>0 でエラー色、詰まりは警告黄 */
   body:not(.strip) .res.has-bugs{color:#FFC4BE;}
@@ -737,7 +744,7 @@
   body:not(.strip) .res small{color:var(--ide-ink);}
   body:not(.strip) .res.has-bugs{color:#FFE0DC;}
   body:not(.strip) .res.diag{color:#FFE3A6;}
-  body:not(.strip) .res.bump{animation:editor2ResourceBump .45s ease;}
+  body:not(.strip) .res.bump{animation:editor2ResourceBump var(--dur-4) ease;}
   @keyframes editor2ResourceBump{0%,100%{box-shadow:none;}30%{box-shadow:inset 0 -2px 0 #F8CF69;}}
   body:not(.strip) .res-bugs::before{content:"✗";font-family:var(--mono);}
   body:not(.strip) .res-bugs .res-ic{display:none;}
