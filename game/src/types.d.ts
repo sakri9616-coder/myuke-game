@@ -120,6 +120,11 @@ interface Settings {
 
 interface Trend { boom: string; slump: string; nextBoom: string | null; nextSlump: string | null; cycleSec: number; ships?: number; announceAt: number }   // cycleSec は v2.12.1 から使わない（出荷の本数 ships で回る）
 
+/* 工場フロア（工業拡張・最小試作 2026-11-20）: 配置はセーブに持つ。段・種別は kind から導出 */
+interface FloorMachine { id: number; kind: string; x: number; y: number }
+interface FloorLink { from: number; to: number }
+interface FloorState { machines: FloorMachine[]; links: FloorLink[]; seq: number }
+
 interface GameState {
   coins: number; ideas: number; packages: number; bugStock: number; rp: number; dust: number; prestiges: number;
   runDP: number; concentration: number;
@@ -135,6 +140,7 @@ interface GameState {
   shelf: ShelfEntry[]; recentNames: string[];
   staff: StaffMember[]; staffSeq: number; studioLv: number; maxStudioLv: number; clickUp: Record<string, number>; cheerP: number;
   wip: StageWip;
+  floor: FloorState | null;   /* 工場フロアの配置（null/欠落なら標準レイアウトを自動生成） */
   today: DayStats;
   totals: Totals;
   flags: Record<string, any>;

@@ -103,8 +103,9 @@ function planFrac(){
 }
 function stageStatus(){
   const bugF = bugFactor();
-  const inflow = productionRate();
-  const tEff = testRate() * bugF, bR = buildRate(), sR = shipRate();
+  /* 工場フロア（工業拡張・試作）: レートはフロアの配置倍率込みで見る（標準では ×1） */
+  const inflow = productionRate() * floorCapMult("code");
+  const tEff = testRate() * bugF * floorCapMult("test"), bR = buildRate() * floorCapMult("build"), sR = shipRate() * floorCapMult("ship");
   const wCode = S.wip.code, wTested = S.wip.tested, wBuilt = S.wip.built;
   /* バーの容量 = 下流が約2分で捌ける量（最低60DP）。満杯=飽和の目安 */
   const capCode = Math.max(60, tEff * 2), capTested = Math.max(60, bR * 2), capBuilt = Math.max(60, sR * 2);
@@ -121,6 +122,11 @@ function stageStatus(){
   else if(wTested <= 0.01 || (wBuilt >= capBuilt && sR < bR)) buildLamp = "yellow";
   let shipLamp = "green";
   if(wBuilt <= 0.01 || (S.project && S.project.planning)) shipLamp = "yellow";
+  /* 工場フロアで止められた工程（マシンなし・切り離し）は赤で示す */
+  if(floorCapMult("code") === 0) codeLamp = "red";
+  if(floorCapMult("test") === 0) testLamp = "red";
+  if(floorCapMult("build") === 0) buildLamp = "red";
+  if(floorCapMult("ship") === 0) shipLamp = "red";
   return [
     { id:"plan",  name:"企画",   lamp: planning ? "yellow" : "green", frac: planFrac() },
     { id:"code",  name:"実装",   lamp: codeLamp,  frac: Math.min(1, wCode / capCode) },
@@ -847,6 +853,7 @@ function renderPanelInto(el){
     } else {
       h += "<div class='ok' style='margin-top:5px'>✅ ラインは順調です（生産 "+fmtDec(bn.prod, 1)+" DP/分）</div>";
     }
+    h += floorSectionHTML();   /* 工業拡張・最小試作（2026-11-20）: 計画→配置の二段階 */
     /* 段階5: 第2ラインは廃止。開発部 Lv3 の並行開発で作る手が増える（テスト以降は共有） */
     h += "<div class='note' style='margin-top:6px'>🏭 並行開発: " + (delegated("prog", 3)
       ? "稼働中（開発部の実装 ×" + fmtDec(parallelDevMult(), 1) + "。テスト以降の工程は共有なので、下流が詰まりやすくなります）"
@@ -1325,6 +1332,7 @@ function setPanelHTML(el, h){
   if(el.firstChild && (el as any).__lastHTML != null && morphPanel(el, h)){ /* 差分で更新した */ }
   else el.innerHTML = h;
   (el as any).__lastHTML = h;
+  try{ floorDraw(); }catch(e){}   /* 工場フロアのグリッド描画（配置ビューを開いているときだけ実在する） */
   if(focusKey && !(document.activeElement && el.contains(document.activeElement) && document.activeElement !== document.body)){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
     const target = same[Math.min(focusKey.idx, same.length - 1)];

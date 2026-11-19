@@ -584,7 +584,7 @@ function autoIncomePerSec(){
   const p = S.project;
   let r = catalogRate();
   if(p && p.totalDP > 0){
-    const dps = Math.min(productionRate(), testRate() * bugFactor(), buildRate(), shipRate()) / 60 / firstBoost();   /* 4つのレートはどれも firstBoost を1回ずつ掛けている */
+    const dps = Math.min(productionRate() * floorCapMult("code"), testRate() * bugFactor() * floorCapMult("test"), buildRate() * floorCapMult("build"), shipRate() * floorCapMult("ship")) / 60 / firstBoost();   /* 4つのレートはどれも firstBoost を1回ずつ掛けている。工場フロアの配置倍率も含める（標準では ×1） */
     r += dps * basePriceCoins(p) * directMult() / p.totalDP;
   }
   for(const sub of (S.subs || [])) r += subRates(sub).coins / 60;

@@ -634,6 +634,19 @@
   body:not(.strip) .spark i{display:block;width:6px;background:var(--syn-blue);}
   body:not(.strip) .spark.gold i{background:var(--ide-gold);}
   body:not(.strip) .secline{display:flex;gap:var(--sp-3);align-items:baseline;margin-top:var(--sp-3);font-size:var(--fs-body);}
+  /* ---------- 工場フロア（工業拡張・最小試作 2026-11-20）: 02 規約準拠（角丸3px・線1px・余白は梯子のみ） ---------- */
+  body:not(.strip) .floorbar{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin:var(--sp-2) 0;}
+  body:not(.strip) .floorbar button{border-radius:3px;}
+  body:not(.strip) .floorbar button.on{border-color:var(--ide-status);color:var(--ide-ink);box-shadow:inset 0 -2px 0 var(--ide-status);}
+  body:not(.strip) .floornote{font-size:var(--fs-cap);color:var(--ide-sub);}
+  body:not(.strip) .floortool i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:var(--sp-1);}
+  body:not(.strip) .floorrows{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .floorrow{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-3);}
+  body:not(.strip) .floorrow .fk{font-weight:700;border-left:3px solid var(--ide-line);padding-left:var(--sp-2);min-width:52px;}
+  body:not(.strip) .floorrow .fv{font-size:var(--fs-cap);color:var(--ide-sub);}
+  body:not(.strip) .floorrow .fv b{font-family:var(--mono);font-size:var(--fs-num);color:var(--ide-ink);}
+  body:not(.strip) .floorrow .fchip{margin-left:auto;font-size:var(--fs-cap);font-weight:700;color:#101010;border-radius:3px;padding:1px var(--sp-2);}
+  body:not(.strip) #floorCv{width:100%;max-width:720px;display:block;background:var(--ide-bg);border:1px solid var(--ide-line);border-radius:3px;cursor:pointer;}
   body:not(.strip) .sectag{font-weight:700;color:var(--ide-sub);font-size:var(--fs-cap);white-space:nowrap;}
   @media (min-width:761px){
     body:not(.strip) .ratecell:not(:last-child)::after{content:"";position:absolute;
