@@ -182,6 +182,17 @@ function toggleDecor(id){
   if(S.decor[id].hidden) delete S.decor[id].hidden; else S.decor[id].hidden = 1;
   save(); renderPanel();
 }
+/* 全部しまう／全部出す（帯をすっきりさせたい時・戻したい時の一括操作） */
+function hideAllDecor(){
+  if(!S.decor) return;
+  for(const id in S.decor) S.decor[id].hidden = 1;
+  save(); renderPanel();
+}
+function showAllDecor(){
+  if(!S.decor) return;
+  for(const id in S.decor) delete S.decor[id].hidden;
+  save(); renderPanel();
+}
 /* 帯の地面でいちばん広い空き（並べ替えの全項目の矩形の隙間）の中心。幅 w が入らなければ null */
 function decorFreeX(w){
   if(!stripVW) return null;
@@ -238,7 +249,17 @@ function drawStripDecor(pass){
 }
 /* インテリアタブのカタログ（カードレイアウト。2026-11-20 設定タブから独立、sakuri 指示） */
 function decorCatalogHTML(){
-  return decorGroupHTML(false) + decorGroupHTML(true);
+  let head = "";
+  const ownedIds = S.decor ? Object.keys(S.decor) : [];
+  if(ownedIds.length){
+    const hiddenN = ownedIds.filter(id => S.decor[id].hidden).length;
+    const shown = ownedIds.length - hiddenN;
+    head = "<div class='item buy slim'><div><span class='sock'>🪑</span><span class='nm'>帯の家具</span>" +
+      "<div class='ds'>出ている " + shown + " 品 / しまっている " + hiddenN + " 品</div></div>" +
+      "<span style='display:flex;gap:4px'><button onclick='showAllDecor()'" + (hiddenN ? "" : " disabled") + ">全部出す</button>" +
+      "<button onclick='hideAllDecor()'" + (shown ? "" : " disabled") + ">全部しまう</button></span></div>";
+  }
+  return head + decorGroupHTML(false) + decorGroupHTML(true);
 }
 /* 通常の家具（コイン）と特別な家具（星屑）を分けて並べる。特別な家具は解放されるまで見出しごと出さない。
    通常の家具は品が多いので、解放の段（社格・EXIT 回数）ごとの見出しにまとめ、開くのは1段だけ
