@@ -37,7 +37,7 @@ function buyResearch(id){
   save(); renderPanel();
   tutCheck();
 }
-function hireStaff(role, auto?){
+function hireStaff(role){
   const def = STAFF_ROLES[role];
   if(S.staff.length >= staffCap()){ say("スタジオがいっぱいにゃ。企業価値が上がって次の社格になると広がるよ"); return; }
   if(roleLocked(role)){ say(def.name + "は社格「" + rankName(roleRank(role)) + "」から雇えるにゃ"); return; }
@@ -56,15 +56,42 @@ function hireStaff(role, auto?){
   }
   S.totals.hired++;
   SoundKit.play("purchase");
-  if(auto){
-    /* 再設計 B9: 自動補充は「処理」ではなく「入社」。日報＋本人の挨拶（吹き出し）で届ける */
-    addLog("🐾 " + st.name + "が仲間に加わりました（" + DEPTS[role].name + "・" + COAT_NAMES[st.coat] + "）。");
-    reportSpeech(st.id, "はじめまして、" + st.name + "です。よろしくにゃ。", 2);
-  } else addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
-  if(!auto) say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
+  addLog("新しいスタッフ: "+def.name+"の"+st.name+"（"+COAT_NAMES[st.coat]+"）が入社！（-" + fmt(cost) + "🪙）");
+  say(st.name+"、ようこそにゃ！ 一緒に開発するにゃ");
   checkStamps(); save(); renderPanel();
   tutCheck();
   if(role === "sales") maybeAutoAcquire();   /* Phase C: 転換点 — 最初の営業が入った瞬間から自動獲得 */
+}
+/* 解雇 (2026-11-20 sakuri 指示): 育成費だけが戻る。雇用費は戻らない。
+   育成費 = その猫を Lv1 から今の Lv まで上げるのに払った訓練費の合計
+   (trainCost は役職と Lv だけで決まるので、履歴を持たずに再計算できる) */
+function trainInvested(st){
+  let t = 0;
+  for(let lv = 1; lv < (st.lv || 1); lv++) t += trainCost({ role: st.role, lv } as any);
+  return t;
+}
+/* 解雇の確認文（帯側 fireStaff と menu 側の動詞スタブで共有する） */
+function fireStaffConfirmText(st){
+  return st.name + "（" + STAFF_ROLES[st.role].name + " Lv" + (st.lv || 1) + "）を解雇しますか？\n育成費 " + fmt(trainInvested(st)) + "🪙 が戻ります（雇用費は戻りません）";
+}
+function fireStaffCore(id){
+  const st = S.staff.find(s => s.id === id);
+  if(!st) return;
+  const refund = trainInvested(st);
+  S.staff = S.staff.filter(s => s.id !== id);
+  /* 工場フロアのクルー表からも外す (部長は最高Lvの猫が自動で継ぐので手当て不要) */
+  if(S.floor && S.floor.machines) for(const m of S.floor.machines) if(m.crew) m.crew = m.crew.filter(c => c !== id);
+  S.coins += refund;
+  SoundKit.play("purchase");
+  addLog("👋 " + st.name + "（" + STAFF_ROLES[st.role].name + "）が退職しました（育成費 +" + fmt(refund) + "🪙）");
+  say(st.name + "、いままでありがとうにゃ…");
+  save(); renderPanel();
+}
+function fireStaff(id){
+  const st = S.staff.find(s => s.id === id);
+  if(!st) return;
+  if(!confirm(fireStaffConfirmText(st))) return;
+  fireStaffCore(id);
 }
 function trainStaff(id){
   const st = S.staff.find(s => s.id === id);

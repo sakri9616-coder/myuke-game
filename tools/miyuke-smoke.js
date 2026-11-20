@@ -127,8 +127,8 @@ console.log("== 1. boot and core loop ==");
   check("buy buttons carry long-press popup data instead of +50/+100 buttons (bulk row aims at bulkTrainStep)",
     !!findBulk("bulkTrainStep") && !!findBulk("buyUpgrade", "devenv") && !!findBulk("trainStaff", 901) && !allHtml.includes("stepopt"),
     "bulk " + !!findBulk("bulkTrainStep") + ", up " + !!findBulk("buyUpgrade", "devenv") + ", train " + !!findBulk("trainStaff", 901));
-  check("hire keeps a bare max button and no popup when fewer than 50 slots remain",
-    allHtml.includes("buyMany(\"hireStaff\",[\"prog\"],1000)") && !findBulk("hireStaff"));
+  check("hire has no max button and no popup (sakuri rule 2026-11-20: hiring is one by one, no bulk)",
+    !allHtml.includes("buyMany(\"hireStaff\"") && !findBulk("hireStaff"));
   const expUpTot = run(sb, "Array.from({length: 50}, (_, i) => upgradeCost(UPGRADE_DEFS.find(u => u.id === 'devenv'), 50 + i)).reduce((a, b) => a + b, 0)");
   const upBulk = findBulk("buyUpgrade", "devenv");
   check("popup data carries the true +50 total (upgrade: sum of the next 50 levels)",

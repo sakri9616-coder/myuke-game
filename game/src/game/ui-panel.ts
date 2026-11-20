@@ -385,7 +385,8 @@ function howtoHTML(){
     howtoNote("設定で「OS入力カウント」を ON にすると、あなたのタイピングやカーソル移動が開発ブーストになります（数えるのは回数と距離だけ）。") +
     howtoNote("応援P はクリックで応援するたびに 1 貯まります。コインとは別の財布で、売却しても腕前として残ります。"));
   h += foldSec("howto-income", false, "💰 収入源の考え方", "",
-    howtoNote("どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）。"));
+    howtoNote("どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）。") +
+    howtoNote("スタッフの解雇: 猫は解雇できます。育成に使った費用だけが戻ります（雇用費は戻りません）。"));
   h += foldSec("howto-factory", false, "🏭 工場・バグ・限界突破", "",
     howtoNote("バグを抱えたまま出荷すると負債が積みます（総務のお世話係が少しずつ返済します）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます。") +
     howtoNote("節目ボーナス: 強化が Lv10・25・50・100 に届くと、その節目の半分の Lv ぶん効果が上乗せされます（全節目で +92.5Lv分）。") +
@@ -694,7 +695,7 @@ function renderPanelInto(el){
         (locked ? "<div class='rs'>社格「" + rankName(roleRank(role)) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
         buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ", stepCosts(Infinity, i => deptCostAt(lv + i))) +
-        buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ", stepCosts(staffCap() - S.staff.length, i => hireCostAt(role, n + i))) +
+        buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +   /* 雇用にまとめ買いは付けない (sakuri 指示 2026-11-20: 最大も+50も不要。1人ずつ雇う) */
         "</div></div>";
       for(const st of S.staff.filter(x => x.role === role)){
         const m = staffOutMult(st) * deptMult(role);   /* Sprint 4: 熟練ボーナス込み表示 / Phase C: 部署倍率も表示に一致 */
@@ -705,7 +706,8 @@ function renderPanelInto(el){
         const mastery = st.lv < 5 ? " ・ 次の熟練（Lv5 で +15%）まで あと " + (5 - st.lv) + " Lv" : st.lv < 10 ? " ・ 次の熟練（Lv10 で +30%）まで あと " + (10 - st.lv) + " Lv" : "";
         h += "<div class='catrow' title='" + esc(st.name + "（" + COAT_NAMES[st.coat] + "）" + eff + mastery) + "'>" +
           "<div class='sc-img'>" + staffPortrait(st.coat) + "</div>" +
-          "<div class='sc-top'><span class='nm'>" + (chief === st ? "⭐" : "") + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span></div>" +
+          "<div class='sc-top'><span class='nm'>" + (chief === st ? "⭐" : "") + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
+          "<button class='buybtn firebtn' onclick='fireStaff(" + st.id + ")'>解雇</button></div>" +
           "<div class='cr-bot'><span class='sc-eff'>" + short + "</span>" +
           buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")", false, "", stepCosts(Infinity, i => trainCost({ role: st.role, lv: (st.lv || 1) + i } as any))) + "</div></div>";   /* レベルデザイン改修: 訓練は無限（Lv11以降は逓減） */
       }
@@ -892,10 +894,11 @@ function renderPanelInto(el){
         const lv = perkLv(def.id), maxed = lv >= def.maxLv;
         const cost = Math.ceil(def.baseCost * Math.pow(def.costMul, lv));
         if(maxed){ dustChips += "<span class='featchip done'>✅ "+def.name+" MAX</span>"; continue; }
-        /* 段階6: 枝は「いまの効き」と「この会社の列の投資でどれだけ強まっているか」を出す */
+        /* 段階6: 枝は「いまの効き」と「この会社の列の投資でどれだけ強まっているか」を出す。
+           何が上がるか (def.desc) を必ず先に置く (倍率だけでは対応付けが分からない・sakuri 指摘 2026-11-20) */
         const desc = def.branch
-          ? "×" + fmtDec(branchMult(def.id), 2) + "（次 ×" + fmtDec((1 + 0.15 * (lv + 1) * (1 + branchInvest(def.branch) / 20)), 2) + "）"
-          : "";
+          ? def.desc + " ×" + fmtDec(branchMult(def.id), 2) + "（次 ×" + fmtDec((1 + 0.15 * (lv + 1) * (1 + branchInvest(def.branch) / 20)), 2) + "）"
+          : (def.desc || "");
         dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
           dsLine(desc)+"</div>"+
           buyBtn("perk:"+def.id, cost, "dust", "buyDustPerk(\""+def.id+"\")", false, "強化 ", stepCosts(def.maxLv - lv, i => Math.ceil(def.baseCost * Math.pow(def.costMul, lv + i))))+"</div>";

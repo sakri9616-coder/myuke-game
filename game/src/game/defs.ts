@@ -141,7 +141,7 @@ const DEPT_LV3 = {   /* 列には「（」の前だけが出るので、前半�
   sales:   "依頼の規模が下ぶれしない（クライアント規模の取りこぼしなし）",
   cheer:   "応援係の応援でも応援P（応援団の熱）"
 };
-function delegateList(role){ return [[3, DEPT_LV3[role]], [6, "自動育成（部長が所属の猫を育てる）"], [10, "自動補充（空きがあれば同じ役職を雇う）"]]; }
+function delegateList(role){ return [[3, DEPT_LV3[role]], [6, "自動育成（部長が所属の猫を育てる）"]]; }   /* 旧 Lv10「自動補充」は廃止 (2026-11-20 sakuri 指示: 解雇がないのに勝手に増えるのは不便) */
 function delegated(role, lv){ return deptLv(role) >= lv && !!deptChief(role); }
 function parallelDevMult(){ return delegated("prog", 3) ? 1.5 : 1; }
 let delegateClock = 0;
@@ -189,7 +189,6 @@ function deptDelegateTick(){
         }
       }
     }
-    if(delegated(role, 10) && !roleLocked(role) && S.staff.length < staffCap() && hireCost(role) <= S.coins * 0.5) hireStaff(role, true);
   }
   /* 段階6: EXIT の節目の自動購入（所持コインの半分で払える一番安いものを1つ。ログは出さない＝高頻度の買い物でログを埋めない） */
   if(exitMs("autoEquip")){

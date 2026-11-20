@@ -70,7 +70,7 @@ function tick(){
   if(ss.prog > 0) produceDP(ss.prog/60 * _floorCodeMult, "l1");
   if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
   if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
-  deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
+  deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成） */
   annexStageTick();   /* 再設計 B11: 別館看板の段階上昇の告知 */
   holdingsCondTick();   /* 再設計 B13: 持株化の条件が埋まるたびにメモで1回 */
   /* Phase D: 子会社の受動収益。DP は工程に乗る。

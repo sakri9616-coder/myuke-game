@@ -18,7 +18,7 @@ function exportSaveText(){
 }
 const VERBS = {
   buyUpgrade: buyUpgrade, buyResearch: buyResearch, buyClickUp: buyClickUp, buyEngine: buyEngine,
-  hireStaff: hireStaff, trainStaff: trainStaff, buyBulkTrain: buyBulkTrain, bulkTrainStep: bulkTrainStep,
+  hireStaff: hireStaff, trainStaff: trainStaff, fireStaff: fireStaffCore, buyBulkTrain: buyBulkTrain, bulkTrainStep: bulkTrainStep,
   buyTreat: buyTreat, buyStudio: buyStudio,
   acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
@@ -286,6 +286,12 @@ function makeVerbStub(verb){
       if(sub){
         if(!confirm(sellSubConfirmText(sub))) return;
       }
+    }
+    if(verb === "fireStaff"){
+      /* 解雇の確認は menu 側で済ませる (帯側では confirm を出さない) */
+      const st = (S.staff || []).find(s => s.id === (args && args[0]));
+      if(!st) return;
+      if(!confirm(fireStaffConfirmText(st))) return;
     }
     let btn = null;
     try{

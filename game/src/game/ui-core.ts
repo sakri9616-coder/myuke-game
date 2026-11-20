@@ -112,17 +112,22 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?, steps?){
   /* 再描画でボタンが作り直されてもパルスが頭から始まり直さないよう、経過時間ぶん位相をずらす */
   let pulseStyle = "";
   if(a.pulse){ cls += " afford-now"; pulseStyle = " style='animation-delay:-" + Math.max(0, Date.now() - (affordPulseAt[key] || 0)) + "ms'"; }
-  const dis = (!a.afford || extraDisabled) ? " disabled" : "";
+  /* まとめ買いの可否は本体と別に判定する: 一括育成の本体は全員+1Lv の全額必須だが、
+     長押し/最大は安い順の1歩 (steps.c1) から買える。本体の財布不足でまとめ買いまで
+     死なせない (実際に起きた不具合: コインが全額に届かないと「最大」まで押せなかった) */
+  const bulkGate = (steps && steps.onclick && steps.c1 != null) ? affordInfo("", steps.c1, cur).afford : a.afford;
+  const dis = ((!a.afford && !bulkGate) || extraDisabled) ? " disabled" : "";
+  const maxDis = (!bulkGate || extraDisabled) ? " disabled" : "";
   /* 読み上げ名: 価格だけ (「46🪙」) では何のボタンか分からないので、操作と不足分も添える */
   const aria = (prefix ? prefix.replace(/<[^>]*>/g, "") : "購入") + " " + fmt(cost) + unit + (a.almost ? "（あと " + fmt(a.deficit) + unit + "）" : "");
   /* +50/+100 の合計が埋まっている時は、長押しポップアップ用のデータをボタンに持たせる (常設のボタンにはしない) */
   let bulkAttr = "";
-  if(steps && (steps.c50 != null || steps.c100 != null)){
+  if(steps && (steps.c50 != null || steps.c100 != null || steps.cRest != null)){
     const bi = bulkInfoOf(steps.onclick || onclick, cur, steps);
     if(bi) bulkAttr = " data-bulk='" + esc(JSON.stringify(bi)) + "'";
   }
   const btn = "<button class='" + cls + "' onclick='" + onclick + "'" + dis + pulseStyle + bulkAttr + " aria-label='" + esc(aria) + "'>" + label + "</button>";
-  return steps ? "<span class='buypair'>" + btn + maxBtn(steps.onclick || onclick, dis) + "</span>" : btn;
+  return steps ? "<span class='buypair'>" + btn + maxBtn(steps.onclick || onclick, maxDis) + "</span>" : btn;
 }
 /* 「最大」: 右隣の素ボタンで、同じ購入を買えるだけ一括で買う (長押しと同じ buyMany を1回だけ呼ぶ)。
    管理ウィンドウでは buyMany がコマンドの送り口なので、そのまま帯へ1コマンドで届く */
@@ -156,15 +161,19 @@ function parseOnclick(onclick){
 function bulkInfoOf(onclick, cur, steps){
   const p = parseOnclick(onclick);
   if(!p) return null;
-  return { v: p.v, a: p.a, cur, c50: steps.c50 != null ? steps.c50 : null, c100: steps.c100 != null ? steps.c100 : null };
+  return { v: p.v, a: p.a, cur, c50: steps.c50 != null ? steps.c50 : null, c100: steps.c100 != null ? steps.c100 : null,
+           cRest: steps.cRest != null ? steps.cRest : null, cRestN: steps.cRestN != null ? steps.cRestN : null };
 }
 /* ステップの合計価格: 残り回数 rem が n に満たない購入肢は出さない (届かない回数の合計は見せない)。
    costAt(i) は「これから i 回目 (0 始まり)」の価格。両肢とも無い場合は空オブジェクトを返し、
-   呼び出し側には「最大」だけが付く (雇用を上限まで埋める・上限の近い強化の買い切り用) */
+   呼び出し側には「最大」だけが付く (雇用を上限まで埋める・上限の近い強化の買い切り用)。
+   ただし残りが 100 未満の時は「残り全部」も出す: 残り 49 以下で +50 が消えると
+   長押し自体が反応しなくなるため (上限 100 の応援強化などで実際に起きた) */
 function stepCosts(rem, costAt){
-  const o: { c50?: number; c100?: number } = {};
+  const o: { c50?: number; c100?: number; cRest?: number; cRestN?: number } = {};
   if(rem >= 50){ let t = 0; for(let i = 0; i < 50; i++) t += costAt(i); o.c50 = t; }
   if(rem >= 100){ let t = 0; for(let i = 0; i < 100; i++) t += costAt(i); o.c100 = t; }
+  if(rem > 1 && rem < 100 && rem !== 50){ let t = 0; for(let i = 0; i < rem; i++) t += costAt(i); o.cRest = t; o.cRestN = rem; }
   return o;
 }
 /* 一括育成ステップの合計価格: 安い順配分 (bulkTrainStep) をレベルの写しで模擬して数える */
@@ -181,7 +190,9 @@ function bulkStepCosts(){
     }
     return t;
   };
-  return { c50: total(50), c100: total(100) };
+  let c1 = Infinity;
+  for(const s of S.staff){ const c = trainCost(s); if(c < c1) c1 = c; }
+  return { c50: total(50), c100: total(100), c1: S.staff.length ? c1 : null };
 }
 /* 購入ボタンの長押しまとめ買い (2026-11-19 sakuri 指示「購入長押し→ドラッグ→50か100か」。
    ポップアップ型・ラジアル型は廃止し、四角ボタンに統一。ボタンをむやみに増やさないための形で、
@@ -198,10 +209,11 @@ const bulkPop = { info: null as any, btn: null as any, el: null as any, rows: nu
 function bulkPopRows(info){
   const unit = info.cur === "rp" ? "🔬" : info.cur === "dust" ? "⭐" : info.cur === "cheerP" ? "応援P" : "🪙";
   const rows = [];
-  for(const pair of [[50, info.c50], [100, info.c100]]){
-    if(pair[1] == null) continue;
-    rows.push({ n: pair[0], total: pair[1], ok: affordInfo("", pair[1], info.cur).afford, price: fmt(pair[1]) + unit });
+  for(const pair of [[50, info.c50, false], [100, info.c100, false], [info.cRestN, info.cRest, true]]){
+    if(pair[1] == null || pair[0] == null) continue;
+    rows.push({ n: pair[0], total: pair[1], rest: pair[2], ok: affordInfo("", pair[1], info.cur).afford, price: fmt(pair[1]) + unit });
   }
+  rows.sort((x, y) => x.n - y.n);
   return rows;
 }
 function bulkPopCancelPending(){
@@ -238,7 +250,7 @@ function bulkPopOpen(btn, info){
   el.style.fontFamily = cs.fontFamily; el.style.fontSize = cs.fontSize;
   el.style.fontWeight = cs.fontWeight; el.style.fontStyle = cs.fontStyle;
   el.style.letterSpacing = cs.letterSpacing; el.style.lineHeight = cs.lineHeight;
-  el.innerHTML = opts.map((r, k) => "<div class='buybtn bulkfloat-btn" + (r.ok ? "" : " dis") + "' data-i='" + (k + 1) + "'><span class='buy-act'>+" + r.n + "</span><span class='pricetag'>" + r.price + "</span></div>").join("<span class='bulkfloat-sep'></span>");
+  el.innerHTML = opts.map((r, k) => "<div class='buybtn bulkfloat-btn" + (r.ok ? "" : " dis") + "' data-i='" + (k + 1) + "'><span class='buy-act'>+" + r.n + (r.rest ? " 全部" : "") + "</span><span class='pricetag'>" + r.price + "</span></div>").join("<span class='bulkfloat-sep'></span>");
   document.body.appendChild(el);
   const fr = el.getBoundingClientRect();
   let x = Math.min(Math.max(6, br.left + br.width / 2 - fr.width / 2), window.innerWidth - fr.width - 6);
@@ -258,13 +270,44 @@ function bulkPopOpen(btn, info){
   });
   if(btn && btn.isConnected) btn.classList.add("bulk-src");
   bulkPop.el = el; bulkPop.rows = rows; bulkPop.open = true; bulkPop.hot = -1;
+  bulkPopZones();
+  /* 出現アニメーション (140ms+遅延) が終わった後の実位置でもう一度測る */
+  setTimeout(() => { if(bulkPop.open) bulkPopZones(); }, 240);
+}
+/* 判定ゾーン: 見た目は変えず、当たる範囲だけを広げる (sakuri 指示 2026-11-20)。
+   浮きボタンのゾーンは、隣との隙間 (区切り・枠のパディング) を真ん中で分け合い、
+   メニューの端まで届かせ、上下にも PAD だけ広げる。元ボタンのゾーンも PAD 広げ、
+   判定は浮きボタンの側を優先する (狙って上がってきた指を拾う) */
+const BULK_HIT_PAD = 10;
+function bulkPopZones(){
+  const rows = bulkPop.rows, el = bulkPop.el;
+  if(!rows || !el) return;
+  const fr = el.getBoundingClientRect();
+  const r0 = rows[0].rect;
+  rows[0].zone = { left: r0.left - BULK_HIT_PAD, right: r0.right + BULK_HIT_PAD, top: r0.top - BULK_HIT_PAD, bottom: r0.bottom + BULK_HIT_PAD };
+  const btns = el.querySelectorAll(".bulkfloat-btn");
+  btns.forEach((btnEl, k) => {
+    const row = rows[k + 1]; if(!row) return;
+    const r = btnEl.getBoundingClientRect();
+    row.rect = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    const prevR = k > 0 ? rows[k].rect : null;
+    const nextEl = btns[k + 1] || null;
+    const nextR = nextEl ? nextEl.getBoundingClientRect() : null;
+    row.zone = {
+      left: prevR ? (prevR.right + r.left) / 2 : fr.left,
+      right: nextR ? (r.right + nextR.left) / 2 : fr.right,
+      top: r.top - BULK_HIT_PAD, bottom: r.bottom + BULK_HIT_PAD };
+  });
 }
 function bulkPopHotAt(x, y){
   if(!bulkPop.rows) return -1;
-  for(let i = 0; i < bulkPop.rows.length; i++){
-    const r = bulkPop.rows[i].rect;
-    if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return bulkPop.rows[i].ok ? i : -1;
+  const inZ = (z) => z && x >= z.left && x <= z.right && y >= z.top && y <= z.bottom;
+  for(let i = 1; i < bulkPop.rows.length; i++){
+    const row = bulkPop.rows[i];
+    if(inZ(row.zone || row.rect)) return row.ok ? i : -1;
   }
+  const r0 = bulkPop.rows[0];
+  if(r0 && inZ(r0.zone || r0.rect)) return r0.ok ? 0 : -1;
   return -1;
 }
 function bulkPopPaint(){
