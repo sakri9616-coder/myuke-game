@@ -1228,7 +1228,7 @@ function renderPanelInto(el){
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
       "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
     if(layoutLive) h += "<div class='item buy slim'><div><span class='sock'>🗂️</span><span class='nm'>メニューの配置</span><div class='ds'>タブはドラッグで別の列へ移したり、パネルの端へ落として分割できます（配置はこのウィンドウに保存されます）</div></div>"+
-      "<button onclick='resetMenuLayout()'>元に戻す</button></div>";
+      "<button onclick='resetMenuLayout()'>既定の配置に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
     {
       const dpr = window.devicePixelRatio || 1;

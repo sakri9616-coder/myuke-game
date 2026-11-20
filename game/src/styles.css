@@ -453,6 +453,7 @@
     --ide-taboff:#1E1E1E; --ide-line:#454545; --ide-linesoft:#2B2B2B;
     --ide-ink:#D4D4D4; --ide-sub:#A6A6A6; --ide-status:#007ACC;
     --syn-blue:#6FA8DC; --syn-str:#F49A45; --syn-func:#F8CF69; --syn-type:#5EC8B4;
+    --syn-blue-fill:rgba(111,168,220,.28); --syn-blue-line:rgba(111,168,220,.7);   /* --syn-blue の面/線（分割ドロップヒント用） */
     --syn-num:#B5CEA8; --syn-green:#7BE495; --syn-purple:#C586C0;
     --ide-red:#E5534B; --ide-errtx:#F48771; --ide-warn:#FFD479; --ide-gold:#F1BF41;
     --ide-paper:#FFF5E6;
@@ -1034,5 +1035,5 @@
     background:var(--ide-panel, #252526);color:var(--ide-ink, #D4D4D4);border:1px solid var(--ide-line, #454545);
     border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,.45);opacity:.92;white-space:nowrap;}
   .drop-hint{position:fixed;z-index:9998;pointer-events:none;display:none;
-    background:rgba(0,90,158,.28);outline:1px solid rgba(111,168,220,.7);transition:left .08s,top .08s,width .08s,height .08s;}
+    background:var(--syn-blue-fill);outline:1px solid var(--syn-blue-line);transition:left .08s,top .08s,width .08s,height .08s;}
   .drop-hint.strip{background:var(--syn-str, #F49A45);outline:0;transition:none;}
