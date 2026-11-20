@@ -1058,3 +1058,28 @@
   .drop-hint{position:fixed;z-index:9998;pointer-events:none;display:none;
     background:var(--syn-blue-fill);outline:1px solid var(--syn-blue-line);transition:left .08s,top .08s,width .08s,height .08s;}
   .drop-hint.strip{background:var(--syn-str, #F49A45);outline:0;transition:none;}
+
+  /* ==== 青帯の構造固定 (2026-11-20 sakuri 実機指摘で作り直し) ====
+     v2.33.0 の「2行固定」は幅1180・序盤の数字でしか成り立っておらず、窓幅や
+     数字の桁で折り返して帯が動いた。ここでは高さが「構造」で決まる形にする:
+     帯 = タイトル行 + 資源行 (.resbar) の2行だけ。資源行は nowrap +
+     overflow:hidden で絶対に折り返さず、高さも固定する。チップの出現
+     (レーン/詰まり)・数字の桁・窓幅のどれでも帯の高さは変わらない。
+     収まらない時は装飾 (deco) → 資源ラベル (small) の順に落とす (折り返さない)。
+     旧 header::before/::after の装飾は .resbar 内の実要素 (.deco-*) へ移設した */
+  body:not(.strip) header{flex-direction:column;flex-wrap:nowrap;align-items:stretch;}
+  body:not(.strip) header h1{flex:0 0 auto;}
+  body:not(.strip) header::before, body:not(.strip) header::after{display:none;}
+  .resbar{display:flex;flex-wrap:nowrap;align-items:center;overflow:hidden;min-width:0;}
+  body:not(.strip) .resbar{flex:0 0 auto;height:30px;}
+  body:not(.strip) .resbar .res{margin:0 1px;}
+  body:not(.strip) .resbar #btn-to-overlay{margin:0 0 0 8px;order:0;}
+  .deco-branch{flex:0 0 auto;font:12px var(--mono);color:var(--ide-ink);
+    padding:0 9px;border-right:1px solid #454545;white-space:nowrap;}
+  .deco-enc{flex:0 0 auto;margin-left:auto;padding:0 10px;font:11px var(--mono);
+    color:var(--ide-ink);white-space:pre;}
+  @media (max-width:1350px){ .deco-enc{display:none;} }  /* 装飾は全部入りきる幅でのみ出す (半端に切れるくらいなら出さない) */
+  @media (max-width:900px){
+    .deco-branch, .deco-enc{display:none;}
+    body:not(.strip) .resbar .res small{display:none;}
+  }

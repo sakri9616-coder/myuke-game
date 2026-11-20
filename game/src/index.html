@@ -19,15 +19,20 @@
 </div>
 <header>
   <h1>🐱 みゅけ、きょうも開発中 <small id="ver-label">v2.1</small></h1>
-  <span class="res"><span class="res-ic">🪙</span> <span id="r-coins">0</span> <small>にゃんコイン</small></span>
-  <span class="res"><span class="res-ic">💡</span> <span id="r-ideas">0</span> <small>アイデア</small></span>
-  <span class="res"><span class="res-ic">📦</span> <span id="r-pkg">0</span> <small>パッケージ</small></span>
-  <span class="res res-bugs"><span class="res-ic">🐛</span> <span id="r-bugs">0</span> <small>バグ在庫</small></span>
-  <span class="res diag" id="r-bneck" style="display:none"><span class="res-ic">⚠</span> <span>詰まり</span></span>
-  <span class="res"><span class="res-ic">🔬</span> <span id="r-rp">0</span> <small>研究P</small></span>
-  <span class="res"><span class="res-ic">⭐</span> <span id="r-dust">0</span> <small>星屑</small></span>
-  <span class="res lanes" id="r-lanes" style="display:none"></span>
-  <button id="btn-to-overlay" type="button" style="display:none">🖥️ デスクトップに戻す</button>
+  <!-- 資源行は .resbar の1行に閉じ込める (青帯の構造固定: 折り返しで帯の高さが変わるのを構造で防ぐ) -->
+  <div class="resbar">
+    <span class="deco-branch" aria-hidden="true">⑂ main</span>
+    <span class="res"><span class="res-ic">🪙</span> <span id="r-coins">0</span> <small>にゃんコイン</small></span>
+    <span class="res"><span class="res-ic">💡</span> <span id="r-ideas">0</span> <small>アイデア</small></span>
+    <span class="res"><span class="res-ic">📦</span> <span id="r-pkg">0</span> <small>パッケージ</small></span>
+    <span class="res res-bugs"><span class="res-ic">🐛</span> <span id="r-bugs">0</span> <small>バグ在庫</small></span>
+    <span class="res diag" id="r-bneck" style="display:none"><span class="res-ic">⚠</span> <span>詰まり</span></span>
+    <span class="res"><span class="res-ic">🔬</span> <span id="r-rp">0</span> <small>研究P</small></span>
+    <span class="res"><span class="res-ic">⭐</span> <span id="r-dust">0</span> <small>星屑</small></span>
+    <span class="res lanes" id="r-lanes" style="display:none"></span>
+    <span class="deco-enc" aria-hidden="true">UTF-8   🐱 MiyukeScript<span class="deco-tail">   Spaces: 2</span></span>
+    <button id="btn-to-overlay" type="button" style="display:none">🖥️ デスクトップに戻す</button>
+  </div>
 </header>
 <main>
   <!-- Strip Canon: 部屋ステージは廃止。管理画面はパネルのみ (R11)。
