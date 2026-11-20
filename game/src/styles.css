@@ -333,6 +333,8 @@
      同型の部品（.depthead/.rh/.dlv/.rv/.lampbar/.rs/.dh-btns/.tagchip）を流用し、折り返しで並ぶ */
   .subcols{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0;align-items:stretch;}
   .subcol{flex:1 1 230px;max-width:330px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+  /* 時代の需要に合った子会社は、カードごと金色に縁取る（説明はバナー側に一本化） */
+  .subcol.demand{box-shadow:0 0 0 2px var(--gold,#d9a514);border-radius:10px;}
   .subcol.found{border:2px dashed var(--ink-soft);border-radius:10px;padding:8px 10px;justify-content:flex-start;}
   .subcol.found .rh{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;}
   .subcol.found .nm{flex:1 1 auto;}

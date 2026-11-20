@@ -745,7 +745,7 @@ function renderPanelInto(el){
         groupTotalLine = "<div class='note' style='font-size:12px'>💰 本社 <b>" + fmt(hqOnly) + "🪙/分</b> ＋ 子会社 <b>" + fmt(subCoinTot) + "🪙/分</b> ＝ 合計 <b>" + fmt(hqOnly + subCoinTot) + "🪙/分</b></div>";
       }
       const demG = GENRES.find(g => g.id === eraDemandGenre());
-      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です——需要ジャンルの子会社は売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります。時代の間は変わりません</div>" : "";
+      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です。<br>需要ジャンルの子会社は、売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります。<br>時代の間は変わりません。</div>" : "";
       let cols = "";
       for(const sub of subs){
         const r = subRates(sub);
@@ -755,9 +755,9 @@ function renderPanelInto(el){
         /* 配当率バー: 25%刻みの5ゾーンをクリックして切り替える（残りは再投資） */
         let divZones = "";
         for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz" + (p === subDiv(sub) ? " on" : "") + "' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
-        cols += "<div class='subcol'>" +
+        cols += "<div class='subcol" + (demandMatch ? " demand" : "") + "'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
-          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span></div>" +
+          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" + (demandMatch ? "<span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>需要</span>" : "") + "</div>" +
           "<div class='substats'>" +
           "<span class='substat'><small>会社Lv</small><b>" + sub.lv + "</b></span>" +
           "<span class='substat'><small>スタッフ</small><b>" + sub.staff + "人</b></span>" +
@@ -767,7 +767,6 @@ function renderPanelInto(el){
           "<span class='lampbar'><i style='width:" + share + "%'></i></span>" +
           "<div class='rs'>グループ売上の " + share + "%</div>" +
           "</div>" +
-          "<div class='subsec'><div class='rs'>🎬 『" + esc(subWorkName(sub)) + "』" + (demandMatch ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>📈 この時代の需要（売上 ×" + SUB_POLICY.demandMult + "）</span>" : "") + "</div></div>" +
           "<div class='subsec'><div class='subsec-h'>操作</div>" +
           "<div class='rs'>人員を増やす</div><div class='dh-btns'>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ", { c50: subHeadCostN(sub, 50), c100: subHeadCostN(sub, 100), onclick: "addSubStaff(" + sub.id + ",1)" }) +
