@@ -25,9 +25,13 @@ function prestigeCertHTML(pv, pb, knowAdd){
   let h = "<div class='item cert' style='margin-top:12px'>" +
     "<div class='cert-title'>卒業証書</div>" +
     "<div class='ds' style='margin-top:5px;text-align:center'>『" + rankName(S.maxStudioLv || S.studioLv) + "』のこの会社は、立派に売却されました。</div>" +
-    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——受け取るもの——</div>" +
-    "<div class='ds'>星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + pts + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
-    "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds' style='text-align:center'>——受け取るもの——</div>" +
+    "<div class='statgrid'>" +
+    statBlock("⭐ 星屑", "+" + fmt(pv.gain), "") +
+    statBlock("🎖 売却実績", "+" + pts, eraExitPts() + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS) +
+    (knowAdd > 0 ? statBlock("📚 知見", "+" + fmtDec(knowAdd, 1), "") : "") +
+    statBlock("⚡ 生産倍率", "×" + fmtDec(pv.nextMult, 2), "いま ×" + fmtDec(pv.curMult, 2)) +
+    "</div></div>" +
     "<div class='ds' style='margin-top:5px'>役員として残る猫：" + (execCat ? "<b>" + esc(execCat.name) + "</b>（次の会社でも、入口で待っています）" : "なし") + "</div>" +
     "<div class='ds'>新しい会社は、まっさらな状態から始まります。</div>" +
     "<div class='ds'>星屑ショップの永続特典は、売却しても消えません。</div>" +
@@ -51,8 +55,12 @@ function holdingsCertHTML(hp){
     "<div class='ds' style='margin-top:5px;text-align:center'>『" + eraName() + "』は、EXIT " + eraExits + " 回、星屑 " + fmt(S.eraDust || 0) + " 個の時代でした。</div>" +
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——この時代で収めるもの——</div>" +
     "<div class='ds'>星屑と星屑の特典／応援の蓄え／コイン・スタッフ・研究・部署・子会社（時代の記録に収められます）</div></div>" +
-    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——新しい時代に受け取るもの——</div>" +
-    "<div class='ds'>星団 <b>+" + hp.gain + "</b>（時代の累計星屑からの換算）／ 星屑倍率の土台 <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> ／ レガシー技術への道</div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds' style='text-align:center'>——新しい時代に受け取るもの——</div>" +
+    "<div class='statgrid'>" +
+    statBlock("🌌 星団", "+" + fmt(hp.gain), "時代の累計星屑から換算") +
+    statBlock("⭐ 星屑倍率の土台", "×" + fmt(hp.baseNext), "いま ×" + fmt(hp.baseNow)) +
+    statBlock("🌌 レガシー技術", "への道", "が開きます") +
+    "</div>" +
     (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
     /* A3（2026-11-02 みゅー作画）: 時代の記録には金の肉球印を押す */
     (hasSprite("a3_holdings_seal") ? "<img src='" + spriteURL("a3_holdings_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:2px 2px 2px 8px'>" : "") +
@@ -926,11 +934,16 @@ function renderPanelInto(el){
         (baseGain < cap
           ? "<div class='ds' style='color:#7ba05b'>いまが売りどきです——伸びが素直なうちに売れる、気持ちのいい卒業になります。</div>"
           : "<div class='ds'>売りどきは少し過ぎました。ここからは伸びがゆるやかです。——それでも、いつ売るかはあなたが決めることです。</div>") + "</div>" +
-        /* 3: 受け取るものの予告 */
-        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で: 星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + (pb.ptsSize + pb.ptsEra) + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
-        "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b>" + (pv.subGain > 0 ? " ・ うち子会社ぶん（目安）星屑 約 " + pv.subGain + " 個" : "") + "</div>" +
-        "<div class='note'>内訳: " + pbTxt + "</div>" +
-        "<div class='note'>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
+        /* 3: 受け取るものの予告（何が伸びるかが主役。内訳は一段落として小さく後ろへ） */
+        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で受け取るもの</div>" +
+        "<div class='statgrid'>" +
+        statBlock("⭐ 星屑", "+" + fmt(pv.gain), "") +
+        statBlock("🎖 売却実績", "+" + (pb.ptsSize + pb.ptsEra), "現在 " + eraExitPts() + " / " + HOLD_EXITS) +
+        (knowAdd > 0 ? statBlock("📚 知見", "+" + fmtDec(knowAdd, 1), "") : "") +
+        statBlock("⚡ 生産倍率", "×" + fmtDec(pv.nextMult, 2), "いま ×" + fmtDec(pv.curMult, 2)) +
+        "</div>" +
+        (pv.subGain > 0 ? "<div class='ds'>うち子会社ぶん（目安）: 星屑 約 " + pv.subGain + " 個</div>" : "") +
+        "<div class='pbreak'>内訳: " + pbTxt + "<br>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
         /* 4: 役員・ベテランの選出 */
         execSelectHTML() +
         /* 5: 売却ボタン */

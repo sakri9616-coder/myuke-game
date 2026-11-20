@@ -285,6 +285,8 @@
   .stat .sl{font-size:11px;font-weight:700;color:var(--sub);}
   .stat .sv{font-size:21px;font-weight:800;line-height:1.3;}
   .stat .sv small{font-size:11px;font-weight:700;color:var(--sub);}
+  /* 内訳・引き継ぎなどの二段目情報: 主役の数字より一段小さく・薄く */
+  .pbreak{margin-top:6px;font-size:11px;line-height:1.55;color:var(--sub);}
   /* プロジェクトのヒーローカード: 進捗を1枚の絵にする */
   .hero{border:3px solid var(--ink);border-radius:12px;background:var(--paper);padding:10px 14px;margin:8px 0;
     box-shadow:0 3px 0 rgba(70,49,38,.22), inset 0 0 0 4px var(--paper-2);}
@@ -616,6 +618,7 @@
   body:not(.strip) .stat .sl{color:var(--ide-sub);}
   body:not(.strip) .stat .sv{font-family:var(--mono);color:var(--syn-num);}
   body:not(.strip) .stat .sv small{color:var(--ide-sub);}
+  body:not(.strip) .pbreak{color:var(--ide-sub);}
   body:not(.strip) .ratecell{background:var(--ide-panel2);border-color:var(--ide-line);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05);position:relative;}
   body:not(.strip) .ratecell .rv{font-family:var(--mono);}
