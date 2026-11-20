@@ -249,6 +249,7 @@ function editorCrumbContext(){
     : currentTab === "staff" ? companyRank() + " " + S.staff.length + "/" + staffCap() + "人"
     : currentTab === "subs" ? (S.subs || []).length + "社・総勢 " + totalPeople() + "人"
     : currentTab === "research" ? "研究P " + fmt(S.rp)
+    : currentTab === "interior" ? "持っている " + DECOR_DEFS.filter(d => decorOwned(d.id)).length + " / " + DECOR_DEFS.length + " 品"
     : currentTab === "howto" ? "説明と辞典"
     : currentTab === "settings" ? GAME_VERSION
     : (S.project ? S.project.name : "—");
@@ -1213,6 +1214,10 @@ function renderPanelInto(el){
   if(currentTab === "howto"){
     h += howtoHTML();
   }
+  if(currentTab === "interior"){
+    h += "<h3>🛋️ インテリア</h3>";
+    h += decorCatalogHTML();   /* 家具の購入と出し入れ (2026-11-20 設定から独立タブへ、sakuri 指示) */
+  }
   if(currentTab === "settings"){
     h += "<h3>⚙️ 設定</h3>";
     /* IA: プライバシーの約束は1行に圧縮して常設 (信頼情報なので畳まない) */
@@ -1239,7 +1244,6 @@ function renderPanelInto(el){
     }
     h += "<div class='item buy slim'><div><span class='sock'>✥</span><span class='nm'>家具の並び</span><div class='ds'>並べ替えモード中は、帯の家具も小物もドラッグで好きな場所へ動かせます（机や棚の上に重ね置きもできます）</div></div>"+
       "<span style='display:flex;gap:4px'><button onclick='toggleLayoutEdit()'>並べ替えモード</button><button onclick='resetLayout()'>初期配置に戻す</button></span></div>";
-    h += decorCatalogHTML();   /* 2026-11-18 家具カタログ: 買った家具は並べ替えで置ける */
     h += "<div class='item buy slim'><div><span class='sock'>🧲</span><span class='nm'>並べ替えのスナップ</span><div class='ds'>ドラッグ中、近くの家具の中心へ弱く吸着します</div></div>"+
       "<button class='switch"+(S.settings.snapLayout?" on":"")+"' onclick='toggleSnapLayout()' aria-pressed='"+(S.settings.snapLayout?"true":"false")+"'>"+(S.settings.snapLayout?"ON":"OFF")+"</button></div>";
     h += "<div class='item buy slim'><div><span class='sock'>🌙</span><span class='nm'>点滅を減らす</span><div class='ds'>帯の点滅（企画中・雇える・ゲージ満タンなどの合図）を点けっぱなしにします。OS の「視差効果を減らす」が ON のときも自動で控えます</div></div>"+

@@ -236,7 +236,7 @@ function drawStripDecor(pass){
     sDrawSprite(d.spr, pl.cx, pl.baseY, d.scale);
   }
 }
-/* 設定タブ「家具の並び」の下に出すカタログ（新しい画面は作らない） */
+/* インテリアタブのカタログ（カードレイアウト。2026-11-20 設定タブから独立、sakuri 指示） */
 function decorCatalogHTML(){
   return decorGroupHTML(false) + decorGroupHTML(true);
 }
@@ -246,18 +246,22 @@ function decorCatalogHTML(){
 function decorTierOrder(d){ return d.exits ? 100 + d.exits : (d.rank || 1); }
 function decorGroupKey(d){ return d.exits ? "x" + d.exits : "r" + (d.rank || 1); }
 function decorGroupName(k){ return k[0] === "x" ? "EXIT " + k.slice(1) + " 回の家具" : "社格「" + rankName(+k.slice(1)) + "」の家具"; }
-function decorRowHTML(d){
+/* 品カード: 絵（スプライト）→ 名前 → 置き場の案内 → 価格ボタン。
+   買った品はボタンが「出す/しまう」に変わる */
+function decorCardHTML(d){
   const url = spriteURL(d.spr);
   const ico = url ? "<img class='decor-ico' src='" + url + "' alt=''>" : "<span class='sock'>🪑</span>";
+  const owned = decorOwned(d.id);
   let btn;
-  if(decorOwned(d.id)){
-    btn = "<span style='display:flex;gap:4px'><button onclick='toggleDecor(\"" + d.id + "\")'>" + (S.decor[d.id].hidden ? "出す" : "しまう") + "</button></span>";
+  if(owned){
+    btn = "<button onclick='toggleDecor(\"" + d.id + "\")'>" + (S.decor[d.id].hidden ? "出す" : "しまう") + "</button>";
   } else {
     const can = d.dust ? (S.dust || 0) >= d.cost : S.coins >= d.cost;
-    btn = "<button" + (can ? "" : " disabled") + " onclick='buyDecor(\"" + d.id + "\")'>" + decorPrice(d) + "</button>";
+    btn = "<button class='buybtn'" + (can ? "" : " disabled") + " onclick='buyDecor(\"" + d.id + "\")'>" + decorPrice(d) + "</button>";
   }
-  return "<div class='item buy slim'><div>" + ico + "<span class='nm'>" + d.name + (decorOwned(d.id) ? " <small>（持っている）</small>" : "") +
-    "</span></div>" + btn + "</div>";
+  return "<div class='decorcard'><div class='decorpic'>" + ico + "</div>" +
+    "<div class='nm'>" + d.name + (owned ? " <small>（持っている）</small>" : "") + "</div>" +
+    "<div class='ds'>" + decorDesc(d) + "</div>" + btn + "</div>";
 }
 function decorGroupHTML(dust){
   const { open, next } = decorCatalog(dust);
@@ -265,7 +269,7 @@ function decorGroupHTML(dust){
   if(dust){
     if(!open.length) return "";
     h += "<div class='note'>✨ 特別な家具（星屑で買う・ずっと持っていられる）</div>";
-    for(const d of open) h += decorRowHTML(d);
+    h += "<div class='decorgrid'>" + open.map(decorCardHTML).join("") + "</div>";
   } else {
     const keys = [];
     for(const d of open.slice().sort((a, b) => decorTierOrder(a) - decorTierOrder(b))){ const k = decorGroupKey(d); if(!keys.includes(k)) keys.push(k); }
@@ -274,11 +278,11 @@ function decorGroupHTML(dust){
     for(const k of keys){
       const items = open.filter(d => decorGroupKey(d) === k).sort((a, b) => a.cost - b.cost);
       const owned = items.filter(d => decorOwned(d.id)).length;
-      h += foldSec("decor_" + k, k === cur, decorGroupName(k), items.length + " 品・持っている " + owned, items.map(decorRowHTML).join(""));
+      h += foldSec("decor_" + k, k === cur, decorGroupName(k), items.length + " 品・持っている " + owned, "<div class='decorgrid'>" + items.map(decorCardHTML).join("") + "</div>");
     }
   }
   if(next){
-    h += "<div class='item buy slim locked'><div><span class='sock'>🔒</span><span class='nm'>" + next.name + "</span><div class='ds'>" +
+    h += "<div class='decorcard locked'><span class='sock'>🔒</span><div class='lockmain'><span class='nm'>" + next.name + "</span><div class='ds'>" +
       decorUnlockText(next) + "</div></div><button disabled>" + decorPrice(next) + "</button></div>";
   }
   return h;

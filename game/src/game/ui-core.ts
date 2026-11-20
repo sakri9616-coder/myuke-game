@@ -3,7 +3,7 @@
    子会社は 2026-10-28 sakuri の指示でスタッフから独立したタブ (並びはスタッフの隣) */
 const TABS = [
   ["proj","📋 プロジェクト"], ["factory","🏭 工場"], ["staff","👥 スタッフ"], ["subs","🏢 子会社"], ["click","👆 応援"],
-  ["requests","📮 依頼"], ["research","🔬 研究"], ["shelf","📚 作品棚"], ["stats","📊 統計"], ["howto","📖 遊び方"], ["settings","⚙️ 設定"]
+  ["requests","📮 依頼"], ["research","🔬 研究"], ["shelf","📚 作品棚"], ["interior","🛋️ インテリア"], ["stats","📊 統計"], ["howto","📖 遊び方"], ["settings","⚙️ 設定"]
 ];
 let currentTab = "proj";   /* 分割ビューでは「今のグループ」の表のタブ */
 let layoutLive = false;    /* 分割ビューが組み上がったか (ui-layout)。false なら従来の1枚表示 */
