@@ -30,7 +30,7 @@
     padding:10px 14px;background:var(--wood);
     border-bottom:3px solid var(--ink);
     box-shadow:inset 0 2px 0 rgba(255,255,255,.35), inset 0 -6px 0 var(--desk);}
-  header h1{font-size:19px;margin:0 8px 0 0;font-weight:800;letter-spacing:.03em;
+  header h1{flex:1 0 100%;font-size:19px;margin:0 8px 0 0;font-weight:800;letter-spacing:.03em;
     text-shadow:0 1px 0 rgba(255,255,255,.45);}
   header h1 small{font-size:11px;color:var(--ink-soft);font-weight:700;}
   #btn-to-overlay{background:var(--red);border:2.5px solid var(--ink);color:#fff;
@@ -40,7 +40,7 @@
   #btn-to-overlay:active{transform:translateY(3px);
     box-shadow:inset 0 -2px 0 rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.3), 0 0 0 rgba(70,49,38,0);}
   /* ---------- リソースチップ: 通貨ピル（正式部品）+ アイコンソケット ---------- */
-  .res{display:inline-flex;gap:5px;align-items:center;background:var(--paper);
+  .res{display:inline-flex;flex:0 0 auto;gap:5px;align-items:center;background:var(--paper);
     border:2.5px solid var(--ink);border-radius:999px;padding:3px 11px 3px 3px;
     font-size:13px;font-weight:800;
     box-shadow:inset 0 2px 0 rgba(70,49,38,.16), inset 0 -1px 0 #fff, 0 2px 0 rgba(70,49,38,.25);}
@@ -936,10 +936,11 @@
     flex:1 1 auto;min-height:0;}
   /* レーン効率チップ: 工場サマリの工程ボックス (.ratecell) の小型版。
      上辺2pxとランプ点が --pipe-tone (信号色) を担う */
-  #r-lanes{align-items:center;gap:4px;}
-  .lane-chip{--pipe-tone:var(--syn-green);display:inline-flex;align-items:center;gap:4px;
+  #r-lanes{align-items:center;gap:4px;flex-wrap:nowrap;flex:0 0 auto;}
+  .lane-chip{--pipe-tone:var(--syn-green);display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
     border:1px solid rgba(255,255,255,.28);border-top:2px solid var(--pipe-tone);border-radius:3px;
     background:rgba(0,0,0,.22);padding:1px 6px;font-weight:700;white-space:nowrap;}
+  .lane-chip b{display:inline-block;min-width:3.8em;text-align:right;font-weight:700;}
   .lane-chip.pipe-yellow{--pipe-tone:var(--ide-warn);}
   .lane-chip.pipe-red{--pipe-tone:var(--ide-errtx);}
   .lane-chip i{width:6px;height:6px;border-radius:50%;background:var(--pipe-tone);flex:0 0 auto;}

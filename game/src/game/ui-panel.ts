@@ -244,9 +244,8 @@ function engineRowsHTML(engine){
   let h = "";
   for(const def of ENGINE_DEFS.filter(d => d.engine === engine)){
     const lv = S.upgrades[def.id] || 0, maxed = lv >= def.max && !def.oc;
-    const ocNote = def.oc && lv >= 100 ? "<br>🔓 限界突破中" : "";
     h += "<div class='item buy slim' data-fix='eng:" + def.id + "'><div><span class='nm'>" + def.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") +
-      dsLine(milestoneNote(def, lv) + ocNote) + "</div>" +
+      dsLine(def.eff || "") + "</div>" +
       (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("eng:" + def.id, upgradeCost(def, lv), "coins", "buyEngine(\"" + def.id + "\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i)))) + "</div>";
   }
   return h;
@@ -354,8 +353,10 @@ function mgmtSummaryHTML(){
   return h;
 }
 /* ---------- 遊び方タブ (2026-11-20 sakuri 指示: 説明は省いて遊び方にまとめる) ----------
-   作業タブは購入・売却の判断だけに集中させ、仕組みの説明とアイテムの説明文は全部ここへ集約した。
-   辞典は defs の desc から生成する (二重管理しない)。作業タブ側は dsLine で節目予告だけを残す */
+   作業タブは購入・売却の判断だけに集中させ、仕組みの説明は全部ここへ集約した。
+   辞典は defs の desc から生成する (二重管理しない)。
+   境界の修正 (同日 sakuri): カードには「買えば何が上がるか」の簡潔な効果行 (defs の eff / desc) を残し、
+   節目ボーナスのような全カード共通の繰り返し項目はここへ寄せる */
 function howtoDictRows(list, nameOf, descOf){
   let h = "";
   for(const d of list){
@@ -376,6 +377,7 @@ function howtoHTML(){
     howtoNote("どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）。"));
   h += foldSec("howto-factory", false, "🏭 工場・バグ・限界突破", "",
     howtoNote("バグを抱えたまま出荷すると負債が積みます（総務のお世話係が少しずつ返済します）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます。") +
+    howtoNote("節目ボーナス: 強化が Lv10・25・50・100 に届くと、その節目の半分の Lv ぶん効果が上乗せされます（全節目で +92.5Lv分）。") +
     howtoNote("限界突破: Lv100 を超えた強化は節目が Lv100 で固定され、価格は ×1.35 ずつ上昇します。"));
   h += foldSec("howto-shelf", false, "📚 作品棚と依頼", "",
     howtoNote("依頼にペナルティはありません。受けると次の作品がそのジャンルになります（進行中は消えません）。リリースでボーナス。営業がいると、枠が空くと自動で取ってきます。大型案件とティア3には納期があります（過ぎるとボーナス消滅）。"));
@@ -709,7 +711,7 @@ function renderPanelInto(el){
     /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
     let treatHTML = "";
     for(const def of TREAT_DEFS){
-      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span></div>"+
+      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+dsLine(def.desc || "")+"</div>"+
         buyBtn("treat:"+def.id, treatCost(def), "coins", "buyTreat(\""+def.id+"\")")+"</div>";
     }
     /* チュートリアル導線: ご褒美は終盤のコインシンク。累計5,000🪙 までは
@@ -858,9 +860,8 @@ function renderPanelInto(el){
     for(const def of UPGRADE_DEFS){
       if(def.id === "bot") continue;   /* ボットは「同僚」枠としてグリッドの外に別掲 */
       const lv = S.upgrades[def.id]||0, cost = upgradeCost(def, lv), maxed = lv>=def.max && !def.oc;
-      const ocNote = def.oc && lv >= 100 ? "<br>🔓 限界突破中" : "";
       h += "<div class='item buy slim' data-fix='up:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+def.stage+"</span>"+
-        dsLine(milestoneNote(def, lv)+ocNote)+"</div>"+
+        dsLine(def.eff || "")+"</div>"+
         (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:"+def.id, cost, "coins", "buyUpgrade(\""+def.id+"\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i))))+"</div>";
     }
     h += "</div>";
@@ -874,7 +875,7 @@ function renderPanelInto(el){
       const bdef = UPGRADE_DEFS.find(u => u.id === "bot");
       const blv = S.upgrades.bot || 0, bcost = upgradeCost(bdef, blv), bmaxed = blv >= bdef.max && !bdef.oc;
       h += "<div class='item buy slim' data-fix='up:bot'><div><span class='nm'>"+bdef.name+"</span> <span class='lvbadge'>Lv"+blv+"</span>" + (blv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+bdef.stage+"</span>"+
-        dsLine(milestoneNote(bdef, blv)+(blv >= 100 ? "<br>🔓 限界突破中" : ""))+"</div>"+
+        dsLine(bdef.eff || "")+"</div>"+
         (bmaxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")", false, "", stepCosts(bdef.oc ? Infinity : bdef.max - blv, i => upgradeCost(bdef, blv + i))))+"</div>";
     }
     /* 再設計 B7: 経営方針の UI は売却カードの中へ一本化した（この旧位置には何も残さない） */
@@ -897,7 +898,7 @@ function renderPanelInto(el){
         continue;
       }
       if(hasPerk(def.id)){ dustChips += "<span class='featchip done'>✅ "+def.name+"</span>"; continue; }
-      dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span></div>"+
+      dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+dsLine(def.desc || "")+"</div>"+
         buyBtn("perk:"+def.id, def.cost, "dust", "buyDustPerk(\""+def.id+"\")")+"</div>";
     }
     const dustBody = (dustRows ? "<div class='buygrid'>"+dustRows+"</div>" : "") +
@@ -986,7 +987,7 @@ function renderPanelInto(el){
           if(hasLegacyTech(def.id)){ techChips += "<span class='featchip done'>✅ " + def.name + "</span>"; continue; }
           const locked = def.req && !hasLegacyTech(def.req);
           techRows += "<div class='item buy slim'><div><span class='nm'>" + def.name + "</span>" +
-            dsLine(locked ? "先に『" + (LEGACY_TECHS.find(t => t.id === def.req) || {}).name + "』が必要" : "") + "</div>" +
+            dsLine(locked ? "先に『" + (LEGACY_TECHS.find(t => t.id === def.req) || {}).name + "』が必要" : (def.desc || "")) + "</div>" +
             "<button class='buybtn' onclick='buyLegacyTech(\"" + def.id + "\")'" + (((S.legacy || 0) < def.cost || locked) ? " disabled" : "") + "><span class='pricetag'>" + def.cost + " 🌌</span></button></div>";
         }
         /* レベルデザイン改修: 星団の無限シンク「恒久R&D投資」（全技術取得で解放） */
@@ -1072,7 +1073,7 @@ function renderPanelInto(el){
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
-        dsLine(milestoneNote(def, lv))+"</div>"+
+        dsLine(def.eff || "")+"</div>"+
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")", false, "", stepCosts(def.max - lv, i => clickCost(def, lv + i))))+"</div>";
     }
     h += "</div>";
@@ -1144,7 +1145,7 @@ function renderPanelInto(el){
       resCards += "<div class='item buy slim' data-fix='res:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+
         (def.tier === 2 ? " <span class='tagchip'>ティア2</span>" +
           (reqDef ? " <span class='tagchip'>"+(locked ? "🔒 前提: " : "✅ 前提: ")+reqDef.name+"</span>" : "") : "")+
-        "</div>"+
+        dsLine(def.desc || "")+"</div>"+
         buyBtn("res:"+def.id, def.cost, "rp", "buyResearch(\""+def.id+"\")", locked)+"</div>";
     }
     if(resCards) h += "<div class='buygrid'>"+resCards+"</div>";
