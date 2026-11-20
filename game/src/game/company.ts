@@ -58,10 +58,13 @@ function subWorkName(sub){
 }
 /* 配当リリースの周期（秒）: 売上が大きい子会社ほど速く回す。20〜90 秒に収める */
 function subReleaseCycle(sub){ return Math.max(20, Math.min(90, Math.round(1800 / Math.max(1, subRates(sub).coins)))); }
-function setSubDiv(id, delta){
+/* 配当率は「目標値そのもの」を受け取る。以前は描画時点の値からの差分をボタンに埋めて
+   いたため、menu 側の表示が古いまま連打すると帯の実値とズレて「押しても違う値になる」
+   ことがあった (sakuri 報告 2026-11-20)。絶対値なら表示の鮮度に左右されない */
+function setSubDivTo(id, value){
   const sub = (S.subs || []).find(s => s.id === id);
   if(!sub) return;
-  sub.div = Math.max(0, Math.min(100, subDiv(sub) + delta));
+  sub.div = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   save(); renderPanel();
 }
 function subReinvest(sub, coins){

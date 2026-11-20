@@ -23,7 +23,7 @@ const VERBS = {
   acceptRequest: acceptRequest, genRequests: genRequests,
   buyDept: buyDept, setReqGenrePref: setReqGenrePref, acceptBigDeal: acceptBigDeal, declineBigDeal: declineBigDeal,
   dropRequest: dropRequestCore,
-  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setSubDiv: setSubDiv, sellSub: sellSubCore,
+  foundSub: foundSub, addSubStaff: addSubStaff, scaleSub: scaleSub, setSubDivTo: setSubDivTo, sellSub: sellSubCore,
   activateFever: activateFever,
   buyDustPerk: buyDustPerk, doPrestige: doPrestigeCore,
   buyLegacyTech: buyLegacyTech, buyRdInvest: buyRdInvest, doHoldings: doHoldingsCore,
@@ -64,8 +64,13 @@ function buyMany(verb, args, n){
   try{
     for(let i = 0; i < max; i++){
       const before = wallet();
-      fn.apply(null, a);
-      if(wallet() === before) break;
+      const logBefore = quietBuy.log.length;
+      const r = fn.apply(null, a);
+      /* 止まる条件は「何も起きなかった」こと。財布の数字だけを見ると、残高が桁違いに
+         大きい時に安い1歩の支払いが float64 の丸めで消え、買えたのに買えなかったと
+         誤判定して1歩で止まる (sakuri 報告 2026-11-20: 最大で1Lvしか上がらない)。
+         購入ログが増えた・動詞が true を返した時も「買えた」と数える */
+      if(wallet() === before && quietBuy.log.length === logBefore && r !== true) break;
       bought++;
     }
   }catch(e){ console.error("[miyuke] buyMany で例外", e); }

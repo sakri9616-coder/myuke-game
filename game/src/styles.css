@@ -76,10 +76,11 @@
   button.primary:active{box-shadow:inset 0 -2px 0 var(--accent-d), inset 0 2px 0 rgba(255,255,255,.45), 0 0 0 rgba(70,49,38,0);}
   button:focus-visible, select:focus-visible, textarea:focus-visible{outline:2.5px solid var(--accent-d);outline-offset:1px;}
   /* 購入ボタン: 価格は金の価格タグに分離 */
-  .buybtn{display:inline-flex;align-items:center;gap:7px;}
+  .buybtn{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;}   /* フレックス行の中でも購入ボタンは内容より縮めない (価格タグのはみ出し防止) */
   .buybtn .pricetag{background:var(--gold);border:2px solid var(--ink);border-radius:6px;
     padding:0 7px;font-weight:800;white-space:nowrap;
     box-shadow:inset 0 -3px 0 var(--gold-d), inset 0 1px 0 rgba(255,255,255,.55);}
+  .buybtn.lp .pricetag{font-size:.9em;padding:0 5px;letter-spacing:-.02em;}
   .buybtn .ahint{color:var(--accent-d);font-size:11px;font-weight:800;}
   .buybtn.almost{border-color:var(--accent-d);}
   @keyframes affordPulse{0%,100%{box-shadow:inset 0 -5px 0 var(--tan), inset 0 2px 0 rgba(255,255,255,.5), 0 2px 0 rgba(70,49,38,.25);}50%{box-shadow:inset 0 -5px 0 var(--tan), inset 0 2px 0 rgba(255,255,255,.5), 0 0 0 5px rgba(241,191,65,.65);}}
@@ -217,6 +218,7 @@
     padding:0 6px;font-size:11px;font-weight:800;vertical-align:1px;
     box-shadow:inset 0 -3px 0 var(--gold-d);}
   .buy{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .buy>div{min-width:0;}   /* 購入行ではテキスト側が縮んで価格タグの居場所を空ける (タグは絶対に縮めない・隠さない) */
   .log{font-size:12px;line-height:1.7;}
   .log div{border-bottom:2px solid var(--tan);box-shadow:0 1px 0 #fff;padding:3px 0;}
   .log .tm{color:var(--sub);}
@@ -342,7 +344,7 @@
   /* 再設計 段階4: スタッフタブの部署ごとの列（見出し・所属の猫・雇用）。上に次の社格の予告 */
   .rankbox{padding:9px 12px;}
   .rankbox .nm{font-size:14.5px;}
-  .deptcols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:0;margin:6px 0;
+  .deptcols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(160px,1fr);gap:0;margin:6px 0;
     align-items:stretch;overflow-x:auto;padding-bottom:2px;}
   .deptcol{display:flex;flex-direction:column;gap:3px;min-width:0;padding:0 4px;}
   .deptcol+.deptcol{border-left:1.5px solid var(--ink-soft);}
@@ -383,7 +385,7 @@
   .depthead .rs{font-size:10.5px;color:var(--sub);font-weight:700;line-height:1.35;}
   .depthead .rs.dl{color:var(--accent-d);}
   .dh-btns{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
-  .dh-btns .buybtn{flex:1 1 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
+  .dh-btns .buybtn{flex:1 0 auto;justify-content:center;font-size:11px;padding:2px 5px;gap:4px;}
   .dh-btns .pricetag,.catrow .pricetag{font-size:10.5px;padding:0 4px;}
   /* 所属の猫 = 1行の軽い行 */
   .catrow{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:5px;align-items:center;
@@ -402,8 +404,8 @@
   .buy>button, .staffcard>button{flex:0 0 auto;}
   .buybtn .buy-act{white-space:nowrap;}
   /* 「最大」: 購入ボタンの右隣の小さな相棒ボタン (買えるだけ一括で買う) */
-  .buypair{display:inline-flex;align-items:stretch;gap:3px;flex:0 1 auto;flex-wrap:nowrap;min-width:0;}
-  .buypair>.buybtn:first-child{min-width:0;}   /* 購入と「最大」は必ず横一列 (sakuri 規則 2026-11-20): 幅が足りない時は本体が縮み、最大を下に落とさない */
+  .buypair{display:inline-flex;align-items:stretch;gap:3px;flex:none;flex-wrap:nowrap;}
+  .buypair>.buybtn:first-child{flex:none;}   /* 購入と「最大」は必ず横一列 (sakuri 規則 2026-11-20)。ただし本体を内容より縮めると金の価格タグがはみ出して「最大」に重なる (sakuri 指摘 2026-11-20: 1.87e21 の表示崩れ) ので、本体は自然幅を保ち、狭い時は行のテキスト側が縮む・行が折り返す */
   .buybtn.maxbtn{font-size:10.5px;font-weight:800;padding:2px 6px;white-space:nowrap;}
   /* 長押しまとめ買い: 元ボタンの真上に、buybtn と同じ見た目の +50/+100 四角ボタンが浮く */
   #bulkfloat{position:fixed;z-index:9999;display:flex;gap:4px;pointer-events:none;border:2px solid var(--gold);border-radius:3px;background:var(--paper);padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
@@ -418,7 +420,7 @@
   .buybtn.bulk-src{outline:2px solid var(--accent);outline-offset:1px;}
   .buybtn.bulk-hot{filter:brightness(1.3);}
   .dh-btns .buypair{flex:1 1 auto;min-width:140px;}   /* 狭い部署カードでは各ペアが1行を取り切る (半分ずつ分けると最大が落ちる) */
-  .dh-btns .buypair>.buybtn:first-child{flex:1 1 auto;}
+  .dh-btns .buypair>.buybtn:first-child{flex:1 0 auto;}
   .dh-btns .buybtn.maxbtn{flex:0 0 auto;padding:2px 4px;}
   .catrow .buybtn.maxbtn{font-size:9.5px;padding:0 3px;}
   .catrow .firebtn{font-size:10px;padding:0 5px;color:var(--warn);flex:0 0 auto;margin-left:auto;}   /* 解雇は名前の行の右端 (育成行は価格+最大で満杯なので置かない) */
@@ -1103,3 +1105,26 @@
     .deco-branch, .deco-enc{display:none;}
     body:not(.strip) .resbar .res small{display:none;}
   }
+
+  /* ==== 数字の表示幅は固定 (2026-11-20 sakuri: 桁の変動で左右にチラつくのが嫌) ====
+     資源の数字は固定幅の箱の中で右寄せに増減するだけにして、隣のチップを動かさない。
+     幅は fmt の最長形 (指数表記 1.87e21 = 7文字) が収まる寸法で資源ごとに決める。
+     hudNum のロール (表示値が滑らかに寄る) でも箱の幅は変わらないので揺れない */
+  body:not(.strip) .resbar .res span[id]{display:inline-block;text-align:right;}
+  body:not(.strip) .resbar #r-coins{width:8ch;}
+  body:not(.strip) .resbar #r-rp{width:8ch;}
+  body:not(.strip) .resbar #r-ideas{width:7ch;}
+  body:not(.strip) .resbar #r-pkg{width:6ch;}
+  body:not(.strip) .resbar #r-bugs{width:6ch;}
+  body:not(.strip) .resbar #r-dust{width:5ch;}
+
+  /* ==== 猫の行もボタン列を固定幅で揃える (2026-11-20 sakuri: 行ごとの崩れ) ====
+     訓練ボタンと「最大」の幅を全行で同じにして、価格の桁で列が揃わなくならないようにする。
+     価格はボタンの中で右寄せ。Lv バッジも最小幅を持ち、桁が増えても解雇ボタンが動かない。
+     「あと○○不足」のヒントは狭い猫の行では出さない (幅が変わる原因になるため。
+     部署や一括の行には残してある) */
+  .catrow .buypair{flex:none;}
+  .catrow .buypair>.buybtn:first-child{flex:0 0 68px;justify-content:flex-end;}
+  .catrow .buypair>.buybtn:last-child{flex:0 0 26px;justify-content:center;}
+  .catrow .lvbadge{min-width:36px;text-align:center;}
+  .catrow .ahint{display:none;}

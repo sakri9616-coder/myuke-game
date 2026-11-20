@@ -264,15 +264,16 @@ function buyBulkTrain(){
    高Lvの1匹のコストが全体を止めることがない (全員+1Lv の全額必須とは別の経路)。
    買えない時は財布を動かさずに返るので、buyMany はそこで止まる */
 function bulkTrainStep(){
-  if(!S.staff.length) return;
+  if(!S.staff.length) return false;
   let best = null, bc = Infinity;
   for(const st of S.staff){ const c = trainCost(st); if(c < bc){ bc = c; best = st; } }
-  if(!best || S.coins < bc) return;
+  if(!best || S.coins < bc) return false;
   S.coins -= bc; best.lv = (best.lv || 1) + 1;
   SoundKit.play("purchase");
   addLog("🎓 育成: " + best.name + "（" + STAFF_ROLES[best.role].name + "）が Lv" + best.lv + " になった（-" + fmt(bc) + "🪙）");
   say(best.name + "、レベルアップにゃ！");
   save(); renderPanel();
+  return true;   /* buyMany の継続判定用 (財布が丸めで動かない時も「買えた」を伝える) */
 }
 /* スタッフ合計は1フレームの描画中に30回ほど呼ばれる (工程レート・山・ボトルネック判定…)。
    描画中は S が変わらないので、render() の間だけ1回の計算結果を使い回す

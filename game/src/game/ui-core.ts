@@ -105,9 +105,12 @@ function buyBtn(key, cost, cur, onclick, extraDisabled?, prefix?, steps?){
   const a = affordInfo(key, cost, cur);
   const unit = cur === "rp" ? "🔬" : cur === "dust" ? "⭐" : cur === "cheerP" ? "応援P" : "🪙";
   /* メニュー刷新 P1: 価格は金の価格タグとして分離表示 (MENU_REDESIGN_SPEC §4.5) */
+  const priceStr = fmt(cost);
   let label = (prefix ? "<span class='buy-act'>" + prefix + "</span>" : "") +
-    "<span class='pricetag'>" + fmt(cost) + unit + "</span>";
-  let cls = "buybtn";
+    "<span class='pricetag'>" + priceStr + unit + "</span>";
+  /* 長い価格 (指数表記など 7 文字以上) はタグの字を少し詰める: 狭いカードでも
+     タグがボタンからはみ出さないための級数調整 (sakuri 指摘 2026-11-20 の表示崩れ対策) */
+  let cls = "buybtn" + (priceStr.length >= 7 ? " lp" : "");
   if(a.almost){ label += " <span class='ahint'>あと " + fmt(a.deficit) + unit + "</span>"; cls += " almost"; }
   /* 再描画でボタンが作り直されてもパルスが頭から始まり直さないよう、経過時間ぶん位相をずらす */
   let pulseStyle = "";
@@ -162,18 +165,34 @@ function bulkInfoOf(onclick, cur, steps){
   const p = parseOnclick(onclick);
   if(!p) return null;
   return { v: p.v, a: p.a, cur, c50: steps.c50 != null ? steps.c50 : null, c100: steps.c100 != null ? steps.c100 : null,
-           cRest: steps.cRest != null ? steps.cRest : null, cRestN: steps.cRestN != null ? steps.cRestN : null };
+           cRest: steps.cRest != null ? steps.cRest : null, cRestN: steps.cRestN != null ? steps.cRestN : null,
+           n50: steps.n50 != null ? steps.n50 : null, p50: steps.p50 != null ? steps.p50 : null,
+           n100: steps.n100 != null ? steps.n100 : null, p100: steps.p100 != null ? steps.p100 : null,
+           nRest: steps.nRest != null ? steps.nRest : null, pRest: steps.pRest != null ? steps.pRest : null };
+}
+/* 予算 budget の中で買える歩数とその合計: 全額は無理でも「買える分だけ」の行を
+   長押しポップアップに出すため (sakuri 報告 2026-11-20: +50 がずっと死んでいた)。
+   全額行が有効になるのは今までどおり全額払える時だけ */
+function affordSteps(n, costAt, budget){
+  let t = 0, c = 0;
+  for(let i = 0; i < n; i++){ const p = costAt(i); if(t + p > budget) break; t += p; c++; }
+  return { n: c, sum: t };
 }
 /* ステップの合計価格: 残り回数 rem が n に満たない購入肢は出さない (届かない回数の合計は見せない)。
    costAt(i) は「これから i 回目 (0 始まり)」の価格。両肢とも無い場合は空オブジェクトを返し、
    呼び出し側には「最大」だけが付く (雇用を上限まで埋める・上限の近い強化の買い切り用)。
    ただし残りが 100 未満の時は「残り全部」も出す: 残り 49 以下で +50 が消えると
-   長押し自体が反応しなくなるため (上限 100 の応援強化などで実際に起きた) */
-function stepCosts(rem, costAt){
-  const o: { c50?: number; c100?: number; cRest?: number; cRestN?: number } = {};
-  if(rem >= 50){ let t = 0; for(let i = 0; i < 50; i++) t += costAt(i); o.c50 = t; }
-  if(rem >= 100){ let t = 0; for(let i = 0; i < 100; i++) t += costAt(i); o.c100 = t; }
-  if(rem > 1 && rem < 100 && rem !== 50){ let t = 0; for(let i = 0; i < rem; i++) t += costAt(i); o.cRest = t; o.cRestN = rem; }
+   長押し自体が反応しなくなるため (上限 100 の応援強化などで実際に起きた)。
+   budget を渡すと「買える歩数とその合計」も付け、ポップアップが部分行を出せる */
+function stepCosts(rem, costAt, budget?){
+  const o: { c1?: number; c50?: number; c100?: number; cRest?: number; cRestN?: number; n50?: number; p50?: number; n100?: number; p100?: number; nRest?: number; pRest?: number } = {};
+  if(rem >= 1) o.c1 = costAt(0);
+  if(rem >= 50){ let t = 0; for(let i = 0; i < 50; i++) t += costAt(i); o.c50 = t;
+    if(budget != null){ const a = affordSteps(50, costAt, budget); o.n50 = a.n; o.p50 = a.sum; } }
+  if(rem >= 100){ let t = 0; for(let i = 0; i < 100; i++) t += costAt(i); o.c100 = t;
+    if(budget != null){ const a = affordSteps(100, costAt, budget); o.n100 = a.n; o.p100 = a.sum; } }
+  if(rem > 1 && rem < 100 && rem !== 50){ let t = 0; for(let i = 0; i < rem; i++) t += costAt(i); o.cRest = t; o.cRestN = rem;
+    if(budget != null){ const a = affordSteps(rem, costAt, budget); o.nRest = a.n; o.pRest = a.sum; } }
   return o;
 }
 /* 一括育成ステップの合計価格: 安い順配分 (bulkTrainStep) をレベルの写しで模擬して数える */
@@ -192,7 +211,21 @@ function bulkStepCosts(){
   };
   let c1 = Infinity;
   for(const s of S.staff){ const c = trainCost(s); if(c < c1) c1 = c; }
-  return { c50: total(50), c100: total(100), c1: S.staff.length ? c1 : null };
+  /* 今のコインで買える歩数 (安い順配分の模擬に予算を入れたもの) */
+  const affordN = (n) => {
+    const cp = sim.map(s => ({ ...s }));
+    let t = 0, c = 0;
+    for(let k = 0; k < n; k++){
+      let bi = -1, bc = Infinity;
+      for(let i = 0; i < cp.length; i++){ const cc = trainCost(cp[i] as any); if(cc < bc){ bc = cc; bi = i; } }
+      if(bi < 0 || t + bc > S.coins) break;
+      t += bc; cp[bi].lv++; c++;
+    }
+    return { n: c, sum: t };
+  };
+  const a50 = affordN(50), a100 = affordN(100);
+  return { c50: total(50), c100: total(100), c1: S.staff.length ? c1 : null,
+           n50: a50.n, p50: a50.sum, n100: a100.n, p100: a100.sum };
 }
 /* 購入ボタンの長押しまとめ買い (2026-11-19 sakuri 指示「購入長押し→ドラッグ→50か100か」。
    ポップアップ型・ラジアル型は廃止し、四角ボタンに統一。ボタンをむやみに増やさないための形で、
@@ -209,9 +242,24 @@ const bulkPop = { info: null as any, btn: null as any, el: null as any, rows: nu
 function bulkPopRows(info){
   const unit = info.cur === "rp" ? "🔬" : info.cur === "dust" ? "⭐" : info.cur === "cheerP" ? "応援P" : "🪙";
   const rows = [];
-  for(const pair of [[50, info.c50, false], [100, info.c100, false], [info.cRestN, info.cRest, true]]){
-    if(pair[1] == null || pair[0] == null) continue;
-    rows.push({ n: pair[0], total: pair[1], rest: pair[2], ok: affordInfo("", pair[1], info.cur).afford, price: fmt(pair[1]) + unit });
+  /* 全額行に加えて、全額は無理でも一部買える時は「買える歩数」の行を実数・実価格で出す。
+     行の数字は実際に buyMany へ渡す歩数そのもの (見せかけの +50 で少なく買うことはしない) */
+  const seenPartial = new Set();
+  for(const b of [
+    { n: 50, total: info.c50, rest: false, an: info.n50, apart: info.p50 },
+    { n: 100, total: info.c100, rest: false, an: info.n100, apart: info.p100 },
+    { n: info.cRestN, total: info.cRest, rest: true, an: info.nRest, apart: info.pRest }
+  ]){
+    if(b.total == null || b.n == null) continue;
+    /* 予算が小さいと +50 枠と +100 枠の「買える歩数」が同じになる (同じ価格列の先頭から
+       数えるため)。部分行は同じ歩数を1行だけ出す */
+    if(b.an != null && b.an > 0 && b.an < b.n && !seenPartial.has(b.an)){
+      seenPartial.add(b.an);
+      rows.push({ n: b.an, total: b.apart, rest: false, ok: true, price: fmt(b.apart) + unit });
+    }
+    rows.push({ n: b.n, total: b.total, rest: b.rest,
+      ok: b.an != null ? b.an >= b.n : affordInfo("", b.total, info.cur).afford,
+      price: fmt(b.total) + unit });
   }
   rows.sort((x, y) => x.n - y.n);
   return rows;

@@ -261,7 +261,7 @@ function engineRowsHTML(engine){
     const lv = S.upgrades[def.id] || 0, maxed = lv >= def.max && !def.oc;
     h += "<div class='item buy slim' data-fix='eng:" + def.id + "'><div><span class='nm'>" + def.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") +
       dsLine(def.eff || "") + "</div>" +
-      (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("eng:" + def.id, upgradeCost(def, lv), "coins", "buyEngine(\"" + def.id + "\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i)))) + "</div>";
+      (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("eng:" + def.id, upgradeCost(def, lv), "coins", "buyEngine(\"" + def.id + "\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i), S.coins))) + "</div>";
   }
   return h;
 }
@@ -694,7 +694,7 @@ function renderPanelInto(el){
         })() +
         (locked ? "<div class='rs'>社格「" + rankName(roleRank(role)) + "」から</div>" : "") +
         "<div class='dh-btns'>" +
-        buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ", stepCosts(Infinity, i => deptCostAt(lv + i))) +
+        buyBtn("dept:" + role, deptCost(role), "coins", "buyDept(\"" + role + "\")", false, "Lv.up ", stepCosts(Infinity, i => deptCostAt(lv + i), S.coins)) +
         buyBtn("hire:" + role, hireCost(role), "coins", "hireStaff(\"" + role + "\")", ss.count >= staffCap() || locked, "雇用 ") +   /* 雇用にまとめ買いは付けない (sakuri 指示 2026-11-20: 最大も+50も不要。1人ずつ雇う) */
         "</div></div>";
       for(const st of S.staff.filter(x => x.role === role)){
@@ -709,7 +709,7 @@ function renderPanelInto(el){
           "<div class='sc-top'><span class='nm'>" + (chief === st ? "⭐" : "") + esc(st.name) + "</span><span class='lvbadge'>Lv" + st.lv + "</span>" +
           "<button class='buybtn firebtn' onclick='fireStaff(" + st.id + ")'>解雇</button></div>" +
           "<div class='cr-bot'><span class='sc-eff'>" + short + "</span>" +
-          buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")", false, "", stepCosts(Infinity, i => trainCost({ role: st.role, lv: (st.lv || 1) + i } as any))) + "</div></div>";   /* レベルデザイン改修: 訓練は無限（Lv11以降は逓減） */
+          buyBtn("train:"+st.id, tc, "coins", "trainStaff("+st.id+")", false, "", stepCosts(Infinity, i => trainCost({ role: st.role, lv: (st.lv || 1) + i } as any), S.coins)) + "</div></div>";   /* レベルデザイン改修: 訓練は無限（Lv11以降は逓減） */
       }
       h += "</div>";
     }
@@ -763,7 +763,7 @@ function renderPanelInto(el){
         const share = subCoinTot > 0 ? Math.round(r.coins / subCoinTot * 100) : 0;
         /* 配当率バー: 25%刻みの5ゾーンをクリックして切り替える（残りは再投資） */
         let divZones = "";
-        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
+        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDivTo(" + sub.id + "," + p + ")'></button>";
         cols += "<div class='subcol" + (demandMatch ? " demand" : "") + "'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
           "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" + (demandMatch ? "<span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>需要</span>" : "") + "</div>" +
@@ -778,11 +778,11 @@ function renderPanelInto(el){
           "</div>" +
           "<div class='subsec'><div class='subsec-h'>操作</div>" +
           "<div class='rs'>人員を増やす</div><div class='dh-btns'>" +
-          buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ", { c50: subHeadCostN(sub, 50), c100: subHeadCostN(sub, 100), onclick: "addSubStaff(" + sub.id + ",1)" }) +
+          buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ", (() => { const a50 = affordSteps(50, i => subHeadCostAt(sub, sub.staff + i), S.coins), a100 = affordSteps(100, i => subHeadCostAt(sub, sub.staff + i), S.coins); return { c50: subHeadCostN(sub, 50), c100: subHeadCostN(sub, 100), n50: a50.n, p50: a50.sum, n100: a100.n, p100: a100.sum, onclick: "addSubStaff(" + sub.id + ",1)" }; })()) +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") +
           "</div>" +
           "<div class='rs'>会社Lvを上げる（出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "・最大" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + "）</div><div class='dh-btns'>" +
-          (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", stepCosts(SUB_MAX_LV - sub.lv, i => subScaleCost({ ...sub, lv: sub.lv + i })))) + "</div>" +
+          (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", stepCosts(SUB_MAX_LV - sub.lv, i => subScaleCost({ ...sub, lv: sub.lv + i }), S.coins))) + "</div>" +
           "<div class='rs'>資産分配（配当率） <b>" + subDiv(sub) + "%</b></div>" +
           "<div class='divbar'><i style='width:" + subDiv(sub) + "%'></i><span class='dtick' style='left:25%'></span><span class='dtick' style='left:50%'></span><span class='dtick' style='left:75%'></span>" + divZones + "</div>" +
           "<div class='divticks'><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>" +
@@ -868,7 +868,7 @@ function renderPanelInto(el){
       const lv = S.upgrades[def.id]||0, cost = upgradeCost(def, lv), maxed = lv>=def.max && !def.oc;
       h += "<div class='item buy slim' data-fix='up:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+def.stage+"</span>"+
         dsLine(def.eff || "")+"</div>"+
-        (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:"+def.id, cost, "coins", "buyUpgrade(\""+def.id+"\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i))))+"</div>";
+        (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:"+def.id, cost, "coins", "buyUpgrade(\""+def.id+"\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i), S.coins)))+"</div>";
     }
     h += "</div>";
     /* 子ねこボットは「道具」でなく「同僚」: 解放は仲間 (Stage 4) と同じ。
@@ -882,7 +882,7 @@ function renderPanelInto(el){
       const blv = S.upgrades.bot || 0, bcost = upgradeCost(bdef, blv), bmaxed = blv >= bdef.max && !bdef.oc;
       h += "<div class='item buy slim' data-fix='up:bot'><div><span class='nm'>"+bdef.name+"</span> <span class='lvbadge'>Lv"+blv+"</span>" + (blv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+bdef.stage+"</span>"+
         dsLine(bdef.eff || "")+"</div>"+
-        (bmaxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")", false, "", stepCosts(bdef.oc ? Infinity : bdef.max - blv, i => upgradeCost(bdef, blv + i))))+"</div>";
+        (bmaxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")", false, "", stepCosts(bdef.oc ? Infinity : bdef.max - blv, i => upgradeCost(bdef, blv + i), S.coins)))+"</div>";
     }
     /* 再設計 B7: 経営方針の UI は売却カードの中へ一本化した（この旧位置には何も残さない） */
     const pv = prestigePreview();
@@ -901,7 +901,7 @@ function renderPanelInto(el){
           : (def.desc || "");
         dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
           dsLine(desc)+"</div>"+
-          buyBtn("perk:"+def.id, cost, "dust", "buyDustPerk(\""+def.id+"\")", false, "強化 ", stepCosts(def.maxLv - lv, i => Math.ceil(def.baseCost * Math.pow(def.costMul, lv + i))))+"</div>";
+          buyBtn("perk:"+def.id, cost, "dust", "buyDustPerk(\""+def.id+"\")", false, "強化 ", stepCosts(def.maxLv - lv, i => Math.ceil(def.baseCost * Math.pow(def.costMul, lv + i)), S.dust))+"</div>";
         continue;
       }
       if(hasPerk(def.id)){ dustChips += "<span class='featchip done'>✅ "+def.name+"</span>"; continue; }
@@ -1087,7 +1087,7 @@ function renderPanelInto(el){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
         dsLine(def.eff || "")+"</div>"+
-        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")", false, "", stepCosts(def.max - lv, i => clickCost(def, lv + i))))+"</div>";
+        (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")", false, "", stepCosts(def.max - lv, i => clickCost(def, lv + i), S.cheerP || 0)))+"</div>";
     }
     h += "</div>";
     const clickLog = kv("通算クリック", fmt(S.totals.clicks) + " 回") +
