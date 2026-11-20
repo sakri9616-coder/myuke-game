@@ -60,11 +60,14 @@ function tick(){
      アキュムレータへ供給する (演出専用。応援クリックの produceDP は
      tick の外で起きるため、この差分には混ざらない = 設計 #11) */
   const _fc1 = S.wip.code;
+  /* 工場フロア（工業拡張・試作）: 実装の供給はフロアの配置倍率を受ける
+     （標準レイアウトでは ×1 で従来と同一） */
+  const _floorCodeMult = floorCapMult("code");
   // 基本進捗 (DP/分 → /秒)。プログラミング系の状態でのみ進む
-  if(coding) produceDP(BAL.basePerMin/60, "l1");
+  if(coding) produceDP(BAL.basePerMin/60 * _floorCodeMult, "l1");
   // 子ねこボットとプログラマ猫は状態によらず働く
-  if((S.upgrades.bot||0) > 0) produceDP(botRate()/60, "l1");
-  if(ss.prog > 0) produceDP(ss.prog/60, "l1");
+  if((S.upgrades.bot||0) > 0) produceDP(botRate()/60 * _floorCodeMult, "l1");
+  if(ss.prog > 0) produceDP(ss.prog/60 * _floorCodeMult, "l1");
   if(ss.cheer > 0) staffCheerTick(ss.cheer);   /* 再設計 段階2: 応援係 */
   if(delegated("test", 3) && S.bugStock > 0) S.bugStock = Math.max(0, S.bugStock - (ss.byRole.test || 0) / 60);   /* 段階5: テスト部 Lv3 の見回り */
   deptDelegateTick();   /* 段階5: 部署の節目（自動研究・自動育成・自動補充） */
@@ -114,7 +117,8 @@ function tick(){
   // 残り) は、生産に倍率が乗り工程容量に乗らないため進行したセーブで残りが
   // 恒常的に 0 になり、ライン2が飢餓して永遠に完走しなかった (実機バグ)
   const bugF = bugFactor();
-  const caps = { test: testRate()/60, build: buildRate()/60, ship: shipRate()/60 };
+  /* 工場フロア（工業拡張・試作）: 工程容量はフロアの配置倍率を受ける（標準では ×1） */
+  const caps = { test: testRate()/60 * floorCapMult("test"), build: buildRate()/60 * floorCapMult("build"), ship: shipRate()/60 * floorCapMult("ship") };
   /* 再設計 段階1: ビルドはモジュールの完成を待たない（Wave H の「全モジュール完成まで build 0」は
      放置で L 作品が何時間も止まり、入金ゼロの日を作っていた）。未完成のモジュールは出荷時の品質＝値段にだけ効く */
   const capsL1 = caps;
@@ -124,6 +128,7 @@ function tick(){
     : processPipe(S.wip, capsL1, bugF, creditProject);
   /* 可視生産フローへの供給: 実フローの積分だけが帯の「物の流れ」になる */
   flowFeedTick(_fd1, used);
+  floorTick(1);   /* 工場フロア（工業拡張・試作）: 滞留シミュレーション（信号の材料。実パイプとは独立） */
   // 研究員の研究Pトリクル
   if(ss.rp > 0) S.rp += ss.rp/60;
   /* Sprint 4: ティア1研究を全て終えた研究員は、第二の仕事として余った

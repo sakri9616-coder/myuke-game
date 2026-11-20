@@ -111,8 +111,9 @@ function planFrac(){
 }
 function stageStatus(){
   const bugF = bugFactor();
-  const inflow = productionRate();
-  const tEff = testRate() * bugF, bR = buildRate(), sR = shipRate();
+  /* 工場フロア（工業拡張・試作）: レートはフロアの配置倍率込みで見る（標準では ×1） */
+  const inflow = productionRate() * floorCapMult("code");
+  const tEff = testRate() * bugF * floorCapMult("test"), bR = buildRate() * floorCapMult("build"), sR = shipRate() * floorCapMult("ship");
   const wCode = S.wip.code, wTested = S.wip.tested, wBuilt = S.wip.built;
   /* バーの容量 = 下流が約2分で捌ける量（最低60DP）。満杯=飽和の目安 */
   const capCode = Math.max(60, tEff * 2), capTested = Math.max(60, bR * 2), capBuilt = Math.max(60, sR * 2);
@@ -129,6 +130,11 @@ function stageStatus(){
   else if(wTested <= 0.01 || (wBuilt >= capBuilt && sR < bR)) buildLamp = "yellow";
   let shipLamp = "green";
   if(wBuilt <= 0.01 || (S.project && S.project.planning)) shipLamp = "yellow";
+  /* 工場フロアで止められた工程（マシンなし・切り離し）は赤で示す */
+  if(floorCapMult("code") === 0) codeLamp = "red";
+  if(floorCapMult("test") === 0) testLamp = "red";
+  if(floorCapMult("build") === 0) buildLamp = "red";
+  if(floorCapMult("ship") === 0) shipLamp = "red";
   return [
     { id:"plan",  name:"企画",   lamp: planning ? "yellow" : "green", frac: planFrac() },
     { id:"code",  name:"実装",   lamp: codeLamp,  frac: Math.min(1, wCode / capCode) },
@@ -803,6 +809,13 @@ function renderPanelInto(el){
     const bn = bottleneckInfo();
     h += mgmtSummaryHTML();   /* 経営サマリ（03 パターンA）: タブ最上段に型で固定 */
     h += "<h3>🏭 開発工場</h3>";
+    /* 工業拡張・試作（2026-11-20, UX §1.1）: 工場タブ内のサブビュー切替（新タブは作らない） */
+    h += "<div class='floorbar' style='margin-bottom:6px'>" +
+      "<button class='" + (floorTabView === "line" ? "on" : "") + "' onclick='floorSetTabView(\"line\")'>ライン表示</button>" +
+      "<button class='" + (floorTabView === "floor" ? "on" : "") + "' onclick='floorSetTabView(\"floor\")'>フロア編集</button></div>";
+    if(floorTabView === "floor"){
+      h += floorScreenHTML();
+    } else {
     /* 拡張ウェーブ G: 会社の経営状態（負債とブランド）。数値は大きく、説明は短く */
     {
       const d = fmt(Math.round(S.debt || 0)), b = fmt(Math.round(S.brand || 0));
@@ -1043,6 +1056,7 @@ function renderPanelInto(el){
       }
       h += foldSec("trend", false, "📊 市場トレンド", "📈 " + gName(t.boom) + " ／ 📉 " + gName(t.slump), trBody);
     }
+    }   /* フロア編集サブビューとの else（工業拡張・試作） */
   }
   if(currentTab === "click"){
     h += "<h3>👆 応援クリック</h3>";
@@ -1210,7 +1224,7 @@ function renderPanelInto(el){
     h += "<div class='item buy slim'><div><span class='sock'>◥</span><span class='nm'>帯の位置</span><div class='ds'>帯の右上の ◥ をドラッグすると好きな場所へ動かせます（位置は保存されます）</div></div>"+
       "<button onclick='resetStripPos()'>画面下に戻す</button></div>";
     if(layoutLive) h += "<div class='item buy slim'><div><span class='sock'>🗂️</span><span class='nm'>メニューの配置</span><div class='ds'>タブはドラッグで別の列へ移したり、パネルの端へ落として分割できます（配置はこのウィンドウに保存されます）</div></div>"+
-      "<button onclick='resetMenuLayout()'>元に戻す</button></div>";
+      "<button onclick='resetMenuLayout()'>既定の配置に戻す</button></div>";
     /* 帯の大きさ (v2.4.6: 旧70% = 新100% 基準。占有を抑えるのが本来の目的) */
     {
       const dpr = window.devicePixelRatio || 1;
@@ -1321,6 +1335,7 @@ function setPanelHTML(el, h){
   if(el.firstChild && (el as any).__lastHTML != null && morphPanel(el, h)){ /* 差分で更新した */ }
   else el.innerHTML = h;
   (el as any).__lastHTML = h;
+  try{ floorDraw(); }catch(e){}   /* 工場フロアのグリッド描画（配置ビューを開いているときだけ実在する） */
   if(focusKey && !(document.activeElement && el.contains(document.activeElement) && document.activeElement !== document.body)){
     const same = Array.prototype.filter.call(el.querySelectorAll("button"), b => (b.getAttribute("onclick") || b.textContent) === focusKey.sig);
     const target = same[Math.min(focusKey.idx, same.length - 1)];

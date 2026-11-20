@@ -467,6 +467,7 @@
     --ide-taboff:#1E1E1E; --ide-line:#454545; --ide-linesoft:#2B2B2B;
     --ide-ink:#D4D4D4; --ide-sub:#A6A6A6; --ide-status:#007ACC;
     --syn-blue:#6FA8DC; --syn-str:#F49A45; --syn-func:#F8CF69; --syn-type:#5EC8B4;
+    --syn-blue-fill:rgba(111,168,220,.28); --syn-blue-line:rgba(111,168,220,.7);   /* --syn-blue の面/線（分割ドロップヒント用） */
     --syn-num:#B5CEA8; --syn-green:#7BE495; --syn-purple:#C586C0;
     --ide-red:#E5534B; --ide-errtx:#F48771; --ide-warn:#FFD479; --ide-gold:#F1BF41;
     --ide-paper:#FFF5E6;
@@ -649,6 +650,53 @@
   body:not(.strip) .spark i{display:block;width:6px;background:var(--syn-blue);}
   body:not(.strip) .spark.gold i{background:var(--ide-gold);}
   body:not(.strip) .secline{display:flex;gap:var(--sp-3);align-items:baseline;margin-top:var(--sp-3);font-size:var(--fs-body);}
+  /* ---------- 工場フロア（工業拡張・最小試作 2026-11-20）: 02 規約準拠（角丸3px・線1px・余白は梯子のみ） ---------- */
+  body:not(.strip) .floorbar{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin:var(--sp-2) 0;}
+  body:not(.strip) .floorbar button{border-radius:3px;}
+  body:not(.strip) .floorbar button.on{border-color:var(--ide-status);color:var(--ide-ink);box-shadow:inset 0 -2px 0 var(--ide-status);}
+  body:not(.strip) .floornote{font-size:var(--fs-cap);color:var(--ide-sub);}
+  body:not(.strip) .floortool i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:var(--sp-1);}
+  body:not(.strip) .floorrows{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .floorrow{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-3);}
+  body:not(.strip) .floorrow .fk{font-weight:700;border-left:3px solid var(--ide-line);padding-left:var(--sp-2);min-width:52px;}
+  body:not(.strip) .floorrow .fv{font-size:var(--fs-cap);color:var(--ide-sub);}
+  body:not(.strip) .floorrow .fv b{font-family:var(--mono);font-size:var(--fs-num);color:var(--ide-ink);}
+  body:not(.strip) .floorrow .fchip{margin-left:auto;font-size:var(--fs-cap);font-weight:700;color:#101010;border-radius:3px;padding:1px var(--sp-2);}
+  body:not(.strip) #floorCv{width:100%;max-width:840px;display:block;background:var(--ide-bg);border:1px solid var(--ide-line);border-radius:3px;cursor:pointer;}
+  /* フロア編集の1画面構成（UX §1.2: 左=計画／右=配置＋下部ドック） */
+  body:not(.strip) .floorwrap{display:flex;gap:var(--sp-4);align-items:flex-start;flex-wrap:wrap;}
+  body:not(.strip) .floorpane{flex:1 1 302px;max-width:340px;background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-3);}
+  /* 狭いグループでは計画パネルがキャンバスの上段へ畳まれる（ux-tab-split §4: 幅への適応は中身の責任）。
+     302+340+余白 ≒ 700px が折り返し点になる */
+  body:not(.strip) .floorright{flex:1 1 340px;min-width:min(340px,100%);}
+  body:not(.strip) .frow1{display:flex;gap:var(--sp-2);align-items:center;margin:var(--sp-2) 0;font-size:12px;}
+  body:not(.strip) .floorin{width:76px;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;color:var(--ide-ink);padding:3px 6px;font-family:var(--mono);text-align:right;}
+  body:not(.strip) .floorreq{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .reqrow{display:flex;gap:var(--sp-2);align-items:center;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-2);font-size:12px;cursor:pointer;}
+  body:not(.strip) .reqrow .fv{flex:1;}
+  body:not(.strip) .reqrow .fv b{font-family:var(--mono);}
+  body:not(.strip) .fdown{color:var(--delta-down);}
+  body:not(.strip) .fflat{color:var(--delta-flat);}
+  body:not(.strip) .floorverify{width:100%;margin-top:var(--sp-3);}
+  body:not(.strip) .floordiag{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);}
+  body:not(.strip) .diagrow{display:flex;gap:var(--sp-2);align-items:center;background:var(--ide-panel2);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-1) var(--sp-2);font-size:12px;}
+  body:not(.strip) .diagrow .dtext{flex:1;}
+  body:not(.strip) .floorsel{margin-top:var(--sp-2);background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-2);font-size:12px;}
+  body:not(.strip) .floorsel b{font-family:var(--mono);}
+  /* パレットドック（UX §3.1: 3カテゴリ＋カード解剖学。購入導線は混ぜない） */
+  body:not(.strip) .paldock{margin-top:var(--sp-3);background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;padding:var(--sp-2);}
+  body:not(.strip) .palcats{display:flex;gap:var(--sp-1);margin-bottom:var(--sp-2);}
+  body:not(.strip) .palcats button.on{border-color:var(--ide-status);color:var(--ide-ink);box-shadow:inset 0 -2px 0 var(--ide-status);}
+  body:not(.strip) .palcards{display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+  body:not(.strip) .mcard{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;min-width:118px;border-radius:3px;}
+  body:not(.strip) .mcard.on{border-color:#FFD94D;color:var(--ide-ink);}
+  body:not(.strip) .mcard.dis{opacity:.55;border:1px dashed var(--ide-line);border-radius:3px;padding:var(--sp-2);font-size:12px;}
+  body:not(.strip) .mchead{display:flex;gap:var(--sp-1);align-items:center;font-weight:700;font-size:12px;}
+  body:not(.strip) .mchead i{display:inline-block;width:8px;height:8px;border-radius:2px;}
+  body:not(.strip) .mchead small{color:var(--ide-sub);font-weight:400;}
+  body:not(.strip) .mcrate{font-family:var(--mono);font-size:15px;color:var(--kpi-ink);}
+  body:not(.strip) .mcrate small{font-size:10px;color:var(--ide-sub);}
+  body:not(.strip) .mcline{font-size:11px;color:var(--ide-sub);}
   body:not(.strip) .sectag{font-weight:700;color:var(--ide-sub);font-size:var(--fs-cap);white-space:nowrap;}
   @media (min-width:761px){
     body:not(.strip) .ratecell:not(:last-child)::after{content:"";position:absolute;
@@ -1008,5 +1056,5 @@
     background:var(--ide-panel, #252526);color:var(--ide-ink, #D4D4D4);border:1px solid var(--ide-line, #454545);
     border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,.45);opacity:.92;white-space:nowrap;}
   .drop-hint{position:fixed;z-index:9998;pointer-events:none;display:none;
-    background:rgba(0,90,158,.28);outline:1px solid rgba(111,168,220,.7);transition:left .08s,top .08s,width .08s,height .08s;}
+    background:var(--syn-blue-fill);outline:1px solid var(--syn-blue-line);transition:left .08s,top .08s,width .08s,height .08s;}
   .drop-hint.strip{background:var(--syn-str, #F49A45);outline:0;transition:none;}

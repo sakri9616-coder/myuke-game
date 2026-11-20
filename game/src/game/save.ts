@@ -38,6 +38,7 @@ function freshState(): GameState {
     /* v2 追加分（v1セーブには無いので load() で補完される） */
     staff:[], staffSeq:0, studioLv:1, maxStudioLv:1, clickUp:{}, cheerP:0,
     wip:{ code:0, tested:0, built:0 },
+    floor: null,   /* 工場フロア（工業拡張・試作）: 初回に標準レイアウトを自動生成する */
     today:{ date:todayKey(), keys:0, cursorPx:0, lines:0, bugs:0, releases:0, commits:0, treats:0 },
     totals:{ keys:0, cursorPx:0, lines:0, bugsSquashed:0, releases:0, commits:0, coinsEarned:0, naps:0, playSec:0,
              clicks:0, crits:0, goldFish:0, eventBugs:0, hired:0,

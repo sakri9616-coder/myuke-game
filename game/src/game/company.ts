@@ -397,6 +397,7 @@ function resetCompanyRun(){
   S.annexStage = 0;   /* 再設計 B11: 看板の段階も会社と一緒にリセット（次周回は段階1から） */
   lastCatalogAtSec = -1;   /* 再設計 B4: 間隔係数の起点も会社と一緒にリセット（次の会社は最初の1本から） */
   S.subs = [];   /* Phase D: グループEXIT — 子会社も売却対象（価値は gain に上乗せ済み） */
+  S.floor = null;   /* 工業拡張（LD r5 §0）: 土地は会社単位 — EXIT で畳み、次会社は標準レイアウトから（floorEnsure が再生成） */
   /* v2: スタッフ・スタジオ・ラインもリセット（ジャンル特化の希望だけ残す） */
   S.staff = [];
   S.studioLv = startRank();   /* 応援強化と応援P はみゅけ自身の腕前なので売却では残す（持株化で畳む）。段階6: EXIT の節目で開始社格が上がる */
