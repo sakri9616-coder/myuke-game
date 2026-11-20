@@ -25,9 +25,13 @@ function prestigeCertHTML(pv, pb, knowAdd){
   let h = "<div class='item cert' style='margin-top:12px'>" +
     "<div class='cert-title'>卒業証書</div>" +
     "<div class='ds' style='margin-top:5px;text-align:center'>『" + rankName(S.maxStudioLv || S.studioLv) + "』のこの会社は、立派に売却されました。</div>" +
-    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——受け取るもの——</div>" +
-    "<div class='ds'>星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + pts + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
-    "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b></div></div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds' style='text-align:center'>——受け取るもの——</div>" +
+    "<div class='statgrid'>" +
+    statBlock("⭐ 星屑", "+" + fmt(pv.gain), "") +
+    statBlock("🎖 売却実績", "+" + pts, eraExitPts() + " → " + (eraExitPts() + pts) + " / " + HOLD_EXITS) +
+    (knowAdd > 0 ? statBlock("📚 知見", "+" + fmtDec(knowAdd, 1), "") : "") +
+    statBlock("⚡ 生産倍率", "×" + fmtDec(pv.nextMult, 2), "いま ×" + fmtDec(pv.curMult, 2)) +
+    "</div></div>" +
     "<div class='ds' style='margin-top:5px'>役員として残る猫：" + (execCat ? "<b>" + esc(execCat.name) + "</b>（次の会社でも、入口で待っています）" : "なし") + "</div>" +
     "<div class='ds'>新しい会社は、まっさらな状態から始まります。</div>" +
     "<div class='ds'>星屑ショップの永続特典は、売却しても消えません。</div>" +
@@ -51,8 +55,12 @@ function holdingsCertHTML(hp){
     "<div class='ds' style='margin-top:5px;text-align:center'>『" + eraName() + "』は、EXIT " + eraExits + " 回、星屑 " + fmt(S.eraDust || 0) + " 個の時代でした。</div>" +
     "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——この時代で収めるもの——</div>" +
     "<div class='ds'>星屑と星屑の特典／応援の蓄え／コイン・スタッフ・研究・部署・子会社（時代の記録に収められます）</div></div>" +
-    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>——新しい時代に受け取るもの——</div>" +
-    "<div class='ds'>星団 <b>+" + hp.gain + "</b>（時代の累計星屑からの換算）／ 星屑倍率の土台 <b>×" + fmt(hp.baseNow) + " → ×" + fmt(hp.baseNext) + "</b> ／ レガシー技術への道</div>" +
+    "<div style='margin-top:7px;border-top:1px solid var(--line);padding-top:6px'><div class='ds' style='text-align:center'>——新しい時代に受け取るもの——</div>" +
+    "<div class='statgrid'>" +
+    statBlock("🌌 星団", "+" + fmt(hp.gain), "時代の累計星屑から換算") +
+    statBlock("⭐ 星屑倍率の土台", "×" + fmt(hp.baseNext), "いま ×" + fmt(hp.baseNow)) +
+    "</div>" +
+    "<div class='ds' style='text-align:center'>🌌 レガシー技術への道が開きます</div>" +
     (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
     /* A3（2026-11-02 みゅー作画）: 時代の記録には金の肉球印を押す */
     (hasSprite("a3_holdings_seal") ? "<img src='" + spriteURL("a3_holdings_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:2px 2px 2px 8px'>" : "") +
@@ -250,9 +258,8 @@ function engineRowsHTML(engine){
   let h = "";
   for(const def of ENGINE_DEFS.filter(d => d.engine === engine)){
     const lv = S.upgrades[def.id] || 0, maxed = lv >= def.max && !def.oc;
-    const ocNote = def.oc && lv >= 100 ? "<br>🔓 限界突破中" : "";
     h += "<div class='item buy slim' data-fix='eng:" + def.id + "'><div><span class='nm'>" + def.name + "</span> <span class='lvbadge'>Lv" + lv + "</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") +
-      dsLine(milestoneNote(def, lv) + ocNote) + "</div>" +
+      dsLine(def.eff || "") + "</div>" +
       (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("eng:" + def.id, upgradeCost(def, lv), "coins", "buyEngine(\"" + def.id + "\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i)))) + "</div>";
   }
   return h;
@@ -305,10 +312,6 @@ function mgmtSecretary(){
   const bn = bottleneckInfo();
   if(bn.isBn) return bn.worst.name + "工程が詰まり気味です。対策は下の工程からどうぞ。";
   if((S.bugStock || 0) > 8) return "バグ在庫が " + fmt(S.bugStock) + " 匹たまっています。テスト工程が苦しそうです。";
-  for(const sub of (S.subs || [])){
-    if(["m10", "m25", "m50"].some(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]))
-      return "子会社「" + esc(sub.name) + "」に特性の選択待ちがあります。子会社タブで選べます。";
-  }
   const need = nextRankValue();
   if(need && (S.runPeakValue || 0) / need >= 0.8) return "次の社格「" + rankName(S.studioLv + 1) + "」まであと少し。企業価値は " + Math.round((S.runPeakValue || 0) / need * 100) + "% まで来ています。";
   if(S.fever && (S.fever.gauge || 0) >= 100) return "フィーバーゲージが満タンです。帯から発動できます。";
@@ -360,8 +363,10 @@ function mgmtSummaryHTML(){
   return h;
 }
 /* ---------- 遊び方タブ (2026-11-20 sakuri 指示: 説明は省いて遊び方にまとめる) ----------
-   作業タブは購入・売却の判断だけに集中させ、仕組みの説明とアイテムの説明文は全部ここへ集約した。
-   辞典は defs の desc から生成する (二重管理しない)。作業タブ側は dsLine で節目予告だけを残す */
+   作業タブは購入・売却の判断だけに集中させ、仕組みの説明は全部ここへ集約した。
+   辞典は defs の desc から生成する (二重管理しない)。
+   境界の修正 (同日 sakuri): カードには「買えば何が上がるか」の簡潔な効果行 (defs の eff / desc) を残し、
+   節目ボーナスのような全カード共通の繰り返し項目はここへ寄せる */
 function howtoDictRows(list, nameOf, descOf){
   let h = "";
   for(const d of list){
@@ -382,6 +387,7 @@ function howtoHTML(){
     howtoNote("どの収入源に強化を積むかで主役が変わります（労働＝応援＋持ち場の手助け、本社ライン＝工場とスタッフ、作品棚・営業・子会社＝各タブの強化）。"));
   h += foldSec("howto-factory", false, "🏭 工場・バグ・限界突破", "",
     howtoNote("バグを抱えたまま出荷すると負債が積みます（総務のお世話係が少しずつ返済します）。バグのない出荷でブランドが育ち、単価が上がります。どちらも EXIT で清算されます。") +
+    howtoNote("節目ボーナス: 強化が Lv10・25・50・100 に届くと、その節目の半分の Lv ぶん効果が上乗せされます（全節目で +92.5Lv分）。") +
     howtoNote("限界突破: Lv100 を超えた強化は節目が Lv100 で固定され、価格は ×1.35 ずつ上昇します。"));
   h += foldSec("howto-shelf", false, "📚 作品棚と依頼", "",
     howtoNote("依頼にペナルティはありません。受けると次の作品がそのジャンルになります（進行中は消えません）。リリースでボーナス。営業がいると、枠が空くと自動で取ってきます。大型案件とティア3には納期があります（過ぎるとボーナス消滅）。"));
@@ -715,7 +721,7 @@ function renderPanelInto(el){
     /* Sprint 4: ご褒美（終盤のコインシンク）は低頻度なので折りたたみへ */
     let treatHTML = "";
     for(const def of TREAT_DEFS){
-      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span></div>"+
+      treatHTML += "<div class='item buy slim' data-fix='treat:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+dsLine(def.desc || "")+"</div>"+
         buyBtn("treat:"+def.id, treatCost(def), "coins", "buyTreat(\""+def.id+"\")")+"</div>";
     }
     /* チュートリアル導線: ご褒美は終盤のコインシンク。累計5,000🪙 までは
@@ -745,52 +751,38 @@ function renderPanelInto(el){
         groupTotalLine = "<div class='note' style='font-size:12px'>💰 本社 <b>" + fmt(hqOnly) + "🪙/分</b> ＋ 子会社 <b>" + fmt(subCoinTot) + "🪙/分</b> ＝ 合計 <b>" + fmt(hqOnly + subCoinTot) + "🪙/分</b></div>";
       }
       const demG = GENRES.find(g => g.id === eraDemandGenre());
-      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です——需要ジャンルの子会社は売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります。時代の間は変わりません</div>" : "";
+      const demandBanner = demG ? "<div class='note' style='font-size:12px'>📈 この時代の需要は <b>" + demG.name + "</b> です。<br>需要ジャンルの子会社は、売上の基礎レートが ×" + SUB_POLICY.demandMult + " になります。<br>時代の間は変わりません。</div>" : "";
       let cols = "";
       for(const sub of subs){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
         const demandMatch = sub.genre === eraDemandGenre();
-        /* 選択待ち: 到達済みで未選択の節目が1つでもあれば見出しにバッジ */
-        const pendingKeys = ["m10", "m25", "m50"].filter(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]);
-        const nextMs = ["m10", "m25", "m50"].find(key => sub.lv < SUB_POLICY.traits[key].lv);
         const share = subCoinTot > 0 ? Math.round(r.coins / subCoinTot * 100) : 0;
-        let traitSec = "";
-        for(const key of ["m10", "m25", "m50"]){
-          const def = SUB_POLICY.traits[key];
-          const chosen = (sub.traits || {})[key];
-          if(chosen && def.choices[chosen]) traitSec += "<div class='rs'>特性 会社Lv" + def.lv + ": <b>" + def.choices[chosen].name + "</b></div>";
-          else if(sub.lv >= def.lv){
-            traitSec += "<div class='rs'>会社Lv" + def.lv + " の節目——特性を1つ選べます";
-            for(const ck of Object.keys(def.choices)){
-              const cd = def.choices[ck];
-              const eff = key === "m10" ? ("コイン ×" + cd.coins + " ・ DP ×" + cd.dp) : key === "m25" ? (ck === "hire" ? "自社の採用コスト ×0.7" : "自社の規模コスト ×0.7") : (ck === "flag" ? "全レート ×1.3" : "配当率によらず売上の25%を必ず再投資");
-              traitSec += " <button onclick='setSubTrait(" + sub.id + ",\"" + key + "\",\"" + ck + "\")'>" + cd.name + "（" + eff + "）</button>";
-            }
-            traitSec += "<br><span style='opacity:.72'>恒久・選び直しはできません</span></div>";
-          }
-        }
-        if(nextMs) traitSec += "<div class='rs' style='opacity:.72'>次の節目 会社Lv" + SUB_POLICY.traits[nextMs].lv + " まで あと " + (SUB_POLICY.traits[nextMs].lv - sub.lv) + " Lv</div>";
-        cols += "<div class='subcol'>" +
+        /* 配当率バー: 25%刻みの5ゾーンをクリックして切り替える（残りは再投資） */
+        let divZones = "";
+        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
+        cols += "<div class='subcol" + (demandMatch ? " demand" : "") + "'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
-          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span><span class='dlv'>会社Lv" + sub.lv + "</span></div>" +
-          (pendingKeys.length ? "<div><span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>⚠ 選択待ち</span></div>" : "") +
+          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" + (demandMatch ? "<span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>需要</span>" : "") + "</div>" +
+          "<div class='substats'>" +
+          "<span class='substat'><small>会社Lv</small><b>" + sub.lv + "</b></span>" +
+          "<span class='substat'><small>スタッフ</small><b>" + sub.staff + "人</b></span>" +
+          "<span class='substat'><small>生産力</small><b>" + fmtDec(r.dp, 1) + " DP/分</b></span>" +
+          "</div>" +
           "<div class='rv'>" + fmt(r.coins) + " <small>🪙/分</small></div>" +
           "<span class='lampbar'><i style='width:" + share + "%'></i></span>" +
           "<div class='rs'>グループ売上の " + share + "%</div>" +
-          "<div class='rs'>生産力 " + fmtDec(r.dp, 1) + " DP/分 ・ スタッフ " + sub.staff + "人 ・ 会社Lv" + sub.lv + "（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
           "</div>" +
-          "<div class='subsec'><div class='rs'>🎬 『" + esc(subWorkName(sub)) + "』" + (demandMatch ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>📈 この時代の需要（売上 ×" + SUB_POLICY.demandMult + "）</span>" : "") + "</div></div>" +
-          "<div class='subsec'><div class='subsec-h'>節目特性</div>" + traitSec + "</div>" +
           "<div class='subsec'><div class='subsec-h'>操作</div>" +
           "<div class='rs'>人員を増やす</div><div class='dh-btns'>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ", { c50: subHeadCostN(sub, 50), c100: subHeadCostN(sub, 100), onclick: "addSubStaff(" + sub.id + ",1)" }) +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") +
           "</div>" +
-          "<div class='rs'>会社Lvを上げる（出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "・最大" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + "）" + milestoneNote({ ms: true }, sub.lv) + "</div><div class='dh-btns'>" +
+          "<div class='rs'>会社Lvを上げる（出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "・最大" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + "）</div><div class='dh-btns'>" +
           (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", stepCosts(SUB_MAX_LV - sub.lv, i => subScaleCost({ ...sub, lv: sub.lv + i })))) + "</div>" +
-          "<div class='rs'>資産分配（配当率） <b>" + subDiv(sub) + "%</b>" +
-          " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div>" +
+          "<div class='rs'>資産分配（配当率） <b>" + subDiv(sub) + "%</b></div>" +
+          "<div class='divbar'><i style='width:" + subDiv(sub) + "%'></i><span class='dtick' style='left:25%'></span><span class='dtick' style='left:50%'></span><span class='dtick' style='left:75%'></span>" + divZones + "</div>" +
+          "<div class='divticks'><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>" +
           "<div class='rs'>蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙 ・ 目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分 ・ 残りは人員と会社Lvに再投資</div>" +
           "<div class='rs'>子会社だけ売却（部分EXIT）: 星屑 +" + subDustValue(sub) + " 個 <button onclick='sellSub(" + sub.id + ")'>売却する</button></div>" +
           "</div></div>";
@@ -871,9 +863,8 @@ function renderPanelInto(el){
     for(const def of UPGRADE_DEFS){
       if(def.id === "bot") continue;   /* ボットは「同僚」枠としてグリッドの外に別掲 */
       const lv = S.upgrades[def.id]||0, cost = upgradeCost(def, lv), maxed = lv>=def.max && !def.oc;
-      const ocNote = def.oc && lv >= 100 ? "<br>🔓 限界突破中" : "";
       h += "<div class='item buy slim' data-fix='up:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>" + (def.oc && lv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+def.stage+"</span>"+
-        dsLine(milestoneNote(def, lv)+ocNote)+"</div>"+
+        dsLine(def.eff || "")+"</div>"+
         (maxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:"+def.id, cost, "coins", "buyUpgrade(\""+def.id+"\")", false, "", stepCosts(def.oc ? Infinity : def.max - lv, i => upgradeCost(def, lv + i))))+"</div>";
     }
     h += "</div>";
@@ -887,7 +878,7 @@ function renderPanelInto(el){
       const bdef = UPGRADE_DEFS.find(u => u.id === "bot");
       const blv = S.upgrades.bot || 0, bcost = upgradeCost(bdef, blv), bmaxed = blv >= bdef.max && !bdef.oc;
       h += "<div class='item buy slim' data-fix='up:bot'><div><span class='nm'>"+bdef.name+"</span> <span class='lvbadge'>Lv"+blv+"</span>" + (blv >= 100 ? " <span class='tagchip'>限界突破可</span>" : "") + " <span class='tagchip'>"+bdef.stage+"</span>"+
-        dsLine(milestoneNote(bdef, blv)+(blv >= 100 ? "<br>🔓 限界突破中" : ""))+"</div>"+
+        dsLine(bdef.eff || "")+"</div>"+
         (bmaxed ? "<span class='tagchip'>MAX（ここまで）</span>" : buyBtn("up:bot", bcost, "coins", "buyUpgrade(\"bot\")", false, "", stepCosts(bdef.oc ? Infinity : bdef.max - blv, i => upgradeCost(bdef, blv + i))))+"</div>";
     }
     /* 再設計 B7: 経営方針の UI は売却カードの中へ一本化した（この旧位置には何も残さない） */
@@ -910,7 +901,7 @@ function renderPanelInto(el){
         continue;
       }
       if(hasPerk(def.id)){ dustChips += "<span class='featchip done'>✅ "+def.name+"</span>"; continue; }
-      dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span></div>"+
+      dustRows += "<div class='item buy slim' data-fix='perk:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+dsLine(def.desc || "")+"</div>"+
         buyBtn("perk:"+def.id, def.cost, "dust", "buyDustPerk(\""+def.id+"\")")+"</div>";
     }
     const dustBody = (dustRows ? "<div class='buygrid'>"+dustRows+"</div>" : "") +
@@ -955,11 +946,16 @@ function renderPanelInto(el){
         (baseGain < cap
           ? "<div class='ds' style='color:#7ba05b'>いまが売りどきです——伸びが素直なうちに売れる、気持ちのいい卒業になります。</div>"
           : "<div class='ds'>売りどきは少し過ぎました。ここからは伸びがゆるやかです。——それでも、いつ売るかはあなたが決めることです。</div>") + "</div>" +
-        /* 3: 受け取るものの予告 */
-        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で: 星屑 <b>+" + pv.gain + "</b> ／ 売却実績 <b>+" + (pb.ptsSize + pb.ptsEra) + "</b>（現在 " + eraExitPts() + " / " + HOLD_EXITS + "）" + (knowAdd > 0 ? " ／ 知見 <b>+" + fmtDec(knowAdd, 1) + "</b>" : "") + "</div>" +
-        "<div class='ds'>生産倍率 ×" + fmtDec(pv.curMult, 2) + " → <b>×" + fmtDec(pv.nextMult, 2) + "</b>" + (pv.subGain > 0 ? " ・ うち子会社ぶん（目安）星屑 約 " + pv.subGain + " 個" : "") + "</div>" +
-        "<div class='note'>内訳: " + pbTxt + "</div>" +
-        "<div class='note'>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
+        /* 3: 受け取るものの予告（何が伸びるかが主役。内訳は一段落として小さく後ろへ） */
+        "<div style='margin-top:8px;border-top:1px solid var(--line);padding-top:6px'><div class='ds'>この売却で受け取るもの</div>" +
+        "<div class='statgrid'>" +
+        statBlock("⭐ 星屑", "+" + fmt(pv.gain), "") +
+        statBlock("🎖 売却実績", "+" + (pb.ptsSize + pb.ptsEra), "現在 " + eraExitPts() + " / " + HOLD_EXITS) +
+        (knowAdd > 0 ? statBlock("📚 知見", "+" + fmtDec(knowAdd, 1), "") : "") +
+        statBlock("⚡ 生産倍率", "×" + fmtDec(pv.nextMult, 2), "いま ×" + fmtDec(pv.curMult, 2)) +
+        "</div>" +
+        (pv.subGain > 0 ? "<div class='ds'>うち子会社ぶん（目安）: 星屑 約 " + pv.subGain + " 個</div>" : "") +
+        "<div class='pbreak'>内訳: " + pbTxt + "<br>リセット: " + pv.resets.join("・") + " ／ 引き継ぎ: " + pv.keeps.map(esc).join("・") + " ／ 最高到達社格: " + rankName(S.maxStudioLv || S.studioLv) + "</div></div>" +
         /* 4: 役員・ベテランの選出 */
         execSelectHTML() +
         /* 5: 売却ボタン */
@@ -999,7 +995,7 @@ function renderPanelInto(el){
           if(hasLegacyTech(def.id)){ techChips += "<span class='featchip done'>✅ " + def.name + "</span>"; continue; }
           const locked = def.req && !hasLegacyTech(def.req);
           techRows += "<div class='item buy slim'><div><span class='nm'>" + def.name + "</span>" +
-            dsLine(locked ? "先に『" + (LEGACY_TECHS.find(t => t.id === def.req) || {}).name + "』が必要" : "") + "</div>" +
+            dsLine(locked ? "先に『" + (LEGACY_TECHS.find(t => t.id === def.req) || {}).name + "』が必要" : (def.desc || "")) + "</div>" +
             "<button class='buybtn' onclick='buyLegacyTech(\"" + def.id + "\")'" + (((S.legacy || 0) < def.cost || locked) ? " disabled" : "") + "><span class='pricetag'>" + def.cost + " 🌌</span></button></div>";
         }
         /* レベルデザイン改修: 星団の無限シンク「恒久R&D投資」（全技術取得で解放） */
@@ -1086,7 +1082,7 @@ function renderPanelInto(el){
     for(const def of CLICK_DEFS){
       const lv = S.clickUp[def.id]||0, cost = clickCost(def, lv), maxed = lv>=def.max;
       h += "<div class='item buy slim' data-fix='click:"+def.id+"'><div><span class='nm'>"+def.name+"</span> <span class='lvbadge'>Lv"+lv+"</span>"+
-        dsLine(milestoneNote(def, lv))+"</div>"+
+        dsLine(def.eff || "")+"</div>"+
         (maxed ? "<span class='tagchip'>MAX</span>" : buyBtn("click:"+def.id, cost, "cheerP", "buyClickUp(\""+def.id+"\")", false, "", stepCosts(def.max - lv, i => clickCost(def, lv + i))))+"</div>";
     }
     h += "</div>";
@@ -1158,7 +1154,7 @@ function renderPanelInto(el){
       resCards += "<div class='item buy slim' data-fix='res:"+def.id+"'><div><span class='nm'>"+def.name+"</span>"+
         (def.tier === 2 ? " <span class='tagchip'>ティア2</span>" +
           (reqDef ? " <span class='tagchip'>"+(locked ? "🔒 前提: " : "✅ 前提: ")+reqDef.name+"</span>" : "") : "")+
-        "</div>"+
+        dsLine(def.desc || "")+"</div>"+
         buyBtn("res:"+def.id, def.cost, "rp", "buyResearch(\""+def.id+"\")", locked)+"</div>";
     }
     if(resCards) h += "<div class='buygrid'>"+resCards+"</div>";

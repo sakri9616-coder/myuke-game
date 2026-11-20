@@ -180,8 +180,8 @@ console.log("== 2. save ==");
   run(sbX, "S.studioLv = 6; S.coins = 1e12; S.eraDemand = 'app'; switchTab('subs'); foundSub('app'); S.subs[0].lv = 10; renderPanel();");
   const subHtml = run(sbX, "document.getElementById('panel').innerHTML");
   check("subsidiary tab renders as side-by-side company cards without focus remnants",
-    subHtml.includes("class='subcols'") && subHtml.includes("選択待ち") && subHtml.includes("ジャンルを選ぶ") &&
-    !/資金配分|注力度|setAlloc/.test(subHtml) && !/setSubStance|量産型|精鋭型|送金型/.test(subHtml));
+    subHtml.includes("class='subcols'") && subHtml.includes("class='substats'") && subHtml.includes("class='divbar'") && subHtml.includes("ジャンルを選ぶ") &&
+    !/資金配分|注力度|setAlloc/.test(subHtml) && !/setSubStance|量産型|精鋭型|送金型/.test(subHtml) && !/節目特性|選択待ち|setSubTrait/.test(subHtml));
   const html = sbX._el("panel").innerHTML;
   check("names from a save are never rendered as live HTML", !/<img/i.test(html) && !/x\(\);\(1/.test(html));
 }
@@ -298,19 +298,16 @@ console.log("== 5. prestige ==");
     rank === 2 && Math.abs(m0 - 1.15) < 1e-9 && Math.abs(m1 - 1.3) < 1e-9 && run(sb, "__subGrow") > 0 && !run(sb, "'starcharm' in S.dustPerks"));
 }
 {
-  /* 子会社経営の再設計（LD r4-subs §3）: 需要ジャンル、節目特性、自走。
-     子会社方針（量産型/精鋭型/送金型）は 2026-11-11 sakuri 指示で撤去済み */
+  /* 子会社経営の再設計（LD r4-subs §3）: 需要ジャンル。
+     子会社方針（量産型/精鋭型/送金型）は 2026-11-11、節目特性は 2026-11-20 sakuri 指示で撤廃済み */
   const sb = buildSandbox();
   loadGame(sb);
   run(sb, "S.studioLv = 5; S.coins = 1e12; S.eraDemand = 'tool'; foundSub('app');");
   const base = run(sb, "subRates(S.subs[0]).coins");
   const demandRatio = run(sb, "S.eraDemand = 'app'; subRates(S.subs[0]).coins") / base;
-  run(sb, "S.subs[0].lv = 10; setSubTrait(S.subs[0].id, 'm10', 'sales'); setSubTrait(S.subs[0].id, 'm10', 'dev');");
-  const traitKept = run(sb, "S.subs[0].traits.m10");
-  run(sb, "S.subs[0].lv = 50; setSubTrait(S.subs[0].id, 'm50', 'drive'); S.subs[0].div = 100; S.subs[0].reinv = 0; const g0 = S.subs[0].staff + S.subs[0].lv; S.coins = 0; for(let i = 0; i < 400; i++) tick(); globalThis.__driveGrow = S.subs[0].staff + S.subs[0].lv - g0;");
-  check("subsidiary era demand, milestone traits and self-drive reinvestment work",
+  check("subsidiary era demand works and milestone traits are abolished",
     Math.abs(demandRatio - 1.5) < 1e-9 &&
-    traitKept === "sales" && run(sb, "__driveGrow") > 0);
+    run(sb, "typeof setSubTrait") === "undefined" && !("traits" in run(sb, "S.subs[0]")));
 }
 
 {

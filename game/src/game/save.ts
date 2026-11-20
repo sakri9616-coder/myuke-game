@@ -20,7 +20,7 @@ function bumpRev(){ snapRev++; }
 let quietBuy: { log: { tm: string; text: string }[] } | null = null;
 
 /* ---------- セーブデータ ---------- */
-const GAME_VERSION = "v2.31.0";   /* 表示ラベルの単一の出所 (v2.31.0: まとめ買い・アニメーション) */
+const GAME_VERSION = "v2.33.0";   /* 表示ラベルの単一の出所 (v2.33.0: 見た目改修——効果行・子会社カード・売却カード階層) */
 const SAVE_KEY = "miyuke-save-v1";
 function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function freshState(): GameState {
@@ -283,7 +283,7 @@ function load(rawText?: string){
       if(typeof sub.lv !== "number") sub.lv = 1;
       delete (sub as any).alloc;   /* 2026-11-05: 注力（資金配分）廃止。旧セーブの残存フィールドは読み捨てる */
       delete (sub as any).stance;   /* 2026-11-11: 子会社方針を廃止。旧セーブの残存フィールドは読み捨てる */
-      if(!sub.traits || typeof sub.traits !== "object") sub.traits = {};
+      delete (sub as any).traits;   /* 2026-11-20: 節目特性を廃止。旧セーブの残存フィールドは読み捨てる */
     }
     if(typeof S.eraDemand !== "string") drawEraDemand();   /* 再設計 r4-subs: 時代の需要ジャンル（旧セーブには無い） */
     /* 拡張ウェーブ F: フィーバーゲージ（旧セーブには無い） */

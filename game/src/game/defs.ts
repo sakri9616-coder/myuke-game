@@ -318,11 +318,11 @@ function genCatName(){
    上限100・節目（設備と同じ MILESTONE_LVS）つきで、売却しても腕前として残る（持株化で畳む）。
    肉球 = 自動生産との連動率（会社の桁に追従する終盤の伸び）、グローブ = 素の威力（序盤の伸び） */
 const CLICK_DEFS = [
-  { id:"paw",    name:"肉球トレーニング", base:40,  max:100, grow:1.12, ms:true, desc:"自動生産との連動 +25%/Lv" },
-  { id:"glove",  name:"高級グローブ",     base:60,  max:100, grow:1.12, ms:true, desc:"クリック威力 +0.18/Lv" },
+  { id:"paw",    name:"肉球トレーニング", base:40,  max:100, grow:1.12, ms:true, desc:"自動生産との連動 +25%/Lv", eff:"自動生産との連動⬆️ +25%/Lv" },
+  { id:"glove",  name:"高級グローブ",     base:60,  max:100, grow:1.12, ms:true, desc:"クリック威力 +0.18/Lv", eff:"クリック威力⬆️ +0.18/Lv" },
   /* 段階5: うちわ＋旗 → 応援の質。ひらめき連動はオーバークロックのゲージの溜まりへ。研究メモ連動は廃止 */
-  { id:"quality",name:"応援の質",         base:250, max:12, desc:"コンボ上限 +0.25倍/Lv・会心率 +1%/Lv" },
-  { id:"synidea",name:"ゲージ連動",     base:350, max:5,  desc:"応援でたまるオーバークロックのゲージ +20%/Lv" }
+  { id:"quality",name:"応援の質",         base:250, max:12, desc:"コンボ上限 +0.25倍/Lv・会心率 +1%/Lv", eff:"コンボ上限⬆️ +0.25倍/Lv・会心率⬆️ +1%/Lv" },
+  { id:"synidea",name:"ゲージ連動",     base:350, max:5,  desc:"応援でたまるオーバークロックのゲージ +20%/Lv", eff:"OCゲージの溜まり⬆️ +20%/Lv" }
 ];
 function clickCost(def, lv){ return Math.ceil(def.base * Math.pow(def.grow || 1.30, lv)); }   // Sprint 1: 価格成長 1.55→1.30（アクティブが放置に負けない経済へ）／ 応援P 払い・上限100の2種は 1.12
 function clickLinkMult(){ return (1 + 0.25 * upEff(S.clickUp, "paw")); }

@@ -47,13 +47,13 @@ const BAL = {
    ふかふか椅子は見た目の家具（社格で替わる。集中力は総務のお世話係に集約）、ワイドモニターは企画 Lv の上限、
    子ねこボットは上限3を外した */
 const UPGRADE_DEFS = [
-  { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", max:100, ms:true, oc:true },
-  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画Lv の上限 +1（企画は自動で練られます）", max:3 },
-  { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"バグ在庫を潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", max:100, ms:true },
-  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", max:100, ms:true, oc:true },
-  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", max:100, ms:true, oc:true },
-  { id:"pack",     name:"自動梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", max:100, ms:true, oc:true },
-  { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", max:100, ms:true, oc:true }
+  { id:"devenv",   name:"開発環境",             stage:"実装", base:60,  desc:"全DP +12%/Lv（キーボードと IDE をひとつに）", eff:"全DP⬆️ +12%/Lv", max:100, ms:true, oc:true },
+  { id:"monitor",  name:"ワイドモニター",       stage:"実装", base:400, desc:"企画Lv の上限 +1（企画は自動で練られます）", eff:"企画Lvの上限⬆️ +1/Lv", max:3 },
+  { id:"duck",     name:"ラバーダック",         stage:"テスト", base:60, desc:"バグ在庫を潰すたび、テスト待ちの仕掛品をテスト2秒ぶん/Lv 先へ送る", eff:"バグを潰すとテスト⬆️ 2秒ぶん/Lv", max:100, ms:true },
+  { id:"tester",   name:"自動テスト機",         stage:"テスト", base:240, desc:"QA +1.2 バグ/分・テスト速度 +6 DP/分/Lv", eff:"テスト速度⬆️ +6 DP/分/Lv・QA⬆️ +1.2 バグ/分", max:100, ms:true, oc:true },
+  { id:"ci",       name:"CIマシン",             stage:"ビルド", base:200, desc:"ビルド速度 +11 DP/分/Lv・全DP +5%/Lv・コイン +10%/Lv", eff:"ビルド速度⬆️ +11 DP/分/Lv・全DP⬆️ +5%/Lv・コイン⬆️ +10%/Lv", max:100, ms:true, oc:true },
+  { id:"pack",     name:"自動梱包機",           stage:"出荷", base:160, desc:"出荷速度 +6 DP/分/Lv・全DP +3%/Lv", eff:"出荷速度⬆️ +6 DP/分/Lv・全DP⬆️ +3%/Lv", max:100, ms:true, oc:true },
+  { id:"bot",      name:"子ねこボット",         stage:"出荷", base:350, desc:"自動で +2DP/分/Lv（同僚）・出荷速度 +6 DP/分/Lv", eff:"自動生産⬆️ +2 DP/分/Lv・出荷速度⬆️ +6 DP/分/Lv", max:100, ms:true, oc:true }
 ];
 /* レベルデザイン改修: oc の付いた設備・強化列は Lv100 の先も買える（オーバークロック延長）。
    Lv100 までは従来の ×1.15、Lv101 以降の価格は Lv100 時点の価格から ×1.35 ずつ跳ね上がる。
@@ -69,11 +69,11 @@ function upgradeCost(def, lv){
    レベルは S.upgrades に入り、設備と同じく会社ごと（売却で 0）。価格は設備と同じ 1.15 倍ずつ。
    初期価格は設備の数十倍（安いと張り付きの最初の10分で全部の列が伸び、20分の目安が 6 分に縮んだ・sim） */
 const ENGINE_DEFS = [
-  { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, oc:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない" },
-  { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, oc:true, desc:"作品棚とシリーズの売上 +10%/Lv" },
-  { id:"shelfx", engine:"catalog", name:"棚を広げる",       base:15000,  max:20,  desc:"棚に並ぶ作品 +2本/Lv・売れ続ける時間 +10%/Lv" },
-  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, oc:true, desc:"依頼達成ボーナス +10%/Lv・大型案件の届く確率 +10%/Lv（上限 50%）" },
-  { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, oc:true, desc:"子会社の売上 +40%/Lv" }
+  { id:"direct", engine:"line",    name:"直販ルート",       base:9000,  max:100, ms:true, oc:true, desc:"作品の売上（作りながら・リリース時）+10%/Lv。作品棚には効かない", eff:"作品の売上⬆️ +10%/Lv" },
+  { id:"promo",  engine:"catalog", name:"販促キャンペーン", base:9000,  max:100, ms:true, oc:true, desc:"作品棚とシリーズの売上 +10%/Lv", eff:"作品棚の売上⬆️ +10%/Lv" },
+  { id:"shelfx", engine:"catalog", name:"棚を広げる",       base:15000,  max:20,  desc:"棚に並ぶ作品 +2本/Lv・売れ続ける時間 +10%/Lv", eff:"棚の本数⬆️ +2本/Lv・売れ続ける時間⬆️ +10%/Lv" },
+  { id:"scout",  engine:"sales",   name:"目利き",           base:9000,  max:100, ms:true, oc:true, desc:"依頼達成ボーナス +10%/Lv・大型案件の届く確率 +10%/Lv（上限 50%）", eff:"依頼ボーナス⬆️ +10%/Lv・大型案件の確率⬆️" },
+  { id:"gmgmt",  engine:"subs",    name:"グループ経営",     base:9000,  max:100, ms:true, oc:true, desc:"子会社の売上 +40%/Lv", eff:"子会社の売上⬆️ +40%/Lv" }
 ];
 function engineLv(id){ return upEff(S.upgrades, id); }
 /* 収入源の名前（内訳の表示と sim の G5 で使う） */
@@ -89,12 +89,6 @@ const MILESTONE_LVS = [10, 25, 50, 100];
 const MILESTONE_SHARE = 0.5;   /* 節目で上乗せする Lv の割合 */
 function milestoneBonus(lv){ let b = 0; for(const c of MILESTONE_LVS) if(lv >= c) b += c * MILESTONE_SHARE; return b; }
 function nextMilestone(lv){ return MILESTONE_LVS.find(c => c > lv) || null; }
-/* パネル用: 「節目ボーナス +N Lv 分・次は LvM」の一言 */
-function milestoneNote(def, lv){
-  if(!def.ms) return "";
-  const b = milestoneBonus(lv), nx = nextMilestone(lv);
-  return "<br>" + (b > 0 ? "節目ボーナス +" + b + "Lv分・" : "") + (nx ? "節目 Lv" + nx + " まで あと " + (nx - lv) + "（届くと +" + (nx * MILESTONE_SHARE) + "Lv分）" : "全節目達成");
-}
 /* 効果の計算に使う実効レベル（レベル ＋ 節目ボーナス）。
    レベルデザイン改修: 節目ボーナスは Lv100 時点で固定する（オーバークロック延長の
    Lv101 以降は、生 Lv の伸びだけが効く。Lv100 以下では従来と完全に同じ値） */

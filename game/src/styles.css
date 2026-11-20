@@ -30,7 +30,7 @@
     padding:10px 14px;background:var(--wood);
     border-bottom:3px solid var(--ink);
     box-shadow:inset 0 2px 0 rgba(255,255,255,.35), inset 0 -6px 0 var(--desk);}
-  header h1{font-size:19px;margin:0 8px 0 0;font-weight:800;letter-spacing:.03em;
+  header h1{flex:1 0 100%;font-size:19px;margin:0 8px 0 0;font-weight:800;letter-spacing:.03em;
     text-shadow:0 1px 0 rgba(255,255,255,.45);}
   header h1 small{font-size:11px;color:var(--ink-soft);font-weight:700;}
   #btn-to-overlay{background:var(--red);border:2.5px solid var(--ink);color:#fff;
@@ -40,7 +40,7 @@
   #btn-to-overlay:active{transform:translateY(3px);
     box-shadow:inset 0 -2px 0 rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.3), 0 0 0 rgba(70,49,38,0);}
   /* ---------- リソースチップ: 通貨ピル（正式部品）+ アイコンソケット ---------- */
-  .res{display:inline-flex;gap:5px;align-items:center;background:var(--paper);
+  .res{display:inline-flex;flex:0 0 auto;gap:5px;align-items:center;background:var(--paper);
     border:2.5px solid var(--ink);border-radius:999px;padding:3px 11px 3px 3px;
     font-size:13px;font-weight:800;
     box-shadow:inset 0 2px 0 rgba(70,49,38,.16), inset 0 -1px 0 #fff, 0 2px 0 rgba(70,49,38,.25);}
@@ -285,6 +285,8 @@
   .stat .sl{font-size:11px;font-weight:700;color:var(--sub);}
   .stat .sv{font-size:21px;font-weight:800;line-height:1.3;}
   .stat .sv small{font-size:11px;font-weight:700;color:var(--sub);}
+  /* 内訳・引き継ぎなどの二段目情報: 主役の数字より一段小さく・薄く */
+  .pbreak{margin-top:6px;font-size:11px;line-height:1.55;color:var(--sub);}
   /* プロジェクトのヒーローカード: 進捗を1枚の絵にする */
   .hero{border:3px solid var(--ink);border-radius:12px;background:var(--paper);padding:10px 14px;margin:8px 0;
     box-shadow:0 3px 0 rgba(70,49,38,.22), inset 0 0 0 4px var(--paper-2);}
@@ -331,6 +333,8 @@
      同型の部品（.depthead/.rh/.dlv/.rv/.lampbar/.rs/.dh-btns/.tagchip）を流用し、折り返しで並ぶ */
   .subcols{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0;align-items:stretch;}
   .subcol{flex:1 1 230px;max-width:330px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+  /* 時代の需要に合った子会社は、カードごと金色に縁取る（説明はバナー側に一本化） */
+  .subcol.demand{box-shadow:0 0 0 2px var(--gold,#d9a514);border-radius:10px;}
   .subcol.found{border:2px dashed var(--ink-soft);border-radius:10px;padding:8px 10px;justify-content:flex-start;}
   .subcol.found .rh{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;}
   .subcol.found .nm{flex:1 1 auto;}
@@ -347,6 +351,16 @@
   .depthead .dlv{font-size:11px;color:var(--sub);font-weight:800;}
   .depthead .rv{font-size:17px;font-weight:800;line-height:1.3;}
   .depthead .rv small{font-size:10px;color:var(--sub);font-weight:700;}
+  /* 子会社カードの要数値（会社Lv・人数・生産力）は大きく見せる */
+  .depthead .substats{display:flex;gap:16px;margin:2px 0 1px;}
+  .depthead .substat small{display:block;font-size:10px;color:var(--sub);font-weight:700;line-height:1.2;}
+  .depthead .substat b{font-size:19px;font-weight:800;line-height:1.15;}
+  /* 配当率バー: 横バー＋25%刻みのクリックゾーン */
+  .divbar{position:relative;height:14px;background:var(--paper);border:2px solid var(--ink-soft);border-radius:999px;margin:3px 0 1px;}
+  .divbar>i{position:absolute;left:0;top:0;bottom:0;background:var(--gold,#d9a514);border-radius:999px;}
+  .divbar .dtick{position:absolute;top:2px;bottom:2px;width:2px;background:rgba(70,49,38,.35);}
+  .divbar .dz{position:absolute;top:0;bottom:0;width:20%;background:transparent;border:0;box-shadow:none;padding:0;margin:0;cursor:pointer;}
+  .divticks{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);font-weight:700;}
   .depthead .lampbar{width:100%;margin:2px 0;}
   .depthead .rs{font-size:10.5px;color:var(--sub);font-weight:700;line-height:1.35;}
   .depthead .rs.dl{color:var(--accent-d);}
@@ -607,6 +621,7 @@
   body:not(.strip) .stat .sl{color:var(--ide-sub);}
   body:not(.strip) .stat .sv{font-family:var(--mono);color:var(--syn-num);}
   body:not(.strip) .stat .sv small{color:var(--ide-sub);}
+  body:not(.strip) .pbreak{color:var(--ide-sub);}
   body:not(.strip) .ratecell{background:var(--ide-panel2);border-color:var(--ide-line);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05);position:relative;}
   body:not(.strip) .ratecell .rv{font-family:var(--mono);}
@@ -698,7 +713,12 @@
   body:not(.strip) .depthead{background:var(--ide-panel2);border:1px solid var(--ide-line);border-top:2px solid var(--syn-green);border-radius:3px;}
   body:not(.strip) .depthead .rh{color:var(--syn-purple);}
   body:not(.strip) .depthead .rv{font-family:var(--mono);color:var(--syn-num);}
-  body:not(.strip) .depthead .rv small,body:not(.strip) .depthead .rs,body:not(.strip) .depthead .dlv{color:var(--ide-sub);}
+  body:not(.strip) .depthead .rv small,body:not(.strip) .depthead .rs,body:not(.strip) .depthead .dlv,body:not(.strip) .depthead .substat small{color:var(--ide-sub);}
+  body:not(.strip) .depthead .substat b{font-family:var(--mono);color:var(--syn-num);}
+  body:not(.strip) .divbar{background:var(--ide-panel);border:1px solid var(--ide-line);border-radius:3px;}
+  body:not(.strip) .divbar>i{border-radius:3px;}
+  body:not(.strip) .divbar .dtick{background:rgba(212,212,212,.35);}
+  body:not(.strip) .divticks{color:var(--ide-sub);}
   body:not(.strip) .depthead .rs.dl{color:var(--syn-str);}
   body:not(.strip) .deptcol+.deptcol{border-left:1px solid var(--ide-line);}
   body:not(.strip) .catrow:hover{background:var(--ide-panel2);}
@@ -984,10 +1004,11 @@
     flex:1 1 auto;min-height:0;}
   /* レーン効率チップ: 工場サマリの工程ボックス (.ratecell) の小型版。
      上辺2pxとランプ点が --pipe-tone (信号色) を担う */
-  #r-lanes{align-items:center;gap:4px;}
-  .lane-chip{--pipe-tone:var(--syn-green);display:inline-flex;align-items:center;gap:4px;
+  #r-lanes{align-items:center;gap:4px;flex-wrap:nowrap;flex:0 0 auto;}
+  .lane-chip{--pipe-tone:var(--syn-green);display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
     border:1px solid rgba(255,255,255,.28);border-top:2px solid var(--pipe-tone);border-radius:3px;
     background:rgba(0,0,0,.22);padding:1px 6px;font-weight:700;white-space:nowrap;}
+  .lane-chip b{display:inline-block;min-width:3.8em;text-align:right;font-weight:700;}
   .lane-chip.pipe-yellow{--pipe-tone:var(--ide-warn);}
   .lane-chip.pipe-red{--pipe-tone:var(--ide-errtx);}
   .lane-chip i{width:6px;height:6px;border-radius:50%;background:var(--pipe-tone);flex:0 0 auto;}

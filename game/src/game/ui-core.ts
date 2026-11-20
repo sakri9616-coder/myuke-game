@@ -473,7 +473,7 @@ function renderHeader(){
       if(S.project || prod > 0){
         const stgs = stageStatus();
         const chip = (name: string, rate: number, stg: { lamp: string }) =>
-          "<span class='lane-chip pipe-" + stg.lamp + "'><i></i>" + name + " " + fmtRate(rate) + "/分</span>";
+          "<span class='lane-chip pipe-" + stg.lamp + "'><i></i>" + name + " <b>" + fmtRate(rate) + "/分</b></span>";
         html = chip("生産", prod, stgs[1]) + chip("テスト", testRate() * bugFactor(), stgs[2]) +
                chip("ビルド", buildRate(), stgs[3]) + chip("出荷", shipRate(), stgs[4]);
       }
