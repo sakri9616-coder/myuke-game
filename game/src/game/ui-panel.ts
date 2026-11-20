@@ -298,10 +298,6 @@ function mgmtSecretary(){
   const bn = bottleneckInfo();
   if(bn.isBn) return bn.worst.name + "工程が詰まり気味です。対策は下の工程からどうぞ。";
   if((S.bugStock || 0) > 8) return "バグ在庫が " + fmt(S.bugStock) + " 匹たまっています。テスト工程が苦しそうです。";
-  for(const sub of (S.subs || [])){
-    if(["m10", "m25", "m50"].some(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]))
-      return "子会社「" + esc(sub.name) + "」に特性の選択待ちがあります。子会社タブで選べます。";
-  }
   const need = nextRankValue();
   if(need && (S.runPeakValue || 0) / need >= 0.8) return "次の社格「" + rankName(S.studioLv + 1) + "」まであと少し。企業価値は " + Math.round((S.runPeakValue || 0) / need * 100) + "% まで来ています。";
   if(S.fever && (S.fever.gauge || 0) >= 100) return "フィーバーゲージが満タンです。帯から発動できます。";
@@ -747,46 +743,33 @@ function renderPanelInto(el){
         const r = subRates(sub);
         const gname = (GENRES.find(g => g.id === sub.genre) || {}).name || sub.genre;
         const demandMatch = sub.genre === eraDemandGenre();
-        /* 選択待ち: 到達済みで未選択の節目が1つでもあれば見出しにバッジ */
-        const pendingKeys = ["m10", "m25", "m50"].filter(key => sub.lv >= SUB_POLICY.traits[key].lv && !(sub.traits || {})[key]);
-        const nextMs = ["m10", "m25", "m50"].find(key => sub.lv < SUB_POLICY.traits[key].lv);
         const share = subCoinTot > 0 ? Math.round(r.coins / subCoinTot * 100) : 0;
-        let traitSec = "";
-        for(const key of ["m10", "m25", "m50"]){
-          const def = SUB_POLICY.traits[key];
-          const chosen = (sub.traits || {})[key];
-          if(chosen && def.choices[chosen]) traitSec += "<div class='rs'>特性 会社Lv" + def.lv + ": <b>" + def.choices[chosen].name + "</b></div>";
-          else if(sub.lv >= def.lv){
-            traitSec += "<div class='rs'>会社Lv" + def.lv + " の節目——特性を1つ選べます";
-            for(const ck of Object.keys(def.choices)){
-              const cd = def.choices[ck];
-              const eff = key === "m10" ? ("コイン ×" + cd.coins + " ・ DP ×" + cd.dp) : key === "m25" ? (ck === "hire" ? "自社の採用コスト ×0.7" : "自社の規模コスト ×0.7") : (ck === "flag" ? "全レート ×1.3" : "配当率によらず売上の25%を必ず再投資");
-              traitSec += " <button onclick='setSubTrait(" + sub.id + ",\"" + key + "\",\"" + ck + "\")'>" + cd.name + "（" + eff + "）</button>";
-            }
-            traitSec += "<br><span style='opacity:.72'>恒久・選び直しはできません</span></div>";
-          }
-        }
-        if(nextMs) traitSec += "<div class='rs' style='opacity:.72'>次の節目 会社Lv" + SUB_POLICY.traits[nextMs].lv + " まで あと " + (SUB_POLICY.traits[nextMs].lv - sub.lv) + " Lv</div>";
+        /* 配当率バー: 25%刻みの5ゾーンをクリックして切り替える（残りは再投資） */
+        let divZones = "";
+        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz" + (p === subDiv(sub) ? " on" : "") + "' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
         cols += "<div class='subcol'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
-          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span><span class='dlv'>会社Lv" + sub.lv + "</span></div>" +
-          (pendingKeys.length ? "<div><span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>⚠ 選択待ち</span></div>" : "") +
+          "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span></div>" +
+          "<div class='substats'>" +
+          "<span class='substat'><small>会社Lv</small><b>" + sub.lv + "</b></span>" +
+          "<span class='substat'><small>スタッフ</small><b>" + sub.staff + "人</b></span>" +
+          "<span class='substat'><small>生産力</small><b>" + fmtDec(r.dp, 1) + " DP/分</b></span>" +
+          "</div>" +
           "<div class='rv'>" + fmt(r.coins) + " <small>🪙/分</small></div>" +
           "<span class='lampbar'><i style='width:" + share + "%'></i></span>" +
           "<div class='rs'>グループ売上の " + share + "%</div>" +
-          "<div class='rs'>生産力 " + fmtDec(r.dp, 1) + " DP/分 ・ スタッフ " + sub.staff + "人 ・ 会社Lv" + sub.lv + "（実効 Lv" + fmtDec(upEff({ lv: sub.lv }, "lv"), 1) + "）</div>" +
           "</div>" +
           "<div class='subsec'><div class='rs'>🎬 『" + esc(subWorkName(sub)) + "』" + (demandMatch ? " <span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>📈 この時代の需要（売上 ×" + SUB_POLICY.demandMult + "）</span>" : "") + "</div></div>" +
-          "<div class='subsec'><div class='subsec-h'>節目特性</div>" + traitSec + "</div>" +
           "<div class='subsec'><div class='subsec-h'>操作</div>" +
           "<div class='rs'>人員を増やす</div><div class='dh-btns'>" +
           buyBtn("substaff1:" + sub.id, subHeadCost(sub), "coins", "addSubStaff(" + sub.id + ",1)", false, "+1人 ", { c50: subHeadCostN(sub, 50), c100: subHeadCostN(sub, 100), onclick: "addSubStaff(" + sub.id + ",1)" }) +
           buyBtn("substaff10:" + sub.id, subHeadCostN(sub, 10), "coins", "addSubStaff(" + sub.id + ",10)", false, "+10人 ") +
           "</div>" +
-          "<div class='rs'>会社Lvを上げる（出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "・最大" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + "）" + milestoneNote({ ms: true }, sub.lv) + "</div><div class='dh-btns'>" +
+          "<div class='rs'>会社Lvを上げる（出力 ×" + fmtDec(subLvMult(sub), 1) + (sub.lv >= SUB_MAX_LV ? "・最大" : " → ×" + fmtDec(subLvMult({ lv: sub.lv + 1, stance: sub.stance }), 1)) + "）</div><div class='dh-btns'>" +
           (sub.lv >= SUB_MAX_LV ? "<span class='tagchip'>MAX</span>" : buyBtn("subscale:" + sub.id, subScaleCost(sub), "coins", "scaleSub(" + sub.id + ")", false, "", stepCosts(SUB_MAX_LV - sub.lv, i => subScaleCost({ ...sub, lv: sub.lv + i })))) + "</div>" +
-          "<div class='rs'>資産分配（配当率） <b>" + subDiv(sub) + "%</b>" +
-          " <button onclick='setSubDiv(" + sub.id + ",-25)'" + (subDiv(sub) <= 0 ? " disabled" : "") + ">−25%</button> <button onclick='setSubDiv(" + sub.id + ",25)'" + (subDiv(sub) >= 100 ? " disabled" : "") + ">＋25%</button></div>" +
+          "<div class='rs'>資産分配（配当率） <b>" + subDiv(sub) + "%</b></div>" +
+          "<div class='divbar'><i style='width:" + subDiv(sub) + "%'></i><span class='dtick' style='left:25%'></span><span class='dtick' style='left:50%'></span><span class='dtick' style='left:75%'></span>" + divZones + "</div>" +
+          "<div class='divticks'><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>" +
           "<div class='rs'>蓄積中 " + fmt(Math.floor(sub.divAcc || 0)) + "🪙 ・ 目安 +" + fmt(r.coins * subDiv(sub) / 100) + "🪙/分 ・ 残りは人員と会社Lvに再投資</div>" +
           "<div class='rs'>子会社だけ売却（部分EXIT）: 星屑 +" + subDustValue(sub) + " 個 <button onclick='sellSub(" + sub.id + ")'>売却する</button></div>" +
           "</div></div>";
