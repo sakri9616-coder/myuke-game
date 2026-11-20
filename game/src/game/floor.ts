@@ -53,12 +53,14 @@ function floorLv(kind){
   const eq = FLOOR_CFG.equip[kind];
   return eq ? 1 + (S.upgrades[eq] || 0) : 1;
 }
-/* マシン1台のレート（DP/分）: 基礎 × Lv曲線 ＋ クルー合計。実装だけ星屑倍率（LD §0/§1 の非対称） */
+/* マシン1台のレート（DP/分）: 基礎 × Lv曲線 ＋ クルー合計、全体に companyMult。
+   星屑倍率は全マシン均一（LD §8-2 で非対称の前提は撤回。現行コードの
+   stageMult = dpMult × companyMult × firstBoost に合わせ、工程間の比率は
+   時代を通じて不変に保つ） */
 function floorMachineRate(m){
   let r = (FLOOR_CFG.base[m.kind] || 0) * (1 + FLOOR_CFG.lvPer * (floorLv(m.kind) - 1));
   for(const id of (m.crew || [])) r += floorCrewOut(floorStaffById(id), m.kind);
-  if(m.kind === "code") r *= dustMult();
-  return r;
+  return r * companyMult();
 }
 /* Link の搬送容量（DP/分）: 下限（下流レート÷4、最低4）＋ 運搬猫の合計（LD §2）。
    距離は中心間マンハッタン（マス） */
@@ -188,9 +190,12 @@ function floorFlow(kind){
   const { flow } = floorComputeFlows(f.machines, f.links);
   return f.machines.filter(m => m.kind === kind).reduce((s, m) => s + (flow.get(m.id) || 0), 0);
 }
-/* 標準レイアウト（現在の Lv・スタッフで自動割り当て）のフロー — 配置倍率の基準 */
+/* 標準レイアウト（現在の Lv・スタッフで自動割り当て）のフロー — 配置倍率の基準。
+   基準側もプレイヤーの標準レイアウトと同じ自動割り当てを掛ける（割り当て
+   なしを基準にすると、クルーのいる標準配置で倍率が 1 からずれてしまう） */
 function floorStandardFlow(kind){
   const std = floorStandard();
+  floorAutoAssign(std, S.staff || []);
   const { flow } = floorComputeFlows(std.machines, std.links);
   return std.machines.filter(m => m.kind === kind).reduce((s, m) => s + (flow.get(m.id) || 0), 0);
 }
@@ -312,9 +317,8 @@ function floorHi(kind){ floorHiKind = kind; floorVerify = true; renderPanel(); }
 /* ---------- 計画（左ペイン）: 目標→逆算→差分→診断（UX §2） ---------- */
 /* 目標フロー T を賄うのに必要な台数（クルーなし1台のレートで逆算） */
 function floorUnitRate(kind){
-  let r = (FLOOR_CFG.base[kind] || 0) * (1 + FLOOR_CFG.lvPer * (floorLv(kind) - 1));
-  if(kind === "code") r *= dustMult();
-  return r;
+  const r = (FLOOR_CFG.base[kind] || 0) * (1 + FLOOR_CFG.lvPer * (floorLv(kind) - 1));
+  return r * companyMult();   /* 星屑倍率は全マシン均一（LD §8-2） */
 }
 function floorRequired(kind, T){
   const u = floorUnitRate(kind);
