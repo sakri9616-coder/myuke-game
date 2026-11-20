@@ -89,12 +89,6 @@ const MILESTONE_LVS = [10, 25, 50, 100];
 const MILESTONE_SHARE = 0.5;   /* 節目で上乗せする Lv の割合 */
 function milestoneBonus(lv){ let b = 0; for(const c of MILESTONE_LVS) if(lv >= c) b += c * MILESTONE_SHARE; return b; }
 function nextMilestone(lv){ return MILESTONE_LVS.find(c => c > lv) || null; }
-/* パネル用: 「節目ボーナス +N Lv 分・次は LvM」の一言 */
-function milestoneNote(def, lv){
-  if(!def.ms) return "";
-  const b = milestoneBonus(lv), nx = nextMilestone(lv);
-  return "<br>" + (b > 0 ? "節目ボーナス +" + b + "Lv分・" : "") + (nx ? "節目 Lv" + nx + " まで あと " + (nx - lv) + "（届くと +" + (nx * MILESTONE_SHARE) + "Lv分）" : "全節目達成");
-}
 /* 効果の計算に使う実効レベル（レベル ＋ 節目ボーナス）。
    レベルデザイン改修: 節目ボーナスは Lv100 時点で固定する（オーバークロック延長の
    Lv101 以降は、生 Lv の伸びだけが効く。Lv100 以下では従来と完全に同じ値） */

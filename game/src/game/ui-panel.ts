@@ -59,8 +59,8 @@ function holdingsCertHTML(hp){
     "<div class='statgrid'>" +
     statBlock("🌌 星団", "+" + fmt(hp.gain), "時代の累計星屑から換算") +
     statBlock("⭐ 星屑倍率の土台", "×" + fmt(hp.baseNext), "いま ×" + fmt(hp.baseNow)) +
-    statBlock("🌌 レガシー技術", "への道", "が開きます") +
     "</div>" +
+    "<div class='ds' style='text-align:center'>🌌 レガシー技術への道が開きます</div>" +
     (renameNote ? "<div class='ds'>" + renameNote + "</div>" : "") + "</div>" +
     /* A3（2026-11-02 みゅー作画）: 時代の記録には金の肉球印を押す */
     (hasSprite("a3_holdings_seal") ? "<img src='" + spriteURL("a3_holdings_seal") + "' alt='' style='float:right;width:46px;height:46px;image-rendering:pixelated;margin:2px 2px 2px 8px'>" : "") +
@@ -754,7 +754,7 @@ function renderPanelInto(el){
         const share = subCoinTot > 0 ? Math.round(r.coins / subCoinTot * 100) : 0;
         /* 配当率バー: 25%刻みの5ゾーンをクリックして切り替える（残りは再投資） */
         let divZones = "";
-        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz" + (p === subDiv(sub) ? " on" : "") + "' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
+        for(const p of [0, 25, 50, 75, 100]) divZones += "<button class='dz' style='left:" + (p / 25 * 20) + "%' title='配当率 " + p + "%' onclick='setSubDiv(" + sub.id + "," + (p - subDiv(sub)) + ")'></button>";
         cols += "<div class='subcol" + (demandMatch ? " demand" : "") + "'>" +
           "<div class='depthead' style='border-top-color:" + (GENRE_COLOR[sub.genre] || "var(--wood)") + "'>" +
           "<div class='rh'><span>🏢</span><span class='nm'>" + esc(sub.name) + "</span>" + (demandMatch ? "<span class='tagchip' style='background:#d9a514;color:#1e1e1e;border-color:#1e1e1e'>需要</span>" : "") + "</div>" +
